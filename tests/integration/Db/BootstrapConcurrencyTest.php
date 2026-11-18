@@ -86,7 +86,7 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 			// blocks on the unique index, T1 commits, we hit the unique
 			// violation and must re-fetch T1's house.
 			$houseMapper = \OC::$server->get(HouseMapper::class);
-			$house = $houseMapper->createForInstance($instanceId, 'Loser House', 'UTC');
+			$house = $houseMapper->createForInstance($instanceId, 'Loser House', 'UTC', new \DateTime('today'));
 
 			$winnerHouseId = (int)QueryBarrier::finish($process, $pipes);
 			self::assertSame($winnerHouseId, $house->getId(), 'the race loser must receive the winner\'s house');
@@ -349,7 +349,7 @@ $mapper = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class);
 
 $db->beginTransaction();
 try {
-    $house = $mapper->createForInstance($instanceId, 'Winner House', 'UTC');
+    $house = $mapper->createForInstance($instanceId, 'Winner House', 'UTC', new DateTime('today'));
     \OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
     $db->commit();
     echo $house->getId();

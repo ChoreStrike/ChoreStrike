@@ -338,4 +338,98 @@ class CompletionControllerTest extends TestCase {
 
 		$this->assertEquals(409, $response->getStatus());
 	}
+
+	/**
+	 * ChangeDate_DelegatesTheDayToTheCorrectionAggregate
+	 */
+	public function testChangeDate_DelegatesTheDayToTheCorrectionAggregate(): void {
+		$this->request->method('getParam')->with('date')->willReturn('2026-11-16');
+		$this->stubParams(['commandId' => strtoupper(self::UUID), 'expectedVersion' => 2, 'date' => '2026-11-16']);
+
+		$roomTask = new \OCA\ChoreStrike\Db\RoomTask();
+		$cycle = ['cycleKey' => 'c9', 'state' => 'overdue'];
+		$this->completionService->expects($this->once())
+			->method('changeDate')
+			->with(1, $this->isInstanceOf(HouseUser::class), 9, self::UUID, 2, '2026-11-16')
+			->willReturn(['completionId' => 9, 'roomTask' => $roomTask, 'cycle' => $cycle]);
+		// The row status follows the fresh cycle block.
+		$this->roomTaskReadService->expects($this->once())->method('roomTaskPayload')
+			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), $cycle)
+			->willReturn(['id' => 11, 'status' => 'overdue']);
+
+		$response = $this->controller->changeDate(9);
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertSame('overdue', $response->getData()['data']['roomTask']['status']);
+		$this->assertSame($cycle, $response->getData()['data']['cycle']);
+	}
+
+	/** @return array<string, array{mixed}> */
+	public static function invalidDates(): array {
+		return [
+			'missing' => [null],
+			'not a calendar day' => ['2026-02-30'],
+			'a timestamp' => ['2026-11-16T10:00:00Z'],
+			'another notation' => ['16.11.2026'],
+			'not a string' => [20261116],
+		];
+	}
+
+	/**
+	 * ChangeDate_InvalidDate_Answers400
+	 *
+	 * @dataProvider invalidDates
+	 */
+	public function testChangeDate_InvalidDate_Answers400(mixed $date): void {
+		$this->request->method('getParam')->with('date')->willReturn($date);
+		$this->stubParams(['commandId' => self::UUID, 'expectedVersion' => 0] + ($date === null ? [] : ['date' => $date]));
+		$this->completionService->expects($this->never())->method('changeDate');
+
+		$response = $this->controller->changeDate(9);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+		$this->assertNotSame('An unexpected error occurred', $response->getData()['error']['message'], 'a curated reason, never the generic fallback');
+	}
+
+	/**
+	 * ChangeDate_ClosedPayload_RejectsOtherFields
+	 */
+	public function testChangeDate_ClosedPayload_RejectsOtherFields(): void {
+		$this->stubParams(['commandId' => self::UUID, 'expectedVersion' => 0, 'date' => '2026-11-16', 'participants' => []]);
+		$this->completionService->expects($this->never())->method('changeDate');
+
+		$response = $this->controller->changeDate(9);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertStringContainsString('Unknown field', $response->getData()['error']['message']);
+	}
+
+	/** @return array<string, array{\Exception, int, string}> */
+	public static function dateRefusals(): array {
+		return [
+			'a day the entry cannot take' => [new \InvalidArgumentException('The date cannot be in the future'), 400, 'VALIDATION_ERROR'],
+			'not the member\'s own latest entry' => [new ForbiddenException('You can only change or delete your own latest entry of a task'), 403, 'FORBIDDEN'],
+			'a stale version' => [new ConflictException('The completion changed since it was displayed'), 409, 'CONFLICT'],
+			'an invisible entry' => [new NotFoundException('Completion not found'), 404, 'RESOURCE_NOT_FOUND'],
+		];
+	}
+
+	/**
+	 * ChangeDate_Refusals_MapToTheirStatus
+	 *
+	 * @dataProvider dateRefusals
+	 */
+	public function testChangeDate_Refusals_MapToTheirStatus(\Exception $refusal, int $status, string $code): void {
+		$this->request->method('getParam')->with('date')->willReturn('2026-11-16');
+		$this->stubParams(['commandId' => self::UUID, 'expectedVersion' => 0, 'date' => '2026-11-16']);
+		$this->completionService->method('changeDate')->willThrowException($refusal);
+
+		$response = $this->controller->changeDate(9);
+
+		$this->assertEquals($status, $response->getStatus());
+		$this->assertSame($code, $response->getData()['error']['code']);
+		// D-091-50: the curated, translated reason reaches the client.
+		$this->assertSame($refusal->getMessage(), $response->getData()['error']['message']);
+	}
 }

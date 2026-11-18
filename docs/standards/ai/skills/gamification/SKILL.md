@@ -43,14 +43,15 @@ describe the WP3 model as the shipped contract.
   enforced at every boundary.
 
 ### 2. Work splits (the attributed fact)
-- The completer records the actual participants: 1–100 unique eligible house
-  members, positive whole percents summing to exactly 100; the completer must
-  take part (self-participation, Q-074-02).
+- The recorder names the actual participants: 1–100 unique eligible house
+  members, positive whole percents summing to exactly 100. The recorder need
+  not take part (ADR-021 §10, Q-074-02 reversed): anyone records for anyone
+  who may see the task, and the completion keeps who recorded it.
 - Exact math: `energyMinor = totalEnergy × sharePct`, `coinMinor = 10 ×
   totalEnergy × sharePct`. No floating point anywhere.
-- A later attribution (`PUT /completions/{id}/attribution`, completer or
-  owner authority + explicit `allocationReviewed` deviation confirmation)
-  rewrites the selected allocation. The reversal union is keyed by **wallet id
+- A later attribution (`PUT /completions/{id}/attribution`, owner authority
+  only + explicit `allocationReviewed` deviation confirmation) rewrites the
+  selected allocation. The reversal union is keyed by **wallet id
   from the share rows** — departed participants' retained wallets always
   reverse, so a completion pays out exactly the frozen total.
 
@@ -63,6 +64,14 @@ describe the WP3 model as the shipped contract.
   window, total energy, rate), the room journal or the audit chain
   (`completion_revs` is append-only; a departed-not-erased actor renders as
   the localized 'Removed member' placeholder).
+- The date correction (`PUT /completions/{id}/date`, ADR-021 §9) is the one
+  audited change of a work fact: it moves the work day between the days of the
+  neighbouring entries, decides the classification again against the frozen
+  window and moves what hangs on the day (the room journal event, the cycle
+  that followed under an after-completion rule). Shares and coins stay.
+- Rights (`CompletionAuthority`, D-091-23): the owner corrects any entry;
+  every other member deletes or re-dates only the latest valid entry of a task
+  that they recorded.
 
 ### 4. Rhythm recognition (valid-history derivations)
 - One reader, `RecognitionFactsService` (ADR-021 §5, §12): stored occurrences
@@ -149,7 +158,7 @@ describe the WP3 model as the shipped contract.
 
 | Service | Responsibility |
 |---------|---------------|
-| `CompletionService` | The completion/undo/attribution transaction aggregate (lock-order owner; collaborators: WalletService, RoomReplayService, RhythmService, EffortAllocationService) |
+| `CompletionService` | The completion/undo/attribution/date-correction transaction aggregate (lock-order owner; collaborators: WalletService, RoomReplayService, RhythmService, EffortAllocationService, CycleService, CompletionAuthority, CompletionDateCorrection) |
 | `CommandService` | Command log: execute-or-replay with the unique (house, UUID) receipt row committed in-transaction |
 | `WalletService` | Wallet binding, immutable ledger postings, cached balances, funding-hold |
 | `RoomReplayService` | Room journal fold (baseline/delta/manual/reset, clamps, `(effective_at, id)` order); the room cache is a derived projection |

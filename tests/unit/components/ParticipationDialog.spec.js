@@ -28,8 +28,9 @@ const members = [
 	{ userId: 'kid', displayName: 'Kid' },
 ]
 
-const mountDialog = (props = {}) => mount(ParticipationDialog, {
-	props: { members, actorUserId: 'dad', ...props },
+const mountDialog = (props = {}, slots = {}) => mount(ParticipationDialog, {
+	props: { members, ...props },
+	slots,
 })
 
 describe('ParticipationDialog (WP3 §3.6 actual-work split)', () => {
@@ -42,11 +43,29 @@ describe('ParticipationDialog (WP3 §3.6 actual-work split)', () => {
 		expect(wrapper.find('[data-testid="participation-confirm"]').attributes('disabled')).toBeUndefined()
 	})
 
-	it('adds an actor outside the candidates to the split, named by the raw user id', () => {
-		const wrapper = mountDialog({ actorUserId: 'grandma' })
+	it('ticks only the preselected members: who a hold would credit', () => {
+		const wrapper = mountDialog({ preselected: ['mom'] })
 
-		expect(wrapper.vm.participants.map(p => p.userId)).toEqual(['dad', 'grandma', 'kid', 'mom'])
-		expect(wrapper.vm.participants[1]).toMatchObject({ displayName: 'grandma', active: true })
+		expect(wrapper.vm.participants.map(p => [p.userId, p.active, p.sharePct])).toEqual([
+			['dad', false, 0],
+			['kid', false, 0],
+			['mom', true, 100],
+		])
+		expect(wrapper.find('[data-testid="participant-share-dad"]').attributes('disabled')).toBeDefined()
+	})
+
+	it('keeps the shares equal while members are ticked and unticked', async () => {
+		const wrapper = mountDialog({ preselected: ['mom'] })
+
+		await wrapper.find('[data-testid="participant-active-kid"]').setValue(true)
+		expect(wrapper.vm.participants.map(p => p.sharePct)).toEqual([0, 50, 50])
+
+		await wrapper.find('[data-testid="participant-active-dad"]').setValue(true)
+		expect(wrapper.vm.participants.map(p => p.sharePct)).toEqual([34, 33, 33])
+
+		await wrapper.find('[data-testid="participant-active-mom"]').setValue(false)
+		expect(wrapper.vm.participants.map(p => p.sharePct)).toEqual([50, 50, 0])
+		expect(wrapper.vm.isValid).toBe(true)
 	})
 
 	it('disables confirmation while the shares do not total exactly 100', async () => {
@@ -89,26 +108,34 @@ describe('ParticipationDialog (WP3 §3.6 actual-work split)', () => {
 		expect(wrapper.emitted('confirm')).toBeUndefined()
 	})
 
-	it('refuses a completion split excluding the actor even when it totals 100', async () => {
-		const wrapper = mountDialog()
+	it('records work for others: nobody has to tick themself (ADR-021 decision 10)', async () => {
+		const wrapper = mountDialog({ preselected: ['dad'] })
 		await wrapper.get('[data-testid="participant-active-dad"]').setValue(false)
-		await wrapper.get('[data-testid="participant-active-kid"]').setValue(false)
-		await wrapper.get('[data-testid="participant-share-mom"]').setValue('100')
-		expect(wrapper.vm.totalPct).toBe(100)
+		await wrapper.get('[data-testid="participant-active-mom"]').setValue(true)
+
+		expect(wrapper.find('[data-testid="participation-actor-required"]').exists()).toBe(false)
+		await wrapper.get('[data-testid="participation-confirm"]').trigger('click')
+
+		expect(wrapper.emitted('confirm')[0][0]).toEqual({
+			participants: [{ userId: 'mom', sharePct: 100 }],
+			allocationReviewed: true,
+		})
+	})
+
+	it('needs at least one ticked member', async () => {
+		const wrapper = mountDialog({ preselected: [] })
+
 		expect(wrapper.get('[data-testid="participation-confirm"]').element.disabled).toBe(true)
-		expect(wrapper.get('[data-testid="participation-actor-required"]').text()).toContain('include yourself')
 		wrapper.vm.confirm()
 		expect(wrapper.emitted('confirm')).toBeUndefined()
 	})
 
-	it('does not submit when actor initialization failed, but permits owner correction without participation', async () => {
-		const wrapper = mountDialog({ actorUserId: null })
-		expect(wrapper.get('[data-testid="participation-confirm"]').element.disabled).toBe(true)
-		wrapper.vm.confirm()
-		expect(wrapper.emitted('confirm')).toBeUndefined()
-		const correction = mountDialog({ initialParticipants: [{ userId: 'mom', sharePct: 100 }] })
-		await correction.get('[data-testid="participation-confirm"]').trigger('click')
-		expect(correction.emitted('confirm')[0][0].participants).toEqual([{ userId: 'mom', sharePct: 100 }])
+	it('renders what else belongs to the decision between the people and the actions', () => {
+		const wrapper = mountDialog({}, { default: '<p data-testid="extra">Sub-tasks</p>' })
+
+		const html = wrapper.html()
+		expect(html.indexOf('data-testid="share-total"')).toBeLessThan(html.indexOf('data-testid="extra"'))
+		expect(html.indexOf('data-testid="extra"')).toBeLessThan(html.indexOf('data-testid="participation-cancel"'))
 	})
 
 	describe('attribution correction mode (WP3 §3.7 reuse)', () => {
@@ -130,14 +157,15 @@ describe('ParticipationDialog (WP3 §3.6 actual-work split)', () => {
 			expect(wrapper.vm.totalPct).toBe(100)
 		})
 
-		it('does NOT auto-join the correter (Q-074-02: completer or owner)', () => {
+		it('keeps the shares as entered when a member is ticked: the owner sets exact percents', async () => {
 			const wrapper = mountDialog({
-				actorUserId: 'dad',
 				initialParticipants: [{ userId: 'mom', sharePct: 100 }],
 			})
 
-			expect(wrapper.vm.participants.find(p => p.userId === 'dad').active).toBe(false)
-			expect(wrapper.vm.totalPct).toBe(100)
+			await wrapper.find('[data-testid="participant-active-dad"]').setValue(true)
+
+			expect(wrapper.vm.participants.map(p => [p.userId, p.sharePct])).toEqual([['dad', 0], ['kid', 0], ['mom', 100]])
+			expect(wrapper.vm.isValid).toBe(false)
 		})
 
 		it('renders the correction copy overrides', () => {

@@ -6,6 +6,7 @@
 import { defineStore } from 'pinia'
 import { fetchMyPreferences, updateMyColorScheme, updateMyPreferences } from '../services/api.js'
 import { initialColorScheme, normalizeColorScheme } from '../utils/colorSchemes.js'
+import { generateCommandId } from '../utils/commandId.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -57,25 +58,6 @@ function DEFAULT_STATE() {
 		error: null,
 		conflict: false,
 	}
-}
-
-/**
- * Generate a client idempotency UUID (one FRESH UUID per save attempt —
- * a 409 retry carries changed input, so the same command key must never
- * be reused). Crypto RNG when available, otherwise an RFC 4122 v4
- * fallback.
- * @return {string} Canonical lowercase UUID.
- */
-function generateCommandId() {
-	const webCrypto = globalThis.crypto
-	if (webCrypto && typeof webCrypto.randomUUID === 'function') {
-		return webCrypto.randomUUID()
-	}
-	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
-		const random = Math.random() * 16 | 0
-		const value = char === 'x' ? random : (random & 0x3 | 0x8)
-		return value.toString(16)
-	})
 }
 
 export const usePreferencesStore = defineStore('preferences', {

@@ -105,14 +105,14 @@ class RecurrenceCalculator {
 		$day = (int)substr($anchorKey, 8, 2);
 
 		switch ($unit) {
-			case ScheduleRevision::UNIT_MONTH:
+			case CycleRule::UNIT_MONTH:
 				$total = ($year * 12 + ($month - 1)) + $interval;
 				$newYear = intdiv($total, 12);
 				$newMonth = ($total % 12) + 1;
 				return sprintf('%04d-%02d-%02d', $newYear, $newMonth, min($day, self::daysInMonth($newYear, $newMonth)));
-			case ScheduleRevision::UNIT_WEEK:
+			case CycleRule::UNIT_WEEK:
 				return self::offsetDays($anchorKey, $interval * 7);
-			case ScheduleRevision::UNIT_DAY:
+			case CycleRule::UNIT_DAY:
 			default:
 				return self::offsetDays($anchorKey, $interval);
 		}
@@ -132,12 +132,12 @@ class RecurrenceCalculator {
 	 */
 	public function firstFixedDayOnOrAfter(CycleRule $rule, string $anchorKey, string $fromKey): ?string {
 		$from = max($fromKey, $anchorKey, $rule->activeFrom ?? $anchorKey);
-		if ($rule->unit === ScheduleRevision::UNIT_MONTH) {
+		if ($rule->unit === CycleRule::UNIT_MONTH) {
 			$day = $this->monthDayOnOrAfter($anchorKey, $rule->interval, $rule->monthDay ?? (int)substr($anchorKey, 8, 2), $from);
-		} elseif ($rule->unit === ScheduleRevision::UNIT_WEEK && $rule->weekdays !== []) {
+		} elseif ($rule->unit === CycleRule::UNIT_WEEK && $rule->weekdays !== []) {
 			$day = $this->weekdayOnOrAfter($anchorKey, $rule->interval, $rule->weekdays, $from);
 		} else {
-			$step = $rule->unit === ScheduleRevision::UNIT_WEEK ? $rule->interval * 7 : $rule->interval;
+			$step = $rule->unit === CycleRule::UNIT_WEEK ? $rule->interval * 7 : $rule->interval;
 			$day = self::offsetDays($anchorKey, intdiv(self::daysBetween($anchorKey, $from) + $step - 1, $step) * $step);
 		}
 		return $rule->activeUntil !== null && $day > $rule->activeUntil ? null : $day;

@@ -3,7 +3,8 @@
  * @license MIT
  *
  * ActivityFeed component suite (CR-053-22, CS-PLAN-068 §3.6; one line per
- * entry and day groups since CS-PLAN-090 WP-E).
+ * entry and day groups since CS-PLAN-090 WP-E; the events and the narrowed
+ * correction rights since CS-PLAN-091 WP-B3).
  */
 
 import { describe, it, expect, jest, afterEach } from '@jest/globals'
@@ -135,9 +136,11 @@ describe('ActivityFeed', () => {
 
 	describe('WP3 history correction (§3.6), behind a tap on the line', () => {
 		const items = () => [
-			{ id: 1, displayName: 'Mom', taskTitle: 'T', completedAt: at('2026-11-12T08:00:00Z'), totalEnergy: 2, canCorrect: true },
-			{ id: 2, displayName: 'Dad', taskTitle: 'T', completedAt: at('2026-11-12T07:00:00Z'), totalEnergy: 2, canCorrect: false },
-			{ id: 3, displayName: 'Kid', taskTitle: 'T', completedAt: at('2026-11-12T06:00:00Z'), totalEnergy: 1, canCorrect: true, undoneAt: at('2026-11-12T06:05:00Z') },
+			{ id: 1, displayName: 'Mom', taskTitle: 'T', completedAt: at('2026-11-12T08:00:00Z'), totalEnergy: 2, canCorrect: true, canAttribute: true },
+			{ id: 2, displayName: 'Dad', taskTitle: 'T', completedAt: at('2026-11-12T07:00:00Z'), totalEnergy: 2, canCorrect: false, canAttribute: false },
+			{ id: 3, displayName: 'Kid', taskTitle: 'T', completedAt: at('2026-11-12T06:00:00Z'), totalEnergy: 1, canCorrect: true, canAttribute: true, undoneAt: at('2026-11-12T06:05:00Z') },
+			// The recorder of their own latest entry: may delete it, not change its people.
+			{ id: 4, displayName: 'Kid', taskTitle: 'T', completedAt: at('2026-11-12T05:00:00Z'), totalEnergy: 1, canCorrect: true, canAttribute: false },
 		]
 		const actions = async (wrapper, id) => {
 			await row(wrapper, id).trigger('click')
@@ -158,8 +161,13 @@ describe('ActivityFeed', () => {
 			expect(await actions(wrapper, 3)).toEqual([false, false])
 		})
 
+		it('offers the split correction only to who may change the people (D-091-23)', async () => {
+			const wrapper = mountFeed(items())
+			expect(await actions(wrapper, 4)).toEqual([false, true])
+		})
+
 		it('emits the correction with its item', async () => {
-			const item = { id: 7, displayName: 'Mom', taskTitle: 'T', completedAt: at('2026-11-12T08:00:00Z'), totalEnergy: 2, canCorrect: true }
+			const item = { id: 7, displayName: 'Mom', taskTitle: 'T', completedAt: at('2026-11-12T08:00:00Z'), totalEnergy: 2, canCorrect: true, canAttribute: true }
 			const wrapper = mountFeed([item])
 			await row(wrapper, 7).trigger('click')
 			await wrapper.get('[data-testid="activity-correct-7"]').trigger('click')
@@ -167,7 +175,7 @@ describe('ActivityFeed', () => {
 		})
 
 		it('emits a targeted undo and disables stale or in-flight lines', async () => {
-			const item = { id: 7, version: 3, canCorrect: true, totalEnergy: 2, completedAt: at('2026-11-12T08:00:00Z') }
+			const item = { id: 7, version: 3, canCorrect: true, canAttribute: true, totalEnergy: 2, completedAt: at('2026-11-12T08:00:00Z') }
 			const wrapper = mountFeed([item])
 			await row(wrapper, 7).trigger('click')
 			expect(wrapper.get('[data-testid="activity-undo-7"]').attributes('data-version')).toBe('3')
@@ -184,5 +192,68 @@ describe('ActivityFeed', () => {
 	it('renders no time for a missing date', () => {
 		const wrapper = mountFeed([{ id: 1, displayName: 'M', taskTitle: 'T', completedAt: null }])
 		expect(row(wrapper, 1).find('.activity-time').text()).toBe('')
+	})
+
+	describe('what happened besides completions (CS-PLAN-091 WP-B3)', () => {
+		const completion = { id: 1, displayName: 'Mom', taskTitle: 'Dishes', completedAt: at('2026-11-12T08:00:00Z'), totalEnergy: 2 }
+		const events = [
+			{ type: 'postponed', at: at('2026-11-12T09:00:00Z'), displayName: 'Kid', taskTitle: 'Tidy room', roomTaskId: 4, postponeCount: 2 },
+			{ type: 'date_changed', at: at('2026-11-12T07:00:00Z'), displayName: 'Mom', taskTitle: null, roomTaskId: 5, completionId: 9 },
+			{ type: 'deleted', at: at('2026-11-11T18:00:00Z'), displayName: 'Dad', taskTitle: 'Vacuum', roomTaskId: 6, completionId: 8 },
+			// The owner entered the kid's absence: the line's person is the owner.
+			{ type: 'absence', at: at('2026-11-11T17:00:00Z'), displayName: 'Mom', scope: 'personal', subjectDisplayName: 'Kid', from: '2026-11-23', to: '2026-11-27' },
+			{ type: 'absence_removed', at: at('2026-11-11T16:00:00Z'), displayName: 'Mom', scope: 'house', from: '2026-12-24', to: '2026-12-26' },
+		]
+
+		it('shows them as quiet lines between the completions of their day', () => {
+			const wrapper = mountFeed([completion], { events })
+
+			const today = wrapper.findAll('.activity-day')[0].findAll('.activity-item')
+			expect(today.map((line) => line.attributes('data-testid'))).toEqual(['activity-event-postponed', 'activity-item', 'activity-event-date_changed'])
+			expect(today[0].text()).toContain('Kid')
+			expect(today[0].find('.activity-task').text()).toBe('{task} postponed')
+			expect(today[0].find('.activity-count').text()).toBe('{count} of 3')
+			// A withheld title falls back like a completion's does.
+			expect(today[2].find('.activity-task').text()).toBe('{task}: date changed')
+
+			const yesterday = wrapper.findAll('.activity-day')[1].findAll('.activity-item')
+			expect(yesterday.map((line) => line.attributes('data-testid'))).toEqual(['activity-event-deleted', 'activity-event-absence', 'activity-event-absence_removed'])
+			// An event is no button: nothing to open, nothing to correct.
+			expect(wrapper.findAll('.activity-event button')).toHaveLength(0)
+		})
+
+		it('names the task, the count and the period in the line', () => {
+			const { translate } = jest.requireMock('@nextcloud/l10n')
+			mountFeed([], { events })
+
+			expect(translate).toHaveBeenCalledWith('chorestrike', '{task} postponed', { task: 'Tidy room' })
+			expect(translate).toHaveBeenCalledWith('chorestrike', '{count} of 3', { count: 2 })
+			expect(translate).toHaveBeenCalledWith('chorestrike', '{task}: date changed', { task: 'Unknown task' })
+			expect(translate).toHaveBeenCalledWith('chorestrike', '{task}: entry deleted', { task: 'Vacuum' })
+			// The absent person is named, in whole sentences per kind.
+			expect(translate).toHaveBeenCalledWith('chorestrike', '{name} away {from} – {to}', expect.objectContaining({ name: 'Kid' }))
+			expect(translate).toHaveBeenCalledWith('chorestrike', 'Household absence {from} – {to} removed', expect.objectContaining({ from: expect.any(String), to: expect.any(String) }))
+		})
+
+		it('names a member who left as a former member', () => {
+			const { translate } = jest.requireMock('@nextcloud/l10n')
+			mountFeed([], { events: [{ type: 'absence_removed', at: at('2026-11-11T16:00:00Z'), displayName: 'Mom', scope: 'personal', subjectDisplayName: null, from: '2026-11-23', to: '2026-11-27' }] })
+
+			expect(translate).toHaveBeenCalledWith('chorestrike', 'Absence of {name} {from} – {to} removed', expect.objectContaining({ name: 'Former member' }))
+		})
+
+		it('shows whose work it was when someone recorded it for others', async () => {
+			const recorded = {
+				...completion,
+				displayName: 'Dad',
+				recordedForOthers: true,
+				allocation: [{ userId: 'kid', displayName: 'Kid', sharePct: 50, coinMinor: 1000 }, { userId: 'mom', displayName: 'Mom', sharePct: 50, coinMinor: 1000 }],
+			}
+			const wrapper = mountFeed([recorded])
+
+			expect(row(wrapper, 1).find('.activity-actor').text()).toBe('Kid, Mom')
+			await row(wrapper, 1).trigger('click')
+			expect(wrapper.get('[data-testid="activity-recorder-1"]').text()).toBe('recorded by {name}')
+		})
 	})
 })

@@ -6,24 +6,9 @@
 import { translate as t } from '@nextcloud/l10n'
 import { defineStore } from 'pinia'
 import { api, setCatalogEnabled } from '../services/api.js'
+import { generateCommandId } from '../utils/commandId.js'
 import { logger } from '../utils/logger.js'
 import { DEFAULT_CATEGORY_LIST } from '../utils/taskCategories.js'
-
-/**
- * Client idempotency UUID for the catalog-gate command (RFC 4122 v4).
- * @return {string} Canonical lowercase UUID.
- */
-function generateCommandId() {
-	const webCrypto = globalThis.crypto
-	if (webCrypto && typeof webCrypto.randomUUID === 'function') {
-		return webCrypto.randomUUID()
-	}
-	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
-		const random = Math.random() * 16 | 0
-		const value = char === 'x' ? random : (random & 0x3 | 0x8)
-		return value.toString(16)
-	})
-}
 
 export const useHouseStore = defineStore('house', {
 	state: () => ({
@@ -34,6 +19,8 @@ export const useHouseStore = defineStore('house', {
 		insights: null,
 		/** @type {Array} Activity feed completions from GET /house/activity */
 		activity: [],
+		/** @type {Array} What happened besides completions: postponements, date changes, deletions, absences */
+		activityEvents: [],
 		/** @type {boolean} Loading state of the activity fetch */
 		activityLoading: false,
 		/** @type {string|null} Error message of the activity fetch */
@@ -343,6 +330,7 @@ export const useHouseStore = defineStore('house', {
 					return data
 				}
 				this.activity = data.completions || []
+				this.activityEvents = data.events || []
 				return data
 			} catch (error) {
 				if (seq === this.activityRequestSeq) {
@@ -371,7 +359,7 @@ export const useHouseStore = defineStore('house', {
 						throw new Error('House state version is unavailable')
 					}
 					this.pendingResetCommand = {
-						commandId: crypto.randomUUID(),
+						commandId: generateCommandId(),
 						expectedVersion: this.house.stateVersion,
 					}
 				}
@@ -415,6 +403,7 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 			this.insights = null
 			this.activity = []
+			this.activityEvents = []
 			this.pendingResetCommand = null
 			this.activityLoading = false
 			this.activityError = null

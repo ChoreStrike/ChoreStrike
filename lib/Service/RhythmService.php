@@ -135,9 +135,10 @@ class RhythmService {
 
 	/**
 	 * @param HouseUser[] $members
+	 * @param RecognitionPass|null $pass The pass of an evaluation that reads more than the rhythm
 	 * @return array<int, array{currentStreak: int, longestStreak: int, pending: bool}>
 	 */
-	public function evaluateForMembers(int $houseId, array $members, \DateTime $now): array {
+	public function evaluateForMembers(int $houseId, array $members, \DateTime $now, ?RecognitionPass $pass = null): array {
 		$memberByWallet = [];
 		$state = [];
 		foreach ($members as $member) {
@@ -157,8 +158,8 @@ class RhythmService {
 		}
 
 		$house = $this->houseMapper->find($houseId);
-		$absences = $this->facts->absences($houseId);
-		$open = $this->facts->openFacts($house, $now, null, null, false, $absences);
+		$pass ??= $this->facts->beginPass($house);
+		$open = $this->facts->openFacts($house, $now, null, null, false, $pass);
 		usort($open, static fn (RecognitionFact $a, RecognitionFact $b): int => $a->day <=> $b->day);
 		$day = null;
 		$dayOutcomes = [];
@@ -181,7 +182,7 @@ class RhythmService {
 		$afterDay = null;
 		$afterId = 0;
 		do {
-			$page = $this->facts->closedFactsPage($house, $afterDay, $afterId, self::HISTORY_PAGE_SIZE, $absences);
+			$page = $this->facts->closedFactsPage($house, $afterDay, $afterId, self::HISTORY_PAGE_SIZE, $pass);
 			foreach ($page['facts'] as $fact) {
 				while ($open !== [] && $open[0]->day < $fact->day) {
 					$feed(array_shift($open));

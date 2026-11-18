@@ -330,4 +330,25 @@ class RecurrenceCalculatorTest extends TestCase {
 		self::assertSame('2026-12-20', $this->calculator->firstFixedDayOnOrAfter($rule, '2026-11-25', '2026-11-25'), 'never before the anchor');
 		self::assertSame(44, RecurrenceCalculator::daysBetween('2026-10-20', '2026-12-03'), 'across the end of summer time');
 	}
+
+	/**
+	 * RF-091-05: the rule of the derived windows carries its own units and
+	 * reads the one weekday list. The units keep the values of the stored
+	 * schedule revisions, whose enumeration shares the interval math.
+	 */
+	public function testCycleRule_UnitsAndWeekdays_MatchTheStoredModel(): void {
+		self::assertSame(
+			[\OCA\ChoreStrike\Db\ScheduleRevision::UNIT_DAY, \OCA\ChoreStrike\Db\ScheduleRevision::UNIT_WEEK, \OCA\ChoreStrike\Db\ScheduleRevision::UNIT_MONTH],
+			[\OCA\ChoreStrike\Service\CycleRule::UNIT_DAY, \OCA\ChoreStrike\Service\CycleRule::UNIT_WEEK, \OCA\ChoreStrike\Service\CycleRule::UNIT_MONTH]
+		);
+
+		$task = new \OCA\ChoreStrike\Db\Task();
+		$task->setSchedulingMode(\OCA\ChoreStrike\Db\Task::SCHEDULING_STATIC);
+		$task->setFrequencyType('weekly');
+		$task->setFrequencyValue(1);
+		$task->setFixedScheduleDays(json_encode(['Sunday', 'monday', ' wednesday ', 'noday']));
+
+		// ISO weekdays, Monday first, as the canonical list orders them.
+		self::assertSame([1, 3, 7], \OCA\ChoreStrike\Service\CycleRule::fromTask($task)->weekdays);
+	}
 }

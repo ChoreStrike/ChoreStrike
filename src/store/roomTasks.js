@@ -6,6 +6,7 @@
 import { emit } from '@nextcloud/event-bus'
 import { defineStore } from 'pinia'
 import { api } from '../services/api.js'
+import { generateCommandId } from '../utils/commandId.js'
 import { dateKeyInZone } from '../utils/dateKeys.js'
 import { logger } from '../utils/logger.js'
 import { useGameStore } from './game.js'
@@ -14,24 +15,6 @@ import { useRoomsStore } from './rooms.js'
 import { useTasksStore } from './tasks.js'
 import { useTitlesStore } from './titles.js'
 import { useUserStore } from './user.js'
-
-/**
- * Generate a client idempotency UUID (CS-PLAN-072 WP1): one fresh UUID
- * per logical completion command. Crypto RNG when available, otherwise a
- * RFC 4122 v4 fallback.
- * @return {string} Canonical lowercase UUID.
- */
-function generateCommandId() {
-	const webCrypto = globalThis.crypto
-	if (webCrypto && typeof webCrypto.randomUUID === 'function') {
-		return webCrypto.randomUUID()
-	}
-	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
-		const random = Math.random() * 16 | 0
-		const value = char === 'x' ? random : (random & 0x3 | 0x8)
-		return value.toString(16)
-	})
-}
 
 /**
  * The calendar days of one range row with the server's per-day `late` mark

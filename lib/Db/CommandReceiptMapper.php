@@ -49,6 +49,30 @@ class CommandReceiptMapper extends QBMapper {
 	}
 
 	/**
+	 * The committed commands of one action in a house since an instant,
+	 * newest first: what the recent activity shows of commands that leave
+	 * no row of their own (a postponement).
+	 *
+	 * @param int|null $actorHouseUserId Only the commands of this member, filtered before the limit
+	 * @return CommandReceipt[]
+	 */
+	public function findByHouseActionSince(int $houseId, string $action, \DateTimeInterface $since, int $limit, ?int $actorHouseUserId = null): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('action', $qb->createNamedParameter($action, IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_DATE)));
+		if ($actorHouseUserId !== null) {
+			$qb->andWhere($qb->expr()->eq('actor_house_user_id', $qb->createNamedParameter($actorHouseUserId, IQueryBuilder::PARAM_INT)));
+		}
+		$qb->orderBy('created_at', 'DESC')
+			->addOrderBy('id', 'DESC')
+			->setMaxResults($limit);
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * Null the actor reference of every receipt recorded by the given
 	 * membership (account erasure, decision D3). The receipts survive as
 	 * anonymous facts; their unique-index slot frees (NULLs are distinct).

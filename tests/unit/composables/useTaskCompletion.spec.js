@@ -1,163 +1,72 @@
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
+import { beforeEach, describe, expect, it, jest } from '@jest/globals'
 import { useTaskCompletion } from '../../../src/composables/useTaskCompletion.js'
 import { showCompletionError } from '../../../src/utils/errorToast.js'
 import { logger } from '../../../src/utils/logger.js'
 
 jest.mock('../../../src/utils/errorToast.js', () => ({ showCompletionError: jest.fn() }))
-jest.mock('../../../src/utils/logger.js', () => ({ logger: { error: jest.fn() } }))
+jest.mock('../../../src/utils/logger.js', () => ({ logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() } }))
 
+/**
+ * The completion every task surface shares (CS-PLAN-091 WP-B2): a hold
+ * completes with the server's default split, the picker's or a claim's
+ * split rides along, and nobody is asked to take part first.
+ */
 describe('useTaskCompletion', () => {
 	let roomTasksStore
-	let userStore
 	let onCompleted
 
-	const flow = () => useTaskCompletion({ roomTasksStore, userStore, view: 'TestView', onCompleted })
-	const target = (...assignees) => ({ roomTaskId: 7, assignees })
-	const split = (...userIds) => ({ participants: userIds.map((userId) => ({ userId, sharePct: 100 / userIds.length })) })
+	const setup = () => useTaskCompletion({ roomTasksStore, view: 'TestView', onCompleted })
+	const split = { participants: [{ userId: 'dad', sharePct: 100 }], allocationReviewed: true }
 
 	beforeEach(() => {
 		jest.clearAllMocks()
 		roomTasksStore = { completeRoomTask: jest.fn().mockResolvedValue({}) }
-		userStore = {
-			currentUser: { nextcloudUserId: 'mom' },
-			houseUsers: [
-				{ nextcloudUserId: 'mom', displayName: 'Parent' },
-				{ nextcloudUserId: 'teen', displayName: 'Teen' },
-			],
-			initializeCurrentUser: jest.fn().mockResolvedValue(undefined),
-			fetchHouseUsers: jest.fn().mockResolvedValue([]),
-		}
 		onCompleted = jest.fn()
 	})
 
-	it('completes unassigned work directly and without options', async () => {
-		const { requestCompletion, participation } = flow()
+	it('completes a hold without options: the server credits the default split', async () => {
+		await setup().requestCompletion(7)
 
-		await requestCompletion(target())
-
+		expect(roomTasksStore.completeRoomTask).toHaveBeenCalledTimes(1)
 		expect(roomTasksStore.completeRoomTask).toHaveBeenCalledWith(7)
-		expect(participation.value).toBeNull()
 		expect(onCompleted).toHaveBeenCalledWith(7)
 	})
 
-	it('completes a task that is the actor\'s alone directly', async () => {
-		const { requestCompletion, participation } = flow()
+	it('completes someone else\'s task the same way: no dialog asks who took part', async () => {
+		// The row belongs to other people; recording it needs no participation.
+		const completion = setup()
+		await completion.requestCompletion(7)
 
-		await requestCompletion(target('mom'))
-
-		expect(roomTasksStore.completeRoomTask).toHaveBeenCalledWith(7)
-		expect(participation.value).toBeNull()
-	})
-
-	it.each([
-		['several people', ['mom', 'teen']],
-		['someone else', ['teen']],
-	])('opens the dialog for a task of %s', async (label, assignees) => {
-		const { requestCompletion, participation } = flow()
-		const shown = target(...assignees)
-
-		await requestCompletion(shown)
-
-		expect(participation.value).toEqual(shown)
-		expect(roomTasksStore.completeRoomTask).not.toHaveBeenCalled()
-		expect(onCompleted).not.toHaveBeenCalled()
-	})
-
-	it('opens the dialog while the identity is unresolved, after trying to resolve it', async () => {
-		userStore.currentUser = null
-		userStore.houseUsers = []
-		const { requestCompletion, participation, actorUserId } = flow()
-
-		await requestCompletion(target('mom'))
-
-		expect(userStore.initializeCurrentUser).toHaveBeenCalledTimes(1)
-		expect(userStore.fetchHouseUsers).toHaveBeenCalledTimes(1)
-		expect(actorUserId.value).toBeNull()
-		expect(participation.value).not.toBeNull()
-		expect(roomTasksStore.completeRoomTask).not.toHaveBeenCalled()
-	})
-
-	it('opens the dialog even when the identity and member reads fail', async () => {
-		userStore.currentUser = null
-		userStore.houseUsers = []
-		userStore.initializeCurrentUser.mockRejectedValue(new Error('offline'))
-		userStore.fetchHouseUsers.mockRejectedValue(new Error('offline'))
-		const { requestCompletion, participation } = flow()
-
-		await requestCompletion(target('mom', 'teen'))
-
-		expect(participation.value).not.toBeNull()
-	})
-
-	it('completes unassigned work directly even while the identity is unresolved: the server credits the actor', async () => {
-		userStore.currentUser = null
-		const { requestCompletion, participation } = flow()
-
-		await requestCompletion(target())
-
-		expect(participation.value).toBeNull()
+		expect(Object.keys(completion)).toEqual(['requestCompletion'])
 		expect(roomTasksStore.completeRoomTask).toHaveBeenCalledWith(7)
 	})
 
-	it('completes a confirmed claim with its reviewed split, never through the dialog', async () => {
-		const claim = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
-		const { requestCompletion, participation } = flow()
+	it('completes with the split of the picker or of a confirmed claim', async () => {
+		await setup().requestCompletion(7, split)
 
-		await requestCompletion(target('teen'), claim)
-
-		expect(participation.value).toBeNull()
-		expect(roomTasksStore.completeRoomTask).toHaveBeenCalledWith(7, claim)
-	})
-
-	it('offers the assignees as candidates, with the user id where a name is missing', async () => {
-		const { requestCompletion, participationMembers } = flow()
-		expect(participationMembers.value).toEqual([])
-
-		await requestCompletion(target('mom', 'guest'))
-
-		expect(participationMembers.value).toEqual([
-			{ userId: 'mom', displayName: 'Parent' },
-			{ userId: 'guest', displayName: 'guest' },
-		])
-	})
-
-	it('completes with the confirmed split and closes the dialog first', async () => {
-		const payload = { ...split('mom', 'teen'), allocationReviewed: true }
-		const { requestCompletion, confirmParticipation, participation } = flow()
-		await requestCompletion(target('teen'))
-
-		await confirmParticipation(payload)
-
-		expect(participation.value).toBeNull()
-		expect(roomTasksStore.completeRoomTask).toHaveBeenCalledWith(7, payload)
+		expect(roomTasksStore.completeRoomTask).toHaveBeenCalledWith(7, split)
 		expect(onCompleted).toHaveBeenCalledWith(7)
 	})
 
-	it('completes nothing when the dialog is closed or confirmed without a target', async () => {
-		const { requestCompletion, confirmParticipation, closeParticipation, participation } = flow()
-		await requestCompletion(target('teen'))
+	it('works without a completion callback', async () => {
+		onCompleted = undefined
 
-		closeParticipation()
-		await confirmParticipation(split('mom'))
-
-		expect(participation.value).toBeNull()
-		expect(roomTasksStore.completeRoomTask).not.toHaveBeenCalled()
+		await expect(setup().requestCompletion(7)).resolves.toBeUndefined()
 	})
 
 	it('shows a failure, logs it with the view and reports no completion', async () => {
-		const failure = Object.assign(new Error('Conflict'), { status: 409, code: 'CONFLICT' })
+		const failure = Object.assign(new Error('Conflict'), { status: 409, code: 'SAME_DAY' })
 		roomTasksStore.completeRoomTask.mockRejectedValue(failure)
-		const { requestCompletion } = flow()
 
-		await expect(requestCompletion(target())).resolves.toBeUndefined()
+		await setup().requestCompletion(7)
 
 		expect(showCompletionError).toHaveBeenCalledWith(failure)
 		expect(logger.error).toHaveBeenCalledWith('Failed to complete task', failure, { view: 'TestView', action: 'completeTask', roomTaskId: 7 })
 		expect(onCompleted).not.toHaveBeenCalled()
-	})
-
-	it('works without a completion callback', async () => {
-		const { requestCompletion } = useTaskCompletion({ roomTasksStore, userStore, view: 'TestView' })
-
-		await expect(requestCompletion(target())).resolves.toBeUndefined()
 	})
 })

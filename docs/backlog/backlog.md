@@ -100,7 +100,7 @@ of FEAT-UX-043.
 ---
 
 ### [P2] FEAT-UX-041 — Allow completing work before its window opens
-**Status**: In Progress (CS-PLAN-091 WP-B2, active 2026-11-16); before: Backlog (alpha.2 trial feedback 2026-10-26; needs a product decision and a timeline-contract update) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
+**Status**: In Progress (CS-PLAN-091 WP-B2, implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18); before: Backlog (alpha.2 trial feedback 2026-10-26; needs a product decision and a timeline-contract update) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
 **Owning**: CS-PLAN-091 WP-B2 · **Depends on**: — · **Blocks**: — · **Folded-in**: operator decision of 2026-11-09 (CONCEPT-002)
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #6
 
@@ -126,13 +126,17 @@ completion target before the window.
       everyone, without an owner option or a child restriction, except on the
       same local day as the previous completion of that task
       ([simplified core](../concepts/simplified-core.md#due-windows)).
-- [ ] Decide the classification and rewards of early work (on time or its own
+- [x] Decide the classification and rewards of early work (on time or its own
       class; energy and coins unchanged; streak step on the planned day per C1;
-      day-capacity accounting).
-- [ ] Update [ADR-013](../adr/ADR-013-occurrence-agreements-and-corrections.md),
-      the concepts and `docs/api/` before code.
-- [ ] Tests: PHPUnit for early completion on interval and fixed cadence, the
-      owner/child rules and the selection; a browser scenario.
+      day-capacity accounting). **Decided (CS-PLAN-091 D-091-02):** classified at
+      completion and frozen; early work is on time.
+- [x] Update [ADR-013](../adr/ADR-013-occurrence-agreements-and-corrections.md),
+      the concepts and `docs/api/` before code. Done as ADR-021, which supersedes
+      it (WP-0).
+- [x] Tests: PHPUnit for early completion on interval and fixed cadence, the
+      same-day refusal and the cycle target (`CycleTimelineTest`,
+      `CompletionServiceTest`); a browser scenario (`family-rhythm`). No owner or
+      child rule is left to test.
 
 BUG-UX-005 covers the in-window case and ships on its own.
 
@@ -549,7 +553,7 @@ templates today).
 ---
 
 ### [P2] FEAT-UX-050 — Postpone, direct handover and no separate details view
-**Status**: In Progress (CS-PLAN-091 WP-B3, active 2026-11-16); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily execution
+**Status**: In Progress (CS-PLAN-091 WP-B3, postpone implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18; the details view goes in WP-B6, the cleanliness route in WP-B7); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily execution
 **Owning**: CS-PLAN-091 WP-B3 · **Depends on**: CS-PLAN-080, FEAT-UX-040, FEAT-UX-051 · **Blocks**: — · **Folded-in**: operator decisions of 2026-11-09 (CONCEPT-002)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-6, G-4, G-5, G-6
 
@@ -578,11 +582,12 @@ target disappear with them. Whether *Restart* and the single-cycle handover are 
 needed is for the owning plan to settle. Detail:
 [simplified core](../concepts/simplified-core.md#due-windows).
 
-- [ ] ADR-021 (superseding ADR-013), the task-model concept and the API reference describe
+- [x] ADR-021 (superseding ADR-013), the task-model concept and the API reference describe
       postponement before code.
-- [ ] Postpone implemented; no single-cycle handover and no restart home (CS-PLAN-091
+- [x] Postpone implemented; no single-cycle handover and no restart home (CS-PLAN-091
       D-091-10); PHPUnit for the window, the limit, the target and the rights; browser
-      scenario.
+      scenario (`PostponeAndHistoryTest`, `mobile-core`). Until WP-B6 the button sits in
+      the opened row of the task list (D-091-55).
 - [ ] The details view goes; checklist ticking moves to FEAT-UX-051 and editing to
       FEAT-UX-040.
 - [ ] The routes without a client go: `occurrence#catchUp` with the old writers (WP-B1)
@@ -592,7 +597,7 @@ needed is for the owning plan to settle. Detail:
 ---
 
 ### [P2] FEAT-UX-051 — Completion dialog: record for someone else, sub-tasks on completion
-**Status**: In Progress (CS-PLAN-091 WP-B2, active 2026-11-16); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
+**Status**: In Progress (CS-PLAN-091 WP-B2, implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
 **Owning**: CS-PLAN-091 WP-B2 · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-050 · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register C-1, C-2
 
@@ -609,17 +614,20 @@ all sub-tasks as done.
   the audit actor, so no schema step is needed.
 - **Partly ticked (D-089-02):** the task stays open and the ticks stay saved.
 
-- [ ] ADR-014, the concepts and the API reference state the new rule before code.
-- [ ] Marking all sub-tasks runs inside the completion command, so it stays atomic
+- [x] ADR-014, the concepts and the API reference state the new rule before code
+      (ADR-021 decision 10, WP-0).
+- [x] Marking all sub-tasks runs inside the completion command, so it stays atomic
       and undo stays correct.
-- [ ] The tap replaces today's hint in `HoldButton`, with keyboard parity.
-- [ ] PHPUnit for recording for others, private-task visibility and undo; Jest and a
-      browser scenario for tap and hold.
+- [x] The tap replaces today's hint in `HoldButton`, with keyboard parity (hold
+      completes, a tap opens the picker, D-091-47).
+- [x] PHPUnit for recording for others, private-task visibility and undo; Jest and a
+      browser scenario for tap and hold (`RecordingForOthersTest`, `CompletionPicker`
+      and `HoldButton` specs, `mobile-core`, `family-core-ux`).
 
 ---
 
 ### [P2] FEAT-UX-052 — Task history with owner corrections
-**Status**: In Progress (CS-PLAN-091 WP-B3, active 2026-11-16); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: review and correction
+**Status**: In Progress (CS-PLAN-091 WP-B3, implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18; the history moves into the one row with WP-B6); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: review and correction
 **Owning**: CS-PLAN-091 WP-B3 · **Depends on**: CS-PLAN-080 · **Blocks**: — · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-5
 
@@ -641,9 +649,14 @@ every entry. Correcting the last date is also the way to move a task, because th
 window is no longer edited directly. Detail:
 [simplified core](../concepts/simplified-core.md#people-and-rights).
 
-- [ ] ADR-014 and the concepts describe the date correction before code.
-- [ ] History view per task, reachable from the one form (FEAT-UX-040).
-- [ ] Tests for all three corrections across coins, rhythm, weekly goal and room.
+- [x] ADR-014 and the concepts describe the date correction before code (ADR-021
+      decision 9, WP-0).
+- [ ] History view per task, reachable from the one form (FEAT-UX-040). Implemented in
+      the opened row of the task list (`GET /room-tasks/{id}/history`, D-091-54,
+      D-091-55); its place in the one row comes with WP-B6.
+- [x] Tests for all three corrections across coins, rhythm, weekly goal and room
+      (`PostponeAndHistoryTest`, `CompletionCorrectionTest`,
+      `CompletionUndoStateEqualityTest`).
 
 ---
 

@@ -413,8 +413,20 @@ describe('House Store', () => {
 				expect(api.get).toHaveBeenCalledWith('/api/v1/house/activity', { params: { days: 30, limit: 50 } })
 				expect(result).toEqual(payload)
 				expect(store.activity).toEqual(payload.completions)
+				expect(store.activityEvents).toEqual([])
 				expect(store.activityLoading).toBe(false)
 				expect(store.activityError).toBeNull()
+			})
+
+			it('keeps what happened besides completions next to them (CS-PLAN-091 WP-B3)', async () => {
+				const events = [{ type: 'postponed', at: '2026-11-18T08:00:00+00:00', displayName: 'Kid', postponeCount: 1 }]
+				api.get.mockResolvedValue({ completions: [], total: 0, events })
+
+				await store.fetchActivity()
+				expect(store.activityEvents).toEqual(events)
+
+				store.reset()
+				expect(store.activityEvents).toEqual([])
 			})
 
 			it('forwards custom days/limit', async () => {

@@ -125,13 +125,16 @@ class GameControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->houseService->method('getWeeklyGoalProgress')->with(1)->willReturn($weeklyGoal);
+		// One pass feeds the house goal, the rhythm and the personal slice.
+		$pass = $this->createMock(\OCA\ChoreStrike\Service\RecognitionPass::class);
+		$this->weeklyGoalService->expects($this->once())->method('beginPass')->with($house)->willReturn($pass);
+		$this->weeklyGoalService->method('progressForWeek')->with($house, $this->anything(), $pass)->willReturn($weeklyGoal);
 		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 
 		// C1f evaluation is a pure read: confirmed streak with a held day.
-		$this->rhythmService->method('evaluateForMembers')->with(1, [$houseUser], $this->anything())
+		$this->rhythmService->method('evaluateForMembers')->with(1, [$houseUser], $this->anything(), $pass)
 			->willReturn([11 => ['currentStreak' => 4, 'longestStreak' => 9, 'pending' => true]]);
-		$this->weeklyGoalService->method('progressForMember')->with($house, $houseUser, $this->anything())
+		$this->weeklyGoalService->method('progressForMember')->with($house, $houseUser, $this->anything(), $pass)
 			->willReturn($personalGoal);
 
 		$this->walletMapper->method('findByHouseAndUser')->with(1, 'alice-nc')->willReturn($wallet);
@@ -179,7 +182,7 @@ class GameControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->houseService->method('getWeeklyGoalProgress')->willReturn([
+		$this->weeklyGoalService->method('progressForWeek')->willReturn([
 			'dueCount' => 0, 'completedCount' => 0, 'eligible' => 0, 'onTime' => 0, 'neutral' => 0,
 			'percent' => 0, 'targetPercent' => 80, 'achieved' => false, 'provisional' => true,
 			'weekKey' => '', 'weekStart' => '', 'weekEnd' => '',

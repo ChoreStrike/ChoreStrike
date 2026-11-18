@@ -75,9 +75,12 @@ const USERS = [
 	},
 ]
 
+// One instant for both rows: the feed sorts newest first, and two separate
+// clock reads could land a millisecond apart and swap the rows.
+const NOW = new Date().toISOString()
 const ACTIVITY = [
-	{ id: 1, completedAt: new Date().toISOString(), totalEnergy: 4, houseUserId: 7, displayName: 'Alice', taskId: 3, taskTitle: 'Vacuum', energyCost: 4, roomId: 2, roomName: 'Living Room', canCorrect: true, version: 1, allocation: [{ userId: 'alice', displayName: 'Alice', sharePct: 100, energyMinor: 400 }] },
-	{ id: 2, completedAt: new Date().toISOString(), totalEnergy: null, houseUserId: 8, displayName: 'Bob', taskTitle: null, energyCost: null, roomId: null, roomName: null, canCorrect: false, allocation: [] },
+	{ id: 1, completedAt: NOW, totalEnergy: 4, houseUserId: 7, displayName: 'Alice', taskId: 3, taskTitle: 'Vacuum', energyCost: 4, roomId: 2, roomName: 'Living Room', canCorrect: true, canAttribute: true, version: 1, allocation: [{ userId: 'alice', displayName: 'Alice', sharePct: 100, energyMinor: 400 }] },
+	{ id: 2, completedAt: NOW, totalEnergy: null, houseUserId: 8, displayName: 'Bob', taskTitle: null, energyCost: null, roomId: null, roomName: null, canCorrect: false, allocation: [] },
 ]
 
 describe('InsightsView.vue', () => {
@@ -357,6 +360,7 @@ describe('InsightsView.vue', () => {
 			allocationRevision: 2,
 			totalEnergy: 4,
 			canCorrect: true,
+			canAttribute: true,
 			allocation: [
 				{ userId: 'alice', displayName: 'Alice', sharePct: 60, energyMinor: 240, coinMinor: 2400 },
 				{ userId: 'bob', displayName: 'Bob', sharePct: 40, energyMinor: 160, coinMinor: 1600 },

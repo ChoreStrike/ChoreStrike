@@ -394,8 +394,8 @@ class MedalServiceTest extends TestCase {
 				return true;
 			}
 		);
-		$this->weeklyGoalService->method('progressForWeek')->willReturnCallback(
-			static fn (House $house, \DateTime $now): array => ['weekKey' => $now->format('Y-m-d') < '2026-10-12' ? '2026-10-05' : '2026-10-12']
+		$this->weeklyGoalService->method('weekKey')->willReturnCallback(
+			static fn (House $house, \DateTime $now): string => $now->format('Y-m-d') < '2026-10-12' ? '2026-10-05' : '2026-10-12'
 		);
 		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturnCallback(
 			static function (House $house, string $weekKey, \DateTime $now) use (&$eligible): array {
@@ -452,7 +452,7 @@ class MedalServiceTest extends TestCase {
 		$house->setId(1);
 		$this->houseMapper->method('find')->willReturn($house);
 		$this->weeklyGoalReceiptMapper->method('plannedWeeksPage')->willReturn(['2026-09-21']);
-		$this->weeklyGoalService->method('progressForWeek')->willReturn(['weekKey' => '2026-10-05']);
+		$this->weeklyGoalService->method('weekKey')->willReturn('2026-10-05');
 		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturn([
 			'provisional' => false, 'achieved' => false, 'percent' => 0,
 		]);
@@ -468,7 +468,7 @@ class MedalServiceTest extends TestCase {
 		$this->houseMapper->method('find')->willReturn($house);
 		$this->houseMapper->expects($this->once())->method('findForUpdate')->willReturn($house);
 		$this->weeklyGoalReceiptMapper->method('plannedWeeksPage')->willReturn(['2026-09-21']);
-		$this->weeklyGoalService->method('progressForWeek')->willReturn(['weekKey' => '2026-10-05']);
+		$this->weeklyGoalService->method('weekKey')->willReturn('2026-10-05');
 		$reads = 0;
 		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturnCallback(
 			static function () use (&$reads): array {
@@ -498,7 +498,7 @@ class MedalServiceTest extends TestCase {
 				self::assertSame('2026-10-05', $before);
 				return $after === null ? $firstPage : ($after === end($firstPage) ? ['2026-09-21'] : []);
 			});
-		$this->weeklyGoalService->method('progressForWeek')->willReturn(['weekKey' => '2026-10-05']);
+		$this->weeklyGoalService->method('weekKey')->willReturn('2026-10-05');
 		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturnCallback(
 			static function (House $house, string $key): array {
 				$achieved = $key === '2026-09-21';
@@ -535,7 +535,7 @@ class MedalServiceTest extends TestCase {
 				return true;
 			}
 		);
-		$this->weeklyGoalService->method('progressForWeek')->willReturn(['weekKey' => '2026-10-05']);
+		$this->weeklyGoalService->method('weekKey')->willReturn('2026-10-05');
 		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturn([
 			'provisional' => false, 'achieved' => true, 'percent' => 100,
 			'targetPercent' => 80, 'weekStart' => '2026-09-21T00:00:00+00:00',

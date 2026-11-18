@@ -22,9 +22,10 @@ function prefersReducedMotion() {
 /**
  * Press-and-hold state machine behind `HoldButton` (CS-PLAN-084 D-084-05,
  * CR-084-04): `onConfirm` fires only after the pointer or Enter/Space has
- * been held for `holdMs`. Releasing early, leaving the element, scrolling or
- * blurring cancels without confirming; a short tap shows the hint instead of
- * silently doing nothing.
+ * been held for `holdMs`. Leaving the element, scrolling or blurring cancels
+ * without confirming. A short tap calls `onTap` where the caller has one
+ * (CS-PLAN-091 WP-B2: the tap opens the picker, the hold completes); without
+ * one it shows the hint instead of silently doing nothing.
  *
  * `holdMs`, `disabled` and `busy` are refs or getters, read when needed, so
  * a prop change during a hold is honored.
@@ -34,9 +35,10 @@ function prefersReducedMotion() {
  * @param {boolean | import('vue').Ref<boolean> | (() => boolean)} options.disabled Hold is not allowed.
  * @param {boolean | import('vue').Ref<boolean> | (() => boolean)} options.busy The confirmed action is in flight.
  * @param {() => void} options.onConfirm Called once per completed hold.
+ * @param {?() => void} [options.onTap] Called for a short tap; absent, the tap shows the hint.
  * @return {object} The reactive state (`phase`, `hintVisible`, `staticFill`) and the event handlers.
  */
-export function useHoldPress({ holdMs, disabled, busy, onConfirm }) {
+export function useHoldPress({ holdMs, disabled, busy, onConfirm, onTap = null }) {
 	const phase = ref('idle')
 	const hintVisible = ref(false)
 	const staticFill = ref(false)
@@ -45,6 +47,11 @@ export function useHoldPress({ holdMs, disabled, busy, onConfirm }) {
 	let settleTimer = null
 	let origin = null
 	let releaseHandled = false
+	// A pointer tap acts on the click that follows its release, never on
+	// the release itself: on a touch screen that click is hit-tested when
+	// it is dispatched, so a dialog opened on pointerup would receive it
+	// (a ghost click on whatever lies under the finger).
+	let tapOnClick = false
 
 	const blocked = () => toValue(disabled) || toValue(busy)
 
@@ -87,13 +94,25 @@ export function useHoldPress({ holdMs, disabled, busy, onConfirm }) {
 		}
 	}
 
-	// Released before the hold completed: explain instead of doing nothing.
-	function release() {
+	// A short tap: the caller's action where it has one, else the hint
+	// that explains the gesture.
+	function tap() {
+		if (onTap) {
+			onTap()
+		} else {
+			showHint()
+		}
+	}
+
+	// Released before the hold completed.
+	function release(byPointer) {
 		const wasHolding = phase.value === 'holding'
 		abort()
 		settle()
-		if (wasHolding) {
-			showHint()
+		if (wasHolding && byPointer && onTap) {
+			tapOnClick = true
+		} else if (wasHolding) {
+			tap()
 		}
 		// The native click that follows this release is already handled.
 		releaseHandled = true
@@ -115,6 +134,7 @@ export function useHoldPress({ holdMs, disabled, busy, onConfirm }) {
 			return
 		}
 		releaseHandled = false
+		tapOnClick = false
 		origin = { x: event.clientX ?? 0, y: event.clientY ?? 0 }
 		start()
 	}
@@ -131,7 +151,7 @@ export function useHoldPress({ holdMs, disabled, busy, onConfirm }) {
 	}
 
 	function onPointerUp() {
-		release()
+		release(true)
 	}
 
 	function onKeyDown(event) {
@@ -152,18 +172,21 @@ export function useHoldPress({ holdMs, disabled, busy, onConfirm }) {
 			return
 		}
 		event.preventDefault()
-		release()
+		release(false)
 	}
 
 	// A click without a tracked press (e.g. an assistive-technology
-	// activation) never confirms; it explains the gesture instead.
+	// activation) never confirms: it is a tap.
 	function onClick() {
-		if (releaseHandled) {
+		const pointerTap = tapOnClick
+		tapOnClick = false
+		if (releaseHandled && !pointerTap) {
 			releaseHandled = false
 			return
 		}
+		releaseHandled = false
 		if (!blocked()) {
-			showHint()
+			tap()
 		}
 	}
 

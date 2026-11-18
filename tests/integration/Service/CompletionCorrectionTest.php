@@ -316,8 +316,8 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 	/**
 	 * Attribute_ByParticipantWithoutAuthority_Forbidden
 	 *
-	 * Participation alone is no correction authority (§3.4): the member
-	 * took part in the work but is neither the completer nor an owner.
+	 * Changing the people is the owner's alone (ADR-021 decision 9,
+	 * D-091-23): the member took part in the work but is not an owner.
 	 */
 	public function testAttribute_ByParticipantWithoutAuthority_Forbidden(): void {
 		$f = $this->seedSplitFixture();
@@ -337,9 +337,9 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 				[['userId' => 'cc_member', 'sharePct' => 100]],
 				true, null
 			);
-			self::fail('a participant without correction authority must be rejected');
+			self::fail('changing the people is the owner\'s alone (D-091-23)');
 		} catch (ForbiddenException $e) {
-			self::assertStringContainsString('Only the completer or a house owner', $e->getMessage());
+			self::assertStringContainsString('Only a house owner can change who did the work', $e->getMessage());
 		}
 
 		self::assertSame(1500, $this->bookedMinor($f['houseId'], 'cc_owner'));
@@ -357,21 +357,19 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 		$f = $this->seedSplitFixture();
 		$service = \OC::$server->get(CompletionService::class);
 
-		// The member completes their own work (explicit self-participation,
-		// Q-074-02 — the task is assigned to the owner).
+		// The member records their own work on a task assigned to the owner.
 		$this->completeOccurrenceWithParticipants(
 			$service, $f['houseId'], 'cc_member', $f['roomTaskId'],
 			[['userId' => 'cc_member', 'sharePct' => 100]]
 		);
 		$completion = $this->completionRow($f['roomTaskId']);
 
-		// ...attributes their own completion (audit actor = the member)...
+		// ...re-dates their own latest entry (audit actor = the member)...
 		$member = $this->houseUser($f['houseId'], 'cc_member');
-		$service->attribute(
+		$service->changeDate(
 			$f['houseId'], $member, (int)$completion['id'], $this->uuid(),
 			(int)$completion['completion_version'],
-			[['userId' => 'cc_member', 'sharePct' => 100]],
-			true, 'wrong_split'
+			(new \DateTime('-1 day', new \DateTimeZone('UTC')))->format('Y-m-d')
 		);
 
 		// ...then departs. The audit actor id dangles.
@@ -496,8 +494,18 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 		}
 	}
 
-	/** @dataProvider correctionCommands */
-	public function testCorrection_ReplayAfterVisibilityRevocation_IsNotFound(bool $attribution): void {
+	/**
+	 * The corrections a member who is not the owner can make: the deletion
+	 * and the date of their own latest entry (D-091-23).
+	 *
+	 * @return array<string, array{bool}>
+	 */
+	public static function memberCorrections(): array {
+		return ['undo' => [false], 'date' => [true]];
+	}
+
+	/** @dataProvider memberCorrections */
+	public function testCorrection_ReplayAfterVisibilityRevocation_IsNotFound(bool $date): void {
 		$f = $this->seedSplitFixture();
 		$service = \OC::$server->get(CompletionService::class);
 		$this->completeOccurrenceWithParticipants(
@@ -507,8 +515,9 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 		$member = $this->houseUser($f['houseId'], 'cc_member');
 		$id = (int)$this->completionRow($f['roomTaskId'])['id'];
 		$uuid = $this->uuid();
-		if ($attribution) {
-			$service->attribute($f['houseId'], $member, $id, $uuid, 0, [['userId' => 'cc_member', 'sharePct' => 100]], true, null);
+		$day = (new \DateTime('-1 day', new \DateTimeZone('UTC')))->format('Y-m-d');
+		if ($date) {
+			$service->changeDate($f['houseId'], $member, $id, $uuid, 0, $day);
 		} else {
 			$service->undo($f['houseId'], $member, $id, $uuid, 0, null);
 		}
@@ -519,8 +528,8 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 		$taskMapper->update($task);
 
 		$this->expectException(NotFoundException::class);
-		if ($attribution) {
-			$service->attribute($f['houseId'], $member, $id, $uuid, 0, [['userId' => 'cc_member', 'sharePct' => 100]], true, null);
+		if ($date) {
+			$service->changeDate($f['houseId'], $member, $id, $uuid, 0, $day);
 		} else {
 			$service->undo($f['houseId'], $member, $id, $uuid, 0, null);
 		}

@@ -11,7 +11,7 @@ import TaskListDetails from '../../../src/components/Tasks/TaskListDetails.vue'
 import { useUserStore } from '../../../src/store/user.js'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
 import { useRoomsStore } from '../../../src/store/rooms.js'
-import { confirmHold } from '../helpers/hold.js'
+import { confirmHold, tapHold } from '../helpers/hold.js'
 
 jest.mock('@nextcloud/dialogs', () => ({
 	showSuccess: jest.fn(),
@@ -50,6 +50,55 @@ const task = (over = {}) => ({
 	flexDays: 0,
 	visibilityType: 'public',
 	...over,
+})
+
+describe('TaskListItem completion gestures (CS-PLAN-091 WP-B2)', () => {
+	beforeEach(() => {
+		setActivePinia(createPinia())
+		useUserStore().houseUsers = [{ nextcloudUserId: 'mom', displayName: 'Mom' }, { nextcloudUserId: 'kid', displayName: 'Kid' }]
+	})
+
+	const mountRow = () => mount(TaskListItem, {
+		props: { item: { roomTask: roomTask({ assignees: ['kid'] }), task: task() } },
+		global: { stubs: { CsIcon: true, CompletionPicker: { name: 'CompletionPicker', props: ['roomTaskId', 'taskId', 'assignees'], template: '<div data-testid="picker-stub" />' } } },
+	})
+
+	it('holding completes the row at once, whoever it belongs to', async () => {
+		const wrapper = mountRow()
+
+		await confirmHold(wrapper, '[data-testid="complete-task-button"]')
+
+		expect(wrapper.emitted('complete')).toEqual([[42]])
+		expect(wrapper.find('[data-testid="picker-stub"]').exists()).toBe(false)
+	})
+
+	it('a short tap opens the picker for the row, and its split completes it', async () => {
+		const wrapper = mountRow()
+
+		await tapHold(wrapper, '[data-testid="complete-task-button"]')
+
+		expect(wrapper.emitted('complete')).toBeUndefined()
+		const picker = wrapper.findComponent({ name: 'CompletionPicker' })
+		expect(picker.props()).toEqual({ roomTaskId: 42, taskId: 7, assignees: ['kid'] })
+
+		const split = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
+		picker.vm.$emit('confirm', split)
+		await flushPromises()
+
+		expect(wrapper.emitted('complete')).toEqual([[42, split]])
+		expect(wrapper.findComponent({ name: 'CompletionPicker' }).exists()).toBe(false)
+	})
+
+	it('closing the picker completes nothing', async () => {
+		const wrapper = mountRow()
+		await tapHold(wrapper, '[data-testid="complete-task-button"]')
+
+		wrapper.findComponent({ name: 'CompletionPicker' }).vm.$emit('close')
+		await flushPromises()
+
+		expect(wrapper.emitted('complete')).toBeUndefined()
+		expect(wrapper.findComponent({ name: 'CompletionPicker' }).exists()).toBe(false)
+	})
 })
 
 describe('TaskListItem row facts (FEAT-UX-047)', () => {

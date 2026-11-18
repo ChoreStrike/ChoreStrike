@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\BackgroundJob;
 
-use OCA\ChoreStrike\Service\CycleService;
+use OCA\ChoreStrike\Service\CycleAdvanceService;
 use OCA\ChoreStrike\Service\MedalService;
 use OCA\ChoreStrike\Service\RhythmService;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -22,7 +22,7 @@ use OCP\BackgroundJob\TimedJob;
  * only writes what the passing of time decides — it records fixed cycles
  * that stopped being current as missed, exactly once, and repairs the
  * `next_due` projection where the current cycle moved on
- * ({@see CycleService::advanceForJobs()}). Runs at five-minute intervals;
+ * ({@see CycleAdvanceService::advanceForJobs()}). Runs at five-minute intervals;
  * a late or missed run catches up from the rule, because every missed
  * cycle follows from the rule and the valid completions alone.
  *
@@ -32,13 +32,13 @@ use OCP\BackgroundJob\TimedJob;
  * receipt once, including when nobody completes work at the deadline.
  */
 class TimelineJob extends TimedJob {
-	private CycleService $cycleService;
+	private CycleAdvanceService $cycleService;
 	private RhythmService $rhythmService;
 	private MedalService $medalService;
 
 	public function __construct(
 		ITimeFactory $time,
-		CycleService $cycleService,
+		CycleAdvanceService $cycleService,
 		RhythmService $rhythmService,
 		MedalService $medalService,
 	) {

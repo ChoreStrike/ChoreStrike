@@ -105,14 +105,45 @@ class CycleProgressMapper extends QBMapper {
 	}
 
 	/**
+	 * Tick every given item of one cycle that is not ticked yet. The caller
+	 * holds the room-task lock, which every tick takes as well, so no row
+	 * can appear in between.
+	 *
+	 * @param int[] $checklistItemIds
+	 */
+	public function checkAll(int $roomTaskId, string $cycleKey, array $checklistItemIds, ?int $userId): void {
+		$existing = [];
+		foreach ($this->findByCycle($roomTaskId, $cycleKey) as $row) {
+			$existing[$row->getChecklistItemId()] = $row;
+		}
+		foreach ($checklistItemIds as $itemId) {
+			$row = $existing[$itemId] ?? null;
+			if ($row !== null) {
+				if (!$row->getIsChecked()) {
+					$this->update($this->flip($row, $userId));
+				}
+				continue;
+			}
+			$row = new CycleProgress();
+			$row->setRoomTaskId($roomTaskId);
+			$row->setCycleKey($cycleKey);
+			$row->setChecklistItemId($itemId);
+			$row->setIsChecked(true);
+			$row->setCheckedAt(new \DateTime());
+			$row->setCheckedByUserId($userId);
+			$row->setRevision(1);
+			$this->insert($row);
+		}
+	}
+
+	/**
+	 * The stats of the ticks a caller already holds.
+	 *
+	 * @param CycleProgress[] $rows The ticks of one cycle
 	 * @return array{total: int, checked: int, unchecked: int, percentage: float|int}
 	 */
-	public function progressStats(int $roomTaskId, string $cycleKey, int $itemCount): array {
-		$checked = count(array_filter(
-			$this->findByCycle($roomTaskId, $cycleKey),
-			static fn (CycleProgress $row): bool => $row->getIsChecked()
-		));
-		$checked = min($checked, $itemCount);
+	public static function statsOf(array $rows, int $itemCount): array {
+		$checked = min($itemCount, count(array_filter($rows, static fn (CycleProgress $row): bool => $row->getIsChecked())));
 		return [
 			'total' => $itemCount,
 			'checked' => $checked,

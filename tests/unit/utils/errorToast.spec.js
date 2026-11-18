@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach } from '@jest/globals'
 import { showError } from '@nextcloud/dialogs'
-import { errorReference, refusalReason, showCompletionError, showErrorWithReference } from '@/utils/errorToast.js'
+import { errorReference, refusalReason, showCompletionError, showErrorWithReference, showHistoryError, showPostponeError } from '@/utils/errorToast.js'
 import { ApiError } from '@/services/api.js'
 
 describe('errorToast (CS-PLAN-084 WP-F)', () => {
@@ -80,5 +80,33 @@ describe('errorToast (CS-PLAN-084 WP-F)', () => {
 		showCompletionError(new ApiError('Conflict', 409, {}, 'CONFLICT'))
 
 		expect(showError).toHaveBeenCalledWith('Could not complete the task (CONFLICT)')
+	})
+
+	it.each([
+		['NOT_POSTPONABLE', 'This task cannot be postponed any further'],
+		['WINDOW_ENDED', 'An overdue task cannot be postponed'],
+		['STALE_TARGET', 'The task changed since it was displayed. Reload and try again.'],
+	])('explains a refused postponement: %s', (code, message) => {
+		showPostponeError(Object.assign(new Error('server text'), { status: 409, code }))
+
+		expect(showError).toHaveBeenCalledWith(message)
+	})
+
+	it('shows the referenced failure for any other postponement error', () => {
+		showPostponeError(new ApiError('Boom', 500, {}, 'POSTPONE_TASK_ERROR'))
+
+		expect(showError).toHaveBeenCalledWith('Could not postpone the task (POSTPONE_TASK_ERROR)')
+	})
+
+	it.each(['VALIDATION_ERROR', 'FORBIDDEN', 'CONFLICT'])('shows the reason of a refused date change as plain text: %s', (code) => {
+		showHistoryError(Object.assign(new Error('The date <b>cannot</b> be in the future'), { status: 400, code }))
+
+		expect(showError).toHaveBeenCalledWith('The date <b>cannot</b> be in the future', { isHTML: false })
+	})
+
+	it('shows the referenced failure for any other date change error', () => {
+		showHistoryError(new ApiError('Boom', 500, {}, 'COMPLETION_DATE_ERROR'))
+
+		expect(showError).toHaveBeenCalledWith('Could not change the date (COMPLETION_DATE_ERROR)')
 	})
 })

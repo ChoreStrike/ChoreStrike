@@ -79,14 +79,15 @@ class RoomTaskReadService {
 	 * @param RoomTask[] $roomTasks
 	 * @param array<int, Task>|null $tasksById Definitions the caller already loaded
 	 * @param \DateTimeInterface|null $now The instant to derive for (default: now)
+	 * @param \DateTimeZone|null $tz The house zone the caller already resolved
 	 * @return array<int, array{cycle: ?CurrentCycle, block: ?array<string, mixed>}> By room task id
 	 */
-	public function cycleFacts(int $houseId, array $roomTasks, ?array $tasksById = null, ?\DateTimeInterface $now = null): array {
+	public function cycleFacts(int $houseId, array $roomTasks, ?array $tasksById = null, ?\DateTimeInterface $now = null, ?\DateTimeZone $tz = null): array {
 		if ($roomTasks === []) {
 			return [];
 		}
 		$now ??= new \DateTime();
-		$tz = $this->timeZoneForHouse($houseId);
+		$tz ??= $this->timeZoneForHouse($houseId);
 		$today = WindowService::todayKey($now, $tz);
 		$tasksById ??= $this->tasksByIdForRoomTasks($roomTasks);
 		$histories = $this->windows->historiesFor(array_map(static fn (RoomTask $roomTask): int => (int)$roomTask->getId(), $roomTasks));
@@ -251,18 +252,16 @@ class RoomTaskReadService {
 	 * An empty set short-circuits — no enrichment query at all.
 	 *
 	 * @param RoomTask[] $roomTasks
+	 * @param array<int, Task>|null $tasksById Out: the definitions read for the decision, for a caller that derives the cycles next
 	 * @return RoomTask[] Visible room tasks, input order
 	 */
-	public function visibleRoomTasks(array $roomTasks, HouseUser $viewer): array {
+	public function visibleRoomTasks(array $roomTasks, HouseUser $viewer, ?array &$tasksById = null): array {
+		$tasksById = $roomTasks === [] ? [] : $this->tasksByIdForRoomTasks($roomTasks);
 		if ($roomTasks === []) {
 			return [];
 		}
 
-		return $this->taskAccessPolicy->filterVisibleRoomTasks(
-			$roomTasks,
-			$this->tasksByIdForRoomTasks($roomTasks),
-			$viewer
-		);
+		return $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $tasksById, $viewer);
 	}
 
 	/**
@@ -370,9 +369,9 @@ class RoomTaskReadService {
 	 *
 	 * @return RoomTask[] Visible room tasks, deterministic `next_due, created_at, id` order
 	 */
-	public function getHouseRoomTasks(int $houseId, HouseUser $viewer, bool $activeOnly = true): array {
+	public function getHouseRoomTasks(int $houseId, HouseUser $viewer, bool $activeOnly = true, ?array &$tasksById = null): array {
 		$roomTasks = $this->roomTaskMapper->findByHouse($houseId, $activeOnly);
-		return $this->visibleRoomTasks($roomTasks, $viewer);
+		return $this->visibleRoomTasks($roomTasks, $viewer, $tasksById);
 	}
 
 	/**
@@ -381,9 +380,9 @@ class RoomTaskReadService {
 	 *
 	 * @return RoomTask[] Visible room tasks
 	 */
-	public function getRoomTasks(int $roomId, HouseUser $viewer, bool $activeOnly = true): array {
+	public function getRoomTasks(int $roomId, HouseUser $viewer, bool $activeOnly = true, ?array &$tasksById = null): array {
 		$roomTasks = $this->roomTaskMapper->findByRoomId($roomId, $activeOnly);
-		return $this->visibleRoomTasks($roomTasks, $viewer);
+		return $this->visibleRoomTasks($roomTasks, $viewer, $tasksById);
 	}
 
 	/**
@@ -397,7 +396,8 @@ class RoomTaskReadService {
 	 *
 	 * @return RoomTask[] Scope tasks belonging to the house and visible to the viewer (original order)
 	 */
-	public function getScopeTasksScopedToHouse(int $scopeId, int $houseId, HouseUser $viewer, bool $activeOnly = true): array {
+	public function getScopeTasksScopedToHouse(int $scopeId, int $houseId, HouseUser $viewer, bool $activeOnly = true, ?array &$tasksById = null): array {
+		$tasksById = [];
 		$roomTasks = $this->roomTaskMapper->findByScopeId($scopeId, $activeOnly);
 		if ($roomTasks === []) {
 			return [];
@@ -415,7 +415,7 @@ class RoomTaskReadService {
 			static fn (RoomTask $roomTask): bool => isset($scopedIds[$roomTask->getId()])
 		));
 
-		return $this->visibleRoomTasks($inHouse, $viewer);
+		return $this->visibleRoomTasks($inHouse, $viewer, $tasksById);
 	}
 
 	/**

@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CycleProgressMapper;
+use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -144,16 +145,16 @@ class ChecklistService {
 
 	/**
 	 * Resolve a room task in the caller's house (ownership chain + task
-	 * guard) and return it.
+	 * guard) and return it with its definition.
 	 *
+	 * @return array{0: RoomTask, 1: Task}
 	 * @throws NotFoundException if the room task or its task is not accessible
 	 */
-	private function assertRoomTaskAccessible(int $roomTaskId, int $houseId, HouseUser $viewer): RoomTask {
+	private function assertRoomTaskAccessible(int $roomTaskId, int $houseId, HouseUser $viewer): array {
 		$this->roomTaskService->validateRoomTaskOwnership($roomTaskId, $houseId);
 		$roomTask = $this->roomTaskService->getRoomTask($roomTaskId);
-		$this->assertTaskAccessible($roomTask->getTaskId(), $houseId, $viewer);
 
-		return $roomTask;
+		return [$roomTask, $this->assertTaskAccessible($roomTask->getTaskId(), $houseId, $viewer)];
 	}
 
 	/**
@@ -316,17 +317,18 @@ class ChecklistService {
 	 * @return array{items: array, stats: array, cycle: ?array}
 	 */
 	public function getRoomTaskProgress(int $roomTaskId, ?string $cycleKey, int $houseId, HouseUser $viewer): array {
-		$roomTask = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
+		[$roomTask, $task] = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
 		$itemCount = count($this->checklistItemMapper->findByTaskId($roomTask->getTaskId()));
 
-		$cycle = $this->currentCycle($roomTask, $houseId);
+		$cycle = $this->currentCycle($roomTask, $task, $this->houseMapper->find($houseId));
 		if ($cycle === null || ($cycleKey !== null && $cycleKey !== '' && $cycleKey !== $cycle->key)) {
 			return ['items' => [], 'stats' => $this->emptyStats($itemCount), 'cycle' => null];
 		}
 
+		$rows = $this->progressMapper->findByCycle($roomTaskId, $cycle->key);
 		return [
-			'items' => $this->progressMapper->findByCycle($roomTaskId, $cycle->key),
-			'stats' => $this->progressMapper->progressStats($roomTaskId, $cycle->key, $itemCount),
+			'items' => $rows,
+			'stats' => CycleProgressMapper::statsOf($rows, $itemCount),
 			'cycle' => ['cycleKey' => $cycle->key, 'windowStartOn' => $cycle->startOn, 'windowEndOn' => $cycle->endOn],
 		];
 	}
@@ -349,26 +351,24 @@ class ChecklistService {
 	 * @return array{progress: \OCA\ChoreStrike\Db\CycleProgress, stats: array, cycle: array}
 	 */
 	public function toggleItem(int $roomTaskId, ?string $cycleKey, int $itemId, ?int $expectedRevision, int $houseId, HouseUser $viewer): array {
-		$roomTask = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
+		[$roomTask] = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
 		$this->assertItemBelongsToTask($itemId, $roomTask->getTaskId());
 		$itemCount = count($this->checklistItemMapper->findByTaskId($roomTask->getTaskId()));
 
 		return $this->transactions->run(function () use ($roomTask, $cycleKey, $itemId, $expectedRevision, $houseId, $viewer, $itemCount) {
-			// FIRST locks of the documented order: house → room_task.
-			$this->houseMapper->findForUpdate($houseId);
+			// FIRST locks of the documented order: house → room_task. The
+			// definition is read under them: its rule decides the cycle.
+			$house = $this->houseMapper->findForUpdate($houseId);
 			$locked = $this->roomTaskMapper->lockForUpdate($roomTask->getId());
 
-			$cycle = $this->currentCycle($locked, $houseId);
+			$cycle = $this->currentCycle($locked, $this->taskMapper->find($locked->getTaskId()), $house);
 			if ($cycle === null) {
 				throw new NotFoundException($this->l10n->t('Room task not found'));
 			}
+			$rows = $this->progressMapper->findByCycle((int)$locked->getId(), $cycle->key);
 			$stale = $cycleKey !== null && $cycleKey !== '' && $cycleKey !== $cycle->key;
 			if (!$stale && $expectedRevision !== null) {
-				$maxRevision = 0;
-				foreach ($this->progressMapper->findByCycle((int)$locked->getId(), $cycle->key) as $row) {
-					$maxRevision = max($maxRevision, $row->getRevision());
-				}
-				$stale = $maxRevision !== $expectedRevision;
+				$stale = max([0, ...array_map(static fn ($row): int => $row->getRevision(), $rows)]) !== $expectedRevision;
 			}
 			if ($stale) {
 				throw new StaleTargetException(
@@ -376,22 +376,34 @@ class ChecklistService {
 				);
 			}
 
+			$progress = $this->progressMapper->toggleLocked((int)$locked->getId(), $cycle->key, $itemId, $viewer->getId());
+			$others = array_filter($rows, static fn ($row): bool => $row->getChecklistItemId() !== $itemId);
 			return [
-				'progress' => $this->progressMapper->toggleLocked((int)$locked->getId(), $cycle->key, $itemId, $viewer->getId()),
-				'stats' => $this->progressMapper->progressStats((int)$locked->getId(), $cycle->key, $itemCount),
+				'progress' => $progress,
+				'stats' => CycleProgressMapper::statsOf([...$others, $progress], $itemCount),
 				'cycle' => ['cycleKey' => $cycle->key, 'windowStartOn' => $cycle->startOn, 'windowEndOn' => $cycle->endOn],
 			];
 		});
 	}
 
-	/** The cycle ticks belong to: the current one of the room task (write-free). */
-	private function currentCycle(RoomTask $roomTask, int $houseId): ?CurrentCycle {
-		return $this->cycleService->currentFor(
-			$roomTask,
-			$this->taskMapper->find($roomTask->getTaskId()),
-			$this->calendarService->getTimeZone($this->houseMapper->find($houseId)),
-			new \DateTime()
+	/**
+	 * A completion closes its cycle UNDER LOCK (ADR-021 decision 4): every
+	 * sub-task of the cycle is done with it, in the completion's own
+	 * transaction. Ticks that were already set keep who set them.
+	 */
+	public function markCycleDoneUnderLock(int $roomTaskId, int $taskId, string $cycleKey, ?int $houseUserId): void {
+		$itemIds = array_map(
+			static fn (TaskChecklistItem $item): int => (int)$item->getId(),
+			$this->checklistItemMapper->findByTaskId($taskId)
 		);
+		if ($itemIds !== []) {
+			$this->progressMapper->checkAll($roomTaskId, $cycleKey, $itemIds, $houseUserId);
+		}
+	}
+
+	/** The cycle ticks belong to: the current one of the room task (write-free). */
+	private function currentCycle(RoomTask $roomTask, Task $task, House $house): ?CurrentCycle {
+		return $this->cycleService->currentFor($roomTask, $task, $this->calendarService->getTimeZone($house), new \DateTime());
 	}
 
 	/**

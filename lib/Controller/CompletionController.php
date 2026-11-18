@@ -27,11 +27,11 @@ use OCP\IRequest;
  * `GET /completions/{id}` returns the versioned original work, the
  * selected allocation and the authorized correction history with
  * `canCorrect` — no foreign wallet totals, no raw audit snapshots; GET is
- * write-free. `POST /completions/{id}/undo` and
- * `PUT /completions/{id}/attribution` are CommandService receipts
- * targeting the EXACT completion id (older completions of a recurring task
- * included); an already-undone target is a stable no-op, a stale live
- * target conflicts (409). All routes are authenticated, CSRF-protected
+ * write-free. `POST /completions/{id}/undo`,
+ * `PUT /completions/{id}/attribution` and `PUT /completions/{id}/date`
+ * are CommandService receipts targeting the EXACT completion id (older
+ * completions of a recurring task included); an already-undone target is
+ * a stable no-op of the undo, a stale live target conflicts (409). All routes are authenticated, CSRF-protected
  * `@NoAdminRequired` with the shared envelope/error formatter.
  */
 class CompletionController extends Controller {
@@ -89,7 +89,8 @@ class CompletionController extends Controller {
 	}
 
 	/**
-	 * Undo one exact completion (completer or current authorized owner).
+	 * Undo one exact completion: the owner any entry, every other member only
+	 * their own latest valid entry of the task (ADR-021 decision 9).
 	 *
 	 * @NoAdminRequired
 	 */
@@ -199,6 +200,55 @@ class CompletionController extends Controller {
 				'success' => false,
 				'error' => ['code' => 'COMPLETION_ATTRIBUTE_ERROR', 'message' => ControllerErrorFormatter::safeMessage($e)],
 			], 500);
+		}
+	}
+
+	/**
+	 * Correct the day one completion was done on (ADR-021 decision 9).
+	 * Closed payload: the receipt identity and the house-local `date`.
+	 *
+	 * @NoAdminRequired
+	 */
+	public function changeDate(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$houseUser = $this->authService->assertHouseMember($house->getId());
+
+			$payload = $this->validateCorrectionPayload(['commandId', 'expectedVersion', 'date']);
+			if ($payload instanceof JSONResponse) {
+				return $payload;
+			}
+			$date = $this->request->getParam('date');
+			$parts = is_string($date) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $date, $m) === 1 ? $m : null;
+			if ($parts === null || !checkdate((int)$parts[2], (int)$parts[3], (int)$parts[1])) {
+				throw new \InvalidArgumentException($this->l->t('A valid date (Y-m-d) is required'));
+			}
+
+			$houseId = (int)$house->getId();
+			$result = $this->completionService->changeDate(
+				$houseId, $houseUser, $id, $payload['commandId'], $payload['expectedVersion'], $date
+			);
+			$result['roomTask'] = $this->roomTaskReadService->roomTaskPayload(
+				$result['roomTask'],
+				$this->roomTaskReadService->timeZoneForHouse($houseId),
+				$result['cycle'] ?? null
+			);
+
+			return new JSONResponse(['success' => true, 'data' => $result]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (ConflictException $e) {
+			return ControllerErrorFormatter::conflictResponse($e);
+		} catch (\InvalidArgumentException $e) {
+			// Curated refusals only: the date shape above and the day rule of
+			// CompletionDateCorrection, translated and without client input.
+			return ControllerErrorFormatter::validation($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('changeDate', $e, ['completionId' => $id]);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'COMPLETION_DATE_ERROR');
 		}
 	}
 

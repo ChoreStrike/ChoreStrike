@@ -104,17 +104,19 @@ class MedalService {
 			}
 		}
 
-		$progress = $this->weeklyGoalService->getWeeklyGoalProgress($houseId);
+		// One pass for every week below: the open work is read once.
+		$pass = $this->weeklyGoalService->beginPass($this->houseMapper->find($houseId));
+		$progress = $this->weeklyGoalService->getWeeklyGoalProgress($houseId, $pass);
 		$weekKey = $progress['weekKey'];
 		$previousKey = (new \DateTime($weekKey))->modify('-7 days')->format('Y-m-d');
 		$weeks = [
 			$weekKey => $progress,
-			$previousKey => $this->weeklyGoalService->getWeeklyGoalProgressForWeek($houseId, $previousKey, $now),
+			$previousKey => $this->weeklyGoalService->getWeeklyGoalProgressForWeek($houseId, $previousKey, $now, $pass),
 		];
 		foreach ($existing as $awards) {
 			foreach ($awards as $award) {
 				if ($award->getMedalType() === 'weekly_milestone' && !isset($weeks[$award->getWeekStart()])) {
-					$weeks[$award->getWeekStart()] = $this->weeklyGoalService->getWeeklyGoalProgressForWeek($houseId, $award->getWeekStart(), $now);
+					$weeks[$award->getWeekStart()] = $this->weeklyGoalService->getWeeklyGoalProgressForWeek($houseId, $award->getWeekStart(), $now, $pass);
 				}
 			}
 		}
@@ -143,7 +145,11 @@ class MedalService {
 
 	public function reconcileClosedWeeksForHouse(int $houseId, \DateTime $now): void {
 		$house = $this->houseMapper->find($houseId);
-		$before = $this->weeklyGoalService->progressForWeek($house, $now)['weekKey'];
+		$before = $this->weeklyGoalService->weekKey($house, $now);
+		// The scan evaluates every closed week since the cutover: its open
+		// inputs are read once (RF-091-03). A week that needs its claim is
+		// evaluated again under the house lock, without the pass.
+		$pass = $this->weeklyGoalService->beginPass($house);
 		// D-091-04: a week that closed before the house's first day of
 		// derived windows keeps what it earned and is not evaluated again.
 		$cyclesFrom = $house->getCyclesFrom()?->format('Y-m-d');
@@ -155,7 +161,7 @@ class MedalService {
 			$weeks = $this->weeklyGoalReceiptMapper->plannedWeeksPage($houseId, $before, $after, 50, $from);
 			$claimed = $this->weeklyGoalReceiptMapper->claimedWeeks($houseId, $weeks);
 			foreach ($weeks as $key) {
-				$progress = $this->weeklyGoalService->progressForPlannedWeek($house, $key, $now);
+				$progress = $this->weeklyGoalService->progressForPlannedWeek($house, $key, $now, $pass);
 				if ($progress['provisional']) {
 					continue;
 				}
@@ -260,6 +266,7 @@ class MedalService {
 
 		$medals = [];
 		$weeks = [];
+		$pass = null;
 		foreach ($users as $user) {
 			foreach ($medalsByUserId[$user->getId()] ?? [] as $medal) {
 				$type = $medal->getMedalType();
@@ -268,7 +275,10 @@ class MedalService {
 					$value = $user->getLongestStreak() >= self::RHYTHM_TIERS[$type] ? self::RHYTHM_TIERS[$type] : 0;
 				} elseif ($type === 'weekly_milestone') {
 					$key = $medal->getWeekStart();
-					$weeks[$key] ??= $this->weeklyGoalService->getWeeklyGoalProgressForWeek($houseId, $key, new \DateTime());
+					if (!isset($weeks[$key])) {
+						$pass ??= $this->weeklyGoalService->beginPass($this->houseMapper->find($houseId));
+						$weeks[$key] = $this->weeklyGoalService->getWeeklyGoalProgressForWeek($houseId, $key, new \DateTime(), $pass);
+					}
 					$value = $this->wasMemberBeforeWeekEnd($user, $weeks[$key]) ? $weeks[$key]['percent'] : 0;
 				}
 				if ($value <= 0) {

@@ -103,7 +103,7 @@
 					:key="item.roomTask.id"
 					:item="item"
 					variant="overdue"
-					@complete="complete($event, 'overdue')" />
+					@complete="(row, split) => complete(row, 'overdue', split)" />
 			</section>
 
 			<section v-if="!isEmpty" class="today-section">
@@ -122,7 +122,7 @@
 					v-for="item in sections.due"
 					:key="item.roomTask.id"
 					:item="item"
-					@complete="complete($event, 'due')" />
+					@complete="(row, split) => complete(row, 'due', split)" />
 			</section>
 
 			<!-- BUG-UX-005: work whose flex window is open although it is
@@ -143,7 +143,7 @@
 						:key="item.roomTask.id"
 						:item="item"
 						variant="possible"
-						@complete="complete($event, 'possible')" />
+						@complete="(row, split) => complete(row, 'possible', split)" />
 				</template>
 			</section>
 
@@ -156,13 +156,6 @@
 
 			<SetupWizardEntry :ready="structureRead" autoOpen @applied="load" />
 		</template>
-
-		<ParticipationDialog
-			v-if="participation"
-			:members="participationMembers"
-			:actorUserId="actorUserId"
-			@close="closeParticipation"
-			@confirm="confirmParticipation" />
 	</div>
 </template>
 
@@ -171,7 +164,6 @@ import { translate as t } from '@nextcloud/l10n'
 import ErrorState from '../components/Common/ErrorState.vue'
 import ExpandChevron from '../components/Common/ExpandChevron.vue'
 import Icon from '../components/Common/Icon.vue'
-import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
 import HelpEntry from '../components/Help/HelpEntry.vue'
 import SetupWizardEntry from '../components/Setup/SetupWizardEntry.vue'
 import TodayStatusLine from '../components/Today/TodayStatusLine.vue'
@@ -202,7 +194,6 @@ export default {
 		Icon,
 		ExpandChevron,
 		ErrorState,
-		ParticipationDialog,
 		HelpEntry,
 		SetupWizardEntry,
 		TodayStatusLine,
@@ -216,7 +207,7 @@ export default {
 		const gameStore = useGameStore()
 		const schedulingStore = useSchedulingStore()
 		const roomsStore = useRoomsStore()
-		const completion = useTaskCompletion({ roomTasksStore, userStore, view: 'TodayView' })
+		const completion = useTaskCompletion({ roomTasksStore, view: 'TodayView' })
 		return { roomTasksStore, roomsStore, houseStore, userStore, gameStore, schedulingStore, ...useHouseMemberNames(userStore), ...completion }
 	},
 
@@ -393,16 +384,14 @@ export default {
 		 * remember where it stands, so it can be held there.
 		 * @param {object} item The row.
 		 * @param {string} section The section showing it.
+		 * @param {?object} [split] The split of the row's picker.
 		 */
-		async complete(item, section) {
+		async complete(item, section, split = null) {
 			const id = item.roomTask.id
 			const stillHeld = Object.fromEntries(this.heldRows.map((entry) => [entry.item.roomTask.id, entry]))
 			const index = this.sections[section].findIndex((row) => row.roomTask.id === id)
 			this.held = { ...stillHeld, [id]: { section, index, item } }
-			await this.requestCompletion({
-				roomTaskId: id,
-				assignees: item.assignees ?? [],
-			})
+			await this.requestCompletion(id, split)
 		},
 	},
 }

@@ -102,7 +102,12 @@ class CalendarService {
 	 * The house-local `Y-m-d` day key of the given instant.
 	 */
 	public function dayKey(\DateTimeInterface $now, \DateTimeZone $timeZone): string {
-		return \DateTime::createFromInterface($now)->setTimezone($timeZone)->format('Y-m-d');
+		return self::dayKeyOf($now, $timeZone);
+	}
+
+	/** {@see dayKey()} for the pure derivations that hold no service. */
+	public static function dayKeyOf(\DateTimeInterface $instant, \DateTimeZone $timeZone): string {
+		return \DateTime::createFromInterface($instant)->setTimezone($timeZone)->format('Y-m-d');
 	}
 
 	/**

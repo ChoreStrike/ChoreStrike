@@ -9,7 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\BackgroundJob;
 
 use OCA\ChoreStrike\BackgroundJob\TimelineJob;
-use OCA\ChoreStrike\Service\CycleService;
+use OCA\ChoreStrike\Service\CycleAdvanceService;
 use OCA\ChoreStrike\Service\MedalService;
 use OCA\ChoreStrike\Service\RhythmService;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -18,7 +18,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * CS-PLAN-091 WP-B1: the timeline job is a thin delegate — it derives
  * "now" from the injected clock (never mutating the factory instance) and
- * hands the pass to the cycle service (missed cycles, projection), then
+ * hands the pass to the cycle advance service (missed cycles, projection), then
  * to the rhythm and the closed-week recognition. Nothing is materialized
  * and no pause effect is written any more.
  */
@@ -29,7 +29,7 @@ class TimelineJobTest extends TestCase {
 		$timeFactory->method('getDateTime')->willReturn($now);
 		$atNow = $this->callback(static fn (\DateTime $passed): bool => $passed->format('c') === '2026-09-20T14:12:00+00:00');
 
-		$cycles = $this->createMock(CycleService::class);
+		$cycles = $this->createMock(CycleAdvanceService::class);
 		$cycles->expects($this->once())->method('advanceForJobs')->with($atNow);
 		$rhythmService = $this->createMock(RhythmService::class);
 		$rhythmService->expects($this->once())->method('refreshForJobs')->with($atNow);
@@ -50,7 +50,7 @@ class TimelineJobTest extends TestCase {
 		$time = $this->createMock(ITimeFactory::class);
 		$time->expects($this->never())->method('getDateTime');
 		$order = [];
-		$cycles = $this->createMock(CycleService::class);
+		$cycles = $this->createMock(CycleAdvanceService::class);
 		$cycles->method('advanceForJobs')->willReturnCallback(static function () use (&$order): array {
 			$order[] = 'cycles';
 			return ['houses' => 1, 'tasks' => 0, 'missed' => 0];

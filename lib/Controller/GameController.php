@@ -84,14 +84,18 @@ class GameController extends Controller {
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			$gameState = $this->gameLogicService->getGameState($house->getId());
-			$gameState['weeklyGoal'] = $this->houseService->getWeeklyGoalProgress($house->getId());
+			// One pass for the three recognitions below: the open work and
+			// the absences are read once.
+			$now = new \DateTime();
+			$pass = $this->weeklyGoalService->beginPass($house);
+			$gameState['weeklyGoal'] = $this->weeklyGoalService->progressForWeek($house, $now, $pass);
 			$gameState['stateVersion'] = $house->getStateVersion();
 
-			$now = new \DateTime();
 			$evaluation = $this->rhythmService->evaluateForMembers(
 				(int)$house->getId(),
 				[$houseUser],
-				$now
+				$now,
+				$pass
 			)[(int)$houseUser->getId()] ?? ['currentStreak' => 0, 'longestStreak' => 0, 'pending' => false];
 			$gameState['rhythm'] = [
 				// C1f: the evaluation confirms only closed successful days —
@@ -102,7 +106,7 @@ class GameController extends Controller {
 				'best' => $evaluation['longestStreak'],
 				'pending' => $evaluation['pending'],
 			];
-			$gameState['myWeeklyGoal'] = $this->weeklyGoalService->progressForMember($house, $houseUser, $now);
+			$gameState['myWeeklyGoal'] = $this->weeklyGoalService->progressForMember($house, $houseUser, $now, $pass);
 
 			$wallet = $houseUser->getWalletId() !== null
 				? $this->walletMapper->findByHouseAndUser((int)$house->getId(), $houseUser->getNextcloudUserId())

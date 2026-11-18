@@ -8,7 +8,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\Task;
 
 /**
@@ -17,16 +16,16 @@ use OCA\ChoreStrike\Db\Task;
  * a changed rule, flex or bound applies to open work at once.
  */
 final class CycleRule {
-	private const WEEKDAY_ISO = [
-		'monday' => 1, 'tuesday' => 2, 'wednesday' => 3, 'thursday' => 4,
-		'friday' => 5, 'saturday' => 6, 'sunday' => 7,
-	];
+	/** Cadence units; the values of the stored schedule revisions, which this model no longer writes. */
+	public const UNIT_DAY = 'day';
+	public const UNIT_WEEK = 'week';
+	public const UNIT_MONTH = 'month';
 
 	/**
 	 * @param bool $fixed Fixed days (static) instead of after completion
 	 * @param bool $once One-time task: a single cycle on its first date
 	 * @param bool $bonus Bonus task: never due, no cycle (decision 8)
-	 * @param string $unit ScheduleRevision::UNIT_*
+	 * @param string $unit self::UNIT_*
 	 * @param list<int> $weekdays ISO weekdays 1–7 of a fixed weekly rule, ascending
 	 * @param int|null $monthDay Day 1–31 of a fixed monthly rule
 	 * @param string|null $activeFrom Inclusive house-local bound (`Y-m-d`)
@@ -50,12 +49,12 @@ final class CycleRule {
 	public static function fromTask(Task $task): self {
 		$type = (string)$task->getFrequencyType();
 		$unit = match ($type) {
-			'daily' => ScheduleRevision::UNIT_DAY,
-			'monthly' => ScheduleRevision::UNIT_MONTH,
-			default => ScheduleRevision::UNIT_WEEK,
+			'daily' => self::UNIT_DAY,
+			'monthly' => self::UNIT_MONTH,
+			default => self::UNIT_WEEK,
 		};
 		$fixed = $task->getSchedulingMode() === Task::SCHEDULING_STATIC;
-		$weekdays = $fixed && $unit === ScheduleRevision::UNIT_WEEK
+		$weekdays = $fixed && $unit === self::UNIT_WEEK
 			? self::isoWeekdays(FlexDaysPolicy::fixedWeekdays(Task::SCHEDULING_STATIC, $task->getFixedScheduleDays()))
 			: [];
 		$monthDay = $task->getFixedMonthDay();
@@ -82,9 +81,10 @@ final class CycleRule {
 	private static function isoWeekdays(array $names): array {
 		$days = [];
 		foreach ($names as $name) {
-			$iso = self::WEEKDAY_ISO[strtolower(trim($name))] ?? null;
-			if ($iso !== null) {
-				$days[$iso] = $iso;
+			// The canonical list starts on Monday, as ISO weekdays do.
+			$index = array_search(strtolower(trim($name)), TaskService::WEEKDAYS, true);
+			if ($index !== false) {
+				$days[$index + 1] = $index + 1;
 			}
 		}
 		sort($days);

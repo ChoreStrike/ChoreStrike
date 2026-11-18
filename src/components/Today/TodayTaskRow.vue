@@ -16,6 +16,8 @@
 				:data-testid="`today-complete-button-${id}`"
 				:aria-label="t('chorestrike', 'Mark “{name}” as done', { name: item.task.name })"
 				:title="t('chorestrike', 'Mark as done')"
+				tappable
+				@tap="picking = true"
 				@confirm="emit('complete', item)" />
 			<span v-else class="completed-check" :data-testid="`today-completed-check-${id}`">
 				<Icon name="CheckCircle" :size="22" />
@@ -65,6 +67,14 @@
 			:roomTaskId="id"
 			:taskId="item.task.id"
 			@toggle="toggleChecklistItem" />
+
+		<CompletionPicker
+			v-if="picking"
+			:roomTaskId="id"
+			:taskId="item.task.id"
+			:assignees="item.assignees ?? item.roomTask.assignees ?? []"
+			@close="picking = false"
+			@confirm="completeAs" />
 	</div>
 </template>
 
@@ -75,6 +85,7 @@ import { computed, ref, watch } from 'vue'
 import ExpandChevron from '../Common/ExpandChevron.vue'
 import HoldButton from '../Common/HoldButton.vue'
 import Icon from '../Common/Icon.vue'
+import CompletionPicker from '../Tasks/CompletionPicker.vue'
 import TaskChecklist from '../Tasks/TaskChecklist.vue'
 import TaskMeta from '../Tasks/TaskMeta.vue'
 import { useChecklistStore } from '../../store/checklist.js'
@@ -96,6 +107,10 @@ import { assignmentLabel, cycleOf, daysLabel, locationLabel, recurrenceLabel, ta
  * the Done button for as long as the store marks it, also when the task
  * recurs and stays active: the view keeps such a row in place for that
  * moment (D-090-30).
+ *
+ * Holding the button completes everything; a short tap opens the picker
+ * for who did it and which sub-tasks are done, and `complete` then
+ * carries its split (CS-PLAN-091 WP-B2).
  */
 const props = defineProps({
 	/** Enriched row `{ roomTask, task, room, assignees, cycle, … }`. */
@@ -113,6 +128,7 @@ const userStore = useUserStore()
 const houseStore = useHouseStore()
 
 const expanded = ref(false)
+const picking = ref(false)
 
 const id = computed(() => props.item.roomTask.id)
 const justCompleted = computed(() => roomTasksStore.wasJustCompleted(id.value))
@@ -192,6 +208,11 @@ async function toggleExpand() {
 		showError(t('chorestrike', 'Could not load the checklist'))
 		logger.error('Failed to load checklist', error, { component: 'TodayTaskRow', action: 'toggleExpand', roomTaskId: id.value })
 	}
+}
+
+function completeAs(split) {
+	picking.value = false
+	emit('complete', props.item, split)
 }
 
 async function toggleChecklistItem({ itemId, roomTaskId }) {

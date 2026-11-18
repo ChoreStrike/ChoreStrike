@@ -25,6 +25,7 @@ const {
 	useRoomsStore,
 	useRoomTasksStore,
 	useTasksStore,
+	useTaskCycleStore,
 	useChecklistStore,
 	useSchedulingStore,
 	useSetupStore,
@@ -41,6 +42,7 @@ const {
 	useRoomsStore: require('../../../src/store/rooms.js').useRoomsStore,
 	useRoomTasksStore: require('../../../src/store/roomTasks.js').useRoomTasksStore,
 	useTasksStore: require('../../../src/store/tasks.js').useTasksStore,
+	useTaskCycleStore: require('../../../src/store/taskCycle.js').useTaskCycleStore,
 	useChecklistStore: require('../../../src/store/checklist.js').useChecklistStore,
 	useSchedulingStore: require('../../../src/store/scheduling.js').useSchedulingStore,
 	useSetupStore: require('../../../src/store/setup.js').useSetupStore,
@@ -74,6 +76,7 @@ describe('useStoreReset composable', () => {
 		useRoomsStore().floors = [{ id: 1 }]
 		useRoomTasksStore().roomTasks = [{ id: 1 }]
 		useTasksStore().tasks = [{ id: 1 }]
+		useTaskCycleStore().histories = { 1: [{ id: 1 }] }
 		useChecklistStore().items = { 1: [{ id: 1 }] }
 		useSchedulingStore().memberAvailability = [{ userId: 'x' }]
 		useSetupStore().catalog = { levels: [] }
@@ -99,6 +102,7 @@ describe('useStoreReset composable', () => {
 		expect(useRoomsStore().floors).toEqual([])
 		expect(useRoomTasksStore().roomTasks).toEqual([])
 		expect(useTasksStore().tasks).toEqual([])
+		expect(useTaskCycleStore().histories).toEqual({})
 		expect(useChecklistStore().items).toEqual({})
 		expect(useSchedulingStore().memberAvailability).toEqual([])
 		expect(useSetupStore().catalog).toBeNull()

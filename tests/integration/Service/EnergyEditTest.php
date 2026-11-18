@@ -13,7 +13,7 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Service\CompletionService;
-use OCA\ChoreStrike\Service\CycleService;
+use OCA\ChoreStrike\Service\CycleAdvanceService;
 use OCA\ChoreStrike\Service\RecurrenceCalculator;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\TaskService;
@@ -155,7 +155,7 @@ class EnergyEditTest extends IntegrationTestCase {
 
 		// A later edit and a job pass find nothing to bring back.
 		$this->edit($f, ['energyCost' => 8]);
-		\OC::$server->get(CycleService::class)->advanceHouse(\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($f['houseId']), new \DateTime('+2 days'));
+		\OC::$server->get(CycleAdvanceService::class)->advanceHouse(\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($f['houseId']), new \DateTime('+2 days'));
 		self::assertFalse($this->isActive($f['roomTaskId']));
 		self::assertNull($this->block($f['roomTaskId']), 'the task never comes back');
 		self::assertCount(1, $this->rows('chorestrike_cycles', 'room_task_id', $f['roomTaskId']));

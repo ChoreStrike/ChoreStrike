@@ -38,6 +38,16 @@
 			@update="handleUpdateChecklistItem"
 			@delete="handleDeleteChecklistItem"
 			@reorder="handleReorderChecklistItems" />
+
+		<!-- CS-PLAN-091 WP-B3: every member postpones and reads the history;
+		     the corrections follow the rights the server grants. -->
+		<div v-if="item.roomTask.isActive" class="cycle-actions">
+			<PostponeButton
+				:roomTaskId="item.roomTask.id"
+				:cycle="item.roomTask.cycle"
+				:flexDays="item.task.flexDays ?? 0" />
+		</div>
+		<TaskHistory :roomTaskId="item.roomTask.id" />
 	</div>
 </template>
 
@@ -46,14 +56,17 @@ import { showError } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
 import HelpEntry from '../Help/HelpEntry.vue'
 import AssigneeChips from './AssigneeChips.vue'
+import PostponeButton from './PostponeButton.vue'
 import TaskChecklist from './TaskChecklist.vue'
+import TaskHistory from './TaskHistory.vue'
 import { useChecklistStore } from '../../store/checklist.js'
 import { logger } from '../../utils/logger.js'
 
 /**
  * The expanded details surface of a TaskList row (CS-PLAN-067 §3.4): the
  * assignee multi-select (reuse of AssigneeChips, no per-row member fetch —
- * members arrive via the preloaded list) and the TaskChecklist wiring.
+ * members arrive via the preloaded list), the TaskChecklist wiring, and
+ * since CS-PLAN-091 WP-B3 the postpone button and the task's history.
  *
  * The optimistic assignee DRAFT stays owned by the TaskList orchestrator
  * (CS-PLAN-065 §3.5): this component diffs the AssigneeChips value change
@@ -65,7 +78,9 @@ export default {
 
 	components: {
 		AssigneeChips,
+		PostponeButton,
 		TaskChecklist,
+		TaskHistory,
 		HelpEntry,
 	},
 
@@ -199,6 +214,13 @@ export default {
 	font-size: 0.85rem;
 	font-weight: 600;
 	color: var(--color-main-text);
+}
+
+.cycle-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-block-start: 0.75rem;
 }
 
 .agreement-note {

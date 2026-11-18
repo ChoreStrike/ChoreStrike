@@ -1392,6 +1392,21 @@ fixtures or lock choreography elsewhere:
   exactly once — repeated and concurrent job passes — never before the
   cutover day and never for an after-completion rule, sub-task ticks per
   cycle with partly ticked work kept, and bonus tasks without a cycle.
+- `tests/integration/Service/RecordingForOthersTest.php` — recording for
+  someone else with the recorder kept on the entry, the default split of a
+  hold, a private task crediting only who may see it, the takeover of a red
+  entry with its digest receipt (and late work recorded for its assignee,
+  which is none), and two members completing one cycle at once: one entry,
+  one closed cycle.
+- `tests/integration/Service/PostponeAndHistoryTest.php` — the postpone
+  command (half the flex days, three times, every member, the refusals, the
+  replay, the count frozen on the completion and reset for the next cycle),
+  the date correction with what hangs on the day (class, closed cycle, room
+  event, next window, the follower of an older entry, weekly goal and
+  rhythm, the neighbour rule), the narrowed rights of members, and the recent
+  activity with the title withheld from a viewer who may not see the task.
+  Both use `tests/integration/Support/CycleFixtures.php`, as
+  `CycleTimelineTest` does.
 - `tests/integration/Db/CycleCutoverStepTest.php` — the data step
   `Version1036` on rows as the occurrence timeline left them (raw fixtures
   from `Support/StoredTimelineFixtures`): the anchor of every situation, the
@@ -1808,6 +1823,8 @@ doctrine/deprecations is inert unless explicitly enabled) and `detach()` in a
 |---|---|---|
 | House-wide instance read | 3 | house-scoped fetch + batched task definitions + batched assignees; CONSTANT in row count (Q(100) = Q(10)) |
 | Empty house read | 1 | mapper fetch only — no enrichment |
+| House list with its cycles | 5 | the house-wide read (3) + the two completion-input reads of the cycle derivation; CONSTANT in row count — the list hands its definitions and the house zone on |
+| A further recognition week of one pass | 3 | the stored occurrences of that week, its closed cycles and their work shares; the open work and the absences come from the `RecognitionPass` |
 | `complete()` | 91 | command receipt read/INSERT + ADR-011/071 house-first locks (house → room_task → room → house_user → wallets) + the current cycle derived under lock (ADR-021) + the work evidence/shares/audit trio + wallet entries and contribution recache + room journal replay + the cycle close (savepoint-guarded insert-if-absent, version bump, `next_due` projection) + rhythm re-derivation on re-loaded members + post-commit weekly-goal cluster + response `cycle` block |
 | `undo()` | 83 | same house-first gate/lock structure + under-lock completion re-read and re-authorization + negative ledger entries + work-share-driven contribution recache + journal replay + the cycle reopen (closed row deleted, projection re-derived) + rhythm re-derivation over both recognition sources + compact-response hydration |
 
@@ -1815,6 +1832,9 @@ doctrine/deprecations is inert unless explicitly enabled) and `detach()` in a
 > timeline: `complete()` closes and `undo()` reopens one cycle row, and the
 > retired `updateDueDate` route took its budget with it. Both budgets were
 > re-measured on the canonical Docker stack (fresh family profile).
+> WP-B2 and WP-B3 kept both numbers (sub-tasks marked inside the command, the
+> correction rights) and added the two read budgets above (RF-091-03,
+> RF-091-04, D-091-58).
 
 **Rules:** every budget test also asserts exact result IDs or state (a lower
 count must never be bought with wrong data); budgets are re-measured on the

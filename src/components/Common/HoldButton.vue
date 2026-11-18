@@ -64,10 +64,12 @@ let hintCounter = 0
 /**
  * Press-and-hold confirmation for frequent, consequential taps
  * (CS-PLAN-084 D-084-05): `confirm` fires only after the pointer or
- * Enter/Space has been held for `holdMs`. Releasing early, leaving the
- * button, scrolling or blurring cancels without emitting; a short tap
- * shows an inline "press and hold" hint instead of silently doing
- * nothing. A filling ring shows progress; `prefers-reduced-motion`
+ * Enter/Space has been held for `holdMs`. Leaving the button, scrolling
+ * or blurring cancels without emitting. A short tap shows an inline
+ * "press and hold" hint instead of silently doing nothing; a `tappable`
+ * button emits `tap` for it instead (CS-PLAN-091 WP-B2: the tap opens
+ * the picker, the hold completes everything), with the keyboard and an
+ * assistive-technology activation alike. A filling ring shows progress; `prefers-reduced-motion`
  * replaces it with a static state change. The timers and the press state
  * live in the `useHoldPress` composable (CR-084-04).
  *
@@ -89,9 +91,11 @@ export default {
 		// In-flight state of the confirmed action: blocks a second confirm.
 		busy: { type: Boolean, default: false },
 		holdMs: { type: Number, default: HOLD_MS },
+		// A short tap is an action of its own (`tap`) instead of a hint.
+		tappable: { type: Boolean, default: false },
 	},
 
-	emits: ['confirm'],
+	emits: ['confirm', 'tap'],
 
 	setup(props, { emit }) {
 		return useHoldPress({
@@ -99,6 +103,7 @@ export default {
 			disabled: () => props.disabled,
 			busy: () => props.busy,
 			onConfirm: () => emit('confirm'),
+			onTap: props.tappable ? () => emit('tap') : null,
 		})
 	},
 
@@ -118,7 +123,9 @@ export default {
 		},
 
 		hintText() {
-			return t('chorestrike', 'Press and hold to confirm')
+			return this.tappable
+				? t('chorestrike', 'Tap to choose who did it, press and hold to complete everything')
+				: t('chorestrike', 'Press and hold to confirm')
 		},
 
 		hintTestId() {

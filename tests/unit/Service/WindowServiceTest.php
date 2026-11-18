@@ -277,6 +277,20 @@ class WindowServiceTest extends TestCase {
 	}
 
 	/**
+	 * RF-091-04: an ended rule is found from its bound, not by walking every
+	 * cycle since its anchor — also where that would exceed the step limit.
+	 */
+	public function testFixed_Bounded_LongAfterItsEnd_FindsTheLastCycleFromTheBound(): void {
+		$daily = $this->task(['mode' => Task::SCHEDULING_STATIC, 'type' => 'daily', 'recurrence' => Task::RECURRENCE_BOUNDED, 'activeUntil' => '2026-12-31']);
+		// More than a thousand rule days lie between the anchor and the bound.
+		$cycle = $this->current($this->roomTask('2023-01-01', ['createdAt' => '2023-01-01 08:00:00 UTC']), $daily, null, '2027-06-01 10:00');
+		self::assertSame('d2026-12-31', $cycle->key);
+
+		$monthly = $this->task(['mode' => Task::SCHEDULING_STATIC, 'type' => 'monthly', 'monthDay' => 31, 'recurrence' => Task::RECURRENCE_BOUNDED, 'activeUntil' => '2026-11-15']);
+		self::assertSame('d2026-10-31', $this->current($this->roomTask('2026-01-31'), $monthly, null, '2027-06-01 10:00')->key);
+	}
+
+	/**
 	 * Review regression (CS-PLAN-091 WP-B1 interim Full review): a bound is
 	 * stored as the midnight of its day (UTC); a house west of UTC must not
 	 * read it as the day before.
@@ -372,6 +386,46 @@ class WindowServiceTest extends TestCase {
 		self::assertSame([], $this->windows->cyclesThrough($this->roomTask('2026-11-25'), $this->task(), null, $zone, $this->instant('2026-11-18 10:00'), '2026-11-24'), 'nothing when the current window opens after the range');
 	}
 
+	/**
+	 * RF-091-04: a range far ahead shows the current cycle first and then
+	 * only the projections that reach into it — the rule is not walked from
+	 * today, and the result equals the full walk cut to the range.
+	 *
+	 * @return array<string, array{array<string, mixed>, ?CycleHistory, int}>
+	 */
+	public static function farRanges(): array {
+		return [
+			'fixed weekday' => [['mode' => Task::SCHEDULING_STATIC, 'weekdays' => ['saturday'], 'flex' => 1], null, 6],
+			'fixed day of the month' => [['mode' => Task::SCHEDULING_STATIC, 'type' => 'monthly', 'monthDay' => 31], null, 2],
+			'after completion, every three days' => [['type' => 'daily', 'value' => 3, 'flex' => 1], new CycleHistory(41, '2026-11-10', 'd2026-11-03'), 12],
+			'after completion, every two weeks' => [['type' => 'weekly', 'value' => 2], new CycleHistory(41, '2026-11-10', 'd2026-11-03'), 4],
+			// A month interval is walked: twelve cheap steps a year, never days.
+			'after completion, monthly' => [['type' => 'monthly'], new CycleHistory(41, '2026-11-10', 'd2026-11-03'), 13],
+		];
+	}
+
+	/** @dataProvider farRanges */
+	public function testCyclesThrough_AFarRange_SkipsWhatLiesBeforeIt(array $rule, ?CycleHistory $history, int $atMost): void {
+		$zone = new \DateTimeZone(self::ZONE);
+		$now = $this->instant('2026-11-18 10:00');
+		$task = $this->task($rule);
+		$roomTask = $this->roomTask('2026-11-03');
+		[$from, $through] = ['2027-11-01', '2027-11-30'];
+
+		$all = $this->windows->cyclesThrough($roomTask, $task, $history, $zone, $now, $through);
+		$ranged = $this->windows->cyclesThrough($roomTask, $task, $history, $zone, $now, $through, $from);
+
+		$inRange = static fn (CurrentCycle $cycle): bool => $cycle->endOn >= $from;
+		self::assertSame($all[0]->key, $ranged[0]->key, 'the current cycle leads the list');
+		self::assertSame(
+			array_map(static fn (CurrentCycle $cycle): string => $cycle->key, array_values(array_filter(array_slice($all, 1), $inRange))),
+			array_map(static fn (CurrentCycle $cycle): string => $cycle->key, array_values(array_filter(array_slice($ranged, 1), $inRange))),
+			'the skipped walk yields the projections of the full one'
+		);
+		self::assertLessThanOrEqual($atMost, count($ranged), 'a year of projections before the range is not walked');
+		self::assertGreaterThan(1, count($ranged));
+	}
+
 	public function testCyclesThrough_OneTime_HasNoFollowingCycle(): void {
 		$cycles = $this->windows->cyclesThrough($this->roomTask('2026-11-20'), $this->task(['recurrence' => Task::RECURRENCE_ONCE]), null, new \DateTimeZone(self::ZONE), $this->instant('2026-11-18 10:00'), '2027-01-01');
 
@@ -385,6 +439,30 @@ class WindowServiceTest extends TestCase {
 		self::assertSame(CompletedTask::CLASS_ON_TIME, $cycle->classify('2026-11-22'));
 		self::assertSame(CompletedTask::CLASS_LATE, $cycle->classify('2026-11-23'));
 		self::assertSame('2026-11-16', $cycle->weekStart(), 'a cycle counts in the week its window ends');
+	}
+
+	/** @return array<string, array{array<string, mixed>, string, string, int}> */
+	public static function correctedDays(): array {
+		return [
+			'after completion, weekly: the next window moves with the day' => [['type' => 'weekly'], '2026-11-16', '2026-11-13', -3],
+			'after completion, forward' => [['type' => 'daily', 'value' => 3], '2026-11-10', '2026-11-12', 2],
+			// 31 Jan and 30 Jan both lead to the clamped end of February.
+			'monthly, clamped to the end of the month' => [['type' => 'monthly'], '2026-01-31', '2026-01-30', 0],
+			'monthly, across the clamp' => [['type' => 'monthly'], '2026-01-31', '2026-01-27', -1],
+			'a fixed rule keeps its days' => [['mode' => Task::SCHEDULING_STATIC, 'weekdays' => ['saturday']], '2026-11-16', '2026-11-13', 0],
+			'a one-time task has no next window' => [['recurrence' => Task::RECURRENCE_ONCE], '2026-11-16', '2026-11-13', 0],
+			'a bonus task has no window' => [['bonus' => true], '2026-11-16', '2026-11-13', 0],
+		];
+	}
+
+	/**
+	 * ADR-021 decision 9: only an after-completion rule hangs its next
+	 * window on the completion, so only there a corrected day moves it.
+	 *
+	 * @dataProvider correctedDays
+	 */
+	public function testShiftAfterCompletion_FollowsTheRule(array $rule, string $from, string $to, int $days): void {
+		self::assertSame($days, $this->windows->shiftAfterCompletion($this->task($rule), $from, $to));
 	}
 
 	public function testHistoriesFor_MapsTheMapperRowsOntoHistories(): void {

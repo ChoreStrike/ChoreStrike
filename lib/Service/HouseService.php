@@ -465,7 +465,11 @@ class HouseService {
 			// CS-PLAN-057 D1: capture the creator's Nextcloud timezone at
 			// house creation so day bucketing is locally correct from the
 			// first request (never a bare UTC default when avoidable).
-			return $this->houseMapper->createForInstance($instanceId, $houseName, $this->resolveCreationTimezone());
+			$timezone = $this->resolveCreationTimezone();
+			// ADR-021 decision 12: a new house has no stored occurrences;
+			// derived windows start on its house-local creation day.
+			$creationDay = CalendarService::dayKeyOf(new \DateTime(), new \DateTimeZone($timezone));
+			return $this->houseMapper->createForInstance($instanceId, $houseName, $timezone, RecurrenceCalculator::dayKeyToDate($creationDay));
 		}
 	}
 

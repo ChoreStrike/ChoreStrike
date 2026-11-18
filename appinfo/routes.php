@@ -88,6 +88,11 @@ return [
         ['name' => 'completion#show', 'url' => '/api/v1/completions/{id}', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
         ['name' => 'completion#undo', 'url' => '/api/v1/completions/{id}/undo', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
         ['name' => 'completion#attribute', 'url' => '/api/v1/completions/{id}/attribution', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        // CS-PLAN-091 WP-B3 (ADR-021 decisions 6 and 9): the date correction,
+        // the postpone command and the history of one task.
+        ['name' => 'completion#changeDate', 'url' => '/api/v1/completions/{id}/date', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        ['name' => 'room_task_cycle#postpone', 'url' => '/api/v1/room-tasks/{id}/postpone', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        ['name' => 'room_task_cycle#history', 'url' => '/api/v1/room-tasks/{id}/history', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
 
         // Pruned 2026-08-21 (CS-PLAN-040): `userTasks` read only the legacy
         // single-assignee column (misleading since multi-assignee) and

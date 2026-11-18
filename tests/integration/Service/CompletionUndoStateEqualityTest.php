@@ -141,11 +141,10 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	/**
 	 * TakeoverCompletion_WithExplicitSplit_UndoRestoresClaimFieldsAndState
 	 *
-	 * A non-assignee completing an overdue task claims it (markClaimed,
-	 * retained through the WP3 cutover); under Q-074-02 the non-assignee
-	 * must take part explicitly — the split names the helper. The owner's
-	 * targeted undo restores the claim fields and the exact state (D3
-	 * actor gate on the real DB).
+	 * A non-assignee who does an overdue task themself claims it
+	 * (markClaimed, retained through the WP3 cutover): the split names the
+	 * helper and no assignee. The owner's targeted undo restores the claim
+	 * fields and the exact state (D3 actor gate on the real DB).
 	 */
 	public function testTakeoverCompletion_UndoRestoresClaimFields_AndExactState(): void {
 		// Overdue: the recorded claim precondition for a non-assignee.
@@ -158,14 +157,6 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 
 		$before = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']);
 		self::assertSame(0, (int)$before['roomTask']['was_claimed']);
-
-		// Participant-less: forbidden (the completer must take part).
-		try {
-			$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_helper', $ids['roomTaskId']);
-			self::fail('a non-participant must not complete participant-less');
-		} catch (\OCA\ChoreStrike\Exception\ForbiddenException $e) {
-			self::assertSame('The completer must take part in the work', $e->getMessage());
-		}
 
 		// Explicit split (the helper takes the work): claims and completes.
 		$this->completeOccurrenceWithParticipants(

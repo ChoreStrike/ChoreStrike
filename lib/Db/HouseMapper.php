@@ -63,8 +63,9 @@ class HouseMapper extends QBMapper {
 	 * @param string $instanceId The Nextcloud instance ID
 	 * @param string $name The house name
 	 * @param string $timezone The house timezone (CS-PLAN-057 D1: creator's NC timezone)
+	 * @param \DateTime $cyclesFrom The first day of derived windows of a new house
 	 */
-	public function createForInstance(string $instanceId, string $name, string $timezone = 'UTC'): House {
+	public function createForInstance(string $instanceId, string $name, string $timezone, \DateTime $cyclesFrom): House {
 		try {
 			$house = $this->findByInstanceId($instanceId);
 			$house->setName($name);
@@ -79,12 +80,7 @@ class HouseMapper extends QBMapper {
 			$now = new \DateTime();
 			$house->setCreatedAt($now);
 			$house->setUpdatedAt($now);
-			// ADR-021 decision 12: a new house has no stored occurrences;
-			// derived windows start on its creation day.
-			$house->setCyclesFrom(\DateTime::createFromFormat(
-				'!Y-m-d',
-				\DateTime::createFromInterface($now)->setTimezone(new \DateTimeZone($timezone))->format('Y-m-d')
-			));
+			$house->setCyclesFrom($cyclesFrom);
 			try {
 				return $this->insert($house);
 			} catch (\OCP\DB\Exception $insertException) {

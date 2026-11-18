@@ -24,7 +24,8 @@
 						<input
 							v-model="participant.active"
 							type="checkbox"
-							:data-testid="`participant-active-${participant.userId}`">
+							:data-testid="`participant-active-${participant.userId}`"
+							@change="onActiveChange">
 						{{ participant.displayName }}
 					</label>
 					<input
@@ -43,9 +44,9 @@
 			<p class="share-total" :class="{ invalid: !isValid }" data-testid="share-total">
 				{{ t('chorestrike', 'Total: {total}%', { total: totalPct }) }}
 			</p>
-			<p v-if="!actorParticipates" role="status" data-testid="participation-actor-required">
-				{{ t('chorestrike', 'To complete a task, include yourself in the work split. If your account is missing, close this dialog and reload.') }}
-			</p>
+
+			<!-- What else belongs to the decision, e.g. the sub-tasks of the work. -->
+			<slot />
 
 			<div class="dialog-actions cs-dialog-actions">
 				<button
@@ -73,6 +74,8 @@
 // carries the `allocationReviewed` confirmation (one reviewer decision, no
 // per-person confirmation queue). Exact whole-percent shares only — the
 // server enforces the 1-100 unique-membership and sum-100 invariants.
+// CS-PLAN-091 WP-B2 (ADR-021 decision 10): anyone records for anyone, so
+// the candidates are the household and the recorder need not take part.
 import { translate as t } from '@nextcloud/l10n'
 import Modal from './Modal.vue'
 
@@ -82,20 +85,19 @@ export default {
 	components: { Modal },
 
 	props: {
-		/** Candidate members `{userId, displayName}` (the assignee set). */
+		/** Candidate members `{userId, displayName}`. */
 		members: {
 			type: Array,
 			required: true,
 		},
 
 		/**
-		 * The acting user (WP3 Q-074-02): the completer must take part in
-		 * the work. When the task belongs to other people, the actor is
-		 * added to the split automatically (equal renormalized shares) —
-		 * confirming someone else's split unchanged is not an option.
+		 * Completion mode: the user ids ticked when the dialog opens — who
+		 * the server would credit without it. Null ticks every candidate.
+		 * Ticking and unticking keeps the shares equal among the ticked.
 		 */
-		actorUserId: {
-			type: String,
+		preselected: {
+			type: Array,
 			default: null,
 		},
 
@@ -106,8 +108,7 @@ export default {
 		 * active with their exact percents, everyone else starts inactive.
 		 * Departed recorded participants cannot be re-added (the server
 		 * accepts current members only); the caller's hint explains the
-		 * reassignment. The completer auto-join does NOT run in this mode —
-		 * the correter need not take part (Q-074-02: completer or owner).
+		 * reassignment. The shares stay as entered in this mode.
 		 */
 		initialParticipants: {
 			type: Array,
@@ -158,27 +159,14 @@ export default {
 			return this.activeParticipants.reduce((sum, participant) => sum + (Number.isFinite(participant.sharePct) ? participant.sharePct : 0), 0)
 		},
 
-		actorParticipates() {
-			return this.initialParticipants !== null || (Boolean(this.actorUserId)
-				&& this.activeParticipants.some((participant) => participant.userId === this.actorUserId && participant.sharePct > 0))
-		},
-
 		isValid() {
-			return this.actorParticipates && this.activeParticipants.length > 0
+			return this.activeParticipants.length > 0
 				&& this.totalPct === 100
 				&& this.activeParticipants.every((participant) => Number.isInteger(participant.sharePct) && participant.sharePct >= 1 && participant.sharePct <= 100)
 		},
 	},
 
 	created() {
-		// The pre-fill is what a participant-less completion would credit
-		// (WP3 §3.6): the equal split of the candidates, mirrored
-		// client-side in wallet order.
-		const namesByUser = {}
-		this.members.forEach((member) => {
-			namesByUser[member.userId] = member.displayName
-		})
-
 		if (this.initialParticipants) {
 			// Attribution correction: the recorded split drives the
 			// pre-fill over the CURRENT member list (departed recorded
@@ -199,29 +187,19 @@ export default {
 				}))
 				.sort((a, b) => String(a.userId).localeCompare(String(b.userId)))
 		} else {
-			// Default: everyone equal, remainder split by stable user order
-			// (the wallet-order 34/33/33 shape mirrored client-side for display).
-			const entries = this.members.map((member) => ({ ...member }))
-			entries.sort((a, b) => String(a.userId).localeCompare(String(b.userId)))
-			this.participants = this.buildEqualSplit(entries)
-		}
-
-		// Q-074-02: the completer must take part in the work. When the
-		// task belongs to other people, the actor joins the split with an
-		// equal renormalized share — confirming someone else's split
-		// unchanged is not an option. Not in attribution-correction mode:
-		// the correter (completer or owner) need not be a participant.
-		if (!this.initialParticipants
-			&& this.actorUserId
-			&& this.participants.length > 0
-			&& !this.participants.some((participant) => participant.userId === this.actorUserId)) {
-			this.participants.push({
-				userId: this.actorUserId,
-				displayName: namesByUser[this.actorUserId] ?? this.actorUserId,
-				active: true,
-				sharePct: 1,
-			})
-			this.participants = this.buildEqualSplit(this.participants)
+			// Completion: equal shares of the ticked members, remainder
+			// split by stable user order (the wallet-order 34/33/33 shape
+			// mirrored client-side for display).
+			const ticked = this.preselected
+			this.participants = this.members
+				.map((member) => ({
+					userId: member.userId,
+					displayName: member.displayName,
+					active: ticked === null || ticked.includes(member.userId),
+					sharePct: 0,
+				}))
+				.sort((a, b) => String(a.userId).localeCompare(String(b.userId)))
+			this.rebalance()
 		}
 	},
 
@@ -229,28 +207,23 @@ export default {
 		t,
 
 		/**
-		 * Equal split with largest-remainder distribution over the stable
-		 * user order (totals exactly 100).
-		 * @param {Array<{userId: string, displayName: string}>} entries The candidate rows.
-		 * @return {Array<{userId: string, displayName: string, active: boolean, sharePct: number}>}
+		 * Equal shares of the ticked members with largest-remainder
+		 * distribution over the stable user order (totals exactly 100).
 		 */
-		buildEqualSplit(entries) {
-			const sorted = [...entries].sort((a, b) => String(a.userId).localeCompare(String(b.userId)))
-			const count = Math.max(1, sorted.length)
-			const base = Math.floor(100 / count)
-			let remainder = 100 - base * count
-			return sorted.map((entry) => {
-				const pct = base + (remainder > 0 ? 1 : 0)
-				if (remainder > 0) {
-					remainder--
-				}
-				return {
-					userId: entry.userId,
-					displayName: entry.displayName,
-					active: true,
-					sharePct: pct,
-				}
+		rebalance() {
+			const ticked = this.activeParticipants
+			const base = Math.floor(100 / Math.max(1, ticked.length))
+			let remainder = 100 - base * ticked.length
+			this.participants.forEach((participant) => {
+				participant.sharePct = participant.active ? base + (remainder-- > 0 ? 1 : 0) : 0
 			})
+		},
+
+		/** A tick changed: in completion mode the ticked members share equally again. */
+		onActiveChange() {
+			if (this.initialParticipants === null) {
+				this.rebalance()
+			}
 		},
 
 		confirm() {
@@ -271,8 +244,11 @@ export default {
 
 <style scoped>
 .participation-dialog {
+	/* The padding counts into the width: on a phone the dialog is as wide
+	   as its modal and never scrolls sideways. */
+	box-sizing: border-box;
 	padding: 1.5rem;
-	min-width: min(420px, calc(100vw - 3rem));
+	min-width: min(420px, 100%);
 }
 
 .participation-dialog h2 {

@@ -307,16 +307,32 @@ class RouteMatrixTest extends TestCase {
 	 * CS-PLAN-091 WP-B1 (ADR-021, ADR-022) retired seven routes with the
 	 * stored occurrences: the three agreement commands, the due-date and
 	 * "last done" writers and the owner's preview and apply → 96.
+	 * CS-PLAN-091 WP-B3 added the postpone command, the date correction and
+	 * the history of one task, each consumed by the task row → 99.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			96,
+			99,
 			$this->routes['routes'],
-			'Route count drifted from the pin (96 after CS-PLAN-091 WP-B1) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (99 after CS-PLAN-091 WP-B3) — add only with a consumer, then update deliberately'
 		);
+	}
+
+	/**
+	 * CS-PLAN-091 WP-B3 (ADR-021 decisions 6 and 9): the three routes of
+	 * postponing and of the task history, as the API reference names them.
+	 */
+	public function testCycleCommandRoutesMatchTheContract(): void {
+		$declared = [];
+		foreach ($this->routes['routes'] as $route) {
+			$declared[$route['name']] = $route['verb'] . ' ' . $route['url'];
+		}
+		$this->assertSame('POST /api/v1/room-tasks/{id}/postpone', $declared['room_task_cycle#postpone'] ?? null);
+		$this->assertSame('GET /api/v1/room-tasks/{id}/history', $declared['room_task_cycle#history'] ?? null);
+		$this->assertSame('PUT /api/v1/completions/{id}/date', $declared['completion#changeDate'] ?? null);
 	}
 
 	/**

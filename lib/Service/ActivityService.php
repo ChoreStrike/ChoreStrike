@@ -24,8 +24,9 @@ use OCP\IL10N;
 /**
  * House activity feed ("who did what when") — CS-PLAN-040 / FEAT-UX-016.
  *
- * Single data source for the Insights history list AND per-member
- * completed-energy aggregation. Enrichment is batch-mapped via the
+ * Single data source for the Insights history list, the history of one
+ * task AND per-member completed-energy aggregation. What happened besides
+ * completions comes from {@see ActivityEventService}. Enrichment is batch-mapped via the
  * CS-PLAN-036 IN-map idioms (no N+1) and null-safe: room deletion cleans
  * completions but single-task deletion does not and there is no FK cascade,
  * so missing task/room references are returned as null and rendered as a
@@ -36,6 +37,8 @@ class ActivityService {
 	public const MAX_DAYS = 90;
 	public const DEFAULT_LIMIT = 50;
 	public const MAX_LIMIT = 200;
+	public const HISTORY_LIMIT = 10;
+	public const MAX_HISTORY_LIMIT = 50;
 
 	private CompletedTaskMapper $completedTaskMapper;
 	private RoomTaskMapper $roomTaskMapper;
@@ -45,6 +48,8 @@ class ActivityService {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private WorkShareMapper $workShareMapper;
+	private CompletionAuthority $authority;
+	private ActivityEventService $events;
 	private IL10N $l10n;
 
 	public function __construct(
@@ -56,6 +61,8 @@ class ActivityService {
 		TaskAssigneeMapper $taskAssigneeMapper,
 		TaskAccessPolicy $taskAccessPolicy,
 		WorkShareMapper $workShareMapper,
+		CompletionAuthority $authority,
+		ActivityEventService $events,
 		IL10N $l10n,
 	) {
 		$this->completedTaskMapper = $completedTaskMapper;
@@ -66,6 +73,8 @@ class ActivityService {
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->workShareMapper = $workShareMapper;
+		$this->authority = $authority;
+		$this->events = $events;
 		$this->l10n = $l10n;
 	}
 
@@ -83,7 +92,7 @@ class ActivityService {
 	 * @param HouseUser $viewer The acting user's house membership
 	 * @param string|null $targetUserId Optional Nextcloud-user filter; must be
 	 *                                  a member of the house (validated here against the house scope)
-	 * @return array{completions: array<int, array<string, mixed>>, total: int}
+	 * @return array{completions: array<int, array<string, mixed>>, total: int, events: list<array<string, mixed>>}
 	 */
 	public function getActivity(int $houseId, int $days, int $limit, ?string $targetUserId, HouseUser $viewer): array {
 		$days = max(1, min($days, self::MAX_DAYS));
@@ -108,7 +117,31 @@ class ActivityService {
 		return [
 			'completions' => $this->enrich($houseId, $completions, $viewer),
 			'total' => $total,
+			// Postponements, date changes, deletions and absences of the
+			// same period: this visibility replaces approval.
+			'events' => $this->events->eventsSince($houseId, $start, $limit, $houseUserId, $viewer),
 		];
+	}
+
+	/**
+	 * The history of one task: its valid entries, newest first, in the
+	 * activity item shape with the viewer's correction rights.
+	 *
+	 * @return array{completions: array<int, array<string, mixed>>}
+	 * @throws NotFoundException a foreign, deleted or invisible room task
+	 */
+	public function getRoomTaskHistory(int $houseId, int $roomTaskId, int $limit, HouseUser $viewer): array {
+		$roomTask = $this->roomTaskMapper->findByIdsScopedToHouse([$roomTaskId], $houseId)[0] ?? null;
+		// A deleted room task has no row to open a history from.
+		$roomTask = $roomTask?->getDeletedAt() === null ? $roomTask : null;
+		$task = $roomTask !== null ? ($this->taskMapper->findByIds([$roomTask->getTaskId()])[$roomTask->getTaskId()] ?? null) : null;
+		if ($task === null) {
+			throw new NotFoundException($this->l10n->t('Room task not found'));
+		}
+		$this->taskAccessPolicy->assertCanView($task, $viewer, $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId));
+
+		$limit = max(1, min($limit, self::MAX_HISTORY_LIMIT));
+		return ['completions' => $this->enrich($houseId, $this->completedTaskMapper->findValidByRoomTask($roomTaskId, $limit), $viewer)];
 	}
 
 	/**
@@ -150,14 +183,13 @@ class ActivityService {
 		$tasksById = $this->taskMapper->findByIds(array_keys($taskIds));
 		$roomsById = $this->roomMapper->findByIds(array_keys($roomIds));
 
-		// Visibility redaction set: the tasks of this batch the viewer may
-		// see (D2 matrix). Content of the other rows serializes as null.
-		$assigneesByTask = $this->taskAssigneeMapper->findUserIdsByTaskIds(array_keys($taskIds));
-		$visibleTaskIds = [];
-		foreach ($tasksById as $taskId => $task) {
-			if ($this->taskAccessPolicy->canView($task, $viewer, $assigneesByTask[$taskId] ?? [])) {
-				$visibleTaskIds[$taskId] = true;
-			}
+		// Visibility redaction set: the room tasks of this batch the viewer
+		// may see (D2 matrix, ADR-010: a private task per room task, its
+		// creator and THAT room task's assignees). Content of the other rows
+		// serializes as null.
+		$visibleRoomTaskIds = [];
+		foreach ($this->taskAccessPolicy->filterVisibleRoomTasks(array_values($roomTasksById), $tasksById, $viewer) as $roomTask) {
+			$visibleRoomTaskIds[(int)$roomTask->getId()] = true;
 		}
 
 		// Houses are small — one membership fetch covers every completer.
@@ -173,12 +205,18 @@ class ActivityService {
 			static fn (CompletedTask $completion): int => (int)$completion->getId(),
 			$completions
 		));
+		$latestValidIds = $this->completedTaskMapper->findLatestValidIdsByRoomTasks(array_keys($roomTaskIds));
 
 		$items = [];
 		foreach ($completions as $completion) {
-			$item = $this->serializeCompletion($completion, $roomTasksById, $tasksById, $roomsById, $membersById, $visibleTaskIds, $viewer);
+			$item = $this->serializeCompletion($completion, $roomTasksById, $tasksById, $roomsById, $membersById, $visibleRoomTaskIds);
+			$visible = $item['totalEnergy'] !== null;
+			// Rights per ADR-021 decision 9: the owner corrects any entry,
+			// everyone else only their own latest entry of the task.
+			$item['canCorrect'] = $visible && $this->authority->canCorrect($viewer, $completion, $latestValidIds[$completion->getRoomTaskId()] ?? null);
+			$item['canAttribute'] = $visible && $this->authority->canAttribute($viewer, $completion);
 			$item['allocation'] = [];
-			if ($item['totalEnergy'] !== null) {
+			if ($visible) {
 				foreach ($sharesByCompletion[$completion->getId()] ?? [] as $share) {
 					$shareMember = $membersByWalletId[$share->getWalletId()] ?? null;
 					$item['allocation'][] = [
@@ -192,6 +230,9 @@ class ActivityService {
 					];
 				}
 			}
+			// Someone recorded the work for other people (decision 10).
+			$item['recordedForOthers'] = $item['allocation'] !== [] && $completion->getUserId() !== null
+				&& !in_array(($membersById[$completion->getUserId()] ?? null)?->getNextcloudUserId(), array_column($item['allocation'], 'userId'), true);
 			$items[] = $item;
 		}
 
@@ -208,7 +249,7 @@ class ActivityService {
 	 * effort, versioned correction state; `wasCombo` and live-definition
 	 * effort are gone.
 	 *
-	 * @param array<int, bool> $visibleTaskIds Task ids visible to the viewer
+	 * @param array<int, bool> $visibleRoomTaskIds Room task ids visible to the viewer
 	 * @return array<string, mixed>
 	 */
 	private function serializeCompletion(
@@ -217,14 +258,13 @@ class ActivityService {
 		array $tasksById,
 		array $roomsById,
 		array $membersById,
-		array $visibleTaskIds,
-		HouseUser $viewer,
+		array $visibleRoomTaskIds,
 	): array {
 		$roomTask = $roomTasksById[$completion->getRoomTaskId()] ?? null;
 		$task = $roomTask !== null ? ($tasksById[$roomTask->getTaskId()] ?? null) : null;
 		$room = $roomTask !== null ? ($roomsById[$roomTask->getRoomId()] ?? null) : null;
 		$member = $membersById[$completion->getUserId()] ?? null;
-		$taskVisible = $task !== null && isset($visibleTaskIds[$task->getId()]);
+		$taskVisible = $task !== null && isset($visibleRoomTaskIds[(int)$roomTask->getId()]);
 
 		// CS-PLAN-071 WP0 (Q-070-02 / decision D3): an erased (or departed)
 		// actor renders through the localized placeholder — the activity
@@ -250,14 +290,9 @@ class ActivityService {
 			'energyCost' => $taskVisible ? $task->getEnergyCost() : null,
 			'roomId' => $room?->getId(),
 			'roomName' => $room?->getName(),
-			// Viewer-scoped correction authority (WP3 §3.6): the completer
-			// or a house owner may correct a still-valid completion — the
-			// history UI exposes the correction action from this flag.
-			'canCorrect' => $taskVisible && $completion->getUndoneAt() === null
-				&& ($viewer->isOwner() || (
-					$completion->getUserId() !== null
-					&& (int)$viewer->getId() === (int)$completion->getUserId()
-				)),
+			'roomTaskId' => $roomTask?->getId(),
+			'workDate' => $completion->getWorkDate()?->format('Y-m-d'),
+			'completionClass' => $taskVisible ? $completion->getCompletionClass() : null,
 		];
 	}
 }

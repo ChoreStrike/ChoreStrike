@@ -260,4 +260,98 @@ describe('HoldButton (CS-PLAN-084 WP-E)', () => {
 		expect(control(wrapper).classes()).not.toContain('extra')
 		expect(control(wrapper).attributes('type')).toBe('button')
 	})
+
+	describe('a tappable button (CS-PLAN-091 WP-B2)', () => {
+		const tappable = () => mountButton({ tappable: true })
+
+		it('emits tap for a short pointer tap instead of the hint', async () => {
+			const wrapper = tappable()
+
+			await control(wrapper).trigger('pointerdown', { button: 0 })
+			jest.advanceTimersByTime(150)
+			await control(wrapper).trigger('pointerup')
+			await control(wrapper).trigger('click')
+			jest.advanceTimersByTime(HOLD_MS)
+
+			expect(wrapper.emitted('tap')).toHaveLength(1)
+			expect(wrapper.emitted('confirm')).toBeUndefined()
+			expect(hint(wrapper).text()).toBe('')
+		})
+
+		it('waits for the click of a pointer tap: opening on the release would hand that click to the dialog', async () => {
+			const wrapper = tappable()
+
+			await control(wrapper).trigger('pointerdown', { button: 0 })
+			await control(wrapper).trigger('pointerup')
+			expect(wrapper.emitted('tap')).toBeUndefined()
+
+			await control(wrapper).trigger('click')
+			expect(wrapper.emitted('tap')).toHaveLength(1)
+
+			// A click that never comes (the finger drifted) taps nothing later.
+			await control(wrapper).trigger('pointerdown', { button: 0 })
+			await control(wrapper).trigger('pointerup')
+			await control(wrapper).trigger('pointerdown', { button: 0 })
+			jest.advanceTimersByTime(HOLD_MS)
+			await control(wrapper).trigger('pointerup')
+			await control(wrapper).trigger('click')
+			expect(wrapper.emitted('tap')).toHaveLength(1)
+			expect(wrapper.emitted('confirm')).toHaveLength(1)
+		})
+
+		it('still confirms a hold, and the release after it is no tap', async () => {
+			const wrapper = tappable()
+
+			await control(wrapper).trigger('pointerdown', { button: 0 })
+			jest.advanceTimersByTime(HOLD_MS)
+			await control(wrapper).trigger('pointerup')
+			await control(wrapper).trigger('click')
+
+			expect(wrapper.emitted('confirm')).toHaveLength(1)
+			expect(wrapper.emitted('tap')).toBeUndefined()
+		})
+
+		it.each(['Enter', ' '])('has keyboard parity: a short press of %j taps, a held one confirms', async (key) => {
+			const wrapper = tappable()
+
+			await control(wrapper).trigger('keydown', { key })
+			jest.advanceTimersByTime(100)
+			await control(wrapper).trigger('keyup', { key })
+			expect(wrapper.emitted('tap')).toHaveLength(1)
+
+			await control(wrapper).trigger('keydown', { key })
+			jest.advanceTimersByTime(HOLD_MS)
+			await control(wrapper).trigger('keyup', { key })
+			expect(wrapper.emitted('confirm')).toHaveLength(1)
+			expect(wrapper.emitted('tap')).toHaveLength(1)
+		})
+
+		it('takes an activation without a tracked press as a tap (assistive technology)', async () => {
+			const wrapper = tappable()
+
+			await control(wrapper).trigger('click')
+
+			expect(wrapper.emitted('tap')).toHaveLength(1)
+			expect(wrapper.emitted('confirm')).toBeUndefined()
+		})
+
+		it('taps nothing when the pointer scrolled away or the button is busy', async () => {
+			const wrapper = tappable()
+			await control(wrapper).trigger('pointerdown', { button: 0, clientX: 0, clientY: 0 })
+			await control(wrapper).trigger('pointermove', { clientX: 0, clientY: 40 })
+			await control(wrapper).trigger('pointerup')
+			expect(wrapper.emitted('tap')).toBeUndefined()
+
+			await wrapper.setProps({ busy: true })
+			await control(wrapper).trigger('click')
+			expect(wrapper.emitted('tap')).toBeUndefined()
+		})
+
+		it('describes both gestures to assistive technology', () => {
+			const wrapper = tappable()
+
+			const description = wrapper.get(`#${control(wrapper).attributes('aria-describedby')}`)
+			expect(description.text()).toBe('Tap to choose who did it, press and hold to complete everything')
+		})
+	})
 })

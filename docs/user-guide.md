@@ -99,13 +99,34 @@ does it. *Every 3 days ±2* means every three days, with two flex days either
 way.
 
 **Completing a task.** Press and hold **Done** (on *Today* the round check
-button) for 0.6 seconds until the ring is full (with a keyboard: hold Enter or Space). A short tap only explains the
-hold, so a task is never completed by accident. If several people worked on
-it, ChoreStrike asks **Who did the work?** — the shares add up to 100 %.
+button) for 0.6 seconds until the ring is full (with a keyboard: hold Enter or
+Space). That completes everything at once: the task with all its steps, for
+the people it is assigned to, or for you when it is nobody's. So a task is
+never completed by accident.
+
+**Who did it?** A short tap on **Done** opens **Who did the work?** instead.
+Tick everyone who did it; their shares are equal unless you change them, and
+add up to 100 %. You can record a task for someone else without ticking
+yourself. The steps of the task are there too: tick the ones that are done and
+close the dialog to keep the task open, or press **Done** to complete it with
+all of them.
+
+**Postpone.** In **Tasks**, open a task with its arrow. **Postpone** moves its
+due window by half its flex days, up to three times; the button shows how
+often that is still possible. A postponed task still counts as on time. A task
+without flex days and a task that is already overdue cannot be postponed.
+
+**History and corrections.** The opened task lists who did it when. Your own
+latest entry offers **Change date**, when the work was done on another day, and
+**Delete**, when it was not done after all; the date decides when the task is
+due next. Owners can change and delete every entry, and only they change the
+people of an entry (**Correct split** in **Insights**).
 
 **Undo.** The *Task completed* message offers **Undo** for about five seconds.
-Later, **Insights** lists the completion with **Undo** and **Correct split**
-for the person who completed it and for owners.
+
+**Recent activity.** **Insights** lists the completions of the household and,
+between them, every postponement, changed date, deleted entry and absence.
+Nobody has to ask first: everyone can see what happened.
 
 **Checklists.** If a task has steps, **Checklist (2/5)** opens them; tick each
 step as you go. Owners edit the steps in the task.

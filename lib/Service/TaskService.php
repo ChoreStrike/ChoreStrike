@@ -261,12 +261,15 @@ class TaskService {
 		}
 		$timeZone = $this->calendarService->getTimeZone($this->houseMapper->find((int)$actor->getHouseId()));
 		$now = new \DateTime();
+		// One read of the completion inputs for every mounted room task; the
+		// house lock this edit holds keeps completions out meanwhile.
+		$histories = $this->cycleService->historiesFor(array_map(static fn ($roomTask): int => (int)$roomTask->getId(), $mounted));
 		foreach ($mounted as $roomTask) {
 			$lockedRoomTask = $this->roomTaskMapper->lockForUpdate($roomTask->getId());
 			if ($lockedRoomTask->getDeletedAt() !== null) {
 				continue;
 			}
-			$this->cycleService->ruleChangedUnderLock($lockedRoomTask, $before, $updated, $timeZone, $now);
+			$this->cycleService->ruleChangedUnderLock($lockedRoomTask, $before, $updated, $timeZone, $now, $histories);
 		}
 	}
 

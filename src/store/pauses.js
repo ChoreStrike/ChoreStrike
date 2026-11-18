@@ -12,6 +12,7 @@ import {
 	recognizeIllness as recognizeIllnessRequest,
 	rejectPause,
 } from '../services/api.js'
+import { generateCommandId } from '../utils/commandId.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -37,25 +38,6 @@ function DEFAULT_STATE() {
 		/** Request generation — a superseded read never lands after a reset. */
 		requestSeq: 0,
 	}
-}
-
-/**
- * Generate a client idempotency UUID (one FRESH UUID per command
- * attempt — a 409 retry carries changed input, so the same command key
- * must never be reused). Crypto RNG when available, otherwise an
- * RFC 4122 v4 fallback.
- * @return {string} Canonical lowercase UUID.
- */
-function generateCommandId() {
-	const webCrypto = globalThis.crypto
-	if (webCrypto && typeof webCrypto.randomUUID === 'function') {
-		return webCrypto.randomUUID()
-	}
-	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
-		const random = Math.random() * 16 | 0
-		const value = char === 'x' ? random : (random & 0x3 | 0x8)
-		return value.toString(16)
-	})
 }
 
 export const usePausesStore = defineStore('pauses', {

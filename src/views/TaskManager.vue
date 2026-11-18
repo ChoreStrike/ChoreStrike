@@ -119,13 +119,6 @@
 			:loading="deleting"
 			@confirm="confirmDeleteTask"
 			@cancel="taskToDelete = null" />
-
-		<ParticipationDialog
-			v-if="participation"
-			:members="participationMembers"
-			:actorUserId="actorUserId"
-			@close="closeParticipation"
-			@confirm="confirmParticipation" />
 	</div>
 </template>
 
@@ -137,7 +130,6 @@ import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 import Icon from '../components/Common/Icon.vue'
 import Modal from '../components/Common/Modal.vue'
-import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
 import SegmentedSwitch from '../components/Common/SegmentedSwitch.vue'
 import TaskCreateDialog from '../components/Tasks/TaskCreateDialog.vue'
 import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
@@ -177,7 +169,6 @@ export default {
 		Modal,
 		ConfirmDialog,
 		ErrorState,
-		ParticipationDialog,
 	},
 
 	emits: ['taskCompleted'],
@@ -192,7 +183,6 @@ export default {
 		const router = useRouter()
 		const completion = useTaskCompletion({
 			roomTasksStore,
-			userStore,
 			view: 'TaskManager',
 			onCompleted: (roomTaskId) => emit('taskCompleted', roomTaskId),
 		})
@@ -499,14 +489,10 @@ export default {
 		/**
 		 * Complete a row through the shared flow (`useTaskCompletion`).
 		 * @param {number} roomTaskId The row's room task.
-		 * @param {?object} claimAllocation A confirmed overdue claim, completed directly.
+		 * @param {?object} split The split of the row's picker or of a confirmed overdue claim.
 		 */
-		async handleCompleteTask(roomTaskId, claimAllocation = null) {
-			const roomTask = this.roomTasksStore.roomTasks.find((row) => row.id === roomTaskId)
-			await this.requestCompletion({
-				roomTaskId,
-				assignees: roomTask?.assignees ?? [],
-			}, claimAllocation)
+		async handleCompleteTask(roomTaskId, split = null) {
+			await this.requestCompletion(roomTaskId, split)
 		},
 
 		handleEditTask(roomTask) {

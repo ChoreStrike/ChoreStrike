@@ -23,7 +23,9 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\WorkShare;
 use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\ActivityEventService;
 use OCA\ChoreStrike\Service\ActivityService;
+use OCA\ChoreStrike\Service\CompletionAuthority;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -40,6 +42,7 @@ class ActivityServiceTest extends TestCase {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private WorkShareMapper $workShareMapper;
+	private ActivityEventService $events;
 	private ActivityService $service;
 
 	protected function setUp(): void {
@@ -52,7 +55,18 @@ class ActivityServiceTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
+		// The batch filter decides per room task through the single-task
+		// rule each test stubs (the real policy reads the assignees of each
+		// room task, ADR-010).
+		$this->taskAccessPolicy->method('filterVisibleRoomTasks')->willReturnCallback(
+			fn (array $roomTasks, array $tasksById, HouseUser $viewer): array => array_values(array_filter(
+				$roomTasks,
+				fn (RoomTask $roomTask): bool => isset($tasksById[$roomTask->getTaskId()])
+					&& $this->taskAccessPolicy->canView($tasksById[$roomTask->getTaskId()], $viewer, [])
+			))
+		);
 		$this->workShareMapper = $this->createMock(WorkShareMapper::class);
+		$this->events = $this->createMock(ActivityEventService::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -66,6 +80,8 @@ class ActivityServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->taskAccessPolicy,
 			$this->workShareMapper,
+			new CompletionAuthority($this->completedTaskMapper, $l10n),
+			$this->events,
 			$l10n,
 		);
 	}
@@ -184,6 +200,188 @@ class ActivityServiceTest extends TestCase {
 
 		self::assertSame('Bob', $result['completions'][1]['displayName']);
 		self::assertSame('Bathroom', $result['completions'][1]['roomName']);
+		self::assertSame(21, $first['roomTaskId']);
+		self::assertFalse($first['recordedForOthers'], 'the recorder is credited');
+	}
+
+	/**
+	 * GetActivity_WorkRecordedForOthers_IsFlagged
+	 *
+	 * ADR-021 decision 10: the entry keeps who recorded it; the feed says
+	 * so when that member is not among the people credited.
+	 */
+	public function testGetActivity_WorkRecordedForOthers_IsFlagged(): void {
+		$completion = $this->makeCompletion(101, 8, 21);
+		$task = new Task();
+		$task->setId(5);
+		$task->setName('Vacuum');
+		$worker = new HouseUser();
+		$worker->setId(7);
+		$worker->setDisplayName('Alice');
+		$worker->setNextcloudUserId('alice');
+		$worker->setWalletId(77);
+		$recorder = new HouseUser();
+		$recorder->setId(8);
+		$recorder->setDisplayName('Bob');
+		$recorder->setNextcloudUserId('bob');
+		$recorder->setWalletId(88);
+		$share = new WorkShare();
+		$share->setCompletionId(101);
+		$share->setWalletId(77);
+		$share->setSharePct(100);
+		$share->setEnergyMinor(300);
+		$share->setCoinMinor(3000);
+
+		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturn([$completion]);
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$this->makeRoomTask(21, 5, 3)]);
+		$this->taskMapper->method('findByIds')->willReturn([5 => $task]);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$worker, $recorder]);
+		$this->workShareMapper->method('findSelectedByCompletionIds')->willReturn([101 => [$share]]);
+		$this->taskAccessPolicy->method('canView')->willReturn(true);
+		$this->events->expects($this->once())->method('eventsSince')
+			->with(1, $this->isInstanceOf(\DateTimeInterface::class), 50, null, $this->isInstanceOf(HouseUser::class))
+			->willReturn([['type' => 'postponed']]);
+
+		$result = $this->service->getActivity(1, 30, 50, null, $this->makeViewer());
+
+		self::assertTrue($result['completions'][0]['recordedForOthers']);
+		self::assertSame('Bob', $result['completions'][0]['displayName'], 'the row keeps its recorder');
+		self::assertSame('alice', $result['completions'][0]['allocation'][0]['userId']);
+		self::assertSame([['type' => 'postponed']], $result['events'], 'what happened besides completions rides along');
+	}
+
+	/**
+	 * GetActivity_DepartedRecorder_RendersWithoutAWarning
+	 *
+	 * A removed membership leaves `completed_tasks.user_id` behind: the
+	 * entry renders through the placeholder (PHPUnit turns the former
+	 * undefined-key warning into a failure).
+	 */
+	public function testGetActivity_DepartedRecorder_RendersWithoutAWarning(): void {
+		$completion = $this->makeCompletion(101, 8, 21);
+		$task = new Task();
+		$task->setId(5);
+		$task->setName('Vacuum');
+		$worker = new HouseUser();
+		$worker->setId(7);
+		$worker->setDisplayName('Alice');
+		$worker->setNextcloudUserId('alice');
+		$worker->setWalletId(77);
+		$share = new WorkShare();
+		$share->setCompletionId(101);
+		$share->setWalletId(77);
+		$share->setSharePct(100);
+
+		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturn([$completion]);
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$this->makeRoomTask(21, 5, 3)]);
+		$this->taskMapper->method('findByIds')->willReturn([5 => $task]);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$worker]);
+		$this->workShareMapper->method('findSelectedByCompletionIds')->willReturn([101 => [$share]]);
+		$this->taskAccessPolicy->method('canView')->willReturn(true);
+
+		$item = $this->service->getActivity(1, 30, 50, null, $this->makeViewer())['completions'][0];
+
+		self::assertSame('Former member', $item['displayName']);
+		self::assertTrue($item['recordedForOthers'], 'the departed recorder is not among the people credited');
+	}
+
+	/**
+	 * GetActivity_PrivateDefinitionInTwoRooms_RedactsPerRoomTask
+	 *
+	 * ADR-010: visibility is decided per room task, so the entry of the
+	 * room task the viewer is not assigned to stays redacted, flags included.
+	 */
+	public function testGetActivity_PrivateDefinitionInTwoRooms_RedactsPerRoomTask(): void {
+		$task = new Task();
+		$task->setId(5);
+		$task->setName('Secret');
+		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
+		$mine = $this->makeRoomTask(21, 5, 3);
+		$theirs = $this->makeRoomTask(22, 5, 4);
+		$policy = $this->createMock(TaskAccessPolicy::class);
+		$policy->expects($this->once())->method('filterVisibleRoomTasks')
+			->with([$mine, $theirs], [5 => $task], $this->isInstanceOf(HouseUser::class))
+			->willReturn([$mine]);
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		$service = new ActivityService(
+			$this->completedTaskMapper, $this->roomTaskMapper, $this->taskMapper, $this->roomMapper,
+			$this->houseUserMapper, $this->taskAssigneeMapper, $policy, $this->workShareMapper,
+			new CompletionAuthority($this->completedTaskMapper, $l10n), $this->events, $l10n,
+		);
+		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturn([
+			$this->makeCompletion(101, 9, 21),
+			$this->makeCompletion(102, 9, 22),
+		]);
+		$this->completedTaskMapper->method('findLatestValidIdsByRoomTasks')->willReturn([21 => 101, 22 => 102]);
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$mine, $theirs]);
+		$this->taskMapper->method('findByIds')->willReturn([5 => $task]);
+
+		$viewer = $this->makeViewer();
+		$viewer->setId(9);
+		$items = $service->getActivity(1, 30, 50, null, $viewer)['completions'];
+
+		self::assertSame(['Secret', null], array_column($items, 'taskTitle'));
+		self::assertSame([true, false], array_column($items, 'canCorrect'), 'no correction offer the server would refuse');
+	}
+
+	/**
+	 * GetRoomTaskHistory_DeletedRoomTask_NotFound
+	 */
+	public function testGetRoomTaskHistory_DeletedRoomTask_NotFound(): void {
+		$deleted = $this->makeRoomTask(21, 5, 3);
+		$deleted->setDeletedAt(new \DateTime('2026-11-17 08:00:00'));
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$deleted]);
+		$this->completedTaskMapper->expects($this->never())->method('findValidByRoomTask');
+
+		$this->expectException(NotFoundException::class);
+		$this->service->getRoomTaskHistory(1, 21, 10, $this->makeViewer());
+	}
+
+	/**
+	 * GetRoomTaskHistory_VisibleTask_ListsItsValidEntries
+	 */
+	public function testGetRoomTaskHistory_VisibleTask_ListsItsValidEntries(): void {
+		$task = new Task();
+		$task->setId(5);
+		$task->setName('Vacuum');
+		$member = new HouseUser();
+		$member->setId(7);
+		$member->setDisplayName('Alice');
+		$member->setNextcloudUserId('alice');
+
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$this->makeRoomTask(21, 5, 3)]);
+		$this->taskMapper->method('findByIds')->willReturn([5 => $task]);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$member]);
+		$this->taskAccessPolicy->method('canView')->willReturn(true);
+		$this->completedTaskMapper->expects($this->once())->method('findValidByRoomTask')
+			->with(21, ActivityService::MAX_HISTORY_LIMIT)
+			->willReturn([$this->makeCompletion(102, 7, 21), $this->makeCompletion(101, 7, 21)]);
+		$this->completedTaskMapper->method('findLatestValidIdsByRoomTasks')->willReturn([21 => 102]);
+
+		$viewer = $this->makeViewer();
+		$viewer->setId(7);
+		$history = $this->service->getRoomTaskHistory(1, 21, 500, $viewer)['completions'];
+
+		self::assertSame([102, 101], array_column($history, 'id'));
+		// D-091-23: a member corrects only their own latest entry.
+		self::assertSame([true, false], array_column($history, 'canCorrect'));
+		self::assertSame([false, false], array_column($history, 'canAttribute'));
+	}
+
+	/**
+	 * GetRoomTaskHistory_InvisibleOrForeignTask_NotFound
+	 */
+	public function testGetRoomTaskHistory_InvisibleOrForeignTask_NotFound(): void {
+		$task = new Task();
+		$task->setId(5);
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$this->makeRoomTask(21, 5, 3)]);
+		$this->taskMapper->method('findByIds')->willReturn([5 => $task]);
+		$this->taskAccessPolicy->method('assertCanView')->willThrowException(new NotFoundException('Task not found'));
+		$this->completedTaskMapper->expects($this->never())->method('findValidByRoomTask');
+
+		$this->expectException(NotFoundException::class);
+		$this->service->getRoomTaskHistory(1, 21, 10, $this->makeViewer());
 	}
 
 	/**
@@ -356,6 +554,7 @@ class ActivityServiceTest extends TestCase {
 		$this->roomMapper->method('findByIds')->willReturn([3 => $room]);
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user7]);
 		$this->workShareMapper->method('findSelectedByCompletionIds')->willReturn([301 => [$share]]);
+		$this->completedTaskMapper->method('findLatestValidIdsByRoomTasks')->willReturn([31 => 301]);
 		$this->taskAccessPolicy->method('canView')->willReturnCallback(
 			static fn (Task $task, HouseUser $viewer): bool => $viewer->getId() === 7
 		);
@@ -437,9 +636,11 @@ class ActivityServiceTest extends TestCase {
 	/**
 	 * GetActivity_ViewerScopedCorrectionAuthority
 	 *
-	 * WP3 §3.6: the feed exposes the correction action through the
-	 * viewer-scoped `canCorrect` — completer or owner on a still-valid
-	 * completion; participation alone and undone rows never qualify.
+	 * ADR-021 decision 9: the feed exposes the correction actions through
+	 * the viewer-scoped `canCorrect` (re-date, delete) and `canAttribute`
+	 * (the people). The owner corrects any valid entry; another member only
+	 * the latest valid entry of the task that they recorded. Participation
+	 * alone and undone rows never qualify.
 	 */
 	public function testGetActivity_ViewerScopedCorrectionAuthority(): void {
 		$completion = $this->makeCompletion(401, 7, 41);
@@ -470,6 +671,12 @@ class ActivityServiceTest extends TestCase {
 		$this->roomMapper->method('findByIds')->willReturn([3 => $room]);
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user7]);
 		$this->taskAccessPolicy->method('canView')->willReturn(true);
+		$latest = 401;
+		$this->completedTaskMapper->method('findLatestValidIdsByRoomTasks')->willReturnCallback(
+			static function () use (&$latest): array {
+				return [41 => $latest];
+			}
+		);
 
 		// A member who is neither completer nor owner cannot correct.
 		$member = $this->makeViewer();
@@ -482,6 +689,12 @@ class ActivityServiceTest extends TestCase {
 		$completer->setId(7);
 		$result = $this->service->getActivity(1, 30, 50, null, $completer);
 		self::assertTrue($result['completions'][0]['canCorrect']);
+		self::assertFalse($result['completions'][0]['canAttribute'], 'changing the people is the owner\'s alone');
+
+		// ... but only while it is the latest valid entry of the task.
+		$latest = 402;
+		$result = $this->service->getActivity(1, 30, 50, null, $completer);
+		self::assertFalse($result['completions'][0]['canCorrect'], 'an older entry is the owner\'s to correct');
 
 		// An owner can correct any live completion.
 		$owner = $this->makeViewer();
@@ -489,6 +702,7 @@ class ActivityServiceTest extends TestCase {
 		$owner->setRole('owner');
 		$result = $this->service->getActivity(1, 30, 50, null, $owner);
 		self::assertTrue($result['completions'][0]['canCorrect']);
+		self::assertTrue($result['completions'][0]['canAttribute']);
 
 		// An undone completion is history — not correctable anymore.
 		$undone = $this->makeCompletion(402, 7, 41);

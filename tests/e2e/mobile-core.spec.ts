@@ -93,7 +93,7 @@ async function openHouseholdTasks(page: Page): Promise<void> {
 test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 	test.use({ databaseProfile: 'family' })
 
-	test('My Day hold-complete and undo: a tap explains the hold, the hold completes once, undo restores', async ({ browser, seededData }, testInfo) => {
+	test('My Day hold-complete and undo: a tap opens the picker, the hold completes once, undo restores', async ({ browser, seededData }, testInfo) => {
 		const task = seededData!.data.tasks!.find((entry) => entry.name === 'Tidy up toys')!
 		const roomTaskId = seededData!.data.roomTasks!.find((entry) => entry.taskId === task.id)!.id
 		const { context, page } = await phone(browser, 'kid', testInfo)
@@ -114,7 +114,10 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 				}
 			})
 			await done.tap()
-			await expect(page.getByTestId(`today-complete-button-${roomTaskId}-hint`)).toHaveText('Press and hold to confirm')
+			await expect(page.getByTestId('participation-dialog')).toBeVisible()
+			await expectWithinViewport(page, page.getByTestId('participation-cancel'))
+			await page.getByTestId('participation-cancel').tap()
+			await expect(page.getByTestId('participation-dialog')).toHaveCount(0)
 			expect(completions).toEqual([])
 
 			expect((await completeWithOptionalDialog(page, done)).status()).toBe(200)
@@ -166,8 +169,8 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 	})
 
 	// ADR-021: there is no agreed handover of a single date any more. Anyone
-	// may record the work for someone else; the participation dialog asks who
-	// took part, and the next cycle stays with the assignees.
+	// may record the work for someone else: a tap opens the picker with the
+	// assignee ticked, and the next cycle stays with the assignees.
 	test('handover: a member records the work of someone else and the successor stays with the assignee', async ({ browser, seededData }, testInfo) => {
 		expect(seededData).not.toBeNull()
 		const helper = await phone(browser, 'dad', testInfo)
@@ -181,14 +184,19 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			await helper.page.getByTestId('today-filter-all').click()
 			const done = helper.page.getByTestId(`today-complete-button-${roomTaskId}`)
 			await expect(done).toBeVisible({ timeout: 15000 })
-			// The one who records it names who took part: the dialog opens
-			// for work of someone else, and the confirm stays reachable.
+			// The one who records it says who did it: the picker opens with
+			// the assignee ticked and the recorder not, and the confirm stays
+			// reachable. Dad took no part and is credited nothing.
 			const completed = helper.page.waitForResponse((response) => response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
-			await holdToConfirm(done)
+			await done.tap()
 			await expect(helper.page.getByTestId('participation-dialog')).toBeVisible()
+			await expect(helper.page.getByTestId('participant-active-mom')).toBeChecked()
+			await expect(helper.page.getByTestId('participant-active-dad')).not.toBeChecked()
 			await expectWithinViewport(helper.page, helper.page.getByTestId('participation-confirm'))
 			await helper.page.getByTestId('participation-confirm').tap()
-			expect((await completed).status()).toBe(200)
+			const recorded = await completed
+			expect(recorded.status()).toBe(200)
+			expect(((await recorded.json()).data.rewards.participants as Array<{ userId: string }>).map((share) => share.userId)).toEqual(['mom'])
 			await expect(helper.page.getByTestId(`undo-snackbar-entry-${roomTaskId}`)).toBeVisible()
 
 			const successor = await listRow(helper.page, roomTaskId)
@@ -200,6 +208,79 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			await expectNoHorizontalOverflow(helper.page)
 		} finally {
 			await helper.context.close()
+		}
+	})
+
+	// CS-PLAN-091 WP-B3: children postpone and correct their own latest
+	// entry from the opened task row; nobody is asked, and the owner sees it.
+	test('postpone and history: a child postpones a task, then re-dates and deletes its own entry', async ({ browser, seededData }, testInfo) => {
+		expect(seededData).not.toBeNull()
+		const owner = await phone(browser, 'mom', testInfo)
+		const kid = await phone(browser, 'kid', testInfo)
+		try {
+			await openDailyLimit(owner.page, 'kid')
+			const name = `Mobile postpone ${Date.now()}`
+			// Weekly with two flex days: one press moves the window by one day.
+			const floors = await owner.page.request.get(`${API}/floors/with-rooms`)
+			const kitchen = ((await floors.json()).data as Array<{ rooms: Array<{ id: number, name: string }> }>)
+				.flatMap((floor) => floor.rooms).find((room) => room.name === 'Kitchen')
+			const created = await owner.page.request.post(`${API}/room-tasks`, {
+				data: { roomId: kitchen!.id, assigneeUserIds: ['kid'], firstDate: day(0), task: { name, energyCost: 1, frequencyType: 'weekly', frequencyValue: 1, flexDays: 2 } },
+			})
+			expect(created.status(), await created.text()).toBe(200)
+			const roomTaskId = (await created.json()).data.roomTask.id as number
+
+			await openHouseholdTasks(kid.page)
+			const row = kid.page.getByTestId('task-item').filter({ hasText: name })
+			await row.getByRole('button', { name: 'Show details' }).tap()
+			const postpone = row.getByTestId('postpone-button')
+			await expect(postpone).toContainText('3× left')
+			await expectWithinViewport(kid.page, postpone)
+			const postponed = kid.page.waitForResponse((response) => response.url().endsWith(`/room-tasks/${roomTaskId}/postpone`))
+			await postpone.tap()
+			expect((await postponed).status()).toBe(200)
+			await expect(postpone).toContainText('2× left')
+			expect((await listRow(kid.page, roomTaskId))?.cycle).toMatchObject({ centreOn: day(1), state: 'open' })
+			await expect(row.getByTestId('task-history-empty')).toBeVisible()
+
+			// The child does it and finds the entry in the history.
+			const completed = kid.page.waitForResponse((response) => response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
+			await holdToConfirm(row.getByTestId('complete-task-button'))
+			expect((await completed).status()).toBe(200)
+			await openHouseholdTasks(kid.page)
+			await kid.page.reload()
+			await expect(kid.page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+			await row.getByRole('button', { name: 'Show details' }).tap()
+			const entry = row.getByTestId('task-history-entry')
+			await expect(entry).toHaveCount(1)
+
+			// It was done yesterday: the next window moves with the corrected day.
+			await entry.getByTestId('task-history-redate').tap()
+			await entry.getByTestId('task-history-date').fill(day(-1))
+			const redated = kid.page.waitForResponse((response) => /\/completions\/\d+\/date$/.test(response.url()))
+			await entry.getByTestId('task-history-save').tap()
+			expect((await redated).status()).toBe(200)
+			expect((await listRow(kid.page, roomTaskId))?.cycle).toMatchObject({ centreOn: day(6), state: 'upcoming' })
+			await expectNoHorizontalOverflow(kid.page)
+
+			// And it was not done after all: the entry goes, the task is open again.
+			await entry.getByTestId('task-history-delete').tap()
+			const undone = kid.page.waitForResponse((response) => /\/completions\/\d+\/undo$/.test(response.url()))
+			await kid.page.getByTestId('confirm-dialog-confirm').tap()
+			expect((await (await undone).json()).data.undone).toBe(true)
+			await expect(row.getByTestId('task-history-empty')).toBeVisible()
+			expect((await listRow(kid.page, roomTaskId))?.cycle).toMatchObject({ state: 'open' })
+
+			// The owner sees all of it in the recent activity.
+			await owner.page.goto('/apps/chorestrike/#/insights')
+			await expect(owner.page.getByTestId('insights-view')).toBeVisible({ timeout: 20000 })
+			for (const type of ['postponed', 'date_changed', 'deleted']) {
+				await expect(owner.page.getByTestId(`activity-event-${type}`).filter({ hasText: name })).toBeVisible()
+			}
+			await expectNoHorizontalOverflow(owner.page)
+		} finally {
+			await owner.context.close()
+			await kid.context.close()
 		}
 	})
 

@@ -9,15 +9,14 @@ declare(strict_types=1);
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Service\AgreementService;
 use OCA\ChoreStrike\Service\ChecklistService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\OccurrenceService;
 use OCA\ChoreStrike\Service\PauseService;
 use OCA\ChoreStrike\Service\PreferenceService;
 use OCA\ChoreStrike\Service\RewardRequestService;
 use OCA\ChoreStrike\Service\RewardService;
+use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\IConfig;
 use OCP\IDBConnection;
@@ -66,31 +65,29 @@ function owner(int $houseId): \OCA\ChoreStrike\Db\HouseUser {
 	return $member;
 }
 
+/** The receipt of the room task's current cycle (ADR-021 decision 4): its `cycle` block. */
 function receipt(int $houseId, int $roomTaskId): array {
-	$service = \OC::$server->get(OccurrenceService::class);
 	$row = \OC::$server->get(RoomTaskMapper::class)->find($roomTaskId);
-	$selection = $service->selectionFor($row, new DateTime(), $houseId);
-	check($selection !== null, 'Synthetic occurrence selection missing');
-	return [
-		'occurrenceId' => $selection['occurrence']->toPublicKey(),
-		'expectedVersion' => $selection['occurrence']->getVersion(),
-		'selectionToken' => $service->selectionToken($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, null, $selection['workAppointment'] ?? null),
-	];
+	$block = \OC::$server->get(RoomTaskReadService::class)->cycleFacts($houseId, [$row])[$roomTaskId]['block'] ?? null;
+	check(is_string($block['cycleKey'] ?? null), 'Synthetic current cycle missing');
+	return $block;
 }
 
+/**
+ * The facts of derived windows a recovery has to keep: a tick of the open
+ * cycle, the completion that closes it with every sub-task, and a corrected
+ * work split.
+ */
 function seedWork(int $houseId, array $roomTask): int {
 	$actor = owner($houseId);
 	$id = (int)$roomTask['id'];
 	$checklists = \OC::$server->get(ChecklistService::class);
 	$item = $checklists->addTaskItem((int)$roomTask['taskId'], 'Synthetic recovery checklist', null, $houseId, $actor);
-	$receipt = receipt($houseId, $id);
-	\OC::$server->get(AgreementService::class)->amend($houseId, 'mom', $id,
-		$receipt + ['commandId' => uuid(), 'consent' => true, 'date' => gmdate('Y-m-d')]);
-	$receipt = receipt($houseId, $id);
-	$checklists->toggleItem($id, $receipt['occurrenceId'], (int)$item->getId(), 0, $houseId, $actor);
+	$checklists->addTaskItem((int)$roomTask['taskId'], 'Synthetic recovery checklist, left open', null, $houseId, $actor);
+	$cycle = receipt($houseId, $id);
+	$checklists->toggleItem($id, $cycle['cycleKey'], (int)$item->getId(), 0, $houseId, $actor);
 	$service = \OC::$server->get(CompletionService::class);
-	$result = $service->complete($houseId, 'mom', $id, uuid(), $receipt['occurrenceId'],
-		$receipt['expectedVersion'], $receipt['selectionToken']);
+	$result = $service->complete($houseId, 'mom', $id, uuid(), $cycle['cycleKey'], $cycle['expectedVersion']);
 	$completionId = (int)$result['completionId'];
 	$service->attribute($houseId, $actor, $completionId, uuid(), (int)$result['rewards']['completion']['version'],
 		[['userId' => 'mom', 'sharePct' => 50], ['userId' => 'dad', 'sharePct' => 50]], true, null);
@@ -154,8 +151,10 @@ function snapshot(): array {
 		sort($serialized);
 		$result[$table] = ['count' => count($rows), 'sha256' => hash('sha256', implode("\n", $serialized))];
 	}
+	// The tables of the retired occurrence model stay in the snapshot above;
+	// nothing writes them any more, so only the derived model is required.
 	foreach (['houses', 'floors', 'rooms', 'tasks', 'room_tasks', 'task_assignees', 'house_users', 'member_prefs',
-		'chk_items', 'chk_progress', 'schedule_revs', 'occurrences', 'occ_members', 'agreements', 'pauses',
+		'chk_items', 'cycles', 'cycle_progress', 'pauses',
 		'completed_tasks', 'completion_revs', 'work_shares', 'room_events', 'commands', 'wallets', 'wallet_entries',
 		'reward_items', 'reward_requests', 'request_events'] as $suffix) {
 		check($result['chorestrike_' . $suffix]['count'] > 0, 'Required recovery fixture table is empty: ' . $suffix);

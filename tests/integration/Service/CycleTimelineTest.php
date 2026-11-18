@@ -21,14 +21,15 @@ use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\ChecklistService;
 use OCA\ChoreStrike\Service\CompletionService;
+use OCA\ChoreStrike\Service\CycleAdvanceService;
 use OCA\ChoreStrike\Service\CycleService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskCreationService;
 use OCA\ChoreStrike\Service\TaskService;
 use OCA\ChoreStrike\Service\WindowService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\CycleFixtures;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
@@ -39,67 +40,25 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * sub-task ticks per cycle and bonus tasks without a cycle.
  */
 class CycleTimelineTest extends IntegrationTestCase {
-	private const OWNER = 'ct_owner';
+	use CycleFixtures;
+
+	protected const OWNER = 'ct_owner';
+	protected const HELPER = 'ct_helper';
 
 	private CompletionService $completionService;
 	private CycleService $cycleService;
-	private RoomTaskReadService $readService;
 	private TaskService $taskService;
-	private string $today;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->completionService = \OC::$server->get(CompletionService::class);
 		$this->cycleService = \OC::$server->get(CycleService::class);
-		$this->readService = \OC::$server->get(RoomTaskReadService::class);
 		$this->taskService = \OC::$server->get(TaskService::class);
-		$this->today = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
-	}
-
-	/**
-	 * House + owner + helper + room + one task (daily, after completion,
-	 * energy 2 unless overridden) mounted with the given first date.
-	 *
-	 * @return array{houseId: int, roomId: int, taskId: int, roomTaskId: int}
-	 */
-	private function fixture(array $taskOverrides = [], ?string $firstDate = null): array {
-		$houseId = $this->createHouse(self::OWNER, 'Cycle House');
-		$this->addHouseMember($houseId, 'ct_helper', 'Helper', 'member');
-		$roomId = $this->createRoom($houseId, $this->createFloor($houseId, 'Ground', 1), 'Kitchen');
-		$taskId = $this->createTask($houseId, 'Dishes', 'Do the dishes', 3, 2);
-		$taskOverrides += [
-			'frequency_type' => 'daily',
-			'frequency_value' => 1,
-			'scheduling_mode' => 'dynamic',
-			'recurrence_mode' => 'recurring',
-		];
-		foreach ($taskOverrides as $column => $value) {
-			$qb = $this->db->getQueryBuilder();
-			$qb->update('chorestrike_tasks')
-				->set($column, $qb->createNamedParameter($value))
-				->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)))
-				->executeStatement();
-		}
-		return [
-			'houseId' => $houseId,
-			'roomId' => $roomId,
-			'taskId' => $taskId,
-			'roomTaskId' => $this->assignTaskToRoom($taskId, $roomId, self::OWNER, ($firstDate ?? $this->today) . ' 00:00:00'),
-		];
-	}
-
-	private function day(int $offset): string {
-		return (new \DateTime($this->today))->modify(sprintf('%+d days', $offset))->format('Y-m-d');
+		$this->initToday();
 	}
 
 	private function owner(int $houseId): HouseUser {
 		return \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, self::OWNER);
-	}
-
-	/** The `cycle` block a row shows; null when the room task has no current cycle. */
-	private function block(array $f, ?\DateTime $now = null): ?array {
-		$roomTask = \OC::$server->get(RoomTaskMapper::class)->find($f['roomTaskId']);
-		return $this->readService->cycleFacts($f['houseId'], [$roomTask], null, $now)[$f['roomTaskId']]['block'];
 	}
 
 	private function complete(array $f, string $userId = self::OWNER): int {
@@ -114,37 +73,12 @@ class CycleTimelineTest extends IntegrationTestCase {
 	 * @return array{tasks: int, missed: int}
 	 */
 	private function jobPass(array $f, ?\DateTime $now = null): array {
-		return $this->cycleService->advanceHouse(\OC::$server->get(HouseMapper::class)->find($f['houseId']), $now ?? new \DateTime());
+		return \OC::$server->get(CycleAdvanceService::class)->advanceHouse(\OC::$server->get(HouseMapper::class)->find($f['houseId']), $now ?? new \DateTime());
 	}
 
 	private function edit(array $f, array $updates): void {
 		$this->actingAs(self::OWNER);
 		$this->taskService->updateTask($f['taskId'], $updates, $this->owner($f['houseId']));
-	}
-
-	/** @return list<array<string, mixed>> */
-	private function rows(string $table, string $column, int $value): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')->from($table)
-			->where($qb->expr()->eq($column, $qb->createNamedParameter($value, IQueryBuilder::PARAM_INT)))
-			->orderBy('id', 'ASC');
-		$result = $qb->executeQuery();
-		$rows = $result->fetchAll();
-		$result->closeCursor();
-		return $rows;
-	}
-
-	private function createChecklistItem(int $taskId, string $label, int $sortOrder): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->insert('chorestrike_chk_items')
-			->values([
-				'task_id' => $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT),
-				'label' => $qb->createNamedParameter($label),
-				'sort_order' => $qb->createNamedParameter($sortOrder, IQueryBuilder::PARAM_INT),
-				'created_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
-			]);
-		$qb->executeStatement();
-		return (int)$this->db->lastInsertId('chorestrike_chk_items');
 	}
 
 	/**
@@ -536,7 +470,7 @@ while (!file_exists($goFile)) {
     }
     usleep(2000);
 }
-echo json_encode(\OC::$server->get(\OCA\ChoreStrike\Service\CycleService::class)->advanceHouse($house, new DateTime()));
+echo json_encode(\OC::$server->get(\OCA\ChoreStrike\Service\CycleAdvanceService::class)->advanceHouse($house, new DateTime()));
 PHP);
 
 		$workers = [];
@@ -594,7 +528,8 @@ PHP);
 		self::assertSame([2, 1], [$progress['stats']['total'], $progress['stats']['checked']], 'one of two is ticked and saved');
 		self::assertSame(WindowService::STATE_OPEN, $this->block($f)['state'], 'the task stays open');
 
-		// The work is completed with one sub-task open; the next cycle starts empty.
+		// The work is completed with one sub-task open: the completion marks
+		// it done (ADR-021 decision 4), and the next cycle starts empty.
 		$completionId = $this->complete($f);
 		$next = $checklist->getRoomTaskProgress($f['roomTaskId'], null, $f['houseId'], $viewer);
 		self::assertSame('c' . $completionId, $next['cycle']['cycleKey']);
@@ -610,7 +545,10 @@ PHP);
 		$checklist->toggleItem($f['roomTaskId'], 'c' . $completionId, $rinse, 0, $f['houseId'], $viewer);
 
 		$stored = $this->rows('chorestrike_cycle_progress', 'room_task_id', $f['roomTaskId']);
-		self::assertSame([$firstKey, 'c' . $completionId], array_column($stored, 'cycle_key'), 'the ticks of the closed cycle stay as evidence');
+		self::assertSame([$firstKey, $firstKey, 'c' . $completionId], array_column($stored, 'cycle_key'), 'the ticks of the closed cycle stay as evidence');
+		self::assertSame([1, 1], [(int)$stored[0]['is_checked'], (int)$stored[1]['is_checked']], 'the completion closed the cycle with every sub-task done');
+		self::assertSame([1, 1], [(int)$stored[0]['revision'], (int)$stored[1]['revision']], 'a tick that was already set is left as it was');
+		self::assertSame((int)$viewer->getId(), (int)$stored[1]['checked_by_user_id'], 'the rest is ticked by who recorded the work');
 		self::assertSame([], $this->rows('chorestrike_chk_progress', 'room_task_id', $f['roomTaskId']), 'nothing is written to the occurrence-keyed table');
 	}
 

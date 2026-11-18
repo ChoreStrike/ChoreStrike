@@ -289,7 +289,8 @@ table.
 
 **Response (WP3):** frozen work facts, the selected allocation and the
 viewer-scoped correction flags — never mutable reward outputs
-([ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)):
+([ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)) — plus what
+happened besides completions in the same period (`events`):
 
 ```json
 {
@@ -309,13 +310,23 @@ viewer-scoped correction flags — never mutable reward outputs
       "energyCost": 3,
       "roomId": 2,
       "roomName": "Living Room",
+      "roomTaskId": 12,
+      "workDate": "2026-08-21",
+      "completionClass": "on_time",
       "canCorrect": true,
+      "canAttribute": false,
+      "recordedForOthers": false,
       "allocation": [
         { "userId": "alice", "displayName": "Alice", "sharePct": 100, "energyMinor": 300, "coinMinor": 3000 }
       ]
     }
   ],
-  "total": 1
+  "total": 1,
+  "events": [
+    { "type": "postponed", "at": "2026-08-21T09:00:00+00:00", "houseUserId": 9, "displayName": "Kid", "roomTaskId": 14, "taskTitle": "Tidy room", "postponeCount": 2 },
+    { "type": "date_changed", "at": "2026-08-20T15:40:00+00:00", "houseUserId": 7, "displayName": "Alice", "roomTaskId": 12, "taskTitle": "Vacuum living room", "completionId": 41 },
+    { "type": "absence", "at": "2026-08-20T17:05:00+00:00", "houseUserId": 9, "displayName": "Kid", "scope": "personal", "subjectUserId": "kid", "subjectDisplayName": "Kid", "from": "2026-08-24", "to": "2026-08-28" }
+  ]
 }
 ```
 
@@ -328,9 +339,30 @@ viewer-scoped correction flags — never mutable reward outputs
   the frozen rate; returned since CS-PLAN-090 WP-E, the activity list shows
   their sum as the coins a completion paid). A departed participant's share serializes with
   `userId: null` (wallet retained, membership gone) and stays auditable.
-- `canCorrect` — viewer-scoped: completer or house owner on a still-valid
-  completion. The feed exposes targeted correction and undo actions from this
-  flag; it is never true for undone rows or unrelated members.
+- `houseUserId`/`displayName` name who **recorded** the completion; the
+  people credited are the `allocation`. `recordedForOthers` is true when the
+  recorder is not among them (ADR-021 §10). `workDate` is the house-local day
+  the work counts on, which a date correction moves.
+- `canCorrect` — viewer-scoped, on a still-valid completion: the house owner,
+  or the member who recorded it while it is the latest valid entry of its room
+  task (ADR-021 §9, D-091-23). It gates the deletion (undo) and the date
+  correction. `canAttribute` gates the change of the people and is the
+  owner's alone. Neither is true for undone rows or for a task the viewer
+  cannot see. Visibility is decided per room task (ADR-010: a private task by
+  its creator and that room task's assignees).
+- `events` — newest first, at most `limit`, of the same `days`: `postponed`
+  (`postponeCount` of three), `date_changed` and `deleted` (with their
+  `completionId`), `absence` and `absence_removed` (`from`/`to` house-local
+  days, `scope` `personal` or `house`, the subject when it is a person and
+  still a member). An absence shows once it was acknowledged; a request that
+  never was shows neither way. `houseUserId`/`displayName` name who did it
+  (who entered or removed an absence; the absent person is the subject); an
+  erased or departed member renders through the placeholder. `taskTitle` is
+  `null` for a task the viewer cannot see or that is gone. With `userId`,
+  only that member's events, filtered before the `limit`. Nothing is stored
+  for them: a postponement is read from its command receipt, a date change
+  and a deletion from the completion's audit chain, an absence from its pause
+  revisions.
 - When the viewer cannot see a private or admin-only task, the household feed
   redacts its task details, frozen effort and selected work shares, with the
   coins they paid, together;
@@ -351,21 +383,23 @@ an identical retry replays the stored outcome (`replay: true`) with zero
 repeated effects, a changed payload under the same UUID conflicts.
 
 > **Derived windows ([ADR-021](../adr/ADR-021-derived-due-windows.md), CS-PLAN-091 on
-> `feat/simplified-core-bc`):** the read model adds the cycle facts (`cycleKey`,
-> `windowStartOn`, `windowEndOn`, `completionClass` = `on_time` | `late` | `bonus`) from
-> WP-B1 on. **Planned:** the recorder when it differs from the people credited (WP-B2),
-> the frozen coin factors (`coinFactors`, `bonusPercent`, WP-B5) and the narrowed
-> authority of D-091-23 (WP-B3): a member who is not the owner may undo or re-date only the
-> **latest valid completion of the room task that they recorded**; attribution is
-> **owner-only**, and `canCorrect` follows these rules. Until WP-B3 the ADR-014 rights below
-> apply unchanged.
+> `feat/simplified-core-bc`):** the read model carries the cycle facts (`cycleKey`,
+> `windowStartOn`, `windowEndOn`, `completionClass` = `on_time` | `late` | `bonus`) and
+> `recordedBy` when someone recorded the work for other people (WP-B2). The rights
+> follow ADR-021 §9 (WP-B3, D-091-23): the owner corrects any entry; a member who is
+> not the owner may delete or re-date only the **latest valid completion of the room
+> task that they recorded**; the people are the **owner's alone** to change. **Planned:**
+> the frozen coin factors (`coinFactors`, `bonusPercent`, WP-B5).
 
 #### GET /completions/{id}
 The viewer-safe read model of one completion: frozen work facts
 (`completedAt`, `workDate`, `workZone`, `occurrenceDue`, `totalEnergy`,
 `rateMinor`), the currently selected `allocation` with the audit `history`
-(append-only revisions; a departed-not-erased actor renders as the localized
-'Removed member' placeholder) and the viewer-scoped `canCorrect`.
+(append-only revisions with the actions `complete`, `attribution`, `date` and
+`undo`; a departed-not-erased actor renders as the localized 'Removed member'
+placeholder), `recordedBy` (`{ userId, displayName }` when the recorder is not
+among the people credited, else `null`) and the viewer-scoped `canCorrect`
+(delete, re-date) and `canAttribute` (the people).
 
 **Response `data` excerpt:**
 ```json
@@ -378,16 +412,20 @@ The viewer-safe read model of one completion: frozen work facts
     { "revision": 0, "action": "complete", "actor": { "userId": "alice", "displayName": "Alice" }, "reasonCode": null },
     { "revision": 1, "action": "attribution", "actor": null, "actorDisplayName": "Removed member", "reasonCode": "wrong_split" }
   ],
-  "canCorrect": true
+  "recordedBy": null,
+  "canCorrect": true,
+  "canAttribute": true
 }
 ```
 
 #### POST /completions/{id}/undo
 The targeted completion undo (C3e). Receipt: `commandId` (UUID),
 `expectedVersion`, optional bounded `reasonCode` (closed payload — unknown
-fields 400). Authority: the recorded completer or a house owner
-(participation alone is no authority; a departed completer leaves the owner
-as the only authority). A stale `expectedVersion` → `409 CONFLICT`. The
+fields 400). Authority (ADR-021 §9): the house owner for any entry; any other
+member only for the latest valid completion of the room task that they
+recorded (`403 FORBIDDEN` otherwise; participation alone is no authority, and
+a departed recorder leaves the owner as the only authority). A stale
+`expectedVersion` → `409 CONFLICT`. The
 aggregate reverses the **latest selected allocation revision** exactly once:
 wallet union deltas (`completion_undo` ledger entries), the reopening of the
 cycle the completion closed (its row is deleted; the window is derived again
@@ -406,8 +444,10 @@ unique current house members, whole percents summing to exactly 100), the
 explicit `allocationReviewed: true` confirmation of any deviation from the
 recorded allocation (an unreviewed deviation is a `409 CONFLICT`), and an
 optional bounded `reasonCode` (closed payload — unknown fields 400).
-Authority: completer or house owner only. The response carries no `cycle`
-block: an attribution moves no cycle, and the client keeps the target it holds.
+Authority: the house owner alone (ADR-021 §9, D-091-23; `403 FORBIDDEN` for
+everyone else, the recorder included). Every member of the new split must be
+allowed to see the task (`403`). The response carries no `cycle` block: an
+attribution moves no cycle, and the client keeps the target it holds.
 
 The correction rewrites the **selected allocation** and re-accounts value
 with exact wallet-union deltas: the union is keyed by **wallet id from the
@@ -419,19 +459,38 @@ cycle facts stay immutable; personal recognition recomputes from the
 corrected valid history. `expectedVersion` staleness → `409 CONFLICT`.
 
 #### PUT /completions/{id}/date
-The date correction of one completion (ADR-021 §9, planned: CS-PLAN-091 WP-B3). Closed receipt:
+The date correction of one completion (ADR-021 §9, CS-PLAN-091 WP-B3). Closed receipt:
 `{ "commandId": "<uuid>", "expectedVersion": 1, "date": "Y-m-d" }` — a
-house-local day, never in the future and never on or before the day of the
-room task's previous valid completion (`400 VALIDATION_ERROR`). Authority: the
-owner for any completion; any other member only for the latest valid
-completion of the room task that they recorded (`403 FORBIDDEN` otherwise).
+house-local day that is not in the future and lies strictly between the days
+of the room task's neighbouring valid completions (never on or before the
+previous one, never on or after the next one, D-091-26), and not the day the
+entry already has (`400 VALIDATION_ERROR` with the translated reason).
+Authority: the owner for any completion; any other member only for the latest
+valid completion of the room task that they recorded (`403 FORBIDDEN`
+otherwise). Whether the entry is still the latest is decided under the house
+lock; a repeated `commandId` replays the committed result even after a newer
+entry was recorded (D-091-63). A deleted entry and `expectedVersion`
+staleness → `409 CONFLICT`.
 
-The command appends a `date` revision to the audit chain and moves the frozen
-work date. It re-derives the completion's classification against its cycle's
-window, the cycle row, the room journal replay and the weekly goal; for an
-after-completion rule also the window and classification of the cycle that
-followed it. Shares, energy and coins stay. `expectedVersion` staleness →
-`409 CONFLICT`.
+The command appends a `date` revision to the audit chain and moves the work
+day; the work instant (`completedAt`) keeps its clock time on that day and
+never lies ahead of now. It re-derives the completion's classification
+against the frozen window of its cycle, the cycle row, the room journal
+replay (the completion's event moves to the corrected instant) and the
+recognitions; under an after-completion rule also the frozen window and the
+classification of the cycle that followed the entry, and the current window
+(a bounded task ends or becomes active again with it). A completion from
+before the derived model keeps its stored class; its stored occurrence is
+read against the corrected instant. Shares, energy and coins stay, and so do
+the facts of a takeover (claim and digest receipt, D-091-61). The answer has
+the shape of the undo's, with the fresh `cycle` block.
+
+#### GET /room-tasks/{id}/history?limit=
+The history of one task (CS-PLAN-091 WP-B3): its valid completions, newest
+first, in the item shape of `GET /house/activity` with the viewer's
+`canCorrect`/`canAttribute`. `limit` is clamped to 1–50 (default 10). Every
+member who may see the task; a foreign, deleted or invisible room task →
+`404 RESOURCE_NOT_FOUND`. Answer: `{ "completions": [ … ] }`.
 
 
 ### Floors
@@ -702,13 +761,19 @@ one. The form's read-only next window comes from the response's `cycle` block.
 `PUT /tasks/{id}` and `PUT /room-tasks/{id}/assignees` lose their form client
 and go once no client is left.
 
-#### POST /room-tasks/{id}/postpone (ADR-021 §6, planned: CS-PLAN-091 WP-B3)
+#### POST /room-tasks/{id}/postpone (ADR-021 §6, CS-PLAN-091 WP-B3)
 Closed body `{ "commandId": "<uuid>", "cycleKey": "c88", "expectedVersion": 4 }`.
-Every member who may see the task, children included. Moves the current
-window by half the flex days, rounded up, at most three times per cycle;
-`409 NOT_POSTPONABLE` without flex days or after the third press,
-`409 WINDOW_ENDED` once the window has ended, `409 STALE_TARGET` for a key or
-version that is no longer current. The answer carries the fresh `cycle` block.
+Every member who may see the task, children included (`404` for a task the
+member cannot see). Moves the current window by half the flex days, rounded
+up, at most three times per cycle; `409 NOT_POSTPONABLE` without flex days or
+after the third press, `409 WINDOW_ENDED` once the window has ended,
+`409 STALE_TARGET` for a key or version that is no longer current (a bonus or
+sleeping task has no cycle to name), `409 CONFLICT` for an inactive task. The
+postponement belongs to its cycle key: the next cycle is not affected, and an
+undo of the completion reopens the cycle postponed as it was, its count of
+presses included (D-091-62). A repeated `commandId` replays (`replay: true`).
+The answer is `{ roomTask, cycle, replay }` with the fresh `cycle` block; the
+recent activity shows the postponement.
 
 #### PUT /room-tasks/{id}/sleep (ADR-021 §7, planned: CS-PLAN-091 WP-B4)
 Closed body `{ "commandId": "<uuid>", "expectedVersion": 4, "sleeping": true,
@@ -817,7 +882,7 @@ the task's one current cycle, derived on read:
   `{ "state": "bonus", "expectedVersion": n }`, a sleeping task
   `{ "state": "asleep" }`; a task without a cycle (a one-time task that is done,
   an inactive one) carries `cycle: null`.
-- `canPostpone` is the precondition of the postpone command (WP-B3).
+- `canPostpone` is the precondition of the postpone command; `postponeCount` says how often the cycle was moved (at most three times).
 
 **`status` (CS-PLAN-084 D-084-08)** derives from it: `overdue` for an `overdue`
 cycle, `due_today` for an `open` one — also when the planned day has passed
@@ -871,7 +936,9 @@ The `proposal` block went with the agreements (ADR-021, CS-PLAN-091 WP-B1). A
 row belongs to its canonical `assignees`: Today's personal filter and the
 child's daily eligibility read them, and an unassigned row is offered to
 everyone. A completion without `participants` credits equal shares of the
-assignees, or the completer for unassigned work. Private and admin-only
+assignees, or the recorder for unassigned work; the client sends it for a
+held Done button and opens its picker (who did it, which sub-tasks are done)
+for a short tap. Private and admin-only
 visibility is checked before any enrichment.
 
 #### PUT /room-tasks/{id}/due-date · PUT /room-tasks/{id}/last-done — removed
@@ -961,9 +1028,12 @@ unknown fields are a `400`:
   is a `400 VALIDATION_ERROR`.
 - `participants` (optional) — the explicit actual-work split: 1–100 unique
   eligible house members with positive whole percents totaling exactly 100.
-  Absent → equal shares of the assignees, or the completer for unassigned
-  work. The completer must take part in the work (Q-074-02; `403 FORBIDDEN`
-  otherwise).
+  Absent → equal shares of the assignees, or the recorder for unassigned
+  work. The recorder need not take part (ADR-021 §10; Q-074-02 reversed):
+  anyone records work for anyone, and the completion keeps who recorded it.
+  Every credited member must be allowed to see the task — public: every
+  member; private: its creator and the room task's assignees; admin-only:
+  the owner — else `403 FORBIDDEN` (D-091-20).
 - `allocationReviewed` (optional, default `false`) — the explicit confirmation
   when the submitted split deviates from the default; an unreviewed deviation
   → `409 CONFLICT`.
@@ -987,18 +1057,19 @@ cycle exactly once (`chorestrike_cycles`) — first recording as missed the fixe
 cycles that stopped being current before it and that the timeline job had not
 reached yet (D-091-43) — moves the `nextDue` projection to
 the next cycle and recomputes the personal recognition of every participant —
-all under the documented lock order. A one-time task ends with its cycle; a
-bonus task closes none. Gates run before any write: inactive room task →
+all under the documented lock order. Every sub-task of the cycle is marked
+done in the same transaction; a tick that was already set keeps who set it.
+A one-time task ends with its cycle; a bonus task closes none. Late work of
+an assigned task that none of its assignees is credited for is a takeover:
+the room task records who took it over, and the first assignee gets the
+digest receipt. Gates run before any write: inactive room task →
 `409 CONFLICT`, visibility → `404`/`403` per the standard above. Post-commit
 effects (weekly-goal read, notification dispatches) are failure-isolated: the
 endpoint still answers `200` with `rewards.weeklyGoal = null`.
 
-> **Planned (CS-PLAN-091 WP-B2, WP-B4, WP-B5):** `participants` may leave the
-> recorder out (recording for others; every credited member must be allowed
-> to see the task), the command marks every sub-task of the cycle done, a
-> second credit of one member on a bonus task the same day answers
-> `409 BONUS_ALREADY_TODAY`, completing a sleeping task wakes it, and the
-> coin factors are frozen on the completion.
+> **Planned (CS-PLAN-091 WP-B4, WP-B5):** a second credit of one member on a
+> bonus task the same day answers `409 BONUS_ALREADY_TODAY`, completing a
+> sleeping task wakes it, and the coin factors are frozen on the completion.
 
 **Response (WP3 evidence shape):**
 ```json
@@ -1198,8 +1269,8 @@ empty with `cycle: null`; a toggle for it, or with a stale revision, answers
 cycle stay as stored. Progress keyed by an occurrence
 (`chorestrike_chk_progress`) stays as history and is no longer written.
 
-> **Planned (CS-PLAN-091 WP-B2):** the completion command marks every sub-task
-> of its cycle done.
+The completion command marks every sub-task of its cycle done (ADR-021 §4);
+ticking only some of them goes through the toggle and leaves the task open.
 
 ### Game
 

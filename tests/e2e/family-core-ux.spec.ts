@@ -230,7 +230,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await expect(page.getByTestId('task-item').first()).toBeVisible()
 			await expect(page.locator('[data-testid="task-item"]:not(.overdue)')).toHaveCount(0)
 
-			// A short tap explains the hold and sends nothing; the hold completes once.
+			// A short tap opens the picker and sends nothing; the hold completes once.
 			const completions: string[] = []
 			page.on('request', (request) => {
 				if (request.method() === 'POST' && request.url().endsWith('/complete')) {
@@ -242,7 +242,9 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const box = await done.boundingBox()
 			expect(box!.height).toBeGreaterThanOrEqual(44)
 			await done.click()
-			await expect(page.getByTestId(`${await done.getAttribute('data-testid')}-hint`)).toHaveText('Press and hold to confirm')
+			await expect(page.getByTestId('participation-dialog')).toBeVisible()
+			await page.getByTestId('participation-cancel').click()
+			await expect(page.getByTestId('participation-dialog')).toHaveCount(0)
 			expect(completions).toEqual([])
 			await expect(page.getByTestId('today-view')).toBeVisible()
 
@@ -576,7 +578,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			expect(box).not.toBeNull()
 			expect(box!.height).toBeGreaterThanOrEqual(44)
 
-			// WP-E: a short tap sends nothing and explains the hold gesture.
+			// WP-B2: a short tap sends nothing; it opens the picker for who did it.
 			const completeRequests: string[] = []
 			page.on('request', (request) => {
 				if (request.method() === 'POST' && request.url().endsWith('/complete')) {
@@ -584,17 +586,20 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				}
 			})
 			await page.getByTestId(`today-complete-button-${countersRoomTask.id}`).tap()
-			await expect(page.getByTestId(`today-complete-button-${countersRoomTask.id}-hint`)).toHaveText('Press and hold to confirm')
-			expect(completeRequests).toEqual([])
-
-			// WP3 §3.6: the held Done of someone else's task opens the participation
-			// dialog — settle it (tap-friendly confirm).
-			await holdToConfirm(page.getByTestId(`today-complete-button-${countersRoomTask.id}`))
 			await expect(page.getByTestId('participation-dialog')).toBeVisible()
+			// The task is teen's: teen is ticked, and the confirm is tap-friendly.
+			await expect(page.getByTestId('participant-active-teen')).toBeChecked()
+			await expect(page.getByTestId('participant-active-mom')).not.toBeChecked()
 			const confirmBox = await page.getByTestId('participation-confirm').boundingBox()
 			expect(confirmBox).not.toBeNull()
 			expect(confirmBox!.height).toBeGreaterThanOrEqual(44)
-			await page.getByTestId('participation-confirm').tap()
+			await page.getByTestId('participation-cancel').tap()
+			expect(completeRequests).toEqual([])
+
+			// The held Done of someone else's task completes at once: the
+			// server credits its assignee, and nobody is asked.
+			await holdToConfirm(page.getByTestId(`today-complete-button-${countersRoomTask.id}`))
+			await expect(page.getByTestId('participation-dialog')).toHaveCount(0)
 			await expect(page.getByTestId(`undo-snackbar-entry-${countersRoomTask.id}`)).toBeVisible()
 			await expect(page.getByTestId(`today-complete-button-${countersRoomTask.id}`)).toHaveCount(0)
 			// Always-on subtle feedback (D-084-03): one short pulse per completion, none for the short tap.

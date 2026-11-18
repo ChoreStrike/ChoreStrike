@@ -463,30 +463,41 @@ payload under the same UUID conflicts). The domain model:
   house-local `work_date`/`work_zone`, `occurrence_due`, `total_energy` and
   the frozen `rate_minor` — and records the actual participants as the
   selected allocation revision (`work_shares`: wallet, exact share, minor
-  units, actor, review confirmation). The completer must take part in the
-  work; completing someone else's split unchanged is rejected.
+  units, actor, review confirmation). The recorder need not take part
+  (ADR-021 §10): anyone records work for anyone who may see the task, and the
+  completion keeps who recorded it. Every sub-task of the cycle is done with
+  the completion.
 - **Rewards are exact derivations, never minted integers.** `energyMinor =
   totalEnergy × sharePct`, `coinMinor = 10 × totalEnergy × sharePct` at the
   frozen rate; wallet postings are immutable `wallet_entries` rows keyed by
   `(wallet, source-kind, source-id, source-revision)` so every command commits
   exactly once. Totals are conserved by construction.
 - **Undo reverses the latest selected allocation exactly once.**
-  `POST /completions/{id}/undo` (completer or owner authority) releases the
-  occurrence completion, posts the exact negative wallet-union deltas, replays
+  `POST /completions/{id}/undo` (the owner for any entry; another member only
+  for the latest valid entry of a task that they recorded, ADR-021 §9)
+  reopens the cycle the completion closed, posts the exact negative wallet-union deltas, replays
   the room journal (the undone requested effect drops out; the correction
   execution time never becomes `last_cleaned`) and recomputes the personal
   recognition of everyone whose credit changed. No revertible target → a
   zero-write `undone: false` success. The receipt/version staleness stays a
   `409`.
 - **Attribution corrects who actually did the work.**
-  `PUT /completions/{id}/attribution` (completer or owner; participation
-  alone is no authority) rewrites the selected allocation with the explicit
-  deviation confirmation. The reversal union is keyed by **wallet id from the
+  `PUT /completions/{id}/attribution` (the owner alone, ADR-021 §9;
+  participation and having recorded it are no authority) rewrites the
+  selected allocation with the explicit deviation confirmation. The reversal union is keyed by **wallet id from the
   share rows**: a departed participant's retained wallet is always reversed,
   so a completion pays out exactly the frozen total and never more. The
   frozen work facts and the room journal stay immutable; the audit chain
   (`completion_revs`) is append-only and a departed-not-erased actor renders
   as the localized 'Removed member' placeholder.
+- **A date correction moves when the work was done.**
+  `PUT /completions/{id}/date` (the rights of the undo) moves the work day
+  between the days of the room task's neighbouring valid entries, never into
+  the future. The classification is decided again against the frozen window
+  of the entry's cycle; the room journal folds the work at the corrected
+  instant; under an after-completion rule the cycle that followed and the
+  current window move with the day. Shares, energy and coins stay. The audit
+  chain records it as a `date` revision.
 - **An undone completion is not a completion anywhere.** Undone rows are
   excluded from the weekly-goal count and the rhythm evaluation; the
   supported misclick flow is undo-then-re-complete (a fresh command identity).
@@ -509,8 +520,8 @@ Domain behavior of the WP0 substrate (mechanism detail in
   `is_active = 0`) instead of destroying them: the rows vanish from every
   active-planning view, the `completed_tasks` evidence is retained with its
   existing visibility, and earned effects (coins/streaks/medals) stay valid.
-  Undo of a completion on a tombstoned room task stays authorized for the
-  completer or an owner. Re-adding the same task to the same room creates a
+  Undo of a completion on a tombstoned room task stays authorized under the
+  rights above. Re-adding the same task to the same room creates a
   fresh live link — the tombstone never blocks it.
 - **Account deletion erases the person, not the shared history.** When the
   Nextcloud account is deleted, ChoreStrike removes every personal reference
@@ -531,9 +542,10 @@ Implemented by WP3 (CS-PLAN-074, ADR-014); it supersedes the ADR-011 snapshot
 restore — see *Completion and undo model* above.
 
 - Target a specific completion by stable identity, including older completions of
-  the same task. Its completer or an authorized owner may correct it under existing
-  membership and visibility/private-task rights. Being merely a recorded helper
-  does not grant new correction authority.
+  the same task. An owner may correct any of them; another member only the latest
+  valid entry of a task that they recorded themselves (ADR-021 §9, D-091-23), under
+  existing membership and visibility/private-task rights. Being merely a recorded
+  helper does not grant correction authority.
 - Full undo removes only that completion's effects once. Preserve valid later
   completions, their actual timestamps and independent earnings/spending. Re-derive
   dependent chronological streaks/goals and still-open future dates from corrected

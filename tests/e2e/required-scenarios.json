@@ -421,10 +421,11 @@
     "arcade-mobile.spec.ts > Arcade touch controls (CS-PLAN-086) > Tile Breaker steers by tapping the board"
   ],
   "mobile-core.spec.ts": [
-    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > My Day hold-complete and undo: a tap explains the hold, the hold completes once, undo restores",
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > My Day hold-complete and undo: a tap opens the picker, the hold completes once, undo restores",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > claim confirm: an owner takes over overdue work in one confirmation and the next cycle stays with the assignee",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > handover: a member records the work of someone else and the successor stays with the assignee",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > paged task list: 20 rows per page with collapsed filters on the phone",
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > postpone and history: a child postpones a task, then re-dates and deletes its own entry",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > reassignment: the former assignee loses the task and the new assignee sees it",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > settings stay reachable through the phone navigation for a child",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > today shows the status line and the overdue block, and a room opens"

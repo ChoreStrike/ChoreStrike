@@ -28,6 +28,8 @@
 					:busy="roomTasksStore.isCompleting(item.roomTask.id)"
 					data-testid="complete-task-button"
 					:title="t('chorestrike', 'Mark as complete')"
+					tappable
+					@tap="picking = true"
 					@confirm="$emit('complete', item.roomTask.id)" />
 				<span v-else class="completed-check">
 					<Icon name="CheckCircle" :size="20" />
@@ -119,14 +121,24 @@
 			:assigneeDraft="assigneeDraft"
 			:assigneeRefusal="assigneeRefusal"
 			@toggleAssignee="(...args) => $emit('toggleAssignee', ...args)" />
+
+		<!-- A short tap on Done: who did it, and which sub-tasks are done. -->
+		<CompletionPicker
+			v-if="picking"
+			:roomTaskId="item.roomTask.id"
+			:taskId="item.task.id"
+			:assignees="item.roomTask.assignees || []"
+			@close="picking = false"
+			@confirm="completeAs" />
 	</div>
 </template>
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import ExpandChevron from '../Common/ExpandChevron.vue'
 import HoldButton from '../Common/HoldButton.vue'
+import CompletionPicker from './CompletionPicker.vue'
 import TaskListDetails from './TaskListDetails.vue'
 import TaskMeta from './TaskMeta.vue'
 import { useHouseStore } from '../../store/house.js'
@@ -158,6 +170,7 @@ export default {
 
 	components: {
 		Icon,
+		CompletionPicker,
 		ExpandChevron,
 		HoldButton,
 		TaskListDetails,
@@ -204,11 +217,18 @@ export default {
 
 	emits: ['complete', 'edit', 'delete', 'toggleExpand', 'toggleSelect', 'claim', 'toggleAssignee'],
 
-	setup(props) {
+	setup(props, { emit }) {
 		const userStore = useUserStore()
 		const houseStore = useHouseStore()
 		const roomTasksStore = useRoomTasksStore()
 		const roomsStore = useRoomsStore()
+
+		// The picker of a short tap; its split completes like a hold does.
+		const picking = ref(false)
+		const completeAs = (split) => {
+			picking.value = false
+			emit('complete', props.item.roomTask.id, split)
+		}
 
 		const location = computed(() => {
 			const room = roomsStore.getRoomById(props.item.roomTask.roomId)
@@ -238,6 +258,8 @@ export default {
 
 		return {
 			assignmentLabel,
+			picking,
+			completeAs,
 			userStore,
 			houseStore,
 			roomTasksStore,

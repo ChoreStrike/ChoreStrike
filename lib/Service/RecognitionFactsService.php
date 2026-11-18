@@ -13,7 +13,6 @@ use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\Cycle;
 use OCA\ChoreStrike\Db\CycleMapper;
 use OCA\ChoreStrike\Db\House;
-use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Db\OccurrenceMapper;
 use OCA\ChoreStrike\Db\OccurrenceMember;
@@ -21,7 +20,6 @@ use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\WorkShareMapper;
 
@@ -44,6 +42,10 @@ use OCA\ChoreStrike\Db\WorkShareMapper;
  * Absence is neutral (D-091-03): a window that lies entirely inside an
  * absence of a responsible member is neither kept nor missed for that
  * member, decided on read ({@see PauseProjectionService}).
+ *
+ * An evaluation that reads several weeks or members begins a
+ * {@see RecognitionPass} and hands it to every read: the open inputs and the
+ * absences are then loaded once instead of once per week.
  */
 class RecognitionFactsService {
 	public function __construct(
@@ -54,12 +56,28 @@ class RecognitionFactsService {
 		private CycleMapper $cycleMapper,
 		private RoomTaskMapper $roomTaskMapper,
 		private TaskMapper $taskMapper,
-		private TaskAssigneeMapper $taskAssigneeMapper,
-		private HouseUserMapper $houseUserMapper,
+		private TaskResponsibility $responsibility,
 		private PauseProjectionService $pauseProjection,
 		private WindowService $windows,
 		private CalendarService $calendar,
 	) {
+	}
+
+	/**
+	 * The inputs of one evaluation pass, read once: five queries whatever
+	 * the number of weeks and members the pass then evaluates.
+	 */
+	public function beginPass(House $house): RecognitionPass {
+		$houseId = (int)$house->getId();
+		$roomTasks = $this->roomTaskMapper->findByHouse($houseId, true);
+		$ids = array_map(static fn (RoomTask $roomTask): int => (int)$roomTask->getId(), $roomTasks);
+		return new RecognitionPass(
+			$this->pauseProjection->recognizedForHouse($houseId),
+			$roomTasks,
+			$this->taskMapper->findByIds(array_values(array_unique(array_map(static fn (RoomTask $roomTask): int => $roomTask->getTaskId(), $roomTasks)))),
+			$this->windows->historiesFor($ids),
+			$this->responsibility->walletIdsByRoomTask($houseId, $ids),
+		);
 	}
 
 	/**
@@ -69,13 +87,13 @@ class RecognitionFactsService {
 	 * @param string $weekKey The week's Monday (`Y-m-d`)
 	 * @return list<RecognitionFact>
 	 */
-	public function factsForWeek(House $house, string $weekKey, \DateTime $now): array {
+	public function factsForWeek(House $house, string $weekKey, \DateTime $now, ?RecognitionPass $pass = null): array {
 		$endKey = RecurrenceCalculator::offsetDays($weekKey, 6);
-		$absences = $this->absences((int)$house->getId());
+		$pass ??= $this->beginPass($house);
 		return [
 			...$this->storedFacts($house, $weekKey, $endKey, $now),
-			...$this->closedFacts($this->cycleMapper->findByHouseEndingBetween((int)$house->getId(), max($weekKey, $this->cyclesFrom($house)), $endKey), $absences),
-			...$this->openFacts($house, $now, $weekKey, $endKey, true, $absences),
+			...$this->closedFacts($this->cycleMapper->findByHouseEndingBetween((int)$house->getId(), max($weekKey, $this->cyclesFrom($house)), $endKey), $pass->absences),
+			...$this->openFacts($house, $now, $weekKey, $endKey, true, $pass),
 		];
 	}
 
@@ -83,14 +101,14 @@ class RecognitionFactsService {
 	 * One page of closed cycles in `(window end, id)` order, for the
 	 * rhythm's lifetime scan from `cycles_from` on.
 	 *
-	 * @param \OCA\ChoreStrike\Db\Pause[]|null $absences Loaded absences (reuse within one scan)
+	 * @param RecognitionPass|null $pass The scan's pass; without one the absences are read per page
 	 * @return array{facts: list<RecognitionFact>, lastDay: ?string, lastId: int, count: int}
 	 */
-	public function closedFactsPage(House $house, ?string $afterDay, int $afterId, int $limit, ?array $absences = null): array {
+	public function closedFactsPage(House $house, ?string $afterDay, int $afterId, int $limit, ?RecognitionPass $pass = null): array {
 		$rows = $this->cycleMapper->findClosedPage((int)$house->getId(), $this->cyclesFrom($house), $afterDay, $afterId, $limit);
 		$last = $rows === [] ? null : $rows[count($rows) - 1];
 		return [
-			'facts' => $this->closedFacts($rows, $absences ?? $this->absences((int)$house->getId())),
+			'facts' => $this->closedFacts($rows, $pass?->absences ?? $this->pauseProjection->recognizedForHouse((int)$house->getId())),
 			'lastDay' => $last?->getWindowEndOn()->format('Y-m-d'),
 			'lastId' => (int)($last?->getId() ?? $afterId),
 			'count' => count($rows),
@@ -102,23 +120,22 @@ class RecognitionFactsService {
 	 * the given days (default: any), plus — for a week view — the fixed
 	 * cycles its rule yields after it inside the range.
 	 *
-	 * @param \OCA\ChoreStrike\Db\Pause[]|null $absences Loaded absences (reuse within one call)
+	 * @param RecognitionPass|null $pass The evaluation's pass; without one the inputs are read here
 	 * @return list<RecognitionFact>
 	 */
-	public function openFacts(House $house, \DateTime $now, ?string $fromKey = null, ?string $toKey = null, bool $withUpcoming = false, ?array $absences = null): array {
-		$houseId = (int)$house->getId();
+	public function openFacts(House $house, \DateTime $now, ?string $fromKey = null, ?string $toKey = null, bool $withUpcoming = false, ?RecognitionPass $pass = null): array {
 		$fromKey = max($fromKey ?? '', $this->cyclesFrom($house));
-		$roomTasks = $this->roomTaskMapper->findByHouse($houseId, true);
+		$pass ??= $this->beginPass($house);
+		$roomTasks = $pass->roomTasks;
 		if ($roomTasks === []) {
 			return [];
 		}
-		$absences ??= $this->absences($houseId);
+		$absences = $pass->absences;
 		$tz = $this->calendar->getTimeZone($house);
 		$today = WindowService::todayKey($now, $tz);
-		$tasks = $this->taskMapper->findByIds(array_values(array_unique(array_map(static fn (RoomTask $roomTask): int => $roomTask->getTaskId(), $roomTasks))));
-		$ids = array_map(static fn (RoomTask $roomTask): int => (int)$roomTask->getId(), $roomTasks);
-		$histories = $this->windows->historiesFor($ids);
-		$responsible = $this->responsibleByRoomTask($houseId, $ids);
+		$tasks = $pass->tasks;
+		$histories = $pass->histories;
+		$responsible = $pass->responsible;
 
 		$facts = [];
 		foreach ($roomTasks as $roomTask) {
@@ -128,7 +145,7 @@ class RecognitionFactsService {
 			}
 			$id = (int)$roomTask->getId();
 			$cycles = $withUpcoming && $toKey !== null
-				? $this->windows->cyclesThrough($roomTask, $task, $histories[$id] ?? null, $tz, $now, $toKey)
+				? $this->windows->cyclesThrough($roomTask, $task, $histories[$id] ?? null, $tz, $now, $toKey, $fromKey)
 				: array_filter([$this->windows->currentCycle($roomTask, $task, $histories[$id] ?? null, $tz, $now)]);
 			foreach (array_values($cycles) as $index => $cycle) {
 				if ($cycle->endOn < $fromKey || ($toKey !== null && $cycle->endOn > $toKey) || str_starts_with($cycle->key, 'p')) {
@@ -297,36 +314,6 @@ class RecognitionFactsService {
 			null,
 			$row->getIsPublic() === true,
 		);
-	}
-
-	/**
-	 * @param int[] $roomTaskIds
-	 * @return array<int, list<int>> Room task id to the wallet ids of its assignees
-	 */
-	private function responsibleByRoomTask(int $houseId, array $roomTaskIds): array {
-		$walletByUser = [];
-		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
-			if ($member->getWalletId() !== null) {
-				$walletByUser[$member->getNextcloudUserId()] = (int)$member->getWalletId();
-			}
-		}
-		$responsible = [];
-		foreach ($this->taskAssigneeMapper->findUserIdsByRoomTasks($roomTaskIds) as $roomTaskId => $userIds) {
-			$wallets = array_values(array_filter(array_map(static fn (string $userId): ?int => $walletByUser[$userId] ?? null, $userIds)));
-			sort($wallets);
-			$responsible[(int)$roomTaskId] = $wallets;
-		}
-		return $responsible;
-	}
-
-	/**
-	 * The recognized absences of a house, for a caller that reads several
-	 * times within one evaluation.
-	 *
-	 * @return \OCA\ChoreStrike\Db\Pause[]
-	 */
-	public function absences(int $houseId): array {
-		return $this->pauseProjection->recognizedForHouse($houseId);
 	}
 
 	/** The first day of derived windows; a house without one never had stored occurrences. */

@@ -470,6 +470,77 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * The latest valid completion of each room task: the one with the
+	 * highest id, since a date correction never reorders entries (D-091-26).
+	 *
+	 * @param int[] $roomTaskIds
+	 * @return array<int, int> Room task id => completion id; room tasks without a valid completion are absent
+	 */
+	public function findLatestValidIdsByRoomTasks(array $roomTaskIds): array {
+		$latest = [];
+		foreach (array_chunk(array_values(array_unique(array_map('intval', $roomTaskIds))), 500) as $chunk) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('room_task_id')
+				->selectAlias($qb->func()->max('id'), 'latest_id')
+				->from($this->getTableName())
+				->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($chunk, IQueryBuilder::PARAM_INT_ARRAY)))
+				->andWhere($qb->expr()->isNull('undone_at'))
+				->groupBy('room_task_id');
+			$result = $qb->executeQuery();
+			foreach ($result->fetchAll() as $row) {
+				$latest[(int)$row['room_task_id']] = (int)$row['latest_id'];
+			}
+			$result->closeCursor();
+		}
+		return $latest;
+	}
+
+	/**
+	 * The valid completions of one room task, newest first (its history).
+	 *
+	 * @return CompletedTask[]
+	 */
+	public function findValidByRoomTask(int $roomTaskId, int $limit): array {
+		$qb = $this->validOfRoomTask($roomTaskId);
+		return $this->findEntities($qb->orderBy('id', 'DESC')->setMaxResults($limit));
+	}
+
+	/**
+	 * The valid completions next to one entry of a room task, by id: a
+	 * date correction has to stay between their days (D-091-26).
+	 *
+	 * @return array{previous: ?CompletedTask, next: ?CompletedTask}
+	 */
+	public function findValidNeighbours(int $roomTaskId, int $completionId): array {
+		$before = $this->validOfRoomTask($roomTaskId);
+		$before->andWhere($before->expr()->lt('id', $before->createNamedParameter($completionId, IQueryBuilder::PARAM_INT)))
+			->orderBy('id', 'DESC')->setMaxResults(1);
+		$after = $this->validOfRoomTask($roomTaskId);
+		$after->andWhere($after->expr()->gt('id', $after->createNamedParameter($completionId, IQueryBuilder::PARAM_INT)))
+			->orderBy('id', 'ASC')->setMaxResults(1);
+		return [
+			'previous' => $this->findEntities($before)[0] ?? null,
+			'next' => $this->findEntities($after)[0] ?? null,
+		];
+	}
+
+	/** The valid completion that fulfilled one cycle of a room task, if any. */
+	public function findValidByCycleKey(int $roomTaskId, string $cycleKey): ?CompletedTask {
+		$qb = $this->validOfRoomTask($roomTaskId);
+		$qb->andWhere($qb->expr()->eq('cycle_key', $qb->createNamedParameter($cycleKey)))
+			->orderBy('id', 'DESC')->setMaxResults(1);
+		return $this->findEntities($qb)[0] ?? null;
+	}
+
+	private function validOfRoomTask(int $roomTaskId): IQueryBuilder {
+		$qb = $this->db->getQueryBuilder();
+		return $qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('undone_at'));
+	}
+
+	/**
 	 * The completion inputs of derived windows (ADR-021 decision 1) for
 	 * many room tasks in two queries: the latest valid completion of each
 	 * (highest id; a date correction never reorders completions) and the

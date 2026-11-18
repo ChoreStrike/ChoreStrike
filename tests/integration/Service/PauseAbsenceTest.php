@@ -15,7 +15,7 @@ use OCA\ChoreStrike\Db\Pause;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
-use OCA\ChoreStrike\Service\CycleService;
+use OCA\ChoreStrike\Service\CycleAdvanceService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\PauseProjectionService;
 use OCA\ChoreStrike\Service\PauseService;
@@ -258,7 +258,7 @@ class PauseAbsenceTest extends IntegrationTestCase {
 	public function testAbsenceEnteredAfterTheWindow_IsHonoured(): void {
 		$roomTaskId = $this->dailyFixedTask('pa_mom', $this->dayKey(-2), 'Missed dishes');
 		$house = \OC::$server->get(HouseMapper::class)->find($this->houseId);
-		\OC::$server->get(CycleService::class)->advanceHouse($house, new \DateTime());
+		\OC::$server->get(CycleAdvanceService::class)->advanceHouse($house, new \DateTime());
 		$closed = fn (): array => array_values(array_filter(
 			\OC::$server->get(RecognitionFactsService::class)->closedFactsPage($house, null, 0, 50)['facts'],
 			static fn (RecognitionFact $fact): bool => $fact->roomTaskId === $roomTaskId
@@ -299,7 +299,7 @@ class PauseAbsenceTest extends IntegrationTestCase {
 			'reasonCode' => Pause::REASON_ILLNESS,
 		]);
 		$house = \OC::$server->get(HouseMapper::class)->find($this->houseId);
-		\OC::$server->get(CycleService::class)->advanceHouse($house, new \DateTime());
+		\OC::$server->get(CycleAdvanceService::class)->advanceHouse($house, new \DateTime());
 		$momWallet = $this->walletId('pa_mom');
 		$illDay = fn (): RecognitionFact => array_values(array_filter(
 			\OC::$server->get(RecognitionFactsService::class)->closedFactsPage($house, null, 0, 50)['facts'],

@@ -10,7 +10,6 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\Task;
 
 /**
@@ -84,8 +83,10 @@ class WindowService {
 		$reach = $rule->flexDays + self::periodDays($rule) + self::MAX_POSTPONEMENTS * self::postponeStep($rule->flexDays);
 		$steps = $this->fixedCycles($roomTask, $rule, $history, $anchor, $today, RecurrenceCalculator::offsetDays($today, -$reach - 1));
 		if ($steps === [] && $rule->activeUntil !== null) {
-			// A bounded rule past its end: its last cycle stays current until it is done.
-			$steps = $this->fixedCycles($roomTask, $rule, $history, $anchor, $today);
+			// A bounded rule past its end: its last cycle stays current until
+			// it is done. That cycle lies within one period of the bound, so
+			// the walk starts there instead of at the anchor.
+			$steps = $this->fixedCycles($roomTask, $rule, $history, $anchor, $today, RecurrenceCalculator::offsetDays($rule->activeUntil, -self::periodDays($rule) - 1));
 		}
 		return $steps === [] ? null : $steps[count($steps) - 1];
 	}
@@ -116,10 +117,12 @@ class WindowService {
 	 * fixed rule's next rule days, an after-completion rule's next centres
 	 * as if each cycle were done on its centre day.
 	 *
+	 * @param string|null $fromKey The first day of the range: projections whose window ended before it are
+	 *                             skipped where the rule allows to jump (the current cycle always leads the list)
 	 * @return list<CurrentCycle> Ascending; cycles whose window starts after `$throughKey` are left out.
 	 *                            A projected after-completion cycle carries a `p<Y-m-d>` key, which is no target.
 	 */
-	public function cyclesThrough(RoomTask $roomTask, Task $task, ?CycleHistory $history, \DateTimeZone $timeZone, \DateTimeInterface $now, string $throughKey): array {
+	public function cyclesThrough(RoomTask $roomTask, Task $task, ?CycleHistory $history, \DateTimeZone $timeZone, \DateTimeInterface $now, string $throughKey, ?string $fromKey = null): array {
 		$current = $this->currentCycle($roomTask, $task, $history, $timeZone, $now);
 		if ($current === null || $current->startOn > $throughKey) {
 			return [];
@@ -128,10 +131,13 @@ class WindowService {
 		$anchor = $this->anchorKey($roomTask, $timeZone);
 		$cycles = [$current];
 		$centre = $current->centreOn;
+		// A projection shows from the day its window ends on or after the range start.
+		$resume = $fromKey === null ? null : RecurrenceCalculator::offsetDays($fromKey, -$rule->flexDays);
 		while (!$rule->once && count($cycles) < self::MAX_STEPS) {
 			$centre = $rule->fixed
-				? $this->calculator->firstFixedDayOnOrAfter($rule, $anchor, RecurrenceCalculator::dayAfter($centre))
-				: $this->nextAfterCompletion($rule, $centre);
+				? $this->calculator->firstFixedDayOnOrAfter($rule, $anchor, max(RecurrenceCalculator::dayAfter($centre), $resume ?? ''))
+				: $this->nextAfterCompletion($rule, $this->skipIntervals($rule, $centre, $resume));
+			$resume = null;
 			if ($centre === null) {
 				break;
 			}
@@ -176,9 +182,25 @@ class WindowService {
 		];
 	}
 
+	/**
+	 * How many days the cycle that follows a completion moves when that
+	 * completion's day moves (ADR-021 decision 9). Only an after-completion
+	 * rule hangs its next window on the completion.
+	 */
+	public function shiftAfterCompletion(Task $task, string $fromDay, string $toDay): int {
+		$rule = CycleRule::fromTask($task);
+		if ($rule->fixed || $rule->once || $rule->bonus) {
+			return 0;
+		}
+		return RecurrenceCalculator::daysBetween(
+			$this->calculator->nextIntervalDate($fromDay, $rule->unit, $rule->interval),
+			$this->calculator->nextIntervalDate($toDay, $rule->unit, $rule->interval)
+		);
+	}
+
 	/** The house-local day of an instant. */
 	public static function todayKey(\DateTimeInterface $now, \DateTimeZone $timeZone): string {
-		return \DateTime::createFromInterface($now)->setTimezone($timeZone)->format('Y-m-d');
+		return CalendarService::dayKeyOf($now, $timeZone);
 	}
 
 	/**
@@ -202,6 +224,20 @@ class WindowService {
 		}
 		$centre = $this->nextAfterCompletion($rule, (string)$history->latestWorkDay);
 		return $centre === null ? null : $this->window('c' . $history->latestCompletionId, $centre, $rule->flexDays, $roomTask);
+	}
+
+	/**
+	 * The centre to continue an after-completion projection from, so that
+	 * the next one is the first whose day reaches `$resume`. Day and week
+	 * intervals are plain day steps; a month interval is walked.
+	 */
+	private function skipIntervals(CycleRule $rule, string $centre, ?string $resume): string {
+		if ($resume === null || $rule->unit === CycleRule::UNIT_MONTH) {
+			return $centre;
+		}
+		$step = $rule->interval * ($rule->unit === CycleRule::UNIT_WEEK ? 7 : 1);
+		$skipped = intdiv(max(0, RecurrenceCalculator::daysBetween($centre, $resume) - 1), $step);
+		return RecurrenceCalculator::offsetDays($centre, $skipped * $step);
 	}
 
 	private function nextAfterCompletion(CycleRule $rule, string $fromDay): ?string {
@@ -274,8 +310,8 @@ class WindowService {
 	/** An upper bound of the days between two rule days of a fixed rule. */
 	private static function periodDays(CycleRule $rule): int {
 		return $rule->interval * match ($rule->unit) {
-			ScheduleRevision::UNIT_DAY => 1,
-			ScheduleRevision::UNIT_MONTH => 31,
+			CycleRule::UNIT_DAY => 1,
+			CycleRule::UNIT_MONTH => 31,
 			default => 7,
 		};
 	}

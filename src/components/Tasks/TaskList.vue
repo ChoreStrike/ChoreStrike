@@ -51,7 +51,7 @@
 						:assigneeDraft="assigneeDraft[item.roomTask.id] || []"
 						:assigneeRefusal="assigneeRefusal[item.roomTask.id] || ''"
 						:compact="compact"
-						@complete="$emit('complete', $event)"
+						@complete="(...args) => $emit('complete', ...args)"
 						@edit="$emit('edit', $event)"
 						@delete="$emit('delete', $event)"
 						@toggleExpand="toggleExpand"

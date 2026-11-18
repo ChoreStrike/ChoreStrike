@@ -35,8 +35,9 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\IL10N;
 
 /**
- * Owner of the completion/undo/attribution aggregates (CS-PLAN-070 WP3
- * §3.3; supersedes the CS-PLAN-064 WP5 snapshot-restore model).
+ * Owner of the completion, undo, attribution and date-correction
+ * aggregates (CS-PLAN-070 WP3 §3.3, ADR-021 decision 9; supersedes the
+ * CS-PLAN-064 WP5 snapshot-restore model).
  *
  * Every aggregate runs as ONE CommandService transaction: rechecks the
  * actor/visibility/version under the WP0 house-first lock, writes the
@@ -62,6 +63,13 @@ use OCP\IL10N;
  * negative balances are valid correction results.
  */
 class CompletionService {
+	/** The full re-date/delete right: the owner, or the recorder of the task's latest valid entry. */
+	private const RIGHTS_LATEST = 'latest';
+	/** The right without its state part (still the latest entry): the gate before a command and on its replay. */
+	private const RIGHTS_ENTRY = 'entry';
+	/** Membership and visibility only: the read after a committed command, whose effect no longer decides the right. */
+	private const RIGHTS_NONE = 'none';
+
 	private TransactionExecutor $transactions;
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
@@ -85,8 +93,12 @@ class CompletionService {
 	private CalendarService $calendarService;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private CycleService $cycleService;
-	private WindowService $windows;
+	private RoomTaskReadService $roomTaskReads;
 	private CommandService $commandService;
+	private CompletionAuthority $authority;
+	private CompletionDateCorrection $dateCorrection;
+	private TaskResponsibility $responsibility;
+	private ChecklistService $checklists;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 
@@ -118,8 +130,12 @@ class CompletionService {
 		CalendarService $calendarService,
 		TaskAccessPolicy $taskAccessPolicy,
 		CycleService $cycleService,
-		WindowService $windows,
+		RoomTaskReadService $roomTaskReads,
 		CommandService $commandService,
+		CompletionAuthority $authority,
+		CompletionDateCorrection $dateCorrection,
+		TaskResponsibility $responsibility,
+		ChecklistService $checklists,
 		IL10N $l10n,
 		AppLogger $appLogger,
 	) {
@@ -146,8 +162,12 @@ class CompletionService {
 		$this->calendarService = $calendarService;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->cycleService = $cycleService;
-		$this->windows = $windows;
+		$this->roomTaskReads = $roomTaskReads;
 		$this->commandService = $commandService;
+		$this->authority = $authority;
+		$this->dateCorrection = $dateCorrection;
+		$this->responsibility = $responsibility;
+		$this->checklists = $checklists;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
@@ -163,14 +183,15 @@ class CompletionService {
 	 * except on the house-local day of the room task's latest valid
 	 * completion. Without explicit participants the assignees are credited
 	 * in equal shares, else the completer alone; a deviation from that
-	 * requires the explicit `allocationReviewed` confirmation. Initial
-	 * completion requires self-participation (Q-074-02); time, rate and
-	 * total work are server-owned.
+	 * requires the explicit `allocationReviewed` confirmation. The recorder
+	 * need not take part: anyone records for anyone who may see the task
+	 * (decision 10, D-091-20). Every sub-task of the cycle is marked done
+	 * with it. Time, rate and total work are server-owned.
 	 *
 	 * @param string|null $cycleKey The shown cycle; null for a bonus task
 	 * @param array<int, array{userId: string, sharePct: int}> $participants
 	 * @throws NotFoundException unknown/invisible room task (404 anti-enumeration)
-	 * @throws ForbiddenException non-member / non-participating actor
+	 * @throws ForbiddenException non-member, or a credited member who may not see the task
 	 * @throws ConflictException stale target, completed cycle, same day, inactive task (409)
 	 */
 	public function complete(
@@ -328,15 +349,9 @@ class CompletionService {
 			$allocation = $proposal;
 		}
 
-		// Q-074-02: initial completion requires self-participation — never
-		// manufacture work merely to satisfy an actor rule.
-		if (!isset($allocation[$userId])) {
-			throw new ForbiddenException($this->l10n->t('The completer must take part in the work'));
-		}
-
 		// Lock actual workers AND the responsible assignees in member-id
-		// order; only actual workers gain share/coin credit or private-task
-		// access.
+		// order; only actual workers gain share/coin credit, and each of
+		// them must be allowed to see the task (D-091-20).
 		$recognitionMembers = $this->lockParticipantMembers($allocation, $task, $assigneeUserIds, $members);
 
 		// Wallet locks in stable id order (after the memberships, before
@@ -347,23 +362,23 @@ class CompletionService {
 		$totalEnergy = max(1, (int)$task->getEnergyCost());
 		$rateMinor = EffortAllocationService::COIN_MINOR_PER_ENERGY;
 
-		// Overdue-takeover: only record a takeover when a NON-assignee
-		// completes a task LATE (its window ended in the house timezone —
-		// never work still due today, CS-PLAN-084 D-084-08).
+		// Overdue-takeover: LATE work (its window ended in the house
+		// timezone — never work still due today, CS-PLAN-084 D-084-08) of
+		// an assigned task that none of its assignees is credited for. It
+		// was taken over by the recorder, or by whom the recorder credits.
 		$takeoverClaimed = false;
 		$originalMember = null;
-		if ($classification === CompletedTask::CLASS_LATE && !in_array($userId, $assigneeUserIds, true)) {
-			$originalAssignee = $assigneeUserIds[0] ?? null;
-			if ($originalAssignee !== null && $originalAssignee !== '') {
-				$roomTask->markClaimed($originalAssignee, $userId);
-				$takeoverClaimed = true;
-				$originalMember = $this->houseUserMapper->findByHouseAndUser($houseId, $originalAssignee);
-			}
+		$originalAssignee = $assigneeUserIds[0] ?? '';
+		if ($classification === CompletedTask::CLASS_LATE && $originalAssignee !== ''
+			&& array_intersect(array_keys($allocation), $assigneeUserIds) === []) {
+			$roomTask->markClaimed($originalAssignee, isset($allocation[$userId]) ? $userId : (string)array_key_first($allocation));
+			$takeoverClaimed = true;
+			$originalMember = $this->houseUserMapper->findByHouseAndUser($houseId, $originalAssignee);
 		}
 
 		// The evidence row: frozen work facts + the cycle it fulfilled +
-		// audit completer (Q-074-02: the audit actor stays immutable across
-		// later corrections).
+		// the recorder (the audit actor stays immutable across later
+		// corrections; the people credited are the share rows).
 		$ledgerRow = new CompletedTask();
 		$ledgerRow->setRoomTaskId($roomTaskId);
 		$ledgerRow->setUserId((int)$houseUser->getId());
@@ -443,11 +458,13 @@ class CompletionService {
 		);
 		$room = $this->roomReplayService->resyncRoomCache($room);
 
-		// The cycle (ADR-021 decision 4): close exactly this one with its
-		// frozen classification, reset the postponement, end a one-time
-		// task and refresh the derived next_due projection. A bonus task
-		// has no cycle; only its last-completed mark moves.
+		// The cycle (ADR-021 decision 4): mark its sub-tasks done, close
+		// exactly this one with its frozen classification (its postponement
+		// stays with its key), end a one-time task and refresh the derived
+		// next_due projection. A bonus task has no cycle; only its
+		// last-completed mark moves.
 		if ($cycle !== null) {
+			$this->checklists->markCycleDoneUnderLock($roomTaskId, (int)$task->getId(), $cycle->key, (int)$houseUser->getId());
 			$this->cycleService->closeUnderLock($houseId, $roomTask, $task, $cycle, $inserted, $timeZone, $now);
 		} else {
 			$roomTask->setLastCompleted($now);
@@ -475,9 +492,9 @@ class CompletionService {
 
 	/**
 	 * Undo ONE specific completion (WP3 §3.4 targeted correction): the
-	 * exact completion id — including older completions of the same
-	 * recurring task — by its completer or a current authorized owner.
-	 * Participation alone is no correction authority. Reverses the LATEST
+	 * exact completion id. The owner deletes any entry, every other member
+	 * only the latest valid entry of the task that they recorded (ADR-021
+	 * decision 9). Participation alone is no authority. Reverses the LATEST
 	 * selected allocation once; an already-undone target is a stable
 	 * no-op; a stale live target conflicts.
 	 *
@@ -586,7 +603,7 @@ class CompletionService {
 				$walletIds[] = (int)$share->getWalletId();
 			}
 		}
-		$members = $this->lockMembersByWallets($houseId, $walletIds, $this->assigneeMembers($houseId, (int)$roomTask->getId()));
+		$members = $this->lockMembersByWallets($houseId, $walletIds, $this->responsibility->membersOf($houseId, (int)$roomTask->getId()));
 		$this->lockWallets($houseId, array_map(
 			static fn (HouseUser $m) => $m->getNextcloudUserId(),
 			array_values(array_filter($members, static fn (HouseUser $m): bool => in_array((int)$m->getWalletId(), $walletIds, true)))
@@ -664,9 +681,9 @@ class CompletionService {
 
 	/**
 	 * Correct the actual participants/shares of ONE completion (WP3 §3.4
-	 * attribution; Q-074-02): the completer or an authorized owner may
-	 * adjust the allocation while the real work time, saved zone, cycle,
-	 * frozen total effort/rate and room event stay immutable.
+	 * attribution): the owner alone adjusts the allocation (ADR-021
+	 * decision 9), while the real work time, saved zone, cycle, frozen
+	 * total effort/rate and room event stay immutable.
 	 * Writes only `newAllocation - oldAllocation` for the union of
 	 * participants (removal = a new allocation of zero).
 	 *
@@ -829,7 +846,7 @@ class CompletionService {
 		$recognitionMembers = $this->lockMembersByWallets(
 			$houseId,
 			array_keys($previousByWallet),
-			array_merge($newMembers, $this->assigneeMembers($houseId, (int)$roomTask->getId()))
+			array_merge($newMembers, $this->responsibility->membersOf($houseId, (int)$roomTask->getId()))
 		);
 		$newMembers = array_values(array_filter(
 			$recognitionMembers,
@@ -844,7 +861,7 @@ class CompletionService {
 		foreach ($newMembers as $member) {
 			$uid = $member->getNextcloudUserId();
 			if (!isset($previousByWallet[(int)$member->getWalletId()])) {
-				$this->taskAccessPolicy->assertCanView($task, $member, $assigneeUserIds);
+				$this->assertCreditable($task, $member, $assigneeUserIds);
 			}
 			$bound = $this->walletService->ensureBinding($houseId, $member);
 			$walletId = (int)$bound->getWalletId();
@@ -915,6 +932,152 @@ class CompletionService {
 		$this->bumpHouseStateVersion($houseId);
 
 		return ['completionId' => $completionId, 'noop' => false, 'version' => $newVersion];
+	}
+
+	/**
+	 * Correct the day ONE completion was done on (ADR-021 decision 9): a
+	 * house-local day that is not in the future and lies between the days
+	 * of the room task's neighbouring valid entries. The owner re-dates any
+	 * entry, every other member only the latest valid entry of the task
+	 * that they recorded. Shares, energy and coins stay as recorded.
+	 *
+	 * @throws NotFoundException invisible/foreign completion
+	 * @throws ForbiddenException no correction authority
+	 * @throws ConflictException stale version, or a deleted entry
+	 * @throws \InvalidArgumentException a day the entry cannot take
+	 */
+	public function changeDate(
+		int $houseId,
+		HouseUser $actor,
+		int $completionId,
+		string $commandId,
+		int $expectedVersion,
+		string $dateKey,
+	): array {
+		// Whether the entry is still the task's latest is a state the
+		// aggregate decides under the lock; a replay never re-tests it.
+		$completion = $this->findCompletionScoped($completionId, $houseId);
+		$roomTask = $this->findRoomTaskScoped($completion->getRoomTaskId(), $houseId);
+		$this->authorizeCorrection($houseId, $actor, $completion, $roomTask, false, self::RIGHTS_ENTRY);
+
+		$house = $this->houseMapper->find($houseId);
+
+		try {
+			$this->currentCommandUuid = $commandId;
+			$this->currentActorHouseUserId = (int)$actor->getId();
+			$command = $this->commandService->runCommand(
+				$houseId,
+				(int)$actor->getId(),
+				$commandId,
+				'completion.date',
+				[
+					'completionId' => $completionId,
+					'expectedVersion' => $expectedVersion,
+					'date' => $dateKey,
+				],
+				fn (): array => $this->dateAggregate($houseId, $actor, $completionId, $expectedVersion, $dateKey),
+				// Execution and replay alike, under the house lock: the actor
+				// is still a member who may see the task and correct the entry.
+				function () use ($houseId, $actor, $completionId): void {
+					$locked = $this->findCompletionScoped($completionId, $houseId);
+					$this->authorizeCorrection(
+						$houseId, $actor, $locked, $this->findRoomTaskScoped($locked->getRoomTaskId(), $houseId), false, self::RIGHTS_ENTRY
+					);
+				},
+			);
+		} catch (\Throwable $e) {
+			// A refused day is the caller's input, not a failure of the aggregate.
+			if (!$e instanceof \InvalidArgumentException) {
+				$this->appLogger->logException('CompletionService: date correction rolled back', $e, [
+					'event' => 'date_correction_rollback',
+					'service' => 'CompletionService',
+					'houseId' => $houseId,
+					'completionId' => $completionId,
+					'userId' => $actor->getNextcloudUserId(),
+				]);
+			}
+			throw $e;
+		}
+
+		$fresh = $this->findCompletionScoped($completionId, $houseId);
+		$freshRoomTask = $this->findRoomTaskScoped($fresh->getRoomTaskId(), $houseId);
+		$this->authorizeCorrection($houseId, $actor, $fresh, $freshRoomTask, false, self::RIGHTS_NONE);
+		$response = $this->completionResponse(
+			$house, $actor->getNextcloudUserId(), $fresh, $freshRoomTask,
+			$this->findRoomOrNotFound($freshRoomTask->getRoomId()), $command['replay']
+		);
+		$response['cycle'] = $this->cycleBlock($freshRoomTask, $house);
+		if (!$command['replay']) {
+			$post = $this->postCommitService->runForUndo($houseId, $fresh->getRoomTaskId(), $actor->getNextcloudUserId());
+			$response['rewards']['weeklyGoal'] = $post['weeklyGoal'];
+			if ($post['degraded']) {
+				$response['rewards']['degraded'] = true;
+			}
+		}
+		return $response;
+	}
+
+	/**
+	 * The date-correction aggregate inside the command transaction.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function dateAggregate(int $houseId, HouseUser $actor, int $completionId, int $expectedVersion, string $dateKey): array {
+		$completionProbe = $this->findCompletionScoped($completionId, $houseId);
+		$roomTask = $this->roomTaskMapper->lockForUpdate($completionProbe->getRoomTaskId());
+		$completion = $this->findCompletionScoped($completionId, $houseId);
+		$room = $this->roomMapper->lockForUpdate($roomTask->getRoomId());
+		$this->authorizeCorrection($houseId, $actor, $completion, $roomTask, false);
+
+		if ($completion->getUndoneAt() !== null) {
+			throw new ConflictException($this->l10n->t('This entry was deleted'));
+		}
+		if ($completion->getCompletionVersion() !== $expectedVersion) {
+			throw new ConflictException($this->l10n->t('The completion changed since it was displayed'));
+		}
+
+		// Same lock order as the undo: memberships of the people credited
+		// and of the assignees the cycle counts for.
+		$walletIds = [];
+		foreach ($this->workShareMapper->findByCompletionAndRevision($completionId, $completion->getAllocationRevision()) as $share) {
+			if ($share->getWalletId() !== null) {
+				$walletIds[] = (int)$share->getWalletId();
+			}
+		}
+		$members = $this->lockMembersByWallets($houseId, $walletIds, $this->responsibility->membersOf($houseId, (int)$roomTask->getId()));
+
+		$now = new \DateTime();
+		$timeZone = $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
+		$previousDay = $this->dateCorrection->apply($completion, $dateKey, $timeZone, $now);
+		$newVersion = $completion->getCompletionVersion() + 1;
+		$completion->setCompletionVersion($newVersion);
+		$this->completedTaskMapper->update($completion);
+		$this->writeRevision($completion, $newVersion, CompletionRevision::ACTION_DATE, $completion->getAllocationRevision(), $this->currentActorHouseUserId, null);
+
+		// Room journal: the completion's event moves to the corrected
+		// instant and the replay rebuilds the room.
+		$this->roomReplayService->moveCompletion($completionId, $completion->getCompletedAt());
+		$this->roomReplayService->resyncRoomCache($room);
+
+		$this->cycleService->redatedUnderLock(
+			$this->roomTaskMapper->find($roomTask->getId()),
+			$this->findTaskOrNotFound($roomTask->getTaskId()),
+			$completion,
+			$previousDay,
+			$timeZone,
+			$now
+		);
+
+		$freshMembers = array_map(
+			fn (HouseUser $m): HouseUser => $this->houseUserMapper->find((int)$m->getId()),
+			$members
+		);
+		$this->rhythmService->recomputeForMembers($houseId, $freshMembers, $now);
+		$this->reconcileRecognition($freshMembers, null);
+
+		$this->bumpHouseStateVersion($houseId);
+
+		return ['completionId' => $completionId, 'version' => $newVersion];
 	}
 
 	// ------------------------------------------------------------------
@@ -1018,6 +1181,8 @@ class CompletionService {
 	 * Lock actual workers and the responsible assignees in ascending
 	 * member id order. Only actual workers are checked for task visibility.
 	 *
+	 * @throws ForbiddenException a credited member who may not see the task
+	 *
 	 * @param string[] $assigneeUserIds
 	 * @param HouseUser[] $all
 	 * @return HouseUser[]
@@ -1046,7 +1211,7 @@ class CompletionService {
 		foreach (array_keys($ids) as $id) {
 			$member = $this->houseUserMapper->findForUpdate($id);
 			if (isset($allocation[$member->getNextcloudUserId()])) {
-				$this->taskAccessPolicy->assertCanView($task, $member, $assigneeUserIds);
+				$this->assertCreditable($task, $member, $assigneeUserIds);
 			}
 			$locked[] = $member;
 		}
@@ -1054,14 +1219,17 @@ class CompletionService {
 	}
 
 	/**
-	 * The memberships of a room task's assignees: a cycle counts for them,
-	 * so their recognition is re-derived with every correction.
+	 * Only a member who may see a task can be credited on it (ADR-021
+	 * decision 10, D-091-20): a private task credits its creator and its
+	 * assignees, an admin-only task the owner.
 	 *
-	 * @return HouseUser[]
+	 * @param string[] $assigneeUserIds
+	 * @throws ForbiddenException
 	 */
-	private function assigneeMembers(int $houseId, int $roomTaskId): array {
-		$userIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId);
-		return $userIds === [] ? [] : array_values($this->houseUserMapper->findByHouseIdAndNextcloudUserIds($houseId, $userIds));
+	private function assertCreditable(Task $task, HouseUser $member, array $assigneeUserIds): void {
+		if (!$this->taskAccessPolicy->canView($task, $member, $assigneeUserIds)) {
+			throw new ForbiddenException($this->l10n->t('Only members who can see this task can be credited for it'));
+		}
 	}
 
 	/**
@@ -1126,28 +1294,6 @@ class CompletionService {
 			$byUser[$uid] = $wallets[$walletId];
 		}
 		return $byUser;
-	}
-
-	/**
-	 * The (already locked) wallet of one member, binding first if needed.
-	 * {@see WalletService::ensureBinding()} returns the (possibly updated)
-	 * MEMBERSHIP row — its walletId is the binding.
-	 */
-	private function walletFor(int $houseId, HouseUser $member): \OCA\ChoreStrike\Db\Wallet {
-		$bound = $this->walletService->ensureBinding($houseId, $member);
-		return $this->walletMapper->findForUpdate((int)$bound->getWalletId());
-	}
-
-	private function userIdOfWallet(array $membersByUserId, ?int $walletId): ?string {
-		if ($walletId === null) {
-			return null;
-		}
-		foreach ($membersByUserId as $member) {
-			if ((int)$member->getWalletId() === $walletId) {
-				return $member->getNextcloudUserId();
-			}
-		}
-		return null;
 	}
 
 	private function writeShares(CompletedTask $completion, int $revision, array $allocation, int $totalEnergy, array $walletsByUserId): void {
@@ -1265,11 +1411,10 @@ class CompletionService {
 			$task, $viewer, $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId())
 		);
 
-		$members = $this->houseUserMapper->findByHouseId($houseId);
-		$membersByUserId = [];
+		$membersById = [];
 		$userIdByWallet = [];
-		foreach ($members as $member) {
-			$membersByUserId[$member->getNextcloudUserId()] = $member;
+		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
+			$membersById[(int)$member->getId()] = $member;
 			if ($member->getWalletId() !== null) {
 				$userIdByWallet[(int)$member->getWalletId()] = $member;
 			}
@@ -1312,11 +1457,11 @@ class CompletionService {
 			];
 		}
 
-		$canCorrect = $completion->getUndoneAt() === null
-			&& ($viewer->isOwner() || (
-				$completion->getUserId() !== null
-				&& ($membersByUserId[$viewer->getNextcloudUserId()]?->getId() === $completion->getUserId())
-			));
+		$roomTaskId = (int)$roomTask->getId();
+		$latestValidId = $this->completedTaskMapper->findLatestValidIdsByRoomTasks([$roomTaskId])[$roomTaskId] ?? null;
+		// Shown only when someone recorded the work for other people.
+		$recorder = $membersById[(int)$completion->getUserId()] ?? null;
+		$recorderCredited = $recorder !== null && in_array($recorder->getNextcloudUserId(), array_column($allocation, 'userId'), true);
 
 		return [
 			'id' => (int)$completion->getId(),
@@ -1337,8 +1482,13 @@ class CompletionService {
 			'allocationRevision' => $completion->getAllocationRevision(),
 			'undoneAt' => $completion->getUndoneAt()?->format('c'),
 			'allocation' => $allocation,
+			'recordedBy' => $recorder === null || $recorderCredited ? null : [
+				'userId' => $recorder->getNextcloudUserId(),
+				'displayName' => $recorder->getDisplayName(),
+			],
 			'history' => $history,
-			'canCorrect' => $canCorrect,
+			'canCorrect' => $this->authority->canCorrect($viewer, $completion, $latestValidId),
+			'canAttribute' => $this->authority->canAttribute($viewer, $completion),
 		];
 	}
 
@@ -1435,15 +1585,9 @@ class CompletionService {
 	 * target after the command.
 	 */
 	private function cycleBlock(RoomTask $roomTask, House $house): ?array {
-		$timeZone = $this->calendarService->getTimeZone($house);
-		$now = new \DateTime();
-		$task = $this->findTaskOrNotFound($roomTask->getTaskId());
-		return $this->windows->block(
-			$roomTask,
-			$task,
-			$this->cycleService->currentFor($roomTask, $task, $timeZone, $now),
-			WindowService::todayKey($now, $timeZone)
-		);
+		return $this->roomTaskReads->cycleFacts(
+			(int)$house->getId(), [$roomTask], null, null, $this->calendarService->getTimeZone($house)
+		)[(int)$roomTask->getId()]['block'] ?? null;
 	}
 
 	/**
@@ -1480,8 +1624,10 @@ class CompletionService {
 	 * Re-read authorization from live rows for the initial gate, the
 	 * house-locked correction, and receipt replays. Never use the actor
 	 * entity supplied before the lock to decide current owner status.
+	 *
+	 * @param string $rights self::RIGHTS_* — how much of the re-date/delete right to check
 	 */
-	private function authorizeCorrection(int $houseId, HouseUser $actor, CompletedTask $completion, RoomTask $roomTask, bool $attribution): void {
+	private function authorizeCorrection(int $houseId, HouseUser $actor, CompletedTask $completion, RoomTask $roomTask, bool $attribution, string $rights = self::RIGHTS_LATEST): void {
 		$liveActor = $this->houseUserMapper->findByHouseAndUser($houseId, $actor->getNextcloudUserId());
 		if ($liveActor === null || (int)$liveActor->getId() !== (int)$actor->getId()) {
 			throw new ForbiddenException($this->l10n->t('Not a member of this house'));
@@ -1491,18 +1637,12 @@ class CompletionService {
 			$liveActor,
 			$this->taskAssigneeMapper->findUserIdsByRoomTask((int)$roomTask->getId())
 		);
-		$completerUid = null;
-		if ($completion->getUserId() !== null) {
-			try {
-				$completerUid = $this->houseUserMapper->find((int)$completion->getUserId())->getNextcloudUserId();
-			} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
-				// An erased audit actor leaves only the current owner route.
-			}
-		}
-		if ($completerUid !== $liveActor->getNextcloudUserId() && !$liveActor->isOwner()) {
-			throw new ForbiddenException($attribution
-				? $this->l10n->t('Only the completer or a house owner can correct a completion')
-				: $this->l10n->t('Only the completer or a house owner can undo a completion'));
+		if ($attribution) {
+			$this->authority->assertCanAttribute($liveActor);
+		} elseif ($rights === self::RIGHTS_LATEST) {
+			$this->authority->assertCanCorrect($liveActor, $completion);
+		} elseif ($rights === self::RIGHTS_ENTRY) {
+			$this->authority->assertMayCorrectEntry($liveActor, $completion);
 		}
 	}
 

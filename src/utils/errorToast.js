@@ -82,3 +82,35 @@ export function showCompletionError(error) {
 	}
 	showErrorWithReference(t('chorestrike', 'Could not complete the task'), error)
 }
+
+/**
+ * The failure toast of a postponement (ADR-021 decision 6): the refusals
+ * say which rule applied.
+ * @param {unknown} error The caught error.
+ */
+export function showPostponeError(error) {
+	const reasons = {
+		NOT_POSTPONABLE: t('chorestrike', 'This task cannot be postponed any further'),
+		WINDOW_ENDED: t('chorestrike', 'An overdue task cannot be postponed'),
+		STALE_TARGET: t('chorestrike', 'The task changed since it was displayed. Reload and try again.'),
+	}
+	if (reasons[error?.code]) {
+		showError(reasons[error.code])
+		return
+	}
+	showErrorWithReference(t('chorestrike', 'Could not postpone the task'), error)
+}
+
+/**
+ * The failure toast of a date change (ADR-021 decision 9). A refused day
+ * and a missing right arrive with the server's localized reason; it is
+ * shown as plain text, never decoded as markup.
+ * @param {unknown} error The caught error.
+ */
+export function showHistoryError(error) {
+	if (['VALIDATION_ERROR', 'FORBIDDEN', 'CONFLICT'].includes(error?.code) && error?.message) {
+		showError(error.message, { isHTML: false })
+		return
+	}
+	showErrorWithReference(t('chorestrike', 'Could not change the date'), error)
+}

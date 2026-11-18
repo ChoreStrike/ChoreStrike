@@ -69,6 +69,7 @@
 				<ActivityFeed
 					v-else
 					:items="houseStore.activity"
+					:events="houseStore.activityEvents"
 					:timezone="houseStore.timezone"
 					:busyId="undoingId"
 					:blockedIds="blockedUndoIds"
@@ -292,11 +293,10 @@ export default {
 		},
 
 		/**
-		 * Open the attribution correction for one history item (WP3 §3.6
-		 * "Activity history exposes authorized older-completion
-		 * correction"): fetch the versioned completion read model, then
-		 * mount the reused participation form pre-filled with the recorded
-		 * split. Members resolve in parallel for the candidate list.
+		 * Open the attribution correction for one history item (WP3 §3.6;
+		 * the owner's alone, ADR-021 decision 9): fetch the versioned
+		 * completion read model, then mount the participation form pre-filled
+		 * with the recorded split. Members resolve in parallel.
 		 * @param {object} item The activity feed row.
 		 */
 		async startCorrection(item) {
@@ -305,7 +305,7 @@ export default {
 			}
 			try {
 				const completion = await this.roomTasksStore.fetchCompletion(item.id)
-				if (completion.canCorrect && !completion.undoneAt) {
+				if (completion.canAttribute && !completion.undoneAt) {
 					const pending = this.roomTasksStore.pendingAttributions[item.id]
 					this.correction = {
 						item,

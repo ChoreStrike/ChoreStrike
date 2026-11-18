@@ -91,6 +91,19 @@ class RoomReplayService {
 	}
 
 	/**
+	 * A date correction moved the work instant of a completion (ADR-021
+	 * decision 9): its journal event moves with it, so the replay folds it
+	 * at the corrected time. The caller resyncs the room cache.
+	 */
+	public function moveCompletion(int $completionId, \DateTime $workInstant): void {
+		$event = $this->eventMapper->findBySourceCompletion($completionId);
+		if ($event !== null) {
+			$event->setEffectiveAt($workInstant);
+			$this->eventMapper->update($event);
+		}
+	}
+
+	/**
 	 * Record a requested manual cleanliness delta. The caller's house-scoped
 	 * command receipt owns idempotency before this writer is reached.
 	 */

@@ -53,23 +53,35 @@ class WeeklyGoalService {
 	 *
 	 * @return array{dueCount: int, completedCount: int, eligible: int, onTime: int, neutral: int, percent: int, targetPercent: int, achieved: bool, provisional: bool, weekKey: string, weekStart: string, weekEnd: string}
 	 */
-	public function getWeeklyGoalProgress(int $houseId): array {
+	public function getWeeklyGoalProgress(int $houseId, ?RecognitionPass $pass = null): array {
 		$house = $this->houseMapper->find($houseId);
-		return $this->progressForWeek($house, new \DateTime());
+		return $this->progressForWeek($house, new \DateTime(), $pass);
 	}
 
-	public function getWeeklyGoalProgressForWeek(int $houseId, string $weekKey, \DateTime $now): array {
-		return $this->progressForPlannedWeek($this->houseMapper->find($houseId), $weekKey, $now);
+	public function getWeeklyGoalProgressForWeek(int $houseId, string $weekKey, \DateTime $now, ?RecognitionPass $pass = null): array {
+		return $this->progressForPlannedWeek($this->houseMapper->find($houseId), $weekKey, $now, $pass);
+	}
+
+	/**
+	 * Begin the pass of an evaluation that reads several weeks or members
+	 * ({@see RecognitionPass}); every read below takes it.
+	 */
+	public function beginPass(House $house): RecognitionPass {
+		return $this->facts->beginPass($house);
+	}
+
+	/** The key of the house-local week an instant lies in: its Monday (`Y-m-d`). */
+	public function weekKey(House $house, \DateTime $now): string {
+		$tz = $this->calendarService->getTimeZone($house);
+		return $this->calendarService->weekStart($now, $tz)->setTimezone($tz)->format('Y-m-d');
 	}
 
 	/**
 	 * The evaluation body over one house and reference instant (injectable
 	 * clock for tests).
 	 */
-	public function progressForWeek(House $house, \DateTime $now): array {
-		$tz = $this->calendarService->getTimeZone($house);
-		$key = $this->calendarService->weekStart($now, $tz)->setTimezone($tz)->format('Y-m-d');
-		return $this->progressForPlannedWeek($house, $key, $now);
+	public function progressForWeek(House $house, \DateTime $now, ?RecognitionPass $pass = null): array {
+		return $this->progressForPlannedWeek($house, $this->weekKey($house, $now), $now, $pass);
 	}
 
 	/**
@@ -78,7 +90,7 @@ class WeeklyGoalService {
 	 *
 	 * @return array{dueCount: int, completedCount: int, eligible: int, onTime: int, neutral: int, percent: int, targetPercent: int, achieved: bool, provisional: bool, weekStart: string, weekEnd: string}
 	 */
-	public function progressForPlannedWeek(House $house, string $weekKey, \DateTime $now): array {
+	public function progressForPlannedWeek(House $house, string $weekKey, \DateTime $now, ?RecognitionPass $pass = null): array {
 		$tz = $this->calendarService->getTimeZone($house);
 		$startLocal = \DateTime::createFromFormat('!Y-m-d', $weekKey, $tz);
 		if ($startLocal === false || $startLocal->format('Y-m-d') !== $weekKey || $startLocal->format('N') !== '1') {
@@ -89,7 +101,7 @@ class WeeklyGoalService {
 		$completedCount = 0;
 		$neutralCount = 0;
 		$provisional = $now < $endLocal;
-		foreach ($this->facts->factsForWeek($house, $weekKey, $now) as $fact) {
+		foreach ($this->facts->factsForWeek($house, $weekKey, $now, $pass) as $fact) {
 			if ($fact->houseNeutral && !$fact->isKept()) {
 				$neutralCount++;
 				continue;
@@ -131,7 +143,7 @@ class WeeklyGoalService {
 	 *
 	 * @return array{eligible: int, onTime: int, neutral: int, provisional: bool, weekKey: string, weekStart: string, weekEnd: string}
 	 */
-	public function progressForMember(House $house, HouseUser $member, \DateTime $now): array {
+	public function progressForMember(House $house, HouseUser $member, \DateTime $now, ?RecognitionPass $pass = null): array {
 		$tz = $this->calendarService->getTimeZone($house);
 		$weekStart = $this->calendarService->weekStart($now, $tz);
 		$fromKey = (clone $weekStart)->setTimezone($tz)->format('Y-m-d');
@@ -152,7 +164,7 @@ class WeeklyGoalService {
 			return $result;
 		}
 
-		foreach ($this->facts->factsForWeek($house, $fromKey, $now) as $fact) {
+		foreach ($this->facts->factsForWeek($house, $fromKey, $now, $pass) as $fact) {
 			if (!in_array($walletId, $fact->responsible, true)) {
 				continue;
 			}

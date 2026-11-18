@@ -210,6 +210,19 @@ class CompletedTask extends Entity implements JsonSerializable {
 	}
 
 	/**
+	 * The classification of this completion had it been done on the given
+	 * house-local day (ADR-021 decisions 5 and 9): on time up to the end of
+	 * its frozen window, late after it. A bonus completion and a row from
+	 * before the derived model keep what they carry.
+	 */
+	public function classOn(string $workDayKey): string {
+		if ($this->windowEndOn === null || $this->completionClass === self::CLASS_BONUS) {
+			return (string)$this->completionClass;
+		}
+		return $workDayKey <= $this->windowEndOn->format('Y-m-d') ? self::CLASS_ON_TIME : self::CLASS_LATE;
+	}
+
+	/**
 	 * Convert completed task to JSON representation
 	 */
 	public function jsonSerialize(): array {

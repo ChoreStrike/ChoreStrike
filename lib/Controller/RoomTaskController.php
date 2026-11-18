@@ -157,21 +157,24 @@ class RoomTaskController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
+			// The definitions the visibility decision read; the cycle
+			// derivation of the same list takes them instead of a second read.
+			$tasksById = null;
 			if ($scopeId !== null) {
-				$roomTasks = $this->roomTaskReadService->getScopeTasksScopedToHouse($scopeId, $house->getId(), $houseUser, $activeOnly);
+				$roomTasks = $this->roomTaskReadService->getScopeTasksScopedToHouse($scopeId, $house->getId(), $houseUser, $activeOnly, $tasksById);
 			} elseif ($roomId !== null) {
 				// CR-053-02: the roomId is caller-supplied, so it must be
 				// validated against the caller's house (same fix as
 				// roomStats) — membership alone allowed cross-house reads.
 				$this->roomTaskService->validateRoomOwnership($roomId, $house->getId());
-				$roomTasks = $this->roomTaskReadService->getRoomTasks($roomId, $houseUser, $activeOnly);
+				$roomTasks = $this->roomTaskReadService->getRoomTasks($roomId, $houseUser, $activeOnly, $tasksById);
 			} else {
-				$roomTasks = $this->roomTaskReadService->getHouseRoomTasks($house->getId(), $houseUser, $activeOnly);
+				$roomTasks = $this->roomTaskReadService->getHouseRoomTasks($house->getId(), $houseUser, $activeOnly, $tasksById);
 			}
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $this->serializeFlatRoomTasks($roomTasks, $this->timeZoneOf($house), (int)$house->getId()),
+				'data' => $this->serializeFlatRoomTasks($roomTasks, $this->timeZoneOf($house), (int)$house->getId(), $tasksById),
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -199,11 +202,12 @@ class RoomTaskController extends Controller {
 	 * @param \OCA\ChoreStrike\Db\RoomTask[] $roomTasks
 	 * @param \DateTimeZone $tz House timezone for day-boundary serialization
 	 * @param int $houseId House scope for the batched cycle derivation
+	 * @param array<int, \OCA\ChoreStrike\Db\Task>|null $tasksById Definitions the list read already loaded
 	 * @return array<int, array<string, mixed>>
 	 */
-	private function serializeFlatRoomTasks(array $roomTasks, \DateTimeZone $tz, int $houseId): array {
+	private function serializeFlatRoomTasks(array $roomTasks, \DateTimeZone $tz, int $houseId, ?array $tasksById = null): array {
 		$assigneesByTask = $this->roomTaskReadService->assigneesByRoomTasks($roomTasks);
-		$facts = $this->roomTaskReadService->cycleFacts($houseId, $roomTasks);
+		$facts = $this->roomTaskReadService->cycleFacts($houseId, $roomTasks, $tasksById, null, $tz);
 
 		return array_map(function ($roomTask) use ($assigneesByTask, $tz, $facts) {
 			$block = $facts[$roomTask->getId()]['block'] ?? null;

@@ -104,3 +104,92 @@ as an observation only.
   covered by Jest.
 - Checks: `l10n:check-keys`, php-cs-fixer, `agents:check`, `docs:encoding`,
   `backlog:check`, `git diff --check`, LF endings of the new files.
+
+## Full (interim) - CS-PLAN-091 WP-B2 and WP-B3, recording, postpone and history
+
+**Outcome:** `PASS-WITH-FIXES`. Interim review; the plan stays in `active/` and continues
+with WP-B4 and WP-B5.
+
+### Scope and capture
+
+- Tier: Full, four read-only `reviewer` tracks (correctness, architecture, security and
+  data flow, performance and code quality) plus the main agent's own reading of the
+  authorization paths, the date correction and the completion command. Required: the
+  package adds routes, changes completion rights and reward facts, and widens who may be
+  credited.
+- Owning plan: [CS-PLAN-091](../../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md)
+  (WP-B2 recording for others, WP-B3 postpone and history, with RF-091-02 to RF-091-05 of
+  the previous review). CS-PLAN-080 is not touched.
+- Branch `feat/simplified-core-bc` in its pinned worktree, base HEAD `335cb162` (the
+  committed WP-0 and WP-B1, 1 ahead of `master`, 0 behind), the whole package
+  uncommitted. Captured before the review: 121 paths (98 modified, 23 untracked; +3,196/
+  −1,349 lines in the tracked files), nothing staged, combined scope fingerprint
+  `30fa2b6892aa5630b7445c960a3e21f37d7eb9709a5827c495a19b5f12505ef3` (SHA-256 over
+  branch, HEAD, the staged and unstaged binary diffs and every untracked path with its
+  content hash).
+
+### Decisions (operator, recommended option each)
+
+| Question | Decision |
+|---|---|
+| Security and privacy fixes (absence requests in the feed, the date correction's replay right, its translated refusals, visibility per room task, the history of a deleted task) | **D-091-59:** fix all now, each with a regression test |
+| Correctness defects and the structure findings | **D-091-59:** fix the defects now; route the `CompletionService` extraction, duplicated helpers, budgets and accessibility polish (RF-091-07 to RF-091-09) |
+| The sub-task ticks a completion set, after its undo | **D-091-60:** they stay; recorded in ADR-021 and pinned by a test |
+| Takeover facts after a date correction across late and on time | **D-091-61:** they stay as recorded; ADR-021 §9 and the API reference say so |
+
+D-091-62 (the postponement stays with its cycle key) and D-091-63 (the date correction's
+right in two parts) record how the approved fixes work. The implementation decisions
+D-091-46 to D-091-58 are accepted; D-091-54 is reworded to the implemented payload.
+
+### Findings fixed in the review
+
+| Severity | Area | Issue | Fix |
+|---|---|---|---|
+| major (privacy) | `ActivityEventService` absences | A withdrawn request that was never acknowledged showed as "absence removed" to every member, with the person and the dates (pending requests are the requester's and the owner's alone); a request acknowledged later never showed | Tracked by the flag, not by key existence; `ActivityEventServiceTest` |
+| major | `CycleService::closeUnderLock()` | An undo lost the postponement of the cycle it reopened: the task could turn red at once, a redo could count as late and the limit of three presses reset | D-091-62; `PostponeAndHistoryTest` (undo reopens the postponed cycle with its count; the next window of an after-completion rule hangs on the completion) |
+| minor (security) | `CompletionService::changeDate()` | The latest-entry right ran before the receipt lookup, so a replay answered 403 once a newer entry existed; a replay checked no right under the lock | D-091-63: identity before the command and as the under-lock guard, the latest entry inside; the date path joins the unit correction matrix (role, visibility, membership, each under lock and on replay) with replay and latest-entry regressions |
+| minor (security) | `ActivityService`, `ActivityEventService` | Titles, flags and the class of feed rows and events were decided by the assignees of the whole definition, not of the room task (ADR-010) | `TaskAccessPolicy::filterVisibleRoomTasks()` in both; unit regressions |
+| minor | `CompletionController::changeDate()` | The translated `400` refusals reached the client as the generic fallback | `ControllerErrorFormatter::validation()`; the controller tests assert the message |
+| minor (security) | `ActivityService::getRoomTaskHistory()` | The history of a deleted room task stayed readable; the API reference promised `404` | A tombstone answers `404`; unit regression |
+| minor | `CycleService::redatedUnderLock()` | A date correction could end a bounded task for good, and moving its last entry earlier never reopened it | Reactivated as the undo does, the derivation decides; integration regression |
+| minor | `ActivityEventService::eventsSince()` | The per-member filter ran after the house-wide limit, so a member's older events dropped out | The actor filter in both reads, before the limit; unit regression |
+| minor | `ActivityFeed.vue` | An absence line named who entered it, not the absent person; the line was composed of fragments | Four whole-sentence keys with the person (DE/EN); spec |
+| minor | `TaskHistory.vue` | Stale after a completion or undo elsewhere; a stale *Delete* then got `403` | Reads again on the completion and undo events of its task; spec |
+| minor | `CompletionPicker.vue` | Opened empty when the members were not read yet; the recorder's preselection was read once | Reads the people before the dialog builds its rows; spec |
+| minor | `taskCycle.js` | A retry after an uncertain postpone or date change sent a new command id | Pending command ids as in `roomTasks.js` (RF-072-WP1-07); spec |
+| minor | tests | D-091-56 (the owner's attribution credits nobody who may not see the task) had no test | Unit and integration tests |
+| minor | `ActivityService` | An undefined-key warning for every entry of a departed recorder | `?? null`; unit regression |
+| minor (logging) | `CompletionPicker.vue`, `PostponeButton.vue`, `TaskHistory.vue` | A raw `ApiError` inside a log context; failures logged twice | Status and code only; the stores log once |
+| nit | docs, l10n, code, tests | Stale undo docblock; D-091-54 promised the next window in the history answer; the source tree and store boundaries lacked the new units; "Münzen" against the product term "Coins"; a raw `crypto.randomUUID()` left in `house.js`; a fixture of `InsightsView.spec.js` read the clock twice and failed when the feed sorted the rows a millisecond apart | Fixed |
+
+### Findings routed
+
+- Plan-owned, open: RF-091-07 (structure of the correction commands: the date correction
+  out of `CompletionService`, one correction skeleton, duplicated rules and helpers),
+  RF-091-08 (request budgets of the new reads and commands, redundant reads, the unbounded
+  absence read), RF-091-09 (client structure and accessibility of the cycle surfaces, with
+  WP-B6). RF-091-06 stays open for WP-B7.
+- Nothing went to `backlog.md`; no finding was rejected.
+
+### Verification
+
+- Canonical stack (PostgreSQL 18.6, Nextcloud 35.0.3, this worktree): PHPUnit unit 1712
+  and integration 653, no skips. No schema step, so the provider matrix and proof P4 were
+  not repeated; the review's SQL adds two optional equality filters with named parameters.
+- Jest 181 suites / 2503 tests, ESLint, stylelint, the webpack build, php-cs-fixer (465
+  files clean), `l10n:check-keys` (1256 keys), `agents:check`, `docs:encoding`,
+  `backlog:check`, `git diff --check`, LF endings.
+- Browser, focused on the changed surfaces (no retries, built from the reviewed tree):
+  `family-core-ux`, `insights-flow`, `task-completion-full-flow`, `today-view` and
+  `family-rhythm` 48 passed on `chromium-serial-db`; `mobile-core` (the picker, postpone,
+  history and recent activity on a phone) 19 passed on `mobile-chromium` and
+  `mobile-webkit`. No skips, no flaky results. The full five-project gate belongs to the
+  WP-G qualification.
+
+### Gates
+
+- Build gate: Jest 181 suites / 2503 tests, ESLint, stylelint and the build green.
+- PHPUnit, both suites without skips, unit 1712 and integration 653 on the canonical stack.
+- Focused browser specs green (see Verification).
+- Checks: php-cs-fixer, `l10n:check-keys`, `agents:check`, `docs:encoding`,
+  `backlog:check`, `git diff --check`, LF endings.

@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided, RF-091-02 to RF-091-06 open; next: WP-B2 and WP-B3)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; RF-091-06 open for WP-B7, RF-091-07 and RF-091-08 for the WP-B4/WP-B5 round, RF-091-09 for WP-B6; next: WP-B4 and WP-B5)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -205,6 +205,94 @@ The operator chose the recommended option of each question.
 - **D-091-45 A first date is a real day within a year:** `firstDate` must be a calendar day at
   most 366 days from today, refused with a translated `400`.
 
+### Implementation decisions (WP-B2 and WP-B3, for the interim review)
+
+Taken while implementing; each is open to the interim review of WP-B2 and WP-B3. The
+interim Full review of 2026-11-18 accepted them, with D-091-51 extended by D-091-61,
+D-091-54 reworded and D-091-57 refined by D-091-62.
+Gates of the implementation round (2026-11-18, uncommitted tree on `335cb162`): Jest 181 suites / 2497 tests, ESLint, stylelint, build, l10n (1255
+keys); PHPUnit unit 1695 and integration 648 on PostgreSQL (canonical), MariaDB, SQLite and
+the AIO row (matrix `r91b23`); proofs P1 (PostgreSQL, MySQL, SQLite), P2 and P3; focused
+browser specs 81 passed on `chromium-serial-db`, the phone core set 11 passed each on
+`mobile-chromium` and `mobile-webkit`. No schema step, so proof P4 was not rerun.
+
+- **D-091-46 A takeover is late work that none of the assignees is credited for:** recording
+  for others made "someone else completed it" the wrong test. The red entry of an assigned
+  task is taken over when no assignee is among the people credited; the claim names the
+  recorder when credited, otherwise the first person credited. Late work recorded *for* its
+  assignee is no takeover.
+- **D-091-47 Hold completes, a short tap opens the picker:** holding sends no split, the
+  server credits the assignees (the recorder when the task has none) in equal shares. The
+  picker lists the household with those people ticked; its sub-task ticks are saved at once
+  per cycle (D-089-02), and *Done* completes with every sub-task marked inside the command.
+  A pointer tap acts on the click that follows the release, so the opening dialog never
+  receives that click; the keyboard taps at once.
+- **D-091-48 The claim button of a red entry stays until WP-B6:** the picker already records
+  a takeover; the separate button goes with the row it sits on.
+- **D-091-49 A date correction moves the work instant, not only the day:** `completed_at`
+  takes the corrected day at the same clock time in the house zone (never ahead of now),
+  `work_date` and `work_zone` follow, so every reader that orders or filters by the instant
+  agrees with the day. Shares, coins and the ledger stay as recorded.
+- **D-091-50 The corrected day lies strictly between its neighbours:** not in the future, not
+  the day it has, and after the previous and before the next valid entry of the room task.
+  This keeps D-091-26 and the same-day rule; refused with a translated `400`.
+- **D-091-51 What a date correction re-derives:** the entry's class against its frozen window,
+  its closed-cycle row, the room event and the room replay, the recognitions, and — under an
+  after-completion rule — the frozen window and class of the entry that followed, moved by
+  the difference in days. The follower gets no audit row of its own; the `date` revision of
+  the corrected entry is the record. An entry from before the cutover keeps its stored
+  occurrence, which is read against the corrected instant (D-091-32).
+- **D-091-52 Recent activity stores nothing:** postponements are read from the command
+  receipts, date changes and deletions from the completion audit chain, absences (entered and
+  removed) from the pause revisions. Titles of tasks the viewer may not see are withheld.
+- **D-091-53 `canCorrect` and `canAttribute`:** the read models answer the date change and the
+  deletion (`canCorrect`) apart from the change of people (`canAttribute`, owner only,
+  D-091-23), so no client decides by role.
+- **D-091-54 The history has its own read:** `GET /room-tasks/{id}/history` (ten entries, at
+  most fifty); the next window comes with the row's `cycle` block and with the answer of
+  every command that moves it. `RoomTaskCycleController` holds the read and the postpone
+  command, because `RoomTaskController` is above the size guideline.
+- **D-091-55 Postpone and history sit in the opened row of the task list until WP-B6:** the
+  inline row of WP-B6 brings both to *Today*. The date is changed in the task's history
+  only; the Insights feed keeps deletion and, for the owner, the change of people.
+- **D-091-56 Whoever may not see a task is credited by nobody:** the visibility rule of
+  D-091-20 holds for the owner's attribution correction too (`403`).
+- **D-091-57 A postponement is refused once the window ended:** a red entry cannot be
+  postponed (`409 WINDOW_ENDED`, D-091-21); without flex days or after three presses the
+  answer is `409 NOT_POSTPONABLE`. The count belongs to the cycle key and is frozen with the
+  window on the completion.
+- **D-091-58 The anchor query stays, pinned by a budget:** RF-091-04 named the aggregate over
+  the whole valid history per room task. It is one grouped query on an indexed column; the
+  list read with its cycle derivation is now pinned in `WorkflowQueryBudgetTest`, which is
+  the trigger D-091-09 sets for a cache.
+
+### Review decisions (interim Full review of WP-B2 and WP-B3, 2026-11-18)
+
+The operator chose the recommended option of each question.
+
+- **D-091-59 Fix the verified defects now, the security ones included:** the absence events
+  of requests that were never acknowledged, the two-part right of the date correction
+  (D-091-63), its translated refusals, visibility per room task in the activity feed and its
+  events (ADR-010), and the history of a deleted room task (404) are fixed in the review,
+  each with a regression test; so are the correctness defects. Structure, performance and
+  accessibility polish go to RF-091-07 to RF-091-09.
+- **D-091-60 An undo keeps the sub-task ticks:** the ticks a completion set stay with the
+  reopened cycle, like a member's own saved progress (D-089-02), since nothing tells them
+  apart; the next completion marks every sub-task anyway.
+- **D-091-61 A date correction keeps the takeover facts:** the claim and the digest receipt
+  describe the moment the work was recorded; a later correction of the day re-derives the
+  classification only (extends D-091-51).
+- **D-091-62 The postponement stays with its cycle key:** closing a cycle no longer clears
+  `cycle_key`, `postpone_count` and `postpone_days`. The next cycle has another key and
+  starts without a postponement; an undo reopens the cycle postponed as it was, its count of
+  presses included. Refines D-091-57; ADR-021 §4 amended.
+- **D-091-63 The right of a date correction has two parts:** the identity part (the owner,
+  or the member who recorded the entry) is checked before the command and, under the house
+  lock, on execution and replay; whether the entry is still the latest is a state the
+  aggregate decides under the lock. A replay therefore answers the committed result, and a
+  role or visibility change before the lock is refused on replay too (CommandService guard
+  contract).
+
 ### Positions for the Standard A review
 
 These settle the remaining open points of the concept. They bind once Standard A passes.
@@ -404,8 +492,9 @@ approval.
   shape for every new step on PostgreSQL, MySQL and SQLite, and proof P4 on both runtime rows.
 - **WP-B2:** early completion on every mode, the same-day refusal, a fixed day keeping its day;
   recording for others and undo, a private task crediting only who may see it (D-091-20), a takeover
-  keeping its digest receipt; concurrent completions of one cycle (`ConcurrentCompletionTest`
-  extended); Jest for tap and hold with keyboard parity; browser scenario.
+  keeping its digest receipt; concurrent completions of one cycle (`RecordingForOthersTest`,
+  next to the races of `CompletionConcurrencyTest`); Jest for tap and hold with keyboard
+  parity; browser scenario.
 - **WP-B3:** postpone limits, rights and the next cycle; each correction across coins, rhythm,
   weekly goal and room journal, a date correction re-deriving the closed cycles after it;
   activity entries; browser scenario.
@@ -431,6 +520,11 @@ new:      docs/adr/ADR-021-derived-due-windows.md, docs/adr/ADR-022-live-suggest
 new:      lib/Service/WindowService.php, lib/Service/SuggestionService.php, the closed-cycle and
           snapshot entities and mappers in lib/Db/ (names fixed in ADR-021 and ADR-022),
           lib/Migration/Version1035… (one or more ordered steps) with their upgrade tests
+new:      lib/Service/CompletionAuthority.php, CompletionDateCorrection.php, PostponeService.php,
+          CycleAdvanceService.php, TaskResponsibility.php, ActivityEventService.php,
+          RecognitionPass.php, lib/Controller/RoomTaskCycleController.php (WP-B2, WP-B3)
+new:      src/components/Tasks/CompletionPicker.vue, PostponeButton.vue, TaskHistory.vue,
+          src/store/taskCycle.js, src/utils/commandId.js (WP-B2, WP-B3)
 modified: lib/Service/OccurrenceReconcileService.php, OccurrenceService.php,
           OccurrenceSelectionService.php, OccurrenceCompletionService.php, CompletionService.php,
           EffortAllocationService.php, RhythmService.php, WeeklyGoalService.php, RankingService.php,
@@ -550,21 +644,27 @@ Routed by the interim Full review of WP-0 and WP-B1 (2026-11-18); every verified
 that review was fixed in it, these are the deferred work it found (operator decision: fix
 the defects now, route refactors, performance and the recovery tooling to WP-B2).
 
-- [ ] **RF-091-02 The recovery fixture still seeds the retired model** (WP-B1, tests):
+- [x] **RF-091-02 The recovery fixture still seeds the retired model** (WP-B1, tests):
   `tests/recovery/fixture.php` imports `AgreementService` and `OccurrenceService`, calls the
   occurrence receipt of `CompletionService::complete()` and `ChecklistService::toggleItem()`,
   and `snapshot()` requires rows in `occurrences`, `occ_members`, `agreements`,
   `schedule_revs` and `chk_progress` that the derived model no longer writes, so proofs P1 to
   P3 fail at the seed (P4 seeds on the source build and is green). Rewrite the seed against
   the `cycle` block and require the cycle tables; run P1 to P3 once. Due before the WP-G
-  qualification, best in the WP-B2 round.
-- [ ] **RF-091-03 The recognitions rebuild the open cycles per week** (WP-B1, performance):
+  qualification, best in the WP-B2 round. **Fixed 2026-11-18:** the seed completes, ticks,
+  postpones and corrects through the derived model and requires `cycles` and
+  `cycle_progress`; P1 on PostgreSQL, MySQL and SQLite, P2 and P3 are green.
+- [x] **RF-091-03 The recognitions rebuild the open cycles per week** (WP-B1, performance):
   `RecognitionFactsService::factsForWeek()` loads every active room task, its definition,
   the completion anchors, members and assignees on each call, and `MedalService`
   reconciles every week since `cycles_from` on each 5-minute job run (plus three full
   evaluations in `GameController::state`). Load the open facts and absences once per pass
   and filter them per week; take the week key from `CalendarService::weekStart()`.
-- [ ] **RF-091-04 Read-path redundancies of the window core** (WP-B1, performance):
+  **Fixed 2026-11-18:** `RecognitionPass` holds the open inputs and the absences of one
+  evaluation; the medal scan, the closed-week reconciliation and `GET /game/state` begin one
+  pass each, and `WeeklyGoalService::weekKey()` replaces the evaluation that only named the
+  week (`WorkflowQueryBudgetTest`: a further week of a pass costs at most three statements).
+- [x] **RF-091-04 Read-path redundancies of the window core** (WP-B1, performance):
   `RoomTaskReadService::cycleFacts()` re-reads the house and the definitions the list
   already holds; the checklist reads run `findByCycle()` twice and re-read task and house;
   a definition edit runs the history aggregate once per mounted room task;
@@ -572,15 +672,23 @@ the defects now, route refactors, performance and the recovery tooling to WP-B2)
   `WindowService::cyclesThrough()` walks from the current cycle for a far range and a
   bounded fixed rule past its end walks its whole sequence; `WorkflowQueryBudgetTest` does
   not pin the list read with its cycle derivation (D-091-09 makes these budgets the trigger
-  for a cache).
-- [ ] **RF-091-05 Structure of the window core** (WP-B1, architecture): `CycleService`
+  for a cache). **Fixed 2026-11-18:** the list hands its house zone and definitions to
+  `cycleFacts()`; the checklist reads share one cycle read and one progress read; a
+  definition edit reads the histories of its room tasks once; `cyclesThrough()` skips to a
+  far range and a bounded rule is read from its bound; the list read with its cycles is
+  pinned at five statements. The anchor aggregate stays as it is (D-091-58).
+- [x] **RF-091-05 Structure of the window core** (WP-B1, architecture): `CycleService`
   (441 non-blank lines) moves its job pass into its own collaborator; the three resolutions
   of the responsible wallets (`CycleService`, `RecognitionFactsService`,
   `CompletionService`) become one; the day-key and weekday helpers of `WindowService` and
   `CycleRule` reuse `CalendarService` and `TaskService`'s weekday list and get unit
   constants of their own instead of `ScheduleRevision::UNIT_*`;
   `CompletionService::cycleBlock()` uses `RoomTaskReadService`; the creation-day rule of
-  `cycles_from` moves from `HouseMapper` into the house service.
+  `cycles_from` moves from `HouseMapper` into the house service. **Fixed 2026-11-18:**
+  `CycleAdvanceService` (job pass), `TaskResponsibility` (the one resolution),
+  `CycleRule::UNIT_*` with `TaskService::WEEKDAYS` and `CalendarService::dayKeyOf()`, the
+  block through `RoomTaskReadService::cycleFacts()`, the creation day in `HouseService`.
+  `CycleService` is at 412 non-blank lines with the postponement and the date seam added.
 - [ ] **RF-091-06 Code without a caller beyond D-091-38** (WP-B1, cleanup; extends D-091-38
   for WP-B7): `RoomTaskMapper::findActiveDueUpToByHouse()` and `findDueWithinDaysByHouse()`,
   `CompletedTaskMapper::findUndoStateByRoomTasks()`, `RoomTaskReadService::rowsForRoomTasks()`
@@ -589,6 +697,48 @@ the defects now, route refactors, performance and the recovery tooling to WP-B2)
   `ScheduleRevisionMapper`, `RoomTaskChecklistProgressMapper`, `OccurrenceMemberMapper`,
   `AgreementMapper::hasExplicitAgreementFor()`), each kept only where `RecognitionFactsService`
   or `DigestService` still reads old rows.
+
+Routed by the interim Full review of WP-B2 and WP-B3 (2026-11-18); every verified defect of
+that review was fixed in it (D-091-59), these are the structure, performance and
+accessibility findings it deferred.
+
+- [ ] **RF-091-07 Structure of the correction commands** (WP-B2/WP-B3, architecture; due in
+  the WP-B4/WP-B5 round, which touches `CompletionService` for the coin factors):
+  `CompletionService` grew to 1,546 non-blank lines with the date correction, against the
+  §7 mitigation — move `changeDate`/`dateAggregate` into a command collaborator of their
+  own; one correction skeleton (target lock, re-read, authorization, version check) and one
+  recognition-recompute tail for undo, attribution and date (rule of three); the
+  follower's completion write of `CycleService::moveClosedWindow()` belongs to the
+  completion side; one classifier (`CompletedTask::classOn()` and `CurrentCycle::classify()`),
+  one postponability rule (`WindowService::block()` and `CycleService::postponeUnderLock()`)
+  with one stale-target check, one cycle-receipt validator for complete and postpone (their
+  `expectedVersion` shapes differ), one rule for *recorded for others* (`ActivityService`,
+  `CompletionService::showCompletion()`), a factory for the `c<id>` cycle key, one
+  visible-room-task resolver (`ActivityService::getRoomTaskHistory()`,
+  `PostponeService::visibleRoomTask()`), the recognition pass of `GET /game/state` in a
+  service, the post-commit seam named for corrections (`runForUndo`), and a result object
+  instead of the by-reference `$tasksById` of the `RoomTaskReadService` list reads.
+- [ ] **RF-091-08 Performance and budgets of the WP-B2/WP-B3 paths** (WP-B2/WP-B3,
+  performance; due with RF-091-07): request budgets for the history read (10 against 50
+  entries), the postpone command, the date correction and the activity read with events at
+  two sizes, and the completion budget with sub-tasks (`CycleProgressMapper::checkAll()`
+  writes per item); the absence read bounded to groups with a revision in the period; the
+  redundant reads of `rowsInState`/`withCycleBlocks` (definitions and zone), of
+  `postponeUnderLock` (histories twice), of `PostponeService` (visibility three times), of
+  `dateAggregate` (members one by one, house, room task, task), of the history read, of
+  `GET /game/state` (the week's facts twice) and of `MedalService` (a second pass, the house
+  per week), the picker's progress read for a task without sub-tasks, the second visibility
+  and member pass of `ActivityEventService`; an index on the revisions' `(action,
+  created_at)` if a budget shows the need (D-091-09).
+- [ ] **RF-091-09 Client structure and accessibility of the cycle surfaces** (WP-B2/WP-B3,
+  frontend; due with WP-B6, which rebuilds these surfaces in the inline row): a public
+  completion-target getter of `useRoomTasksStore` for `useTaskCycleStore`; one refusal
+  strategy in `errorToast.js` (`showHistoryError`, `showPostponeError` and the delete path,
+  which hides the server's 403 reason); the limit of three presses sent by the server
+  instead of copied (`PostponeButton`, `ActivityFeed`); one formatter for the people of an
+  entry; the history's rights note from the server flags instead of the role; the reason of
+  a disabled postpone reachable without a pointer; focus kept through a date edit in
+  `TaskHistory`; the year in history dates outside the current year.
 
 ## Review Outcome
 
@@ -650,3 +800,26 @@ Gates: Jest 177 suites / 2438 tests, ESLint, stylelint; PHPUnit unit 1616 and in
 PostgreSQL (canonical), MariaDB, SQLite and the AIO row (matrix `r91irv`); proof P4 on all four;
 focused browser specs (completion, Insights, Today, rhythm) 38 passed; l10n, php-cs-fixer,
 adapter, docs and backlog checks. Interim review: the plan stays in `active/`.
+
+**Interim Full review of WP-B2 and WP-B3, 2026-11-18: `PASS-WITH-FIXES`.** Scope: the whole
+uncommitted package on `feat/simplified-core-bc` (base `335cb162`, 121 paths, fingerprint
+`30fa2b68…505ef3`), four reviewer tracks plus the main agent. Record:
+[CODE_REVIEW_2026-11-18](../../backlog/archive/CODE_REVIEW_2026-11-18.md#full-interim---cs-plan-091-wp-b2-and-wp-b3-recording-postpone-and-history).
+
+Fixed in the review (D-091-59): absence requests that were never acknowledged leaked into the
+feed as removals; an undo lost the postponement of the cycle it reopened (D-091-62); the date
+correction's replay right (D-091-63) and its translated refusals; visibility per room task in
+the feed and its events (ADR-010); the history of a deleted task; a bounded task ended for
+good by a date correction; the member filter after the limit; the absent person missing from
+an absence line; a stale history after a completion or undo; an empty picker before the
+members load; new command ids on an uncertain retry; the untested owner attribution of
+D-091-56; a departed recorder's warning; logging, docs, l10n and a flaky fixture. Decisions
+D-091-60 (an undo keeps the ticks) and D-091-61 (a date correction keeps takeover facts),
+operator, the recommended options; D-091-46 to D-091-58 accepted. Routed: RF-091-07 to
+RF-091-09.
+
+Gates: Jest 181 suites / 2503 tests, ESLint, stylelint, build; PHPUnit unit 1712 and
+integration 653 on the canonical stack; php-cs-fixer, l10n (1256 keys), adapter, docs and
+backlog checks; focused browser specs 48 passed on `chromium-serial-db` and the phone set 19 passed on
+`mobile-chromium` and `mobile-webkit`. No schema step: matrix and P4 not repeated. Interim review:
+the plan stays in `active/`.

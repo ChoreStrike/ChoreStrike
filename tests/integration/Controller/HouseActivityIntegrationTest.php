@@ -316,7 +316,9 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		self::assertSame('activity_budget_partner', $first[0]['allocation'][0]['userId']);
 		self::assertSame('activity_budget_owner', $full['completions'][0]['allocation'][0]['userId']);
 		self::assertSame($smallQueries, $fullQueries, '200 rows do not trigger per-completion/share queries');
-		self::assertLessThanOrEqual(10, $fullQueries, 'feed enrichment has a fixed query budget');
+		// The enrichment, one read of the latest entries (the correction
+		// rights) and the three event sources of the period.
+		self::assertLessThanOrEqual(12, $fullQueries, 'feed enrichment has a fixed query budget');
 	}
 
 	/**

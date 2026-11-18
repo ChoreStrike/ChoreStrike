@@ -67,6 +67,12 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	// one batched read per concern, not one query per historical event or
 	// work share.
 	private const UNDO_BUDGET = 83;
+	// The list read (3) plus the two completion-input reads of the cycle
+	// derivation; the definitions and the house zone are handed on.
+	private const LIST_WITH_CYCLES_BUDGET = 5;
+	// One week of an evaluation that holds a pass: its stored occurrences,
+	// its closed cycles and their work shares.
+	private const WEEK_WITH_PASS_BUDGET = 3;
 
 	/**
 	 * HouseWideRead_ConstantQueryCount_10vs100Rows
@@ -119,6 +125,105 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 			'Q(100) must equal Q(10) within one chunk — an N+1 reintroduction fails here'
 		);
 		self::assertLessThanOrEqual(self::HOUSE_READ_BUDGET, $bigCount, implode("\n", $counter->sqlStatements()));
+	}
+
+	/**
+	 * HouseList_WithItsCycles_ConstantQueryCount_10vs100Rows
+	 *
+	 * The list a client reads: the visible room tasks and the derived cycle
+	 * of each (ADR-021, D-091-09). The derivation takes the definitions the
+	 * visibility decision read and the zone its caller holds, so it adds
+	 * only the completion inputs — whatever the row count (RF-091-04).
+	 */
+	public function testHouseList_WithItsCycles_ConstantQueryCount_10vs100Rows(): void {
+		$ownerId = 'wqb_cycle_owner';
+		$this->actingAs($ownerId);
+		$smallHouse = $this->createHouse($ownerId, 'WQB Cycles Small');
+		$smallRoomTasks = $this->seedRoomsAndTasks($smallHouse, $ownerId, 2, 5);
+		$bigHouse = $this->createHouse($ownerId, 'WQB Cycles Big');
+		$bigRoomTasks = $this->seedRoomsAndTasks($bigHouse, $ownerId, 10, 10);
+		// One completion each: the derivation then reads both completion inputs.
+		$completions = \OC::$server->get(CompletionService::class);
+		$this->completeOccurrence($completions, $smallHouse, $ownerId, $smallRoomTasks[0]);
+		$this->completeOccurrence($completions, $bigHouse, $ownerId, $bigRoomTasks[0]);
+
+		$readService = \OC::$server->get(RoomTaskReadService::class);
+		$viewer = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($smallHouse, $ownerId);
+		$zone = new \DateTimeZone('UTC');
+		$read = static function (int $houseId) use ($readService, $viewer, $zone): array {
+			$tasksById = null;
+			$roomTasks = $readService->getHouseRoomTasks($houseId, $viewer, true, $tasksById);
+			return $readService->cycleFacts($houseId, $roomTasks, $tasksById, null, $zone);
+		};
+
+		$counter = QueryCounter::attach($this->db);
+		try {
+			$counter->mark();
+			$smallFacts = $read($smallHouse);
+			$smallCount = $counter->count();
+
+			$counter->mark();
+			$bigFacts = $read($bigHouse);
+			$bigCount = $counter->count();
+		} finally {
+			$counter->detach();
+		}
+
+		self::assertCount(10, $smallFacts);
+		self::assertCount(100, $bigFacts);
+		foreach ($bigFacts as $fact) {
+			self::assertNotEmpty($fact['block']['cycleKey'] ?? null, 'every row carries its completion target');
+		}
+		self::assertStringStartsWith('c', $bigFacts[$bigRoomTasks[0]]['block']['cycleKey'], 'the completed task hangs on its completion');
+		self::assertSame($smallCount, $bigCount, 'the cycle derivation is batched: Q(100) must equal Q(10)');
+		self::assertLessThanOrEqual(self::LIST_WITH_CYCLES_BUDGET, $bigCount, implode("\n", $counter->sqlStatements()));
+	}
+
+	/**
+	 * RecognitionWeeks_WithOnePass_ReadTheOpenWorkOnce
+	 *
+	 * The closed-week scan of the timeline job and the game state evaluate
+	 * several weeks or slices at once. With one {@see RecognitionPass} the
+	 * open work and the absences are read once; each further week costs only
+	 * its own closed facts (RF-091-03).
+	 */
+	public function testRecognitionWeeks_WithOnePass_ReadTheOpenWorkOnce(): void {
+		$ownerId = 'wqb_pass_owner';
+		$this->actingAs($ownerId);
+		$houseId = $this->createHouse($ownerId, 'WQB Pass');
+		$this->seedRoomsAndTasks($houseId, $ownerId, 10, 10);
+		$house = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($houseId);
+		$facts = \OC::$server->get(\OCA\ChoreStrike\Service\RecognitionFactsService::class);
+		$now = new \DateTime('now', new \DateTimeZone('UTC'));
+		$thisWeek = (clone $now)->modify('monday this week')->format('Y-m-d');
+		$lastWeek = (clone $now)->modify('monday this week')->modify('-7 days')->format('Y-m-d');
+
+		$counter = QueryCounter::attach($this->db);
+		try {
+			$counter->mark();
+			$pass = $facts->beginPass($house);
+			$passCount = $counter->count();
+
+			$counter->mark();
+			$withPass = $facts->factsForWeek($house, $thisWeek, $now, $pass);
+			$weekCount = $counter->count();
+
+			$counter->mark();
+			$facts->factsForWeek($house, $lastWeek, $now, $pass);
+			$secondWeekCount = $counter->count();
+
+			$counter->mark();
+			$withoutPass = $facts->factsForWeek($house, $thisWeek, $now);
+			$freshCount = $counter->count();
+		} finally {
+			$counter->detach();
+		}
+
+		self::assertCount(100, $withPass, 'the open cycle of every seeded task ends this week');
+		self::assertEquals($withoutPass, $withPass, 'a pass changes the cost, never the facts');
+		self::assertLessThanOrEqual(self::WEEK_WITH_PASS_BUDGET, $weekCount, implode("\n", $counter->sqlStatements()));
+		self::assertLessThanOrEqual(self::WEEK_WITH_PASS_BUDGET, $secondWeekCount);
+		self::assertSame($passCount + $weekCount, $freshCount, 'without a pass every week pays for the open inputs again');
 	}
 
 	/**

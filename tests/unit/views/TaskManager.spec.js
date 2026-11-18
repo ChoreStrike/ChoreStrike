@@ -461,16 +461,26 @@ describe('TaskManager', () => {
 		expect(showError).toHaveBeenCalledWith('Could not complete the task (CONFLICT)')
 	})
 
-	it('completes a confirmed claim with its reviewed allocation, never reopening the participation dialog', async () => {
+	it('completes with the split a row hands over: its picker\'s or a confirmed claim\'s', async () => {
 		mockRoomTasksStore.completeRoomTask.mockResolvedValue({})
 		mockRoomTasksStore.roomTasks = [{ id: 9, taskId: 101, isActive: true, assignees: ['dad'] }]
-		const claim = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
+		const split = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
 
 		const wrapper = await mountView()
-		await wrapper.vm.handleCompleteTask(9, claim)
+		await wrapper.vm.handleCompleteTask(9, split)
 
-		expect(wrapper.vm.participation).toBeNull()
-		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(9, claim)
+		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(9, split)
+	})
+
+	it('completes a held row of someone else at once: no dialog asks who took part (WP-B2)', async () => {
+		mockRoomTasksStore.completeRoomTask.mockResolvedValue({})
+		mockRoomTasksStore.roomTasks = [{ id: 9, taskId: 101, isActive: true, assignees: ['dad'] }]
+
+		const wrapper = await mountView()
+		await wrapper.vm.handleCompleteTask(9)
+
+		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(9)
+		expect(wrapper.findComponent({ name: 'ParticipationDialog' }).exists()).toBe(false)
 	})
 
 	describe('paged list (CS-PLAN-084 WP-D)', () => {

@@ -20,6 +20,10 @@ class ConflictException extends \Exception {
 	public const REASON_ALREADY_COMPLETED = 'ALREADY_COMPLETED';
 	/** The room task was already completed on this house-local day. */
 	public const REASON_SAME_DAY = 'SAME_DAY';
+	/** The window of the cycle has ended: a red task is not postponed. */
+	public const REASON_WINDOW_ENDED = 'WINDOW_ENDED';
+	/** The task has no flex days, or the cycle was postponed three times. */
+	public const REASON_NOT_POSTPONABLE = 'NOT_POSTPONABLE';
 
 	public function __construct(
 		string $message = '',

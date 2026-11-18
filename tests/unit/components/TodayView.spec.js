@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { reactive } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import TodayView from '@/views/TodayView.vue'
-import { confirmHold } from '../helpers/hold.js'
+import { confirmHold, tapHold } from '../helpers/hold.js'
 
 jest.mock('@nextcloud/l10n', () => ({
 	// Interpolating mock so placeholder-driven copy (the progress line,
@@ -606,16 +606,29 @@ describe('TodayView', () => {
 		expect(wrapper.text()).not.toContain('Take out trash')
 	})
 
-	it('asks who took part before completing a task that belongs to someone else (WP3 §3.6)', async () => {
+	it('holding completes a task that belongs to someone else at once: the server credits its assignees (WP-B2)', async () => {
 		mockRoomTasksStore.dailyTasks[0].assignees = ['teen']
 		const wrapper = await mountView()
 		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
 
 		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
 
+		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(11)
+		expect(wrapper.findComponent({ name: 'ParticipationDialog' }).exists()).toBe(false)
+	})
+
+	it('a short tap opens the picker with the assignees ticked and completes with its split (WP-B2)', async () => {
+		mockRoomTasksStore.dailyTasks[0].assignees = ['teen']
+		mockUserStore.houseUsers = [{ nextcloudUserId: 'mom', displayName: 'Parent' }, { nextcloudUserId: 'teen', displayName: 'Teen' }]
+		const wrapper = await mountView()
+		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
+
+		await tapHold(wrapper, '[data-testid="today-complete-button-11"]')
+
 		expect(mockRoomTasksStore.completeRoomTask).not.toHaveBeenCalled()
 		const dialog = wrapper.findComponent({ name: 'ParticipationDialog' })
-		expect(dialog.exists()).toBe(true)
+		expect(dialog.props('members').map(member => member.userId)).toEqual(['mom', 'teen'])
+		expect(dialog.props('preselected')).toEqual(['teen'])
 
 		const payload = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
 		dialog.vm.$emit('confirm', payload)

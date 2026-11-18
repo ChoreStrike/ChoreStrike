@@ -656,7 +656,7 @@ class RoomTaskService {
 				continue;
 			}
 			$cycles = $this->rangeCycles(
-				$this->windows->cyclesThrough($rt, $task, $histories[$rt->getId()] ?? null, $tz, $now, $toKey),
+				$this->windows->cyclesThrough($rt, $task, $histories[$rt->getId()] ?? null, $tz, $now, $toKey, $fromKey),
 				$fromKey,
 				$toKey,
 				WindowService::todayKey($now, $tz)

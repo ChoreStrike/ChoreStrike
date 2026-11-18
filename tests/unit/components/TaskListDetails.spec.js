@@ -23,6 +23,13 @@ jest.mock('@/utils/logger', () => ({
 	},
 }))
 
+// The history reads through its own store; this suite only places it.
+jest.mock('@/components/Tasks/TaskHistory.vue', () => ({
+	name: 'TaskHistory',
+	props: ['roomTaskId'],
+	template: '<div data-testid="task-history-stub" />',
+}))
+
 const roomTask = (over = {}) => ({
 	id: 42,
 	roomId: 10,
@@ -65,6 +72,27 @@ describe('TaskListDetails contextual help (WP8 §3.6)', () => {
 	it('offers the contextual agreements help on the task details', () => {
 		const wrapper = mountDetails()
 		expect(wrapper.find('[data-testid="help-context-agreements"]').exists()).toBe(true)
+	})
+})
+
+describe('TaskListDetails cycle actions (CS-PLAN-091 WP-B3)', () => {
+	const cycle = { cycleKey: 'c88', expectedVersion: 4, state: 'open', postponeCount: 1, canPostpone: true }
+
+	it('offers postponing and the history to every member, children included', () => {
+		const wrapper = mountDetails({
+			item: { roomTask: roomTask({ cycle }), task: task({ flexDays: 2 }) },
+			canManageTasks: false,
+		})
+
+		expect(wrapper.findComponent({ name: 'PostponeButton' }).props()).toEqual({ roomTaskId: 42, cycle, flexDays: 2 })
+		expect(wrapper.findComponent({ name: 'TaskHistory' }).props('roomTaskId')).toBe(42)
+	})
+
+	it('keeps the history of a finished task but offers no postponing', () => {
+		const wrapper = mountDetails({ item: { roomTask: roomTask({ isActive: false, cycle: null }), task: task() } })
+
+		expect(wrapper.findComponent({ name: 'PostponeButton' }).exists()).toBe(false)
+		expect(wrapper.findComponent({ name: 'TaskHistory' }).exists()).toBe(true)
 	})
 })
 

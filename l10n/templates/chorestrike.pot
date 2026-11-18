@@ -95,6 +95,9 @@ msgstr ""
 msgid "A summary time is required while a summary is enabled"
 msgstr ""
 
+msgid "A task without flex days cannot be postponed"
+msgstr ""
+
 msgid "A text field must be a string"
 msgstr ""
 
@@ -113,6 +116,9 @@ msgstr ""
 msgid "A valid commandId (UUID) is required"
 msgstr ""
 
+msgid "A valid date (Y-m-d) is required"
+msgstr ""
+
 msgid "A valid expectedRevision is required"
 msgstr ""
 
@@ -129,6 +135,9 @@ msgid "Absence"
 msgstr ""
 
 msgid "Absence not found"
+msgstr ""
+
+msgid "Absence of {name} {from} – {to} removed"
 msgstr ""
 
 msgid "Accounts and roles"
@@ -246,6 +255,9 @@ msgid "An optional play area outside the daily routine. Games open with finished
 msgstr ""
 
 msgid "An optional weekly comparison of on-time shares. Participation is voluntary and shows shares, never amounts."
+msgstr ""
+
+msgid "An overdue task cannot be postponed"
 msgstr ""
 
 msgid "An owner can add rewards in the Settings."
@@ -447,6 +459,9 @@ msgid "Celebration animations"
 msgstr ""
 
 msgid "Change bed sheets"
+msgstr ""
+
+msgid "Change date"
 msgstr ""
 
 msgid "Change role"
@@ -668,7 +683,13 @@ msgstr ""
 msgid "Correction requires the explicit notDelivered confirmation"
 msgstr ""
 
+msgid "Could not change the date"
+msgstr ""
+
 msgid "Could not complete the task"
+msgstr ""
+
+msgid "Could not delete the entry"
 msgstr ""
 
 msgid "Could not load finished tasks"
@@ -686,6 +707,9 @@ msgstr ""
 msgid "Could not load the floors and rooms"
 msgstr ""
 
+msgid "Could not load the history"
+msgstr ""
+
 msgid "Could not load the ranking"
 msgstr ""
 
@@ -693,6 +717,9 @@ msgid "Could not load your planning settings"
 msgstr ""
 
 msgid "Could not load your tasks"
+msgstr ""
+
+msgid "Could not postpone the task"
 msgstr ""
 
 msgid "Could not save the correction"
@@ -758,6 +785,9 @@ msgstr ""
 msgid "Danger Zone"
 msgstr ""
 
+msgid "Day the work was done"
+msgstr ""
+
 msgid "Days of Week"
 msgstr ""
 
@@ -801,6 +831,9 @@ msgid "Delete the absence of {name}"
 msgstr ""
 
 msgid "Delete this absence?"
+msgstr ""
+
+msgid "Delete this entry?"
 msgstr ""
 
 msgid "Delete this sub-task?"
@@ -1364,6 +1397,12 @@ msgstr ""
 msgid "Household & Co."
 msgstr ""
 
+msgid "Household absence {from} – {to}"
+msgstr ""
+
+msgid "Household absence {from} – {to} removed"
+msgstr ""
+
 msgid "How many finished chores open each game while games unlock with finished chores. 0 opens a game right away."
 msgstr ""
 
@@ -1814,6 +1853,9 @@ msgstr ""
 msgid "Not delivered"
 msgstr ""
 
+msgid "Not done yet."
+msgstr ""
+
 msgid "Not enough available Coins for this request"
 msgstr ""
 
@@ -1862,6 +1904,9 @@ msgstr ""
 msgid "One-time task"
 msgstr ""
 
+msgid "Only a house owner can change who did the work"
+msgstr ""
+
 msgid "Only a pending pause request can be decided"
 msgstr ""
 
@@ -1889,10 +1934,7 @@ msgstr ""
 msgid "Only house owners may edit checklists"
 msgstr ""
 
-msgid "Only the completer or a house owner can correct a completion"
-msgstr ""
-
-msgid "Only the completer or a house owner can undo a completion"
+msgid "Only members who can see this task can be credited for it"
 msgstr ""
 
 msgid "Only you and the assigned members can see and complete this task. Assigned members can also edit it."
@@ -2013,6 +2055,9 @@ msgid "Player"
 msgstr ""
 
 msgid "Please select at least one day"
+msgstr ""
+
+msgid "Postpone"
 msgstr ""
 
 msgid "Preference row missing after update"
@@ -2615,6 +2660,9 @@ msgstr ""
 msgid "Tap a stain, or move with the arrow keys and wipe with Enter. Space pauses."
 msgstr ""
 
+msgid "Tap to choose who did it, press and hold to complete everything"
+msgstr ""
+
 msgid "Tap two socks to turn them, or move with the arrow keys and turn with Enter. Space pauses."
 msgstr ""
 
@@ -2670,6 +2718,9 @@ msgid "Template not found: %1$s"
 msgstr ""
 
 msgid "Text"
+msgstr ""
+
+msgid "The Coins and the energy it paid are taken back."
 msgstr ""
 
 msgid "The Coins are reserved now and only spent once the reward is actually delivered. You can cancel while it is not delivered."
@@ -2762,9 +2813,6 @@ msgstr ""
 msgid "The colour scheme could not be saved. Please try again."
 msgstr ""
 
-msgid "The completer must take part in the work"
-msgstr ""
-
 msgid "The completion changed since it was displayed"
 msgstr ""
 
@@ -2772,6 +2820,15 @@ msgid "The correction was recorded and the Coins were refunded."
 msgstr ""
 
 msgid "The daily task limit must be between 1 and 100"
+msgstr ""
+
+msgid "The date cannot be in the future"
+msgstr ""
+
+msgid "The date must be after the previous entry of this task"
+msgstr ""
+
+msgid "The date must be before the next entry of this task"
 msgstr ""
 
 msgid "The day of the month must be between 1 and 31"
@@ -2790,6 +2847,9 @@ msgid "The displayed item terms changed — reload before requesting"
 msgstr ""
 
 msgid "The entries changed in the meantime. Check the list and try again."
+msgstr ""
+
+msgid "The entry already has this date"
 msgstr ""
 
 msgid "The first date must lie within one year of today"
@@ -2960,6 +3020,9 @@ msgstr ""
 msgid "This absence can no longer be deleted"
 msgstr ""
 
+msgid "This entry was deleted"
+msgstr ""
+
 msgid "This game is locked again, so your score was not saved."
 msgstr ""
 
@@ -2990,6 +3053,9 @@ msgstr ""
 msgid "This score is not possible in the time played."
 msgstr ""
 
+msgid "This task cannot be postponed any further"
+msgstr ""
+
 msgid "This task is already being completed with another work split. Check the split once it is done."
 msgstr ""
 
@@ -3005,6 +3071,9 @@ msgstr ""
 msgid "This task was already done today. It can be done again from tomorrow."
 msgstr ""
 
+msgid "This task was already postponed three times"
+msgstr ""
+
 msgid "This will be recorded as taken over from {assignee}."
 msgstr ""
 
@@ -3012,6 +3081,12 @@ msgid "Thu"
 msgstr ""
 
 msgid "Thursday"
+msgstr ""
+
+msgid "Tick everyone who did the work. Their shares are equal unless you change them."
+msgstr ""
+
+msgid "Ticks are saved at once. “Done” completes the task with every sub-task."
 msgstr ""
 
 msgid "Tidy and declutter"
@@ -3060,9 +3135,6 @@ msgid "Title"
 msgstr ""
 
 msgid "Title (required)"
-msgstr ""
-
-msgid "To complete a task, include yourself in the work split. If your account is missing, close this dialog and reload."
 msgstr ""
 
 msgid "Today"
@@ -3371,6 +3443,12 @@ msgstr ""
 msgid "You are not part of the ranking. Participation is voluntary and only ever shows your on-time share of agreed public tasks — starting next Monday."
 msgstr ""
 
+msgid "You can change or delete your own latest entry. Everything else is for the owner."
+msgstr ""
+
+msgid "You can only change or delete your own latest entry of a task"
+msgstr ""
+
 msgid "You cannot change your own role"
 msgstr ""
 
@@ -3521,6 +3599,9 @@ msgstr ""
 msgid "reasonCode must be a string of at most 64 characters"
 msgstr ""
 
+msgid "recorded by {name}"
+msgstr ""
+
 msgid "revision must be an integer and items a list"
 msgstr ""
 
@@ -3602,6 +3683,9 @@ msgstr ""
 msgid "{count} finished chores since the reset on {date}"
 msgstr ""
 
+msgid "{count} of 3"
+msgstr ""
+
 msgid "{count} open"
 msgstr ""
 
@@ -3617,6 +3701,9 @@ msgstr ""
 msgid "{count} tasks"
 msgstr ""
 
+msgid "{count}× left"
+msgstr ""
+
 msgid "{days} days"
 msgstr ""
 
@@ -3627,6 +3714,9 @@ msgid "{floors} floors, {rooms} rooms and {tasks} tasks were created"
 msgstr ""
 
 msgid "{message} ({reference})"
+msgstr ""
+
+msgid "{name} away {from} – {to}"
 msgstr ""
 
 msgid "{name} joined the house"
@@ -3660,6 +3750,15 @@ msgid "{planned} of {capacity}"
 msgstr ""
 
 msgid "{start} – {end}"
+msgstr ""
+
+msgid "{task} postponed"
+msgstr ""
+
+msgid "{task}: date changed"
+msgstr ""
+
+msgid "{task}: entry deleted"
 msgstr ""
 
 msgid "{total} of {capacity} daily capacity is planned or still outstanding. It is too much for one day — the house owner can replan it."

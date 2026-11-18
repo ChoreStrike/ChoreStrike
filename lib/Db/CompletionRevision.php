@@ -44,11 +44,14 @@ class CompletionRevision extends Entity implements JsonSerializable {
 	public const ACTION_COMPLETE = 'complete';
 	public const ACTION_ATTRIBUTION = 'attribution';
 	public const ACTION_UNDO = 'undo';
+	/** A date correction (ADR-021 decision 9): the work day moved, the allocation stayed. */
+	public const ACTION_DATE = 'date';
 
 	public const ACTIONS = [
 		self::ACTION_COMPLETE,
 		self::ACTION_ATTRIBUTION,
 		self::ACTION_UNDO,
+		self::ACTION_DATE,
 	];
 
 	/** @var int */

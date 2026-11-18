@@ -142,13 +142,16 @@ keeps its row (D-091-08).
   (decision 8; until it ships with WP-B4 the day rule holds for them too,
   D-091-42).
 - **The completion closes the cycle** in its transaction: it writes the
-  `chorestrike_cycles` row (`outcome = done`), freezes the cycle facts on the
-  completion and resets the postponement. Every sub-task of the cycle is marked
-  done inside the same command. Ticking only some sub-tasks goes through the
-  checklist route and leaves the task open (D-089-02).
+  `chorestrike_cycles` row (`outcome = done`) and freezes the cycle facts on the
+  completion. The postponement stays stored with its `cycle_key`, so the next
+  cycle, which has another key, starts without one (D-091-62). Every sub-task of
+  the cycle is marked done inside the same command. Ticking only some sub-tasks
+  goes through the checklist route and leaves the task open (D-089-02).
 - **Undo** marks the completion undone as today and deletes its cycle row, which
   only projects the completion's frozen cycle facts; the cycle reopens and the
-  next current cycle derives again. A fixed cycle that does not become current
+  next current cycle derives again. A reopened cycle keeps its postponement and
+  its count of presses (D-091-62) and its sub-task ticks, also those the
+  completion set (D-091-60). A fixed cycle that does not become current
   again because a later one is done, and whose window has ended, is recorded as
   missed instead (D-091-43). The audit chain keeps the undo. Work facts,
   shares and ledger rows follow ADR-014.
@@ -235,7 +238,13 @@ enforced in the services:
   audited correction kind in `completion_revs`. It re-derives the completion's
   classification against its cycle's window, the cycle row, the room journal
   replay and the weekly goal. For an after-completion rule it also re-derives
-  the window and the classification of the cycle that followed it.
+  the window and the classification of the cycle that followed it, and a
+  bounded task ends or becomes active again with the cycle that follows the
+  corrected day. The facts of a takeover stay as recorded: the claim and the
+  digest receipt describe the moment the work was recorded (D-091-61).
+  Whether the entry is still the latest is decided inside the command under
+  the house lock; before it and on a replay only the identity part of the
+  right is checked, so a replay answers the committed result (D-091-63).
 - **Delete** is the existing undo (`POST /completions/{id}/undo`).
 - **Person** is the existing attribution (`PUT /completions/{id}/attribution`),
   now owner-only.
