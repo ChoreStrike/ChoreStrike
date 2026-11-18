@@ -596,7 +596,7 @@ abstract class IntegrationTestCase extends TestCase {
 		// request-events → requests → items — before the wallet/
 		// membership/house rows go (no FK cascade exists).
 		$this->deleteRewardRowsByHouseIds($this->createdHouseIds);
-		foreach (['chorestrike_member_prefs', 'chorestrike_wgoal_receipts', 'chorestrike_minigame_scores'] as $table) {
+		foreach (['chorestrike_member_prefs', 'chorestrike_wgoal_receipts', 'chorestrike_minigame_scores', 'chorestrike_bonus_periods'] as $table) {
 			$this->deleteFixtureRows($table, 'house_id', $this->createdHouseIds);
 		}
 		$memberIds = array_merge($this->createdHouseUserIds, $this->fixtureIds('chorestrike_house_users', 'house_id', $this->createdHouseIds));

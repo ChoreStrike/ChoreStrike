@@ -59,6 +59,7 @@
 				:weeklyGoal="progress?.weeklyGoal"
 				:rhythm="progress?.rhythm"
 				:coinMinor="gameStore.wallet?.availableMinor" />
+			<BonusDaysBanner :period="houseStore.bonusPeriod" :today="todayKey" />
 
 			<!-- Overload clarification (C5f): neutral, amounts visible,
 			     invites the owner to replan — never a threat. -->
@@ -154,6 +155,9 @@
 				<p>{{ t('chorestrike', 'Nothing is planned for today.') }}</p>
 			</div>
 
+			<!-- Never due: the bonus tasks stand apart from the day's work. -->
+			<TodayBonusSection :rows="bonusRows" @complete="(row, split) => requestCompletion(row.roomTask.id, split)" />
+
 			<SetupWizardEntry :ready="structureRead" autoOpen @applied="load" />
 		</template>
 	</div>
@@ -166,6 +170,8 @@ import ExpandChevron from '../components/Common/ExpandChevron.vue'
 import Icon from '../components/Common/Icon.vue'
 import HelpEntry from '../components/Help/HelpEntry.vue'
 import SetupWizardEntry from '../components/Setup/SetupWizardEntry.vue'
+import BonusDaysBanner from '../components/Today/BonusDaysBanner.vue'
+import TodayBonusSection from '../components/Today/TodayBonusSection.vue'
 import TodayStatusLine from '../components/Today/TodayStatusLine.vue'
 import TodayTaskRow from '../components/Today/TodayTaskRow.vue'
 import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
@@ -182,10 +188,10 @@ import { buildTodaySections, openEnergy } from '../utils/todaySections.js'
 
 /**
  * Today, the one landing page for every role (CS-PLAN-090 WP-B): the
- * viewer's status, the overdue block, what is due today and what is
- * already possible. The rows are selectors of the store's daily and
- * overdue reads (CS-PLAN-066 §3.3); server visibility, eligibility and
- * child limits stay authoritative.
+ * viewer's status, the overdue block, what is due today, what is already
+ * possible and the bonus tasks (CS-PLAN-091 WP-B4). The rows are selectors
+ * of the store's daily, overdue and bonus reads (CS-PLAN-066 §3.3); server
+ * visibility, eligibility and child limits stay authoritative.
  */
 export default {
 	name: 'TodayView',
@@ -196,6 +202,8 @@ export default {
 		ErrorState,
 		HelpEntry,
 		SetupWizardEntry,
+		BonusDaysBanner,
+		TodayBonusSection,
 		TodayStatusLine,
 		TodayTaskRow,
 	},
@@ -232,8 +240,17 @@ export default {
 			return this.userStore.currentUser?.nextcloudUserId || null
 		},
 
+		todayKey() {
+			return todayKeyInZone(this.houseStore.timezone)
+		},
+
 		dateLabel() {
-			return formatLongDayKey(todayKeyInZone(this.houseStore.timezone))
+			return formatLongDayKey(this.todayKey)
+		},
+
+		/** The bonus tasks the filter lets through; they are no part of the day's sections. */
+		bonusRows() {
+			return this.roomTasksStore.bonusTasks.filter(this.filter === 'all' ? () => true : this.isMine)
 		},
 
 		/**
@@ -367,6 +384,8 @@ export default {
 			}).catch((error) => {
 				logger.error('Failed to load the capacity facts', error, { view: 'TodayView', action: 'loadStatus' })
 			})
+			// The bonus tasks are an offer: without them the day's work still shows.
+			this.roomTasksStore.fetchBonusTasks().catch(() => {})
 		},
 
 		async retryDerivedRefresh() {

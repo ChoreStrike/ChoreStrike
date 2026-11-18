@@ -44,6 +44,7 @@ class RoomTaskReadServiceTest extends TestCase {
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
 	private CompletedTaskMapper|MockObject $completions;
 	private TaskChecklistItemMapper|MockObject $checklistItems;
+	private \OCA\ChoreStrike\Service\CreditPolicy|MockObject $creditPolicy;
 	private \OCA\ChoreStrike\Service\AppLogger|MockObject $logger;
 
 	protected function setUp(): void {
@@ -56,6 +57,7 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
 		$this->completions = $this->createMock(CompletedTaskMapper::class);
 		$this->checklistItems = $this->createMock(TaskChecklistItemMapper::class);
+		$this->creditPolicy = $this->createMock(\OCA\ChoreStrike\Service\CreditPolicy::class);
 		$this->logger = $this->createMock(\OCA\ChoreStrike\Service\AppLogger::class);
 
 		$utcHouse = new House();
@@ -74,7 +76,8 @@ class RoomTaskReadServiceTest extends TestCase {
 			// The real derivation over a mocked completion read.
 			new WindowService(new RecurrenceCalculator(), $this->completions),
 			$this->logger,
-			$this->checklistItems
+			$this->checklistItems,
+			$this->creditPolicy
 		);
 	}
 
@@ -114,7 +117,7 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->taskMapper->method('findByIds')->willReturn([]);
 		$this->stubPolicyPassthrough();
 
-		$result = $this->service->getHouseRoomTasks($houseId, $this->createHouseUser());
+		$result = $this->service->getHouseRoomTasks($houseId, $this->createHouseUser())->roomTasks;
 
 		$this->assertSame([$active], $result);
 	}
@@ -137,7 +140,7 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->taskMapper->method('findByIds')->willReturn([]);
 		$this->stubPolicyPassthrough();
 
-		$result = $this->service->getHouseRoomTasks(1, $this->createHouseUser(), false);
+		$result = $this->service->getHouseRoomTasks(1, $this->createHouseUser(), false)->roomTasks;
 
 		$this->assertSame([$inactive], $result);
 	}
@@ -157,7 +160,7 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->taskAssigneeMapper->expects($this->never())->method('findUserIdsByRoomTasks');
 		$this->taskAccessPolicy->expects($this->never())->method('filterVisibleRoomTasks');
 
-		$this->assertSame([], $this->service->getHouseRoomTasks(1, $this->createHouseUser()));
+		$this->assertSame([], $this->service->getHouseRoomTasks(1, $this->createHouseUser())->roomTasks);
 	}
 
 	/**
@@ -185,7 +188,7 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->taskMapper->method('findByIds')->willReturn([]);
 		$this->stubPolicyPassthrough();
 
-		$result = $this->service->getRoomTasks($roomId, $this->createHouseUser(), true);
+		$result = $this->service->getRoomTasks($roomId, $this->createHouseUser(), true)->roomTasks;
 
 		$this->assertCount(1, $result);
 		$this->assertTrue($result[0]->getIsActive());
@@ -216,7 +219,7 @@ class RoomTaskReadServiceTest extends TestCase {
 
 		$this->taskAccessPolicy->method('filterVisibleRoomTasks')->willReturn([$visible]);
 
-		$result = $this->service->getRoomTasks($roomId, $this->createHouseUser());
+		$result = $this->service->getRoomTasks($roomId, $this->createHouseUser())->roomTasks;
 
 		$this->assertSame([$visible], $result);
 	}
@@ -254,7 +257,7 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->taskMapper->method('findByIds')->willReturn([]);
 		$this->stubPolicyPassthrough();
 
-		$result = $this->service->getScopeTasksScopedToHouse($scopeId, $houseId, $this->createHouseUser());
+		$result = $this->service->getScopeTasksScopedToHouse($scopeId, $houseId, $this->createHouseUser())->roomTasks;
 
 		$this->assertSame([$own], $result);
 	}
@@ -271,7 +274,7 @@ class RoomTaskReadServiceTest extends TestCase {
 			->expects($this->never())
 			->method('findByIdsScopedToHouse');
 
-		$this->assertSame([], $this->service->getScopeTasksScopedToHouse(9, 1, $this->createHouseUser()));
+		$this->assertSame([], $this->service->getScopeTasksScopedToHouse(9, 1, $this->createHouseUser())->roomTasks);
 	}
 
 	/**
@@ -390,7 +393,7 @@ class RoomTaskReadServiceTest extends TestCase {
 		$facts = $this->service->cycleFacts(1, [$bonus, $asleep, $ended, $orphan], [9 => $this->definition(), 10 => $this->definition(10, 0, true)]);
 
 		$this->assertSame(['state' => 'bonus', 'expectedVersion' => 3], $facts[1]['block']);
-		$this->assertSame(['state' => 'asleep'], $facts[2]['block']);
+		$this->assertSame(['state' => 'asleep', 'expectedVersion' => 3, 'wakeOn' => null], $facts[2]['block'], 'the version is the receipt of waking it');
 		$this->assertNull($facts[3]['block']);
 		$this->assertNull($facts[4]['block'], 'a row without its definition has no cycle');
 	}

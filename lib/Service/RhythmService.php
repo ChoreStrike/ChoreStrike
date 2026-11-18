@@ -80,16 +80,22 @@ class RhythmService {
 		$this->refreshForHouse((int)$house->getId(), $now);
 	}
 
-	public function refreshForHouse(int $houseId, \DateTime $now): void {
-		$this->transactions->run(function () use ($houseId, $now): void {
-			$this->houseMapper->findForUpdate($houseId);
+	/**
+	 * @return RecognitionPass The pass the refresh read under the house lock. It stays valid for further
+	 *                         reads of the same evaluation: the refresh writes member stats only.
+	 */
+	public function refreshForHouse(int $houseId, \DateTime $now): RecognitionPass {
+		return $this->transactions->run(function () use ($houseId, $now): RecognitionPass {
+			$house = $this->houseMapper->findForUpdate($houseId);
 			$members = $this->houseUserMapper->findByHouseId($houseId);
 			usort($members, static fn (HouseUser $a, HouseUser $b): int => $a->getId() <=> $b->getId());
 			$locked = [];
 			foreach ($members as $member) {
 				$locked[] = $this->houseUserMapper->findForUpdate((int)$member->getId());
 			}
-			$this->recomputeForMembers($houseId, $locked, $now);
+			$pass = $this->facts->beginPass($house);
+			$this->recomputeForMembers($houseId, $locked, $now, $pass);
+			return $pass;
 		});
 	}
 
@@ -100,13 +106,14 @@ class RhythmService {
 	 * @param int $houseId
 	 * @param HouseUser[] $members Locked membership rows
 	 * @param \DateTime $now Evaluation instant
+	 * @param RecognitionPass|null $pass A pass begun under the caller's lock, after its last write of work, rules or absences
 	 * @return array<int, array{currentStreak: int, longestStreak: int, pending: bool}> member id => values
 	 */
-	public function recomputeForMembers(int $houseId, array $members, \DateTime $now): array {
+	public function recomputeForMembers(int $houseId, array $members, \DateTime $now, ?RecognitionPass $pass = null): array {
 		if ($members === []) {
 			return [];
 		}
-		$result = $this->evaluateForMembers($houseId, $members, $now);
+		$result = $this->evaluateForMembers($houseId, $members, $now, $pass);
 
 		foreach ($members as $member) {
 			$memberId = (int)$member->getId();

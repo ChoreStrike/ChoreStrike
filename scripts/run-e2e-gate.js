@@ -75,7 +75,8 @@ const REQUIRED_SPECS = [
 	// hold, privacy boundaries, the uncertain-command replay and the
 	// mobile/keyboard/localization proof.
 	{ file: 'family-rewards.spec.ts', project: 'chromium-serial-db', scenarios: ['catalog-off core works for every role', 'owner administration works while the catalog is off', 'child request', 'adult self-approval, cancellation', 'changed terms require renewed review', 'funding hold', 'foreign requests stay invisible', 'uncertain command outcome replays', 'mobile targets, keyboard operation'], minTests: 9 },
-	{ file: 'today-view.spec.ts', project: 'chromium-serial-db', scenarios: ['today is the landing page with the own status'], minTests: 4 },
+	// CS-PLAN-091 WP-B4/WP-B5: the bonus day (coin factor, bonus period, a bonus task once per person).
+	{ file: 'today-view.spec.ts', project: 'chromium-serial-db', scenarios: ['today is the landing page with the own status', 'a bonus day on today'], minTests: 5 },
 	{ file: 'members-owner.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 3 },
 	{ file: 'family-membership-hardening.spec.ts', project: 'chromium-serial-db', scenarios: ['invite enforces the approved 60/300 boundary', 'remove enforces the approved 60/300 boundary', 'updaterole enforces the approved 60/300 boundary'], minTests: 3 },
 	{ file: 'settings.spec.ts', project: 'chromium-serial-db', scenarios: ['a room in the list shows its tasks and can be renamed', 'every select shows its whole value', 'reset keeps setup, structure, tasks and history', 'owner timezone and populated floor controls remain reachable at 390px', 'owner timezone and populated floor controls remain reachable at 1440px', 'house drafts wait for the winning read', 'cold structure hydration survives room reconciliation'], minTests: 14 },

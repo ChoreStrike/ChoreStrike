@@ -17,11 +17,12 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 
 /**
- * The timeline job's pass over the cycles (ADR-021 decisions 3 and 5):
+ * The timeline job's pass over the cycles (ADR-021 decisions 3, 5 and 7):
  * what the passing of time changes without any command. A fixed-day cycle
  * whose window ended without the work is recorded as missed, exactly once,
- * and the `next_due` projection follows the cycle that is current now.
- * {@see CycleService} stays the only writer of cycle rows.
+ * a sleeping task wakes on its wake date, and the `next_due` projection
+ * follows the cycle that is current now. {@see CycleService} stays the
+ * only writer of cycle rows.
  */
 class CycleAdvanceService {
 	/** Cursor batch size of the pass. */
@@ -88,7 +89,7 @@ class CycleAdvanceService {
 
 	/**
 	 * @param int[] $roomTaskIds
-	 * @return int[] The ones with an unrecorded missed cycle or a drifted projection
+	 * @return int[] The ones with an unrecorded missed cycle, a wake date that has come or a drifted projection
 	 */
 	private function roomTasksNeedingWork(House $house, array $roomTaskIds, \DateTime $now): array {
 		$timeZone = $this->calendar->getTimeZone($house);
@@ -96,6 +97,7 @@ class CycleAdvanceService {
 		$tasks = $this->taskMapper->findByIds(array_map(static fn (RoomTask $roomTask): int => $roomTask->getTaskId(), $roomTasks));
 		$histories = $this->windows->historiesFor($roomTaskIds);
 		$recorded = $this->cycleMapper->latestDayKeyedCentres($roomTaskIds);
+		$today = WindowService::todayKey($now, $timeZone);
 
 		$needing = [];
 		foreach ($roomTasks as $roomTask) {
@@ -107,7 +109,7 @@ class CycleAdvanceService {
 			$history = $histories[$id] ?? null;
 			$missed = $this->cycles->unrecordedMissed($house, $roomTask, $task, $history, $recorded[$id] ?? null, $timeZone, $now);
 			$cycle = $this->windows->currentCycle($roomTask, $task, $history, $timeZone, $now);
-			if ($missed !== [] || $this->cycles->projectionDrifted($roomTask, $cycle, $timeZone)) {
+			if ($missed !== [] || CycleService::wakesBy($roomTask, $today) || $this->cycles->projectionDrifted($roomTask, $cycle, $timeZone)) {
 				$needing[] = $id;
 			}
 		}
@@ -120,6 +122,11 @@ class CycleAdvanceService {
 		$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
 		$task = $this->taskMapper->find($roomTask->getTaskId());
 		$timeZone = $this->calendar->getTimeZone($house);
+		if (CycleService::wakesBy($roomTask, WindowService::todayKey($now, $timeZone))) {
+			// The fresh cycle hangs on the wake date, also when the job runs late.
+			$this->cycles->wakeUnderLock($roomTask, $task, $roomTask->getWakeOn()->format('Y-m-d'), $timeZone, $now);
+			return 0;
+		}
 		$history = $this->windows->historiesFor([$roomTaskId])[$roomTaskId] ?? null;
 
 		$written = $this->cycles->recordMissedUnderLock($house, $roomTask, $task, $history, $timeZone, $now);

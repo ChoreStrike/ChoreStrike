@@ -35,6 +35,7 @@ class MedalServiceTest extends TestCase {
 	private WeeklyGoalService $weeklyGoalService;
 	private RhythmService $rhythmService;
 	private HouseMapper $houseMapper;
+	private \Closure $plannedWeek;
 	private WeeklyGoalReceiptMapper $weeklyGoalReceiptMapper;
 	private TransactionExecutor $transactions;
 
@@ -48,13 +49,13 @@ class MedalServiceTest extends TestCase {
 		$this->weeklyGoalReceiptMapper = $this->createMock(WeeklyGoalReceiptMapper::class);
 		$this->transactions = $this->createMock(TransactionExecutor::class);
 		$this->transactions->method('run')->willReturnCallback(static fn (callable $fn): mixed => $fn());
-		$this->weeklyGoalService->method('getWeeklyGoalProgressForWeek')->willReturn([
-			'achieved' => false,
-			'percent' => 0,
-		]);
+		// A planned week answers through this seam: PHPUnit keeps the first
+		// configured stub, so a test sets the closure instead of stubbing again.
+		$this->plannedWeek = static fn (): array => ['achieved' => false, 'percent' => 0];
+		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturnCallback(fn (...$args): array => ($this->plannedWeek)(...$args));
 
 		// Default: weekly goal not achieved (tests opt in explicitly).
-		$this->weeklyGoalService->method('getWeeklyGoalProgress')->willReturn([
+		$this->weeklyGoalService->method('progressForWeek')->willReturn([
 			'dueCount' => 5,
 			'completedCount' => 1,
 			'percent' => 20,
@@ -91,11 +92,11 @@ class MedalServiceTest extends TestCase {
 		// A FRESH mock: PHPUnit keeps the first configured stub, so the
 		// setUp default (not achieved) must not shadow the test override.
 		$this->weeklyGoalService = $this->createMock(WeeklyGoalService::class);
-		$this->weeklyGoalService->method('getWeeklyGoalProgressForWeek')->willReturn([
+		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturn([
 			'achieved' => false,
 			'percent' => 0,
 		]);
-		$this->weeklyGoalService->method('getWeeklyGoalProgress')->willReturn([
+		$this->weeklyGoalService->method('progressForWeek')->willReturn([
 			'dueCount' => 5,
 			'completedCount' => $achieved ? 5 : 1,
 			'percent' => $achieved ? $percent : 20,
@@ -397,20 +398,18 @@ class MedalServiceTest extends TestCase {
 		$this->weeklyGoalService->method('weekKey')->willReturnCallback(
 			static fn (House $house, \DateTime $now): string => $now->format('Y-m-d') < '2026-10-12' ? '2026-10-05' : '2026-10-12'
 		);
-		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturnCallback(
-			static function (House $house, string $weekKey, \DateTime $now) use (&$eligible): array {
-				$open = $now->format('Y-m-d') < '2026-10-12';
-				return [
-					'weekKey' => $weekKey,
-					'weekStart' => '2026-09-28T00:00:00+00:00',
-					'weekEnd' => '2026-10-05T00:00:00+00:00',
-					'percent' => $eligible ? 100 : 0,
-					'targetPercent' => 80,
-					'provisional' => $open,
-					'achieved' => !$open && $eligible,
-				];
-			}
-		);
+		$this->plannedWeek = static function (House $house, string $weekKey, \DateTime $now) use (&$eligible): array {
+			$open = $now->format('Y-m-d') < '2026-10-12';
+			return [
+				'weekKey' => $weekKey,
+				'weekStart' => '2026-09-28T00:00:00+00:00',
+				'weekEnd' => '2026-10-05T00:00:00+00:00',
+				'percent' => $eligible ? 100 : 0,
+				'targetPercent' => 80,
+				'provisional' => $open,
+				'achieved' => !$open && $eligible,
+			];
+		};
 		$this->medalMapper->method('findByUserIds')->willReturnCallback(
 			static function () use (&$award): array {
 				return $award === null ? [] : [1 => [$award]];
@@ -453,9 +452,9 @@ class MedalServiceTest extends TestCase {
 		$this->houseMapper->method('find')->willReturn($house);
 		$this->weeklyGoalReceiptMapper->method('plannedWeeksPage')->willReturn(['2026-09-21']);
 		$this->weeklyGoalService->method('weekKey')->willReturn('2026-10-05');
-		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturn([
+		$this->plannedWeek = static fn (): array => [
 			'provisional' => false, 'achieved' => false, 'percent' => 0,
-		]);
+		];
 		$this->weeklyGoalReceiptMapper->expects($this->never())->method('claim');
 		$this->medalMapper->expects($this->never())->method('insert');
 
@@ -470,12 +469,10 @@ class MedalServiceTest extends TestCase {
 		$this->weeklyGoalReceiptMapper->method('plannedWeeksPage')->willReturn(['2026-09-21']);
 		$this->weeklyGoalService->method('weekKey')->willReturn('2026-10-05');
 		$reads = 0;
-		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturnCallback(
-			static function () use (&$reads): array {
-				$reads++;
-				return ['provisional' => false, 'achieved' => $reads === 1, 'percent' => $reads === 1 ? 100 : 0];
-			}
-		);
+		$this->plannedWeek = static function () use (&$reads): array {
+			$reads++;
+			return ['provisional' => false, 'achieved' => $reads === 1, 'percent' => $reads === 1 ? 100 : 0];
+		};
 		$this->weeklyGoalReceiptMapper->expects($this->never())->method('claim');
 		$this->medalMapper->expects($this->never())->method('insert');
 
@@ -499,16 +496,14 @@ class MedalServiceTest extends TestCase {
 				return $after === null ? $firstPage : ($after === end($firstPage) ? ['2026-09-21'] : []);
 			});
 		$this->weeklyGoalService->method('weekKey')->willReturn('2026-10-05');
-		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturnCallback(
-			static function (House $house, string $key): array {
-				$achieved = $key === '2026-09-21';
-				return [
-					'provisional' => false, 'achieved' => $achieved,
-					'percent' => $achieved ? 100 : 0, 'targetPercent' => 80,
-					'weekStart' => $key . 'T00:00:00+00:00',
-				];
-			}
-		);
+		$this->plannedWeek = static function (House $house, string $key): array {
+			$achieved = $key === '2026-09-21';
+			return [
+				'provisional' => false, 'achieved' => $achieved,
+				'percent' => $achieved ? 100 : 0, 'targetPercent' => 80,
+				'weekStart' => $key . 'T00:00:00+00:00',
+			];
+		};
 		$this->weeklyGoalReceiptMapper->expects($this->once())->method('claim')->with(1, '2026-09-21', $this->anything())->willReturn(true);
 		// Q-076-02: the receipt is claimed without any bell dispatch.
 
@@ -536,10 +531,10 @@ class MedalServiceTest extends TestCase {
 			}
 		);
 		$this->weeklyGoalService->method('weekKey')->willReturn('2026-10-05');
-		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturn([
+		$this->plannedWeek = static fn (): array => [
 			'provisional' => false, 'achieved' => true, 'percent' => 100,
 			'targetPercent' => 80, 'weekStart' => '2026-09-21T00:00:00+00:00',
-		]);
+		];
 		$this->appLogger->expects($this->never())->method('logException');
 
 		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-06 UTC'));

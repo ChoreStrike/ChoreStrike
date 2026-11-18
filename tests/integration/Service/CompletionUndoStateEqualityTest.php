@@ -395,15 +395,16 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	 * A CompletionService whose TitleService is definitely wired (unlock
 	 * reconciliation is the subject of the LIFO test and must not depend
 	 * on optional-injection resolution). WP3: TitleService is a first-class
-	 * collaborator — swap it on the DI instance instead of hand-maintaining
-	 * the constructor list.
+	 * collaborator of the recognition tail every completion command shares —
+	 * swap it on the DI instance instead of hand-maintaining the constructor
+	 * list.
 	 */
 	private function titleWiredCompletionService(): CompletionService {
-		$service = \OC::$server->get(CompletionService::class);
-		$prop = (new \ReflectionClass(CompletionService::class))->getProperty('titleService');
+		$recognition = \OC::$server->get(\OCA\ChoreStrike\Service\CompletionRecognition::class);
+		$prop = (new \ReflectionClass($recognition))->getProperty('titleService');
 		$prop->setAccessible(true);
-		$prop->setValue($service, \OC::$server->get(TitleService::class));
-		return $service;
+		$prop->setValue($recognition, \OC::$server->get(TitleService::class));
+		return \OC::$server->get(CompletionService::class);
 	}
 
 	/**

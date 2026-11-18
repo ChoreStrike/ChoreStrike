@@ -75,6 +75,36 @@ class PauseMapper extends QBMapper {
 	}
 
 	/**
+	 * Every revision of the house's pause groups that got a revision since
+	 * an instant, ordered (group, revision): the recent activity reads the
+	 * period's absences without the whole pause history of the house.
+	 *
+	 * @return Pause[]
+	 */
+	public function findGroupsRevisedSince(int $houseId, \DateTimeInterface $since): array {
+		$recent = $this->db->getQueryBuilder();
+		$recent->selectDistinct('pause_group_id')
+			->from($this->getTableName())
+			->where($recent->expr()->eq('house_id', $recent->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($recent->expr()->gte('created_at', $recent->createNamedParameter($since, IQueryBuilder::PARAM_DATE)));
+		$result = $recent->executeQuery();
+		$groupIds = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
+		$result->closeCursor();
+		if ($groupIds === []) {
+			return [];
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->in('pause_group_id', $qb->createNamedParameter($groupIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->orderBy('pause_group_id', 'ASC')
+			->addOrderBy('revision', 'ASC');
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * The next free revision number of a pause group (max + 1, 1 when
 	 * empty). Callers hold the house lock.
 	 */

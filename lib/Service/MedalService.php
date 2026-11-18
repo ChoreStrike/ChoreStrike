@@ -85,7 +85,10 @@ class MedalService {
 	public function checkAndAwardMedals(int $houseId): array {
 		$awardedMedals = [];
 		$now = new \DateTime();
-		$this->rhythmService->refreshForHouse($houseId, $now);
+		// One pass for the rhythm refresh and every week below: the open
+		// work and the absences are read once, under the refresh's lock.
+		$pass = $this->rhythmService->refreshForHouse($houseId, $now);
+		$house = $this->houseMapper->find($houseId);
 		$users = $this->houseUserMapper->findByHouseId($houseId);
 		$existing = $this->medalMapper->findByUserIds(array_map(static fn (HouseUser $user): int => (int)$user->getId(), $users));
 
@@ -104,19 +107,17 @@ class MedalService {
 			}
 		}
 
-		// One pass for every week below: the open work is read once.
-		$pass = $this->weeklyGoalService->beginPass($this->houseMapper->find($houseId));
-		$progress = $this->weeklyGoalService->getWeeklyGoalProgress($houseId, $pass);
+		$progress = $this->weeklyGoalService->progressForWeek($house, $now, $pass);
 		$weekKey = $progress['weekKey'];
 		$previousKey = (new \DateTime($weekKey))->modify('-7 days')->format('Y-m-d');
 		$weeks = [
 			$weekKey => $progress,
-			$previousKey => $this->weeklyGoalService->getWeeklyGoalProgressForWeek($houseId, $previousKey, $now, $pass),
+			$previousKey => $this->weeklyGoalService->progressForPlannedWeek($house, $previousKey, $now, $pass),
 		];
 		foreach ($existing as $awards) {
 			foreach ($awards as $award) {
 				if ($award->getMedalType() === 'weekly_milestone' && !isset($weeks[$award->getWeekStart()])) {
-					$weeks[$award->getWeekStart()] = $this->weeklyGoalService->getWeeklyGoalProgressForWeek($houseId, $award->getWeekStart(), $now, $pass);
+					$weeks[$award->getWeekStart()] = $this->weeklyGoalService->progressForPlannedWeek($house, $award->getWeekStart(), $now, $pass);
 				}
 			}
 		}
@@ -266,7 +267,9 @@ class MedalService {
 
 		$medals = [];
 		$weeks = [];
+		$house = null;
 		$pass = null;
+		$now = new \DateTime();
 		foreach ($users as $user) {
 			foreach ($medalsByUserId[$user->getId()] ?? [] as $medal) {
 				$type = $medal->getMedalType();
@@ -276,8 +279,10 @@ class MedalService {
 				} elseif ($type === 'weekly_milestone') {
 					$key = $medal->getWeekStart();
 					if (!isset($weeks[$key])) {
-						$pass ??= $this->weeklyGoalService->beginPass($this->houseMapper->find($houseId));
-						$weeks[$key] = $this->weeklyGoalService->getWeeklyGoalProgressForWeek($houseId, $key, new \DateTime(), $pass);
+						// The house and the pass once, for every awarded week.
+						$house ??= $this->houseMapper->find($houseId);
+						$pass ??= $this->weeklyGoalService->beginPass($house);
+						$weeks[$key] = $this->weeklyGoalService->progressForPlannedWeek($house, $key, $now, $pass);
 					}
 					$value = $this->wasMemberBeforeWeekEnd($user, $weeks[$key]) ? $weeks[$key]['percent'] : 0;
 				}

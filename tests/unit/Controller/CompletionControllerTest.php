@@ -17,6 +17,8 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CompletionDateCommand;
+use OCA\ChoreStrike\Service\CompletionReadModel;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
@@ -33,6 +35,8 @@ use PHPUnit\Framework\TestCase;
 class CompletionControllerTest extends TestCase {
 	private CompletionController $controller;
 	private CompletionService $completionService;
+	private CompletionDateCommand $dateCommand;
+	private CompletionReadModel $readModel;
 	private RoomTaskReadService $roomTaskReadService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
@@ -43,6 +47,8 @@ class CompletionControllerTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->completionService = $this->createMock(CompletionService::class);
+		$this->dateCommand = $this->createMock(CompletionDateCommand::class);
+		$this->readModel = $this->createMock(CompletionReadModel::class);
 		$this->roomTaskReadService = $this->createMock(RoomTaskReadService::class);
 		$this->roomTaskReadService->method('timeZoneForHouse')->willReturn(new \DateTimeZone('UTC'));
 		$this->houseService = $this->createMock(HouseService::class);
@@ -62,6 +68,8 @@ class CompletionControllerTest extends TestCase {
 			$this->houseService,
 			$this->authService,
 			$this->completionService,
+			$this->dateCommand,
+			$this->readModel,
 			$this->roomTaskReadService,
 			$l10n,
 			$this->createMock(AppLogger::class)
@@ -93,8 +101,7 @@ class CompletionControllerTest extends TestCase {
 			'canCorrect' => true,
 		];
 
-		$this->completionService->expects($this->once())
-			->method('showCompletion')
+		$this->readModel->expects($this->once())->method('show')
 			->with(1, $this->isInstanceOf(HouseUser::class), 9)
 			->willReturn($payload);
 
@@ -111,7 +118,7 @@ class CompletionControllerTest extends TestCase {
 	 * Show_InvisibleTarget_Maps404AntiEnumeration
 	 */
 	public function testShow_InvisibleTarget_Maps404AntiEnumeration(): void {
-		$this->completionService->method('showCompletion')
+		$this->readModel->method('show')
 			->willThrowException(new NotFoundException('Completion not found'));
 
 		$response = $this->controller->show(99);
@@ -348,7 +355,7 @@ class CompletionControllerTest extends TestCase {
 
 		$roomTask = new \OCA\ChoreStrike\Db\RoomTask();
 		$cycle = ['cycleKey' => 'c9', 'state' => 'overdue'];
-		$this->completionService->expects($this->once())
+		$this->dateCommand->expects($this->once())
 			->method('changeDate')
 			->with(1, $this->isInstanceOf(HouseUser::class), 9, self::UUID, 2, '2026-11-16')
 			->willReturn(['completionId' => 9, 'roomTask' => $roomTask, 'cycle' => $cycle]);
@@ -383,7 +390,7 @@ class CompletionControllerTest extends TestCase {
 	public function testChangeDate_InvalidDate_Answers400(mixed $date): void {
 		$this->request->method('getParam')->with('date')->willReturn($date);
 		$this->stubParams(['commandId' => self::UUID, 'expectedVersion' => 0] + ($date === null ? [] : ['date' => $date]));
-		$this->completionService->expects($this->never())->method('changeDate');
+		$this->dateCommand->expects($this->never())->method('changeDate');
 
 		$response = $this->controller->changeDate(9);
 
@@ -397,7 +404,7 @@ class CompletionControllerTest extends TestCase {
 	 */
 	public function testChangeDate_ClosedPayload_RejectsOtherFields(): void {
 		$this->stubParams(['commandId' => self::UUID, 'expectedVersion' => 0, 'date' => '2026-11-16', 'participants' => []]);
-		$this->completionService->expects($this->never())->method('changeDate');
+		$this->dateCommand->expects($this->never())->method('changeDate');
 
 		$response = $this->controller->changeDate(9);
 
@@ -423,7 +430,7 @@ class CompletionControllerTest extends TestCase {
 	public function testChangeDate_Refusals_MapToTheirStatus(\Exception $refusal, int $status, string $code): void {
 		$this->request->method('getParam')->with('date')->willReturn('2026-11-16');
 		$this->stubParams(['commandId' => self::UUID, 'expectedVersion' => 0, 'date' => '2026-11-16']);
-		$this->completionService->method('changeDate')->willThrowException($refusal);
+		$this->dateCommand->method('changeDate')->willThrowException($refusal);
 
 		$response = $this->controller->changeDate(9);
 

@@ -8,16 +8,20 @@
  * six due-today room tasks; `Do the dishes` is assigned to mom, so the
  * default "My tasks" filter (D3) shows it. Completing a task must flip
  * the row to its completed state — celebration effects (confetti/sound)
- * are deliberately not asserted (E2E flakiness risk).
+ * are deliberately not asserted (E2E flakiness risk). The last scenario
+ * is the bonus day of CS-PLAN-091 WP-B4 and WP-B5.
  *
  * Requires: Docker test environment with the `family` database profile.
  */
 
 import { createUserContext } from './fixtures/auth-contexts.ts'
-import { completeWithOptionalDialog } from './fixtures/completion-api.ts'
+import { completeWithOptionalDialog, postCompletionWithReceipt } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { openToday } from './fixtures/rooms.ts'
+import { openSettings } from './fixtures/settings.ts'
+
+const API = '/apps/chorestrike/api/v1'
 
 test.describe('Release: Today view', () => {
 	test.use({ databaseProfile: 'family' })
@@ -178,6 +182,99 @@ test.describe('Release: Today view', () => {
 
 			await expect(page.getByTestId(`today-complete-button-${dishesId}`)).toBeVisible()
 			await expect(page.getByTestId(`today-complete-button-${countersId}`)).toBeVisible()
+		} finally {
+			await context.close()
+		}
+	})
+
+	// CS-PLAN-091 WP-B4 and WP-B5 (ADR-021 decisions 8 and 11): the owner
+	// sets a coin factor and starts a bonus day in the settings; Today names
+	// the bonus day and lists the bonus task in its own section; the task
+	// pays each person once that day, at the multipliers of the day.
+	test('a bonus day on Today: a bonus task pays once per person at the coin factor and the bonus rate', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const kitchen = seededData.data.rooms.find((room) => room.name === 'Kitchen')
+		expect(kitchen).toBeDefined()
+
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			await openToday(page)
+			// A bonus task of mom's, energy 1. The creation form takes the
+			// flag with the one form of WP-B6; until then it is an edit.
+			const created = await page.request.post(`${API}/room-tasks`, {
+				data: { roomId: kitchen.id, assigneeUserIds: ['mom'], task: { name: 'Water the plants', energyCost: 1, frequencyType: 'daily', frequencyValue: 1 } },
+			})
+			expect(created.status(), await created.text()).toBe(200)
+			const { roomTask, task } = (await created.json()).data
+			const flagged = await page.request.put(`${API}/tasks/${task.id}`, { data: { isVoluntary: true } })
+			expect(flagged.status(), await flagged.text()).toBe(200)
+
+			// The owner's two multipliers: mom at × 2, bonus days from today.
+			await openSettings(page, 'rewards')
+			await page.locator('[data-testid="coin-factor-row"][data-user-id="mom"]').getByTestId('coin-factor-select').selectOption('2')
+			await expect(page.getByTestId('coin-factor-saved')).toContainText('Mom')
+			await page.getByTestId('bonus-days-submit').click()
+			await expect(page.getByTestId('bonus-days-period')).toContainText('Running today')
+
+			await openToday(page)
+			await expect(page.getByTestId('today-bonus-days')).toContainText('Bonus day: coins count × 1.5 today.')
+			const coins = page.getByTestId('own-wallet-available')
+			await expect(coins).toHaveText(/^-?\d+(\.\d+)?$/, { timeout: 15000 })
+			const before = Number(await coins.textContent())
+
+			// Its own section, apart from the day's work.
+			const row = page.getByTestId('today-section-bonus').getByTestId('today-bonus-item').filter({ hasText: 'Water the plants' })
+			await expect(row).toContainText('Bonus task')
+			await expect(page.getByTestId('today-section-today').getByText('Water the plants')).toHaveCount(0)
+
+			// A hold credits mom: energy 1 pays 10 Coins × 2 × 1.5; a bonus
+			// task has no cycle to name.
+			const response = await completeWithOptionalDialog(page, page.getByTestId(`today-bonus-complete-${roomTask.id}`))
+			expect(response.status(), await response.text()).toBe(200)
+			expect(response.request().postDataJSON()).not.toHaveProperty('cycleKey')
+			const completion = (await response.json()).data
+			expect(completion.rewards.completion.bonusPercent).toBe(150)
+			expect(completion.rewards.participants).toEqual([expect.objectContaining({ userId: 'mom', energyMinor: 100, coinMinor: 3000 })])
+			await expect(coins).toHaveText(String(before + 30))
+
+			// Counted for mom today: the hold is gone, others can still be credited.
+			await expect(page.getByTestId(`today-bonus-counted-${roomTask.id}`)).toBeVisible()
+			await expect(page.getByTestId(`today-bonus-counted-for-${roomTask.id}`)).toHaveText('Counted today for Mom')
+			await expect(page.getByTestId(`today-bonus-complete-${roomTask.id}`)).toHaveCount(0)
+
+			// The server decides: a second credit of mom today is refused.
+			const bonusRows = (await (await page.request.get(`${API}/room-tasks/bonus`)).json()).data
+			const bonusRow = bonusRows.find((candidate) => candidate.roomTask.id === roomTask.id)
+			expect(bonusRow.creditedToday).toEqual(['mom'])
+			expect(bonusRow.cycle).toMatchObject({ state: 'bonus' })
+			const again = await postCompletionWithReceipt(page, roomTask.id, { expectedVersion: bonusRow.cycle.expectedVersion })
+			expect(again.status()).toBe(409)
+			expect((await again.json()).error.code).toBe('BONUS_ALREADY_TODAY')
+
+			// Someone else did it too: the picker offers everyone but mom.
+			await page.getByTestId(`today-bonus-other-${roomTask.id}`).click()
+			await expect(page.getByTestId('participant-active-mom')).toBeDisabled()
+			await expect(page.getByTestId('participant-row-mom')).toContainText('counted today')
+			await page.getByTestId('participant-active-dad').check()
+			const forDad = page.waitForResponse((candidate) => candidate.request().method() === 'POST' && new URL(candidate.url()).pathname.endsWith('/complete'))
+			await page.getByTestId('participation-confirm').click()
+			const dadCompletion = (await (await forDad).json()).data
+			// Dad has no coin factor: 10 Coins × 1.5, and mom's wallet stays.
+			expect(dadCompletion.rewards.participants).toEqual([expect.objectContaining({ userId: 'dad', coinMinor: 1500 })])
+			await expect(page.getByTestId(`today-bonus-counted-for-${roomTask.id}`)).toHaveText('Counted today for Dad, Mom')
+			await expect(coins).toHaveText(String(before + 30))
+
+			// Server truth after a reload; cancelling the bonus days takes the
+			// banner away and keeps what the day paid.
+			await page.reload()
+			await expect(page.getByTestId(`today-bonus-counted-for-${roomTask.id}`)).toHaveText('Counted today for Dad, Mom', { timeout: 30000 })
+			await openSettings(page, 'rewards')
+			await page.getByTestId('bonus-days-cancel').click()
+			await expect(page.getByTestId('bonus-days-form')).toBeVisible()
+			await openToday(page)
+			await expect(page.getByTestId('today-section-bonus')).toBeVisible({ timeout: 15000 })
+			await expect(page.getByTestId('today-bonus-days')).toHaveCount(0)
+			await expect(coins).toHaveText(String(before + 30))
 		} finally {
 			await context.close()
 		}

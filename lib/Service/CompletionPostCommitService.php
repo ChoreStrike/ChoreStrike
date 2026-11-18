@@ -67,19 +67,21 @@ class CompletionPostCommitService {
 	}
 
 	/**
-	 * Run the undo post-commit phase: the weekly-goal refresh in the same
-	 * log-and-degrade boundary (D7); closed-week bell receipts are not
-	 * retracted by a correction (D8).
+	 * Run the post-commit phase of a correction that moves what a week
+	 * counts (an undo, a date correction): the weekly-goal refresh in the
+	 * same log-and-degrade boundary (D7); closed-week bell receipts are
+	 * not retracted by a correction (D8).
 	 *
 	 * @return array{weeklyGoal: ?array<string, mixed>, degraded: bool}
 	 */
-	public function runForUndo(int $houseId, int $roomTaskId, string $actorUserId): array {
+	public function runForCorrection(int $houseId, int $roomTaskId, string $actorUserId): array {
 		$weeklyGoal = null;
 		$degraded = false;
 		try {
 			$weeklyGoal = $this->houseService->getWeeklyGoalProgress($houseId);
 		} catch (\Throwable $e) {
 			$degraded = true;
+			// The stable key of ADR-011 §5: the undo and the date correction share it.
 			$this->appLogger->warning('CompletionService: post-undo effects degraded', [
 				'event' => 'undo_post_commit_degraded',
 				'service' => 'CompletionService',

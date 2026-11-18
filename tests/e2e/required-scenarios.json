@@ -82,6 +82,7 @@
   ],
   "today-view.spec.ts": [
     "today-view.spec.ts > Release: Today view > Today is the landing page with the own status, and the old Dashboard address leads to it",
+    "today-view.spec.ts > Release: Today view > a bonus day on Today: a bonus task pays once per person at the coin factor and the bonus rate",
     "today-view.spec.ts > Release: Today view > shows seeded due-today rows and completes one with row state change",
     "today-view.spec.ts > Release: Today view > the mine filter hides other members tasks, everyone shows them",
     "today-view.spec.ts > Release: Today view > undo queue keeps two completions independently undoable (UX-015, CS-PLAN-064)"
@@ -411,7 +412,7 @@
   "workflow-request-budgets.spec.ts": [
     "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > SchedulingView preloads its planning candidates with ONE house-wide request",
     "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > TaskManager issues ONE house-wide room-task request for every grouping (CS-PLAN-090 WP-C)",
-    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > Today reads its two projections once each and no instance list (CS-PLAN-090 WP-B)"
+    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > Today reads its three projections once each and no instance list (CS-PLAN-090 WP-B, CS-PLAN-091 WP-B4)"
   ],
   "arcade-mobile.spec.ts": [
     "arcade-mobile.spec.ts > Arcade touch controls (CS-PLAN-086) > Crumb Snake steers with the on-screen pad",

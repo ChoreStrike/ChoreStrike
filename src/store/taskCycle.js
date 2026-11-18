@@ -11,9 +11,10 @@ import { useRoomTasksStore } from './roomTasks.js'
 
 /**
  * What members do with a task's current cycle and its history besides
- * completing it (CS-PLAN-091 WP-B3, ADR-021 decisions 6 and 9): postpone
- * it, read the history, re-date an entry and delete one. Nobody is asked;
- * the recent activity shows every one of these.
+ * completing it (CS-PLAN-091 WP-B3 and WP-B4, ADR-021 decisions 6, 7 and
+ * 9): postpone it, put the task to sleep or wake it, read the history,
+ * re-date an entry and delete one. Nobody is asked; the recent activity
+ * shows the postponements and the corrections.
  *
  * Every command answers the fresh `cycle` block, which the room-task store
  * reconciles into every cached row, so the next command carries the
@@ -83,6 +84,45 @@ export const useTaskCycleStore = defineStore('taskCycle', {
 		},
 
 		/**
+		 * Put a task to sleep, move its wake date, or wake it (adults and
+		 * the owner; the server decides). A sleeping task has no window and
+		 * is never overdue; it wakes with a fresh cycle.
+		 * @param {number} roomTaskId The room task.
+		 * @param {boolean} sleeping Asleep from now on, or awake again.
+		 * @param {?string} [wakeOn] House-local day the task wakes on (`YYYY-MM-DD`), with `sleeping` only.
+		 * @return {Promise<object>} `{ roomTask, cycle, replay }`
+		 */
+		async setSleeping(roomTaskId, sleeping, wakeOn = null) {
+			const roomTasksStore = useRoomTasksStore()
+			const target = roomTasksStore._completionTargetFor(roomTaskId)
+			if (!target) {
+				const error = new Error('The task changed since it was displayed. Reload and try again.')
+				error.code = 'STALE_TARGET'
+				throw error
+			}
+			const commandKey = `sleep:${roomTaskId}:${target.expectedVersion}:${sleeping}:${wakeOn ?? ''}`
+			try {
+				const payload = { commandId: this._commandIdFor(commandKey), expectedVersion: target.expectedVersion, sleeping }
+				if (sleeping && wakeOn) {
+					payload.wakeOn = wakeOn
+				}
+				const data = await api.put(`/api/v1/room-tasks/${roomTaskId}/sleep`, payload)
+				this._settleCommand(commandKey)
+				roomTasksStore.reconcileCompletionPayload(roomTaskId, data)
+				// The task left or joined the lists of what is due.
+				roomTasksStore.refreshDerivedProjections({ rows: true })
+				return data
+			} catch (error) {
+				this._settleCommand(commandKey, error)
+				logger.error('Failed to change the sleep of a room task', error, { store: 'taskCycle', action: 'setSleeping', roomTaskId })
+				if (error?.status === 409) {
+					roomTasksStore.refreshDerivedProjections({ rows: true })
+				}
+				throw error
+			}
+		},
+
+		/**
 		 * Read the history of one task: its valid entries, newest first,
 		 * with the viewer's correction rights.
 		 * @param {number} roomTaskId The room task.
@@ -121,7 +161,8 @@ export const useTaskCycleStore = defineStore('taskCycle', {
 				this._settleCommand(commandKey)
 				const roomTasksStore = useRoomTasksStore()
 				roomTasksStore.reconcileCompletionPayload(roomTaskId, data)
-				roomTasksStore.refreshDerivedProjections()
+				// An entry of a bonus task moved off today frees its people for the day.
+				roomTasksStore.refreshDerivedProjections({ bonus: roomTasksStore.isBonusTask(roomTaskId) })
 				return data
 			} catch (error) {
 				this._settleCommand(commandKey, error)

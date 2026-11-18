@@ -139,6 +139,71 @@ class WorkShareMapper extends QBMapper {
 	}
 
 	/**
+	 * The wallets credited on one house-local day by the valid completions
+	 * of a room task, from their selected allocation (ADR-021 decision 8:
+	 * a bonus task pays each person once per day).
+	 *
+	 * @param string $dayKey The work day (`Y-m-d`)
+	 * @param int|null $exceptCompletionId A completion to leave out
+	 * @return list<int> Wallet ids
+	 */
+	public function findWalletIdsCreditedOn(int $roomTaskId, string $dayKey, ?int $exceptCompletionId = null): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('ws.wallet_id')
+			->from($this->getTableName(), 'ws')
+			->innerJoin('ws', 'chorestrike_completed_tasks', 'ct', $qb->expr()->eq('ct.id', 'ws.completion_id'))
+			->where($qb->expr()->eq('ct.room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('ws.allocation_revision', 'ct.allocation_revision'))
+			->andWhere($qb->expr()->isNull('ct.undone_at'))
+			->andWhere($qb->expr()->isNotNull('ws.wallet_id'))
+			// The portable day comparison: from the day, before the day after.
+			->andWhere($qb->expr()->gte('ct.work_date', $qb->createNamedParameter($dayKey)))
+			->andWhere($qb->expr()->lt('ct.work_date', $qb->createNamedParameter(
+				(new \DateTimeImmutable($dayKey, new \DateTimeZone('UTC')))->modify('+1 day')->format('Y-m-d')
+			)));
+		if ($exceptCompletionId !== null) {
+			$qb->andWhere($qb->expr()->neq('ct.id', $qb->createNamedParameter($exceptCompletionId, IQueryBuilder::PARAM_INT)));
+		}
+		$result = $qb->executeQuery();
+		$walletIds = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
+		$result->closeCursor();
+		return array_values(array_unique($walletIds));
+	}
+
+	/**
+	 * The wallets credited today on each of the given room tasks, for the
+	 * bonus rows of *Today*.
+	 *
+	 * @param int[] $roomTaskIds
+	 * @return array<int, list<int>> Room task id to wallet ids; room tasks without a credit are absent
+	 */
+	public function findWalletIdsCreditedOnByRoomTasks(array $roomTaskIds, string $dayKey): array {
+		$roomTaskIds = array_values(array_unique(array_map('intval', $roomTaskIds)));
+		if ($roomTaskIds === []) {
+			return [];
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('ct.room_task_id', 'ws.wallet_id')
+			->from($this->getTableName(), 'ws')
+			->innerJoin('ws', 'chorestrike_completed_tasks', 'ct', $qb->expr()->eq('ct.id', 'ws.completion_id'))
+			->where($qb->expr()->in('ct.room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->eq('ws.allocation_revision', 'ct.allocation_revision'))
+			->andWhere($qb->expr()->isNull('ct.undone_at'))
+			->andWhere($qb->expr()->isNotNull('ws.wallet_id'))
+			->andWhere($qb->expr()->gte('ct.work_date', $qb->createNamedParameter($dayKey)))
+			->andWhere($qb->expr()->lt('ct.work_date', $qb->createNamedParameter(
+				(new \DateTimeImmutable($dayKey, new \DateTimeZone('UTC')))->modify('+1 day')->format('Y-m-d')
+			)));
+		$result = $qb->executeQuery();
+		$credited = [];
+		foreach ($result->fetchAll() as $row) {
+			$credited[(int)$row['room_task_id']][(int)$row['wallet_id']] = true;
+		}
+		$result->closeCursor();
+		return array_map('array_keys', $credited);
+	}
+
+	/**
 	 * Count of finished chores per wallet (CS-PLAN-086 §3.2): the distinct
 	 * VALID completions in whose SELECTED allocation revision the wallet
 	 * holds a share — the attribution of {@see sumValidSelectedByWallet()},

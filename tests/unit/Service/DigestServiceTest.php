@@ -109,7 +109,9 @@ class DigestServiceTest extends TestCase {
 			$visible[] = $roomTask;
 		}
 		$this->visibleRoomTasks = $visible;
-		$this->readService->method('getHouseRoomTasks')->willReturnCallback(fn (): array => $this->visibleRoomTasks);
+		$this->readService->method('getHouseRoomTasks')->willReturnCallback(
+			fn (): \OCA\ChoreStrike\Service\RoomTaskList => new \OCA\ChoreStrike\Service\RoomTaskList($this->visibleRoomTasks, [])
+		);
 
 		$this->house = new House();
 		$this->house->setId(1);

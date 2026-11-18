@@ -7,6 +7,7 @@
 declare(strict_types=1);
 
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Service\CoinMultiplierService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\WeeklyGoalService;
@@ -60,7 +61,9 @@ function storedTimeline(array $before): array {
  * The cutover values of the columns the update added (ADR-021 decision
  * 12), worked out here from the rows the source build stored: where the
  * derived model starts, the streak bases, the anchor of every room task
- * and the day of a fixed monthly rule. Nothing else is filled.
+ * and the day of a fixed monthly rule. Nothing else is filled: every
+ * member reads the coin factor 1 from its column default and no stored
+ * completion gets a frozen multiplier (decision 11).
  */
 function verifyCutover(array $before, array $after): string {
 	foreach ($after['chorestrike_houses'] as $house) {
@@ -73,10 +76,13 @@ function verifyCutover(array $before, array $after): string {
 		check($member['streak_base'] !== null && (int)$member['streak_base'] === (int)$member['current_streak']
 			&& $member['longest_streak_base'] !== null && (int)$member['longest_streak_base'] === (int)$member['longest_streak'],
 			'The streak base is not the stored streak of member ' . $member['id']);
+		check((int)$member['coin_factor'] === 1, 'Member ' . $member['id'] . ' does not start at the coin factor 1');
 	}
 	foreach ($after['chorestrike_completed_tasks'] as $completion) {
 		check($completion['cycle_key'] === null && $completion['window_start_on'] === null && $completion['window_end_on'] === null,
 			'Stored completion ' . $completion['id'] . ' got cycle facts');
+		check($completion['bonus_percent'] === null && $completion['coin_factors'] === null,
+			'Stored completion ' . $completion['id'] . ' got a frozen multiplier');
 	}
 
 	[$revisions, $completed, $firstOpen] = storedTimeline($before);
@@ -123,14 +129,16 @@ function countRows(string $table): int {
  * every room task that had a schedule reads a first window, the week that
  * holds the cutover evaluates from stored appointments and cycles
  * together, and one completion closes exactly one cycle while the stored
- * timeline keeps every row.
+ * timeline keeps every row. The coin multipliers work on the upgraded
+ * household: a factor the owner sets is frozen with that completion and
+ * pays its coins, and the wallets of everyone else stay as stored.
  */
 function postcheckCycles(int $houseId): string {
 	$before = json_decode((string)file_get_contents(BEFORE), true, 512, JSON_THROW_ON_ERROR);
 	[$revisions, $completed] = storedTimeline($before);
 	$mom = member($houseId, 'mom');
 	$read = \OC::$server->get(RoomTaskReadService::class);
-	$roomTasks = $read->getHouseRoomTasks($houseId, $mom);
+	$roomTasks = $read->getHouseRoomTasks($houseId, $mom)->roomTasks;
 	$facts = $read->cycleFacts($houseId, $roomTasks);
 	$windows = 0;
 	$target = null;
@@ -153,6 +161,7 @@ function postcheckCycles(int $houseId): string {
 	check($goal['eligible'] >= $goal['onTime'] && $goal['targetPercent'] === 80, 'The week of the cutover does not evaluate');
 
 	[$roomTaskId, $block] = $target;
+	$multipliers = postcheckMultipliers($houseId, $before);
 	$result = \OC::$server->get(CompletionService::class)->complete($houseId, 'mom', $roomTaskId, uuid(),
 		$block['cycleKey'], (int)$block['expectedVersion'], [['userId' => 'mom', 'sharePct' => 100]], true);
 	$db = \OC::$server->get(IDBConnection::class);
@@ -162,13 +171,50 @@ function postcheckCycles(int $houseId): string {
 		&& $closed[0]['outcome'] === 'done' && (int)$closed[0]['completion_id'] === (int)$result['completionId'],
 		'The completion did not close exactly its cycle');
 	$qb = $db->getQueryBuilder();
-	$stored = $qb->select('cycle_key', 'window_start_on', 'window_end_on')->from('chorestrike_completed_tasks')
+	$stored = $qb->select('cycle_key', 'window_start_on', 'window_end_on', 'bonus_percent', 'coin_factors', 'total_energy')->from('chorestrike_completed_tasks')
 		->where($qb->expr()->eq('id', $qb->createNamedParameter((int)$result['completionId'])))->executeQuery()->fetch();
 	check($stored['cycle_key'] === $block['cycleKey'] && day($stored['window_end_on']) !== null, 'The completion did not freeze its cycle');
+	checkFrozenMultipliers($houseId, $stored, $before);
 	$fresh = $read->cycleFacts($houseId, [\OC::$server->get(RoomTaskMapper::class)->find($roomTaskId)])[$roomTaskId]['block'] ?? null;
 	check(($fresh['cycleKey'] ?? null) !== $block['cycleKey'], 'The completed cycle is still the current one');
 	foreach (['chorestrike_occurrences', 'chorestrike_occ_members', 'chorestrike_agreements', 'chorestrike_schedule_revs', 'chorestrike_chk_progress'] as $table) {
 		check(countRows($table) === count($before[$table]), 'The completion changed the stored timeline in ' . $table);
 	}
-	return $windows . ' first windows read; a completion closed cycle ' . $block['cycleKey'] . ' and left the stored timeline alone';
+	return $windows . ' first windows read; a completion closed cycle ' . $block['cycleKey'] . ' and left the stored timeline alone; ' . $multipliers;
+}
+
+/**
+ * The owner's two multipliers on the upgraded household, before the
+ * completion of the postcheck: mom's coin factor becomes 2 and bonus days
+ * start today. No stored row but mom's membership changes.
+ */
+function postcheckMultipliers(int $houseId, array $before): string {
+	member($houseId, 'mom');
+	$service = \OC::$server->get(CoinMultiplierService::class);
+	check($service->setFactor($houseId, 'mom', 2, uuid())->getCoinFactor() === 2, 'The coin factor of the upgraded member did not hold');
+	$zone = new DateTimeZone((string)$before['chorestrike_houses'][0]['timezone']);
+	$period = $service->startPeriod($houseId, (new DateTime('now', $zone))->format('Y-m-d'), 1, uuid());
+	check(countRows('chorestrike_bonus_periods') === 1 && $period->getCancelledAt() === null, 'The bonus period was not stored once');
+	return 'coin factor 2 and a bonus day set on the upgraded household';
+}
+
+/**
+ * The completion of the postcheck froze the factor of every member and the
+ * percent of its work day, and paid mom `10 × E × 100 × 2 × 150 / 100`
+ * coin minor on top of the balance the source build stored.
+ *
+ * @param array<string, mixed> $stored The completion row
+ */
+function checkFrozenMultipliers(int $houseId, array $stored, array $before): void {
+	$mom = member($houseId, 'mom');
+	$factors = json_decode((string)$stored['coin_factors'], true, 512, JSON_THROW_ON_ERROR);
+	check((int)$stored['bonus_percent'] === 150 && ($factors[(int)$mom->getWalletId()] ?? null) === 2
+		&& array_sum($factors) === count($factors) + 1, 'The completion did not freeze the multipliers of its day');
+	$wallets = array_column($before['chorestrike_wallets'], 'booked_minor', 'id');
+	$qb = \OC::$server->get(IDBConnection::class)->getQueryBuilder();
+	$rows = $qb->select('id', 'booked_minor')->from('chorestrike_wallets')->executeQuery()->fetchAll();
+	foreach ($rows as $row) {
+		$paid = (int)$row['id'] === (int)$mom->getWalletId() ? 10 * (int)$stored['total_energy'] * 100 * 2 * 150 / 100 : 0;
+		check((int)$row['booked_minor'] === (int)($wallets[(int)$row['id']] ?? 0) + $paid, 'Wallet ' . $row['id'] . ' was not paid what the frozen multipliers say');
+	}
 }

@@ -6,6 +6,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { defineStore } from 'pinia'
 import { api } from '../services/api.js'
+import { generateCommandId } from '../utils/commandId.js'
 import { logger } from '../utils/logger.js'
 
 export const useUserStore = defineStore('user', {
@@ -302,6 +303,35 @@ export const useUserStore = defineStore('user', {
 				throw error
 			} finally {
 				this.loading = false
+			}
+		},
+
+		/**
+		 * Set what a member's coins count (owner only, CS-PLAN-091 WP-B5):
+		 * × 1, × 2 or × 3, for work recorded from now on.
+		 * @param {string} nextcloudUserId The member.
+		 * @param {number} factor 1, 2 or 3.
+		 * @return {Promise<object>} The member as saved.
+		 */
+		async setCoinFactor(nextcloudUserId, factor) {
+			try {
+				const data = await api.put(`/api/v1/house/members/${encodeURIComponent(nextcloudUserId)}/coin-factor`, {
+					commandId: generateCommandId(),
+					factor,
+				})
+				this.invalidateMemberReads()
+				const index = this.houseUsers.findIndex((user) => user.id === data.id)
+				if (index >= 0) {
+					// The command answers the membership row; the list keeps what it adds (the title).
+					this.houseUsers[index] = { ...this.houseUsers[index], ...data }
+				}
+				if (this.currentUser?.id === data.id) {
+					this.currentUser = { ...this.currentUser, coinFactor: data.coinFactor }
+				}
+				return data
+			} catch (error) {
+				logger.error('Failed to set a coin factor', error, { store: 'user', action: 'setCoinFactor', factor })
+				throw error
 			}
 		},
 

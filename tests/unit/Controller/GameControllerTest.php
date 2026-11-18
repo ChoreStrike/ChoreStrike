@@ -18,9 +18,7 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\RhythmService;
 use OCA\ChoreStrike\Service\WalletService;
-use OCA\ChoreStrike\Service\WeeklyGoalService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -38,8 +36,6 @@ class GameControllerTest extends TestCase {
 	private $authService;
 	private $walletService;
 	private $walletMapper;
-	private $rhythmService;
-	private $weeklyGoalService;
 	private $request;
 
 	protected function setUp(): void {
@@ -51,8 +47,6 @@ class GameControllerTest extends TestCase {
 		$this->authService = $this->createMock(AuthorizationService::class);
 		$this->walletService = $this->createMock(WalletService::class);
 		$this->walletMapper = $this->createMock(WalletMapper::class);
-		$this->rhythmService = $this->createMock(RhythmService::class);
-		$this->weeklyGoalService = $this->createMock(WeeklyGoalService::class);
 
 		$this->controller = new GameController(
 			$this->request,
@@ -62,8 +56,6 @@ class GameControllerTest extends TestCase {
 			$this->authService,
 			$this->walletService,
 			$this->walletMapper,
-			$this->rhythmService,
-			$this->weeklyGoalService,
 			$this->createMock(AppLogger::class)
 		);
 	}
@@ -125,17 +117,15 @@ class GameControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		// One pass feeds the house goal, the rhythm and the personal slice.
-		$pass = $this->createMock(\OCA\ChoreStrike\Service\RecognitionPass::class);
-		$this->weeklyGoalService->expects($this->once())->method('beginPass')->with($house)->willReturn($pass);
-		$this->weeklyGoalService->method('progressForWeek')->with($house, $this->anything(), $pass)->willReturn($weeklyGoal);
 		$this->authService->method('assertHouseMember')->willReturn($houseUser);
-
-		// C1f evaluation is a pure read: confirmed streak with a held day.
-		$this->rhythmService->method('evaluateForMembers')->with(1, [$houseUser], $this->anything(), $pass)
-			->willReturn([11 => ['currentStreak' => 4, 'longestStreak' => 9, 'pending' => true]]);
-		$this->weeklyGoalService->method('progressForMember')->with($house, $houseUser, $this->anything(), $pass)
-			->willReturn($personalGoal);
+		// The viewer's recognitions come from the read service, in one pass.
+		$this->gameLogicService->expects($this->once())->method('recognitionsFor')
+			->with($house, $houseUser, $this->isInstanceOf(\DateTime::class))
+			->willReturn([
+				'weeklyGoal' => $weeklyGoal,
+				'rhythm' => ['confirmed' => 4, 'current' => 4, 'best' => 9, 'pending' => true],
+				'myWeeklyGoal' => $personalGoal,
+			]);
 
 		$this->walletMapper->method('findByHouseAndUser')->with(1, 'alice-nc')->willReturn($wallet);
 		$this->walletService->method('serializeOwnWallet')->with($wallet)->willReturn($walletPayload);
@@ -182,18 +172,9 @@ class GameControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->weeklyGoalService->method('progressForWeek')->willReturn([
-			'dueCount' => 0, 'completedCount' => 0, 'eligible' => 0, 'onTime' => 0, 'neutral' => 0,
-			'percent' => 0, 'targetPercent' => 80, 'achieved' => false, 'provisional' => true,
-			'weekKey' => '', 'weekStart' => '', 'weekEnd' => '',
-		]);
 		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 		$this->gameLogicService->method('getGameState')->willReturn(['users' => []]);
-		$this->rhythmService->method('evaluateForMembers')->willReturn([12 => ['currentStreak' => 0, 'longestStreak' => 0, 'pending' => false]]);
-		$this->weeklyGoalService->method('progressForMember')->willReturn([
-			'eligible' => 0, 'onTime' => 0, 'neutral' => 0, 'provisional' => true,
-			'weekKey' => '', 'weekStart' => '', 'weekEnd' => '',
-		]);
+		$this->gameLogicService->method('recognitionsFor')->willReturn(['weeklyGoal' => [], 'rhythm' => [], 'myWeeklyGoal' => []]);
 
 		$this->walletMapper->expects($this->never())->method('find');
 

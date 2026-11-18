@@ -195,6 +195,29 @@ describe('TaskEditForm', () => {
 		expect(wrapper.findComponent({ name: 'AssigneeChips' }).exists()).toBe(false)
 	})
 
+	it('turns an existing task into a bonus task and back (CS-PLAN-091 WP-B4)', async () => {
+		const plain = mountForm({ task: { id: 1, name: 'Cook dinner' } })
+		expect(plain.get('[data-testid="task-bonus-switch"]').element.checked).toBe(false)
+		await plain.get('[data-testid="task-bonus-switch"]').setValue(true)
+		await plain.find('form').trigger('submit')
+		expect(plain.emitted('submit')[0][0].isVoluntary).toBe(true)
+
+		const bonus = mountForm({ task: { id: 2, name: 'Feed the cat', isVoluntary: true } })
+		expect(bonus.get('[data-testid="task-bonus-switch"]').element.checked).toBe(true)
+		await bonus.get('[data-testid="task-bonus-switch"]').setValue(false)
+		await bonus.find('form').trigger('submit')
+		expect(bonus.emitted('submit')[0][0].isVoluntary).toBe(false)
+	})
+
+	it('keeps the bonus flag out of a new task: the creation route does not take it yet', async () => {
+		const wrapper = mountForm()
+		expect(wrapper.find('[data-testid="task-bonus-switch"]').exists()).toBe(false)
+		await fillRequiredCreateFields(wrapper)
+		await wrapper.find('form').trigger('submit')
+
+		expect(wrapper.emitted('submit')[0][0]).not.toHaveProperty('isVoluntary')
+	})
+
 	it('submits definition plus roomId and assigneeUserIds in create mode', async () => {
 		const wrapper = mountForm()
 		await fillRequiredCreateFields(wrapper)

@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Exception\ConflictException;
 
 /**
  * Derived due windows (CS-PLAN-091 WP-B1, ADR-021 decisions 1 and 2).
@@ -141,7 +142,7 @@ class WindowService {
 			if ($centre === null) {
 				break;
 			}
-			$next = $this->window(($rule->fixed ? 'd' : 'p') . $centre, $centre, $rule->flexDays, $roomTask);
+			$next = $this->window($rule->fixed ? CurrentCycle::keyOn($centre) : 'p' . $centre, $centre, $rule->flexDays, $roomTask);
 			if ($next->startOn > $throughKey) {
 				break;
 			}
@@ -159,7 +160,12 @@ class WindowService {
 	 */
 	public function block(RoomTask $roomTask, Task $task, ?CurrentCycle $cycle, string $todayKey): ?array {
 		if ($roomTask->getSleepingSince() !== null) {
-			return ['state' => self::STATE_ASLEEP];
+			// The version is the receipt of the wake command and of a completion, which wakes the task.
+			return [
+				'state' => self::STATE_ASLEEP,
+				'expectedVersion' => $roomTask->getCycleVersion(),
+				'wakeOn' => $roomTask->getWakeOn()?->format('Y-m-d'),
+			];
 		}
 		if ($task->getIsVoluntary() && $roomTask->getIsActive()) {
 			return ['state' => self::STATE_BONUS, 'expectedVersion' => $roomTask->getCycleVersion()];
@@ -176,10 +182,45 @@ class WindowService {
 			'centreOn' => $cycle->plannedOn(),
 			'state' => $state,
 			'postponeCount' => $cycle->postponeCount,
-			'canPostpone' => $state !== self::STATE_OVERDUE
-				&& (int)$task->getFlexDays() > 0
-				&& $cycle->postponeCount < self::MAX_POSTPONEMENTS,
+			'canPostpone' => self::postponeRefusal($task, $cycle, $todayKey) === null,
 		];
+	}
+
+	/**
+	 * Why a cycle cannot be postponed (decision 6), or null when it can:
+	 * a red cycle stays a miss, a task without flex days has nothing to
+	 * move by, and a cycle moves at most three times. The row's
+	 * `canPostpone` and the command decide through this one rule.
+	 *
+	 * @return string|null `ConflictException::REASON_WINDOW_ENDED` or `REASON_NOT_POSTPONABLE`
+	 */
+	public static function postponeRefusal(Task $task, CurrentCycle $cycle, string $todayKey): ?string {
+		if ($cycle->isOverdue($todayKey)) {
+			return ConflictException::REASON_WINDOW_ENDED;
+		}
+		if (self::postponeStep((int)$task->getFlexDays()) === 0 || $cycle->postponeCount >= self::MAX_POSTPONEMENTS) {
+			return ConflictException::REASON_NOT_POSTPONABLE;
+		}
+		return null;
+	}
+
+	/**
+	 * The anchor a room task takes when it wakes on a day (decision 7,
+	 * D-091-28): an after-completion or one-time task hangs on the wake
+	 * day, a fixed rule continues with its next rule day, so its parity
+	 * and its day of the month stay. A fixed rule with no day left inside
+	 * its bounds takes the wake day and so has no cycle left: the task
+	 * ends, and what it slept through is no miss. Null for a bonus task,
+	 * which has no anchor.
+	 */
+	public function wakeAnchor(RoomTask $roomTask, Task $task, string $wakeDayKey, \DateTimeZone $timeZone): ?string {
+		$rule = CycleRule::fromTask($task);
+		if ($rule->bonus) {
+			return null;
+		}
+		return $rule->fixed && !$rule->once
+			? ($this->calculator->firstFixedDayOnOrAfter($rule, $this->anchorKey($roomTask, $timeZone), $wakeDayKey) ?? $wakeDayKey)
+			: $wakeDayKey;
 	}
 
 	/**
@@ -211,7 +252,7 @@ class WindowService {
 	 * since `d` keys of these rules come from the anchor alone.
 	 */
 	private function anchoredCycle(RoomTask $roomTask, CycleRule $rule, CycleHistory $history, string $anchor): ?CurrentCycle {
-		$dayKey = 'd' . $anchor;
+		$dayKey = CurrentCycle::keyOn($anchor);
 		$anchorFulfilled = $history->latestCycleKey === $dayKey
 			|| ($history->fixedCentre !== null && $history->fixedCentre >= $anchor);
 		$onAnchor = !$history->hasCompletion()
@@ -223,7 +264,7 @@ class WindowService {
 			return null;
 		}
 		$centre = $this->nextAfterCompletion($rule, (string)$history->latestWorkDay);
-		return $centre === null ? null : $this->window('c' . $history->latestCompletionId, $centre, $rule->flexDays, $roomTask);
+		return $centre === null ? null : $this->window(CurrentCycle::keyAfter((int)$history->latestCompletionId), $centre, $rule->flexDays, $roomTask);
 	}
 
 	/**
@@ -263,7 +304,7 @@ class WindowService {
 		$centre = $this->calculator->firstFixedDayOnOrAfter($rule, $anchor, $from);
 		$cycles = [];
 		while ($centre !== null && count($cycles) < self::MAX_STEPS) {
-			$cycle = $this->window('d' . $centre, $centre, $rule->flexDays, $roomTask);
+			$cycle = $this->window(CurrentCycle::keyOn($centre), $centre, $rule->flexDays, $roomTask);
 			$cycles[] = $cycle;
 			$next = $this->calculator->firstFixedDayOnOrAfter($rule, $anchor, RecurrenceCalculator::dayAfter($centre));
 			$nextOpened = $next !== null && RecurrenceCalculator::offsetDays($next, -$rule->flexDays) <= $today;

@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach } from '@jest/globals'
 import { showError } from '@nextcloud/dialogs'
-import { errorReference, refusalReason, showCompletionError, showErrorWithReference, showHistoryError, showPostponeError } from '@/utils/errorToast.js'
+import { errorReference, refusalReason, showCompletionError, showErrorWithReference, showHistoryError, showPostponeError, showServerRefusal } from '@/utils/errorToast.js'
 import { ApiError } from '@/services/api.js'
 
 describe('errorToast (CS-PLAN-084 WP-F)', () => {
@@ -108,5 +108,31 @@ describe('errorToast (CS-PLAN-084 WP-F)', () => {
 		showHistoryError(new ApiError('Boom', 500, {}, 'COMPLETION_DATE_ERROR'))
 
 		expect(showError).toHaveBeenCalledWith('Could not change the date (COMPLETION_DATE_ERROR)')
+	})
+
+	it('says that a bonus task already counted for the person today (ADR-021 decision 8)', () => {
+		showCompletionError(new ApiError('This bonus task was already counted for this person today', 409, {}, 'BONUS_ALREADY_TODAY'))
+
+		expect(showError).toHaveBeenCalledWith('This bonus task already counted for this person today. It counts again tomorrow.')
+	})
+
+	it('says that a sleeping task whose rule ended has nothing left to complete (D-091-83)', () => {
+		showCompletionError(new ApiError('This task has ended. Wake it up to close it.', 409, {}, 'TASK_ENDED'))
+
+		expect(showError).toHaveBeenCalledWith('This task has ended. Wake it up to close it.')
+	})
+
+	it.each(['VALIDATION_ERROR', 'FORBIDDEN', 'CONFLICT'])('shows the server\'s reason of a refused command as plain text: %s', (code) => {
+		showServerRefusal(Object.assign(new Error('Bonus days are <b>already</b> planned for this time'), { status: 409, code }), 'Could not start the bonus days')
+
+		expect(showError).toHaveBeenCalledWith('Bonus days are <b>already</b> planned for this time', { isHTML: false })
+	})
+
+	it('asks to reload after a stale target and references anything unexpected', () => {
+		showServerRefusal(Object.assign(new Error('stale'), { status: 409, code: 'STALE_TARGET' }), 'Could not put the task to sleep')
+		showServerRefusal(new ApiError('Boom', 500, {}, 'SLEEP_TASK_ERROR'), 'Could not put the task to sleep')
+
+		expect(showError).toHaveBeenNthCalledWith(1, 'The task changed since it was displayed. Reload and try again.')
+		expect(showError).toHaveBeenNthCalledWith(2, 'Could not put the task to sleep (SLEEP_TASK_ERROR)')
 	})
 })

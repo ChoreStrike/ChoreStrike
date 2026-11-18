@@ -41,7 +41,7 @@ class RoomTaskListReadTest extends IntegrationTestCase {
 		self::assertSame([$ids['active']], $listed($this->roomTaskMapper->findByHouse($houseId, true)));
 
 		$owner = \OC::$server->get(HouseUserMapper::class)->findByHouseAndUser($houseId, self::OWNER);
-		$endpointRows = \OC::$server->get(RoomTaskReadService::class)->getHouseRoomTasks($houseId, $owner, false);
+		$endpointRows = \OC::$server->get(RoomTaskReadService::class)->getHouseRoomTasks($houseId, $owner, false)->roomTasks;
 		self::assertNotContains($ids['deleted'], $listed($endpointRows));
 	}
 

@@ -63,7 +63,7 @@ class SupportedDatabaseSchemaTest extends IntegrationTestCase {
 		$actual = $this->db->createSchema();
 		$prefix = \OC::$server->get(IConfig::class)->getSystemValue('dbtableprefix', 'oc_');
 		$actualTables = array_filter($actual->getTables(), static fn (Table $table): bool => str_starts_with($table->getName(), $prefix . 'chorestrike_'));
-		self::assertCount(32, $expected->getTables(), 'the complete chain: WP0-WP8 plus the cycle tables of ADR-021');
+		self::assertCount(33, $expected->getTables(), 'the complete chain: WP0-WP8 plus the cycle and bonus-period tables of ADR-021');
 		self::assertEqualsCanonicalizing(
 			array_map(static fn (Table $table): string => $table->getName(), $expected->getTables()),
 			array_map(static fn (Table $table): string => $table->getName(), array_values($actualTables))

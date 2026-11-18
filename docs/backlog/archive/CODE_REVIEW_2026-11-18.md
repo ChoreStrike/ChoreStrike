@@ -193,3 +193,94 @@ D-091-46 to D-091-58 are accepted; D-091-54 is reworded to the implemented paylo
 - Focused browser specs green (see Verification).
 - Checks: php-cs-fixer, `l10n:check-keys`, `agents:check`, `docs:encoding`,
   `backlog:check`, `git diff --check`, LF endings.
+
+## Full (interim) - CS-PLAN-091 WP-B4 and WP-B5, sleeping, bonus tasks and coin multipliers
+
+**Outcome:** `PASS-WITH-FIXES`. Interim review; the plan stays in `active/` and continues
+with WP-B6.
+
+### Scope and capture
+
+- Tier: Full, four read-only `reviewer` tracks (correctness, architecture, security and
+  data flow, performance and code quality) plus the main agent's own reading of the owner
+  commands, the sleep command, the per-person bonus rule, the coin math, the erasure and
+  the new schema step. Required: the package adds a schema step and routes, changes reward
+  facts and adds owner-only commands.
+- Owning plan: [CS-PLAN-091](../../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md)
+  (WP-B4 sleeping and bonus tasks, WP-B5 coin factor and bonus days, with RF-091-07 and
+  RF-091-08 of the previous review). CS-PLAN-080 is not touched.
+- Branch `feat/simplified-core-bc` in its pinned worktree, base HEAD `d3b91359` (the
+  committed WP-B2 and WP-B3, 2 ahead of `master`, 0 behind), the whole package
+  uncommitted. Captured before the review: 147 paths (112 modified, 35 untracked;
+  +3,439/−2,058 lines in the tracked files), nothing staged, combined scope fingerprint
+  `2063ebb6efb6d855f4756d68475fb97820e6672a094571db7f6622b979ac48c0` (SHA-256 over
+  branch, HEAD, the staged and unstaged binary diffs and every untracked path with its
+  content hash).
+- Before any change the round's gates were re-run on the captured tree: Jest 184 suites /
+  2562 tests, PHPUnit unit 1817 and integration 679, all green.
+
+### Decisions (operator, recommended option each)
+
+| Question | Decision |
+|---|---|
+| The erasure of an account that had left the house kept its wallet in the frozen coin factors | **D-091-78:** fix now, with a regression test |
+| Six verified correctness defects (bonus to regular rule, a postponement through sleep, an ended rule asleep, the version of a bonus completion, stale bonus rows after a correction, the bonus-days retry) and two test gaps | **D-091-78:** fix all now; how: D-091-81 to D-091-84 |
+| The duplicates RF-091-07 left, narrower reads of the new paths, the accessibility of the new surfaces | **D-091-79:** route to RF-091-10 and fold into RF-091-09 (both with WP-B6); docs and behaviour-neutral nits fixed now |
+| Request budgets of the new paths, the activity budget without absences, an index for the bonus rule | **D-091-80:** budgets now, re-measure the activity budget with absences, no index |
+
+The implementation decisions D-091-64 to D-091-77 are accepted; D-091-75 is reworded (the
+placeholder is the completion read model's, the feed says *Former member*).
+
+### Findings fixed in the review
+
+| Severity | Area | Issue | Fix |
+|---|---|---|---|
+| block (gate) | `workflow-request-budgets.spec.ts` | The required *Today* budget expected two reads; the bonus read of D-091-69 makes three, so the `chromium` gate was red. The round's browser evidence had not run that project | Re-baselined to three reads, the pinned scenario name updated in `required-scenarios.json` |
+| major (privacy) | `AccountErasureService` final sweep | An account that left the house and was erased later kept its wallet id and factor in the frozen `coin_factors` of past completions; only the membership path removed them (D-091-73) | The sweep calls `forgetCoinFactorWallet()`; `CoinMultiplierTest` regression for a departed account |
+| major | `CycleService::ruleChangedUnderLock()` | A bonus task turned back into a regular fixed rule kept its old anchor: the job recorded a miss for every rule day it had been a bonus task, and an after-completion task turned red at once | D-091-81: anchored on the edit day; `SleepAndBonusTest` |
+| major (test) | request budgets | No budget pinned the bonus read, sleep, wake, the bonus and the sleeping-task completion or the house's bonus period; the activity budget of RF-091-08 had been measured without an absence (13; 14 with absences) | D-091-80: six new budgets in `CycleCommandQueryBudgetTest`, the activity fixture with absences, `testing.md` |
+| major (docs) | `architecture.md` | The size inventory, the service sections, the source tree and the store boundaries still described the code before RF-091-07, WP-B4 and WP-B5; three files had crossed the guideline without a row | Rewritten and re-measured; rows for `CompletionController`, `WindowService`, `ActivityService` |
+| minor | `CycleService::sleepUnderLock()` | A postponement survived sleep and wake onto the same cycle key, so the fresh cycle came back moved with its presses used | D-091-82: going to sleep clears it; regression |
+| minor | `CycleService::resolveTargetUnderLock()` | Completing a sleeping bounded task whose rule had ended answered `STALE_TARGET` on every retry | D-091-83: `409 TASK_ENDED` with a translated toast and API rows; integration and Jest regressions |
+| minor | bonus completion | Every bonus completion bumped `cycle_version`, so a second member's completion of the same bonus task was refused as stale | D-091-84: completion, undo and date correction of a bonus entry leave the version; ADR-021 §3 and §8; integration and unit regressions |
+| minor | `taskCycle.js`, `roomTasks.js` | After a date change or a change of people of a bonus entry, `creditedToday` was not read again | A `bonus` option of the derived refresh and `isBonusTask`; specs |
+| minor | `house.js` | A retry of bonus days whose answer was lost sent a new command and met its own period as an overlap (409) | The pending command id is kept for an uncertain failure, and the house is read so a committed period shows; spec |
+| minor (test) | D-091-70 | A member missing from the frozen map was never priced in a test | `CoinMultiplierTest`: an attribution to a later member pays × 1 |
+| minor (logging) | `CompletionPostCommitService` | The stable key `undo_post_commit_degraded` of ADR-011 §5 had been renamed | Restored |
+| nit | code, docs | A check icon before the viewer was known; `BONUS_PERCENTS` repeating the entity's constants; a bonus-rule query for an attribution that credits nobody new; two missing JSDoc params; the wording of D-091-75; the case of `recordedBy` when everyone involved left (documented as a limitation: no stored identity decides it) | Fixed |
+
+### Findings routed
+
+- Plan-owned, open: RF-091-10 (the duplicates RF-091-07 meant to remove, the reads of the
+  new paths, the sleep rules as the extraction candidate of `CycleService`), and the
+  accessibility and client-structure findings folded into RF-091-09; both due with WP-B6.
+  RF-091-06 stays open for WP-B7.
+- Not changed: the note *counted today* stays a badge after the name, not a composed
+  sentence; no index for the bonus rule (D-091-80).
+- Nothing went to `backlog.md`; no security finding stays open.
+
+### Verification
+
+- Canonical stack (PostgreSQL 18.6, Nextcloud 35.0.3, this worktree): PHPUnit unit 1817
+  and integration 690 (11 new: the departed erasure, the unknown member of a frozen map,
+  the four sleep and bonus regressions, five budgets), no skips. No schema step changed:
+  `Version1037` stays as implemented, so the provider matrix and proof P4 of the
+  implementation round (`r91b45`) stand; the new budget literals were measured on the
+  canonical stack, and the WP-G qualification runs them on every provider.
+- Jest 184 suites / 2567 tests, ESLint, stylelint, the webpack build, php-cs-fixer (490
+  files clean), `l10n:check-keys` (1303 keys), `agents:check`, `docs:encoding`,
+  `backlog:check`, `git diff --check`, LF endings.
+- Browser, focused on the changed surfaces (no retries, built from the reviewed tree):
+  `workflow-request-budgets` 6 passed on `chromium` (the re-baselined *Today* budget
+  among them); `today-view` (the bonus day), `task-completion-full-flow` and
+  `insights-flow` 20 passed on `chromium-serial-db`; `mobile-core` 19 passed on
+  `mobile-chromium` and `mobile-webkit`. No skips, no flaky results. The full
+  five-project gate belongs to the WP-G qualification.
+
+### Gates
+
+- Build gate: Jest 184 suites / 2567 tests, ESLint, stylelint and the build green.
+- PHPUnit, both suites without skips, unit 1817 and integration 690 on the canonical stack.
+- Focused browser specs green (see Verification).
+- Checks: php-cs-fixer, `l10n:check-keys`, `agents:check`, `docs:encoding`,
+  `backlog:check`, `git diff --check`, LF endings.

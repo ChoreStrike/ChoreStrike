@@ -77,7 +77,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->roomTaskReadService->method('getRoomTasks')
 			->with($roomId, $this->isInstanceOf(HouseUser::class), true)
-			->willReturn($roomTasks);
+			->willReturn(new \OCA\ChoreStrike\Service\RoomTaskList($roomTasks, []));
 		$this->roomTaskReadService->method('assigneesByRoomTasks')->willReturn([]);
 
 		$response = $this->controller->index($roomId);

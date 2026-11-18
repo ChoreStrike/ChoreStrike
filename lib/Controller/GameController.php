@@ -15,9 +15,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\MedalService;
-use OCA\ChoreStrike\Service\RhythmService;
 use OCA\ChoreStrike\Service\WalletService;
-use OCA\ChoreStrike\Service\WeeklyGoalService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -34,8 +32,6 @@ class GameController extends Controller {
 	private AuthorizationService $authService;
 	private WalletService $walletService;
 	private WalletMapper $walletMapper;
-	private RhythmService $rhythmService;
-	private WeeklyGoalService $weeklyGoalService;
 
 	public function __construct(
 		IRequest $request,
@@ -45,8 +41,6 @@ class GameController extends Controller {
 		AuthorizationService $authService,
 		WalletService $walletService,
 		WalletMapper $walletMapper,
-		RhythmService $rhythmService,
-		WeeklyGoalService $weeklyGoalService,
 		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
@@ -56,8 +50,6 @@ class GameController extends Controller {
 		$this->authService = $authService;
 		$this->walletService = $walletService;
 		$this->walletMapper = $walletMapper;
-		$this->rhythmService = $rhythmService;
-		$this->weeklyGoalService = $weeklyGoalService;
 		$this->initializeControllerLogger($appLogger);
 	}
 
@@ -83,30 +75,9 @@ class GameController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$gameState = $this->gameLogicService->getGameState($house->getId());
-			// One pass for the three recognitions below: the open work and
-			// the absences are read once.
-			$now = new \DateTime();
-			$pass = $this->weeklyGoalService->beginPass($house);
-			$gameState['weeklyGoal'] = $this->weeklyGoalService->progressForWeek($house, $now, $pass);
+			$gameState = $this->gameLogicService->getGameState($house->getId())
+				+ $this->gameLogicService->recognitionsFor($house, $houseUser, new \DateTime());
 			$gameState['stateVersion'] = $house->getStateVersion();
-
-			$evaluation = $this->rhythmService->evaluateForMembers(
-				(int)$house->getId(),
-				[$houseUser],
-				$now,
-				$pass
-			)[(int)$houseUser->getId()] ?? ['currentStreak' => 0, 'longestStreak' => 0, 'pending' => false];
-			$gameState['rhythm'] = [
-				// C1f: the evaluation confirms only closed successful days —
-				// the confirmed and the displayed current streak are the
-				// same valid-history value; `pending` marks the held day.
-				'confirmed' => $evaluation['currentStreak'],
-				'current' => $evaluation['currentStreak'],
-				'best' => $evaluation['longestStreak'],
-				'pending' => $evaluation['pending'],
-			];
-			$gameState['myWeeklyGoal'] = $this->weeklyGoalService->progressForMember($house, $houseUser, $now, $pass);
 
 			$wallet = $houseUser->getWalletId() !== null
 				? $this->walletMapper->findByHouseAndUser((int)$house->getId(), $houseUser->getNextcloudUserId())

@@ -31,6 +31,16 @@ final class CurrentCycle {
 	) {
 	}
 
+	/** The key of the cycle that follows a completion of an after-completion rule. */
+	public static function keyAfter(int $completionId): string {
+		return 'c' . $completionId;
+	}
+
+	/** The key of a cycle that hangs on a day: a first date, a wake day or a fixed rule day. */
+	public static function keyOn(string $dayKey): string {
+		return 'd' . $dayKey;
+	}
+
 	/** Whether a client value has the shape of a cycle key (boundary validation). */
 	public static function isKey(mixed $value): bool {
 		return is_string($value) && preg_match('/^(c[1-9]\d{0,17}|d\d{4}-\d{2}-\d{2})$/D', $value) === 1;
@@ -46,7 +56,7 @@ final class CurrentCycle {
 	 * a postponement included, is on time; after it is late.
 	 */
 	public function classify(string $workDayKey): string {
-		return $workDayKey <= $this->endOn ? CompletedTask::CLASS_ON_TIME : CompletedTask::CLASS_LATE;
+		return CompletedTask::classify($workDayKey, $this->endOn);
 	}
 
 	/** The day the cycle is planned for: its rule day, moved by a postponement. */

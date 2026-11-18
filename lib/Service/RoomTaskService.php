@@ -437,7 +437,7 @@ class RoomTaskService {
 	 */
 	public function getRoomTaskStats(int $roomId, HouseUser $viewer): array {
 		$allTasks = $this->roomTaskMapper->findByRoomId($roomId, false);
-		$visibleTasks = $this->readService->visibleRoomTasks($allTasks, $viewer);
+		$visibleTasks = $this->readService->visibleRoomTasks($allTasks, $viewer)->roomTasks;
 		$activeTasks = array_filter($visibleTasks, fn ($task) => $task->getIsActive());
 		$statuses = $this->rowStatuses($roomId, array_values($activeTasks));
 		$overdueTasks = array_filter($statuses, static fn (string $status): bool => $status === 'overdue');

@@ -14,7 +14,7 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CompletionService;
-use OCA\ChoreStrike\Service\CurrentCycle;
+use OCA\ChoreStrike\Service\CycleReceipt;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\RoomTaskService;
@@ -157,24 +157,23 @@ class RoomTaskController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			// The definitions the visibility decision read; the cycle
-			// derivation of the same list takes them instead of a second read.
-			$tasksById = null;
+			// The list carries the definitions its visibility decision read;
+			// the cycle derivation takes them instead of a second read.
 			if ($scopeId !== null) {
-				$roomTasks = $this->roomTaskReadService->getScopeTasksScopedToHouse($scopeId, $house->getId(), $houseUser, $activeOnly, $tasksById);
+				$list = $this->roomTaskReadService->getScopeTasksScopedToHouse($scopeId, $house->getId(), $houseUser, $activeOnly);
 			} elseif ($roomId !== null) {
 				// CR-053-02: the roomId is caller-supplied, so it must be
 				// validated against the caller's house (same fix as
 				// roomStats) — membership alone allowed cross-house reads.
 				$this->roomTaskService->validateRoomOwnership($roomId, $house->getId());
-				$roomTasks = $this->roomTaskReadService->getRoomTasks($roomId, $houseUser, $activeOnly, $tasksById);
+				$list = $this->roomTaskReadService->getRoomTasks($roomId, $houseUser, $activeOnly);
 			} else {
-				$roomTasks = $this->roomTaskReadService->getHouseRoomTasks($house->getId(), $houseUser, $activeOnly, $tasksById);
+				$list = $this->roomTaskReadService->getHouseRoomTasks($house->getId(), $houseUser, $activeOnly);
 			}
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $this->serializeFlatRoomTasks($roomTasks, $this->timeZoneOf($house), (int)$house->getId(), $tasksById),
+				'data' => $this->serializeFlatRoomTasks($list->roomTasks, $this->timeZoneOf($house), (int)$house->getId(), $list->tasksById),
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -529,26 +528,12 @@ class RoomTaskController extends Controller {
 			'error' => ['code' => 'VALIDATION_ERROR', 'message' => $message],
 		], 400);
 
-		$allowed = ['commandId', 'cycleKey', 'expectedVersion', 'participants', 'allocationReviewed'];
-		foreach ($payload as $key => $value) {
-			if (!in_array($key, $allowed, true)) {
-				return $badRequest($this->l->t('Unknown field: %1$s', [$key]));
-			}
-		}
-
-		$commandId = $payload['commandId'] ?? null;
-		$cycleKey = $payload['cycleKey'] ?? null;
-		$expectedVersion = $payload['expectedVersion'] ?? null;
-
-		if (!is_string($commandId) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $commandId)) {
-			return $badRequest($this->l->t('A valid commandId (UUID) is required'));
-		}
-		// Absent for a bonus task, which has no cycle (ADR-021 decision 8).
-		if ($cycleKey !== null && !CurrentCycle::isKey($cycleKey)) {
-			return $badRequest($this->l->t('Invalid cycle key'));
-		}
-		if (!is_numeric($expectedVersion) || (int)$expectedVersion < 0 || (string)(int)$expectedVersion !== (string)$expectedVersion) {
-			return $badRequest($this->l->t('A valid expectedVersion is required'));
+		// The cycle key is absent for a bonus or sleeping task, which has no
+		// cycle to name (ADR-021 decisions 7 and 8).
+		try {
+			$receipt = CycleReceipt::fromPayload($payload, $this->l, CycleReceipt::KEY_OPTIONAL, ['participants', 'allocationReviewed']);
+		} catch (\InvalidArgumentException $e) {
+			return $badRequest($e->getMessage());
 		}
 
 		// Actual work split (WP3 §3.6): optional explicit participants with
@@ -574,9 +559,9 @@ class RoomTaskController extends Controller {
 		}
 
 		return [
-			'commandId' => strtolower($commandId),
-			'cycleKey' => $cycleKey,
-			'expectedVersion' => (int)$expectedVersion,
+			'commandId' => $receipt->commandId,
+			'cycleKey' => $receipt->cycleKey,
+			'expectedVersion' => $receipt->expectedVersion,
 			'participants' => $participants,
 			'allocationReviewed' => $reviewed,
 		];
@@ -941,26 +926,12 @@ class RoomTaskController extends Controller {
 				$houseUser,
 				new \DateTime()
 			);
-			$tz = $this->timeZoneOf($house);
 
 			// CS-PLAN-065 (decision D4): the rows carry their canonical
 			// assignee sets (service-side batched read, RF-058-11) so My Day
 			// never re-interprets an unknown set as unassigned after the
 			// child limit truncated the list.
-			return new JSONResponse([
-				'success' => true,
-				'data' => array_map(fn (array $item): array => [
-					'roomTask' => $this->roomTaskReadService->roomTaskPayload($item['roomTask'], $tz, $item['cycle'] ?? null),
-					'task' => $item['task']->jsonSerialize(),
-					'room' => $item['room']->jsonSerialize(),
-					'assignees' => $item['assignees'],
-					'cycle' => $item['cycle'] ?? null,
-					// BUG-UX-005: an open window whose task is planned for another day.
-					'openWindow' => $item['openWindow'] ?? false,
-					// BUG-UX-003: My Day offers the checklist toggle only above 0.
-					'checklistItemCount' => $item['checklistItemCount'] ?? 0,
-				], $filteredTasks)
-			]);
+			return new JSONResponse(['success' => true, 'data' => $this->serializeDailyRows($filteredTasks, $this->timeZoneOf($house))]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -973,5 +944,48 @@ class RoomTaskController extends Controller {
 				]
 			], 500);
 		}
+	}
+
+	/**
+	 * The bonus tasks of *Today* (ADR-021 decision 8): every visible bonus
+	 * task that is not asleep, in the daily row shape plus `creditedToday`
+	 * — the members it already paid on this house-local day. Never due,
+	 * so neither a child's daily limit nor the availability gate applies.
+	 *
+	 * @NoAdminRequired
+	 */
+	public function bonus(): JSONResponse {
+		try {
+			$house = $this->houseService->getOrCreateHouse($this->houseService->getInstanceId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
+
+			$rows = $this->roomTaskReadService->getBonusTaskRows((int)$house->getId(), $houseUser);
+			return new JSONResponse(['success' => true, 'data' => $this->serializeDailyRows($rows, $this->timeZoneOf($house))]);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('bonus', $e);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'BONUS_TASKS_ERROR');
+		}
+	}
+
+	/**
+	 * The row shape of *Today*: the daily rows and the bonus rows.
+	 *
+	 * @param list<array<string, mixed>> $rows Service rows with `roomTask`, `task`, `room`, `assignees` and `cycle`
+	 * @return list<array<string, mixed>>
+	 */
+	private function serializeDailyRows(array $rows, \DateTimeZone $tz): array {
+		return array_map(fn (array $item): array => [
+			'roomTask' => $this->roomTaskReadService->roomTaskPayload($item['roomTask'], $tz, $item['cycle'] ?? null),
+			'task' => $item['task']->jsonSerialize(),
+			'room' => $item['room']->jsonSerialize(),
+			'assignees' => $item['assignees'],
+			'cycle' => $item['cycle'] ?? null,
+			// BUG-UX-005: an open window whose task is planned for another day.
+			'openWindow' => $item['openWindow'] ?? false,
+			// BUG-UX-003: My Day offers the checklist toggle only above 0.
+			'checklistItemCount' => $item['checklistItemCount'] ?? 0,
+		] + (array_key_exists('creditedToday', $item) ? ['creditedToday' => $item['creditedToday']] : []), $rows);
 	}
 }

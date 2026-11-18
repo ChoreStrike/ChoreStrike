@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\BonusPeriod;
+
 /**
  * The ONE pure share-validation/allocation implementation (CS-PLAN-070
  * WP3 §3.2) for the actual shares of a completion
@@ -15,8 +17,11 @@ namespace OCA\ChoreStrike\Service;
  *
  * Exact integer hundredths: for total energy `E` and percentage `P`,
  * `energyMinor = E * P` and `coinMinor = 10 * E * P`; totals are exactly
- * `100 * E` and `1000 * E`. All arithmetic stays inside both PHP integer
- * bounds and the signed JavaScript safe-integer range (JSON boundary).
+ * `100 * E` and `1000 * E`. The two coin multipliers of ADR-021
+ * decision 11 reach the coins only: `10 * E * P * factor * bonusPercent /
+ * 100`, rounded down once after the product (D-091-15). All arithmetic
+ * stays inside both PHP integer bounds and the signed JavaScript
+ * safe-integer range (JSON boundary).
  *
  * Equal proposals use the immutable WP0 wallet order for the remainders
  * (energy 1 shared by three people is 34/33/33%) — never role, name or
@@ -38,6 +43,12 @@ class EffortAllocationService {
 
 	/** Energy minor units per whole energy unit. */
 	public const ENERGY_MINOR_PER_UNIT = 100;
+
+	/** The coin factors an owner can give a member (ADR-021 decision 11). */
+	public const COIN_FACTORS = [1, 2, 3];
+
+	/** What a share's coins count in percent: an ordinary day, a day of a bonus period. */
+	public const BONUS_PERCENTS = [BonusPeriod::PERCENT_NONE, BonusPeriod::PERCENT];
 
 	/** Maximum positive whole-percent participants of one completion. */
 	public const MAX_PARTICIPANTS = 100;
@@ -101,21 +112,29 @@ class EffortAllocationService {
 
 	/**
 	 * The exact minor amounts of one participant share: `E * P` energy
-	 * minor and `10 * E * P` coin minor.
+	 * minor and `10 * E * P * factor * bonusPercent / 100` coin minor. The
+	 * multipliers never reach the energy.
 	 *
+	 * @param int $coinFactor The member's frozen coin factor (self::COIN_FACTORS)
+	 * @param int $bonusPercent The frozen percent of the work day (self::BONUS_PERCENTS)
 	 * @return array{energyMinor: int, coinMinor: int}
-	 * @throws \InvalidArgumentException on an out-of-range energy or share
+	 * @throws \InvalidArgumentException on an out-of-range energy, share or multiplier
 	 */
-	public function allocate(int $totalEnergy, int $sharePct): array {
+	public function allocate(int $totalEnergy, int $sharePct, int $coinFactor = 1, int $bonusPercent = 100): array {
 		if ($totalEnergy < self::ENERGY_MIN || $totalEnergy > self::ENERGY_MAX) {
 			throw new \InvalidArgumentException('Total energy must be between ' . self::ENERGY_MIN . ' and ' . self::ENERGY_MAX);
 		}
 		if ($sharePct < 1 || $sharePct > 100) {
 			throw new \InvalidArgumentException('Every share must be a whole percent between 1 and 100');
 		}
+		if (!in_array($coinFactor, self::COIN_FACTORS, true) || !in_array($bonusPercent, self::BONUS_PERCENTS, true)) {
+			throw new \InvalidArgumentException('Unknown coin multiplier');
+		}
+		$baseCoinMinor = $totalEnergy * $sharePct * intdiv(self::COIN_MINOR_PER_ENERGY, 100);
 		return [
 			'energyMinor' => $totalEnergy * $sharePct,
-			'coinMinor' => $totalEnergy * $sharePct * (self::COIN_MINOR_PER_ENERGY / 100),
+			// One rounding, after the whole product.
+			'coinMinor' => intdiv($baseCoinMinor * $coinFactor * $bonusPercent, 100),
 		];
 	}
 

@@ -44,6 +44,7 @@ class RoomTaskReadService {
 	private WindowService $windows;
 	private AppLogger $logger;
 	private TaskChecklistItemMapper $checklistItemMapper;
+	private CreditPolicy $creditPolicy;
 
 	public function __construct(
 		RoomTaskMapper $roomTaskMapper,
@@ -57,6 +58,7 @@ class RoomTaskReadService {
 		WindowService $windows,
 		AppLogger $logger,
 		TaskChecklistItemMapper $checklistItemMapper,
+		CreditPolicy $creditPolicy,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
@@ -69,6 +71,7 @@ class RoomTaskReadService {
 		$this->windows = $windows;
 		$this->logger = $logger;
 		$this->checklistItemMapper = $checklistItemMapper;
+		$this->creditPolicy = $creditPolicy;
 	}
 
 	/**
@@ -111,16 +114,17 @@ class RoomTaskReadService {
 	 * keeps `cycle: null`.
 	 *
 	 * @param list<array<string, mixed>> $rows Rows carrying `roomTask` and `task`
+	 * @param \DateTimeZone|null $tz The house zone the caller already resolved
 	 * @return list<array<string, mixed>> Rows with a `cycle` key
 	 */
-	public function withCycleBlocks(array $rows, int $houseId, ?\DateTimeInterface $now = null): array {
+	public function withCycleBlocks(array $rows, int $houseId, ?\DateTimeInterface $now = null, ?\DateTimeZone $tz = null): array {
 		$roomTasks = [];
 		$tasksById = [];
 		foreach ($rows as $row) {
 			$roomTasks[] = $row['roomTask'];
 			$tasksById[$row['roomTask']->getTaskId()] = $row['task'];
 		}
-		$facts = $this->cycleFacts($houseId, $roomTasks, $tasksById, $now);
+		$facts = $this->cycleFacts($houseId, $roomTasks, $tasksById, $now, $tz);
 		foreach ($rows as $index => $row) {
 			$rows[$index]['cycle'] = $facts[(int)$row['roomTask']->getId()]['block'] ?? null;
 		}
@@ -216,22 +220,6 @@ class RoomTaskReadService {
 	}
 
 	/**
-	 * Resolve the house timezone behind a room (room → floor → house).
-	 */
-	public function timeZoneForRoom(int $roomId): \DateTimeZone {
-		$room = $this->roomMapper->find($roomId);
-		return $this->timeZoneForRoomEntity($room);
-	}
-
-	/**
-	 * Resolve the house timezone behind an already-fetched room entity.
-	 */
-	private function timeZoneForRoomEntity(Room $room): \DateTimeZone {
-		$floor = $this->floorMapper->find($room->getFloorId());
-		return $this->timeZoneForHouse($floor->getHouseId());
-	}
-
-	/**
 	 * Fetch task definitions for a batch of room tasks in one query.
 	 *
 	 * @param RoomTask[] $roomTasks
@@ -252,65 +240,28 @@ class RoomTaskReadService {
 	 * An empty set short-circuits — no enrichment query at all.
 	 *
 	 * @param RoomTask[] $roomTasks
-	 * @param array<int, Task>|null $tasksById Out: the definitions read for the decision, for a caller that derives the cycles next
-	 * @return RoomTask[] Visible room tasks, input order
+	 * @return RoomTaskList The visible room tasks in input order, with the definitions read for the decision
 	 */
-	public function visibleRoomTasks(array $roomTasks, HouseUser $viewer, ?array &$tasksById = null): array {
-		$tasksById = $roomTasks === [] ? [] : $this->tasksByIdForRoomTasks($roomTasks);
+	public function visibleRoomTasks(array $roomTasks, HouseUser $viewer): RoomTaskList {
 		if ($roomTasks === []) {
-			return [];
+			return new RoomTaskList([], []);
 		}
-
-		return $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $tasksById, $viewer);
+		$tasksById = $this->tasksByIdForRoomTasks($roomTasks);
+		return new RoomTaskList($this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $tasksById, $viewer), $tasksById);
 	}
 
 	/**
-	 * Assemble visible room tasks into `{roomTask, task, room}` rows with
-	 * two batch queries (TaskMapper/RoomMapper::findByIds, CS-PLAN-036).
-	 * A missing task or room row (map absence) skips the room task; an
-	 * empty set short-circuits — no enrichment query at all.
+	 * Assemble an ALREADY visibility-filtered list into `{roomTask, task,
+	 * room}` rows (RF-058-10): its definitions are the ones the visibility
+	 * decision read, so only the rooms are fetched. A missing task or room
+	 * row skips the room task.
 	 *
-	 * @param RoomTask[] $roomTasks Room tasks to filter and enrich
 	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
 	 */
-	public function rowsForRoomTasks(array $roomTasks, HouseUser $viewer): array {
-		if ($roomTasks === []) {
-			return [];
-		}
-
-		$tasksById = $this->taskMapper->findByIds(array_keys($this->taskIdsOf($roomTasks)));
-		$visibleTasks = $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $tasksById, $viewer);
-		return $this->assembleRows($visibleTasks, $tasksById, $this->roomsByIdOf($roomTasks));
-	}
-
-	/**
-	 * Assemble an ALREADY visibility-filtered room-task set into rows
-	 * (RF-058-10): the due-today/overdue row paths pre-filter through
-	 * {@see visibleRoomTasks()}, so re-running the policy (plus its
-	 * definition/assignee enrichment) would duplicate the batch reads.
-	 *
-	 * @param RoomTask[] $visibleRoomTasks Viewer-visible room tasks
-	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
-	 */
-	private function rowsForVisibleRoomTasks(array $visibleRoomTasks): array {
-		if ($visibleRoomTasks === []) {
-			return [];
-		}
-
-		$tasksById = $this->taskMapper->findByIds(array_keys($this->taskIdsOf($visibleRoomTasks)));
-		return $this->assembleRows($visibleRoomTasks, $tasksById, $this->roomsByIdOf($visibleRoomTasks));
-	}
-
-	/**
-	 * @param RoomTask[] $roomTasks
-	 * @return array<int, bool>
-	 */
-	private function taskIdsOf(array $roomTasks): array {
-		$taskIds = [];
-		foreach ($roomTasks as $roomTask) {
-			$taskIds[$roomTask->getTaskId()] = true;
-		}
-		return $taskIds;
+	private function rowsOf(RoomTaskList $visible): array {
+		return $visible->roomTasks === []
+			? []
+			: $this->assembleRows($visible->roomTasks, $visible->tasksById, $this->roomsByIdOf($visible->roomTasks));
 	}
 
 	/**
@@ -367,22 +318,20 @@ class RoomTaskReadService {
 	 * TaskManager and SchedulingView. Inactive rows are only included when
 	 * explicitly requested.
 	 *
-	 * @return RoomTask[] Visible room tasks, deterministic `next_due, created_at, id` order
+	 * @return RoomTaskList Visible room tasks, deterministic `next_due, created_at, id` order
 	 */
-	public function getHouseRoomTasks(int $houseId, HouseUser $viewer, bool $activeOnly = true, ?array &$tasksById = null): array {
-		$roomTasks = $this->roomTaskMapper->findByHouse($houseId, $activeOnly);
-		return $this->visibleRoomTasks($roomTasks, $viewer, $tasksById);
+	public function getHouseRoomTasks(int $houseId, HouseUser $viewer, bool $activeOnly = true): RoomTaskList {
+		return $this->visibleRoomTasks($this->roomTaskMapper->findByHouse($houseId, $activeOnly), $viewer);
 	}
 
 	/**
 	 * Get the room tasks of one room the viewer may see (visibility matrix,
 	 * CS-PLAN-061 §3.3).
 	 *
-	 * @return RoomTask[] Visible room tasks
+	 * @return RoomTaskList Visible room tasks
 	 */
-	public function getRoomTasks(int $roomId, HouseUser $viewer, bool $activeOnly = true, ?array &$tasksById = null): array {
-		$roomTasks = $this->roomTaskMapper->findByRoomId($roomId, $activeOnly);
-		return $this->visibleRoomTasks($roomTasks, $viewer, $tasksById);
+	public function getRoomTasks(int $roomId, HouseUser $viewer, bool $activeOnly = true): RoomTaskList {
+		return $this->visibleRoomTasks($this->roomTaskMapper->findByRoomId($roomId, $activeOnly), $viewer);
 	}
 
 	/**
@@ -394,13 +343,12 @@ class RoomTaskReadService {
 	 * (skip-on-missing semantics): cross-house entries are silently absent
 	 * instead of leaking assignee user ids to another house.
 	 *
-	 * @return RoomTask[] Scope tasks belonging to the house and visible to the viewer (original order)
+	 * @return RoomTaskList Scope tasks belonging to the house and visible to the viewer (original order)
 	 */
-	public function getScopeTasksScopedToHouse(int $scopeId, int $houseId, HouseUser $viewer, bool $activeOnly = true, ?array &$tasksById = null): array {
-		$tasksById = [];
+	public function getScopeTasksScopedToHouse(int $scopeId, int $houseId, HouseUser $viewer, bool $activeOnly = true): RoomTaskList {
 		$roomTasks = $this->roomTaskMapper->findByScopeId($scopeId, $activeOnly);
 		if ($roomTasks === []) {
-			return [];
+			return new RoomTaskList([], []);
 		}
 
 		$scoped = $this->roomTaskMapper->findByIdsScopedToHouse(
@@ -415,7 +363,7 @@ class RoomTaskReadService {
 			static fn (RoomTask $roomTask): bool => isset($scopedIds[$roomTask->getId()])
 		));
 
-		return $this->visibleRoomTasks($inHouse, $viewer, $tasksById);
+		return $this->visibleRoomTasks($inHouse, $viewer);
 	}
 
 	/**
@@ -444,14 +392,15 @@ class RoomTaskReadService {
 	 * mapper's canonical `next_due, created_at, id` order. Visibility
 	 * first: the one cycle derivation covers only rows the viewer may see.
 	 *
+	 * @param \DateTimeZone|null $tz The house zone the caller already resolved
 	 * @return list<array<string, mixed>> Rows with their `cycle` block
 	 */
-	private function rowsInState(int $houseId, HouseUser $viewer, ?int $roomId, string $state, ?\DateTimeInterface $now = null): array {
+	private function rowsInState(int $houseId, HouseUser $viewer, ?int $roomId, string $state, ?\DateTimeInterface $now = null, ?\DateTimeZone $tz = null): array {
 		$candidates = array_values(array_filter(
 			$this->roomTaskMapper->findByHouse($houseId, true),
 			static fn (RoomTask $roomTask): bool => $roomId === null || $roomTask->getRoomId() === $roomId
 		));
-		$rows = $this->withCycleBlocks($this->rowsForVisibleRoomTasks($this->visibleRoomTasks($candidates, $viewer)), $houseId, $now);
+		$rows = $this->withCycleBlocks($this->rowsOf($this->visibleRoomTasks($candidates, $viewer)), $houseId, $now, $tz);
 		return array_values(array_filter(
 			$rows,
 			static fn (array $row): bool => ($row['cycle']['state'] ?? null) === $state
@@ -484,10 +433,11 @@ class RoomTaskReadService {
 		HouseUser $viewer,
 		\DateTime $date,
 	): array {
-		$dayKey = WindowService::todayKey($date, $this->timeZoneForHouse($houseId));
+		$tz = $this->timeZoneForHouse($houseId);
+		$dayKey = WindowService::todayKey($date, $tz);
 		$dueRows = [];
 		$openWindow = [];
-		foreach ($this->rowsInState($houseId, $viewer, null, WindowService::STATE_OPEN, $date) as $row) {
+		foreach ($this->rowsInState($houseId, $viewer, null, WindowService::STATE_OPEN, $date, $tz) as $row) {
 			if ($row['cycle']['centreOn'] === $dayKey) {
 				$dueRows[] = $row;
 			} else {
@@ -499,7 +449,34 @@ class RoomTaskReadService {
 		if (!$viewer->isChild()) {
 			return $this->withChecklistCounts($this->withAssignees([...$dueRows, ...$openWindow]));
 		}
-		return $this->childDailyRows($houseId, $viewer, $date, $dueRows, $openWindow);
+		return $this->childDailyRows($viewer, $date, $tz, $dueRows, $openWindow);
+	}
+
+	/**
+	 * The bonus rows of *Today* (ADR-021 decision 8): every visible bonus
+	 * task that is not asleep. Never due and never suggested, so neither a
+	 * child's daily limit nor the availability gate applies; a child still
+	 * sees only its own and the unassigned ones, as on the rest of the
+	 * page. Each row names who it already paid today (`creditedToday`), so
+	 * the client offers it to the others only.
+	 *
+	 * @return list<array<string, mixed>> Rows with `cycle`, `assignees` and `creditedToday`
+	 */
+	public function getBonusTaskRows(int $houseId, HouseUser $viewer, ?\DateTimeInterface $now = null): array {
+		$now ??= new \DateTime();
+		$tz = $this->timeZoneForHouse($houseId);
+		$rows = $this->withAssignees($this->rowsInState($houseId, $viewer, null, WindowService::STATE_BONUS, $now, $tz));
+		if ($viewer->isChild()) {
+			$rows = array_values(array_filter($rows, static fn (array $row): bool => $row['assignees'] === []
+				|| in_array($viewer->getNextcloudUserId(), $row['assignees'], true)));
+		}
+		$credited = $this->creditPolicy->bonusCreditedOn(
+			$houseId, array_map(static fn (array $row): int => (int)$row['roomTask']->getId(), $rows), WindowService::todayKey($now, $tz)
+		);
+		foreach ($rows as $index => $row) {
+			$rows[$index]['creditedToday'] = $credited[(int)$row['roomTask']->getId()] ?? [];
+		}
+		return $rows;
 	}
 
 	/**
@@ -513,7 +490,7 @@ class RoomTaskReadService {
 	 * @param list<array<string, mixed>> $openWindow The open-window rows
 	 * @return list<array<string, mixed>>
 	 */
-	private function childDailyRows(int $houseId, HouseUser $viewer, \DateTime $date, array $dueRows, array $openWindow): array {
+	private function childDailyRows(HouseUser $viewer, \DateTime $date, \DateTimeZone $tz, array $dueRows, array $openWindow): array {
 		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
 			array_map(static fn (array $item): int => $item['roomTask']->getId(), [...$dueRows, ...$openWindow])
 		);
@@ -522,7 +499,7 @@ class RoomTaskReadService {
 
 		$preferences = $viewer->getSchedulingPreferences();
 		// Current day name (lowercase, house TZ — CS-PLAN-057).
-		$currentDay = strtolower(\DateTime::createFromInterface($date)->setTimezone($this->timeZoneForHouse($houseId))->format('l'));
+		$currentDay = strtolower(\DateTime::createFromInterface($date)->setTimezone($tz)->format('l'));
 		if (!($preferences['weekdayAvailability'][$currentDay] ?? true)) {
 			return [];
 		}

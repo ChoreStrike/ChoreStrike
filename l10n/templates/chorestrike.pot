@@ -89,6 +89,9 @@ msgstr ""
 msgid "A reset locks the games again for one person: from then on only chores finished after the reset count. Highscores stay."
 msgstr ""
 
+msgid "A sleeping task is not due and never overdue. Completing it wakes it up."
+msgstr ""
+
 msgid "A subjectUserId is required"
 msgstr ""
 
@@ -126,6 +129,9 @@ msgid "A valid expectedVersion is required"
 msgstr ""
 
 msgid "A valid reasonCode is required"
+msgstr ""
+
+msgid "A wake date needs a sleeping task"
 msgstr ""
 
 msgid "A weekly overview of catch-ups and absences."
@@ -323,6 +329,12 @@ msgstr ""
 msgid "Ask the household owner to invite you. Removed and never-invited members see this same screen."
 msgstr ""
 
+msgid "Asleep"
+msgstr ""
+
+msgid "Asleep until {date}"
+msgstr ""
+
 msgid "Assign"
 msgstr ""
 
@@ -404,6 +416,33 @@ msgstr ""
 msgid "Best"
 msgstr ""
 
+msgid "Bonus day: coins count × 1.5 today."
+msgstr ""
+
+msgid "Bonus days"
+msgstr ""
+
+msgid "Bonus days are already planned for this time"
+msgstr ""
+
+msgid "Bonus days last one to three days"
+msgstr ""
+
+msgid "Bonus days not found"
+msgstr ""
+
+msgid "Bonus days start today or later, within one year"
+msgstr ""
+
+msgid "Bonus days: coins count × 1.5 until {date}."
+msgstr ""
+
+msgid "Bonus task"
+msgstr ""
+
+msgid "Bonus · {count}"
+msgstr ""
+
 msgid "Bounce the soap bubble off the squeegee and scrub every grimy tile. Catch the helpers that fall — but dodge the mud."
 msgstr ""
 
@@ -426,6 +465,9 @@ msgid "Calendar days, streaks and weekly goals are counted by this timezone."
 msgstr ""
 
 msgid "Cancel"
+msgstr ""
+
+msgid "Cancel bonus days"
 msgstr ""
 
 msgid "Cancel request"
@@ -617,6 +659,12 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
+msgid "Coin factor"
+msgstr ""
+
+msgid "Coin factor of {name}"
+msgstr ""
+
 msgid "Coins"
 msgstr ""
 
@@ -683,6 +731,9 @@ msgstr ""
 msgid "Correction requires the explicit notDelivered confirmation"
 msgstr ""
 
+msgid "Could not cancel the bonus days"
+msgstr ""
+
 msgid "Could not change the date"
 msgstr ""
 
@@ -722,16 +773,31 @@ msgstr ""
 msgid "Could not postpone the task"
 msgstr ""
 
+msgid "Could not put the task to sleep"
+msgstr ""
+
+msgid "Could not save the coin factor"
+msgstr ""
+
 msgid "Could not save the correction"
 msgstr ""
 
 msgid "Could not save the task"
 msgstr ""
 
+msgid "Could not start the bonus days"
+msgstr ""
+
 msgid "Could not undo the completion"
 msgstr ""
 
 msgid "Could not update the checklist"
+msgstr ""
+
+msgid "Could not wake the task up"
+msgstr ""
+
+msgid "Counted today for {names}"
 msgstr ""
 
 msgid "Create"
@@ -1190,6 +1256,9 @@ msgstr ""
 msgid "Finished chores per game"
 msgstr ""
 
+msgid "First day"
+msgstr ""
+
 msgid "First due"
 msgstr ""
 
@@ -1544,6 +1613,9 @@ msgstr ""
 msgid "Left"
 msgstr ""
 
+msgid "Length"
+msgstr ""
+
 msgid "Let the robot vacuum do the floors."
 msgstr ""
 
@@ -1895,6 +1967,9 @@ msgstr ""
 msgid "Office"
 msgstr ""
 
+msgid "On bonus days everyone’s coins count × 1.5, on top of the coin factor. Today shows them while they run."
+msgstr ""
+
 msgid "On time"
 msgstr ""
 
@@ -2036,6 +2111,12 @@ msgstr ""
 msgid "Planned energy ({planned}) exceeds the available capacity ({capacity})"
 msgstr ""
 
+msgid "Planned for {date}"
+msgstr ""
+
+msgid "Planned from {from} to {to}"
+msgstr ""
+
 msgid "Planning"
 msgstr ""
 
@@ -2121,6 +2202,9 @@ msgid "Put fresh sheets on the bed."
 msgstr ""
 
 msgid "Put the room back in order."
+msgstr ""
+
+msgid "Put to sleep"
 msgstr ""
 
 msgid "Putzmuffel"
@@ -2378,6 +2462,12 @@ msgstr ""
 msgid "Run robot vacuum"
 msgstr ""
 
+msgid "Running today"
+msgstr ""
+
+msgid "Running until {date}"
+msgstr ""
+
 msgid "Sat"
 msgstr ""
 
@@ -2519,6 +2609,9 @@ msgstr ""
 msgid "Some views could not be refreshed"
 msgstr ""
 
+msgid "Someone else"
+msgstr ""
+
 msgid "Someone else saved the categories first. The current list is shown; please make your changes again."
 msgstr ""
 
@@ -2559,6 +2652,9 @@ msgid "Standard"
 msgstr ""
 
 msgid "Start Game"
+msgstr ""
+
+msgid "Start bonus days"
 msgstr ""
 
 msgid "Start empty"
@@ -2810,6 +2906,12 @@ msgstr ""
 msgid "The checklist changed since it was displayed. Reload and try again."
 msgstr ""
 
+msgid "The coin factor must be 1, 2 or 3"
+msgstr ""
+
+msgid "The coin factor of {name} was saved."
+msgstr ""
+
 msgid "The colour scheme could not be saved. Please try again."
 msgstr ""
 
@@ -2999,6 +3101,9 @@ msgstr ""
 msgid "The title must be at most 120 characters long."
 msgstr ""
 
+msgid "The wake date must lie after today and within one year"
+msgstr ""
+
 msgid "The weekly ranking is final."
 msgstr ""
 
@@ -3006,6 +3111,9 @@ msgid "The whole household is away"
 msgstr ""
 
 msgid "There are no household requests for this filter."
+msgstr ""
+
+msgid "These bonus days are already over"
 msgstr ""
 
 msgid "They will lose access to all house tasks and progress."
@@ -3018,6 +3126,12 @@ msgid "This Week's Medals"
 msgstr ""
 
 msgid "This absence can no longer be deleted"
+msgstr ""
+
+msgid "This bonus task already counted for this person today. It counts again tomorrow."
+msgstr ""
+
+msgid "This bonus task was already counted for this person today"
 msgstr ""
 
 msgid "This entry was deleted"
@@ -3054,6 +3168,9 @@ msgid "This score is not possible in the time played."
 msgstr ""
 
 msgid "This task cannot be postponed any further"
+msgstr ""
+
+msgid "This task has ended. Wake it up to close it."
 msgstr ""
 
 msgid "This task is already being completed with another work split. Check the split once it is done."
@@ -3311,10 +3428,22 @@ msgstr ""
 msgid "Visibility"
 msgstr ""
 
+msgid "Voluntary and always available: never due, never overdue. It counts once per person and day, and not for the weekly goal or the streak."
+msgstr ""
+
+msgid "Voluntary. Counts once per person and day."
+msgstr ""
+
 msgid "Waiting for approval"
 msgstr ""
 
 msgid "Waiting for the house owner"
+msgstr ""
+
+msgid "Wake up"
+msgstr ""
+
+msgid "Wake up on (optional)"
 msgstr ""
 
 msgid "Wash, dry, and fold a load."
@@ -3372,6 +3501,9 @@ msgid "Weekly ranking is off"
 msgstr ""
 
 msgid "Welcome to ChoreStrike!"
+msgstr ""
+
+msgid "What a person’s coins count. With a higher factor, someone with less time can collect as much as the others. It applies to work recorded from now on. Energy, the weekly goal and the streak stay the same."
 msgstr ""
 
 msgid "What the family has agreed for the coming days — nothing more. Work only counts once it is done."
@@ -3533,6 +3665,9 @@ msgstr ""
 msgid "cleanlinessChange must be between -100 and 100"
 msgstr ""
 
+msgid "counted today"
+msgstr ""
+
 msgid "day"
 msgstr ""
 
@@ -3624,6 +3759,9 @@ msgid "scope must be mine or house"
 msgstr ""
 
 msgid "scope must be personal or house"
+msgstr ""
+
+msgid "sleeping must be a boolean"
 msgstr ""
 
 msgid "startDate must be a valid Y-m-d date"
@@ -3762,6 +3900,9 @@ msgid "{task}: entry deleted"
 msgstr ""
 
 msgid "{total} of {capacity} daily capacity is planned or still outstanding. It is too much for one day — the house owner can replan it."
+msgstr ""
+
+msgid "× {factor}"
 msgstr ""
 
 msgid "≈ {n} tasks"

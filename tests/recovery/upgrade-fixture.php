@@ -50,14 +50,15 @@ require __DIR__ . '/upgrade-cycles.php';
 const PREFS = 'chorestrike_member_prefs';
 const BEFORE = '/evidence/upgrade-before.json';
 const FIXTURE = '/evidence/upgrade-fixture.json';
-// What the update adds for derived due windows (CS-PLAN-091 WP-B1).
-const NEW_TABLES = ['chorestrike_cycle_progress', 'chorestrike_cycles'];
+// What the update adds for derived due windows (CS-PLAN-091 WP-B1) and for
+// the two coin multipliers (WP-B5), in the order a snapshot lists its tables.
+const NEW_TABLES = ['chorestrike_bonus_periods', 'chorestrike_cycle_progress', 'chorestrike_cycles'];
 const NEW_COLUMNS = [
 	'chorestrike_houses' => ['cycles_from'],
-	'chorestrike_house_users' => ['streak_base', 'longest_streak_base'],
+	'chorestrike_house_users' => ['streak_base', 'longest_streak_base', 'coin_factor'],
 	'chorestrike_room_tasks' => ['anchor_on', 'cycle_key', 'postpone_count', 'postpone_days', 'cycle_version', 'sleeping_since', 'wake_on'],
 	'chorestrike_tasks' => ['fixed_month_day'],
-	'chorestrike_completed_tasks' => ['cycle_key', 'window_start_on', 'window_end_on'],
+	'chorestrike_completed_tasks' => ['cycle_key', 'window_start_on', 'window_end_on', 'bonus_percent', 'coin_factors'],
 ];
 
 function check(bool $condition, string $message): void {
@@ -218,8 +219,9 @@ function seed(): string {
 /**
  * The expected changes and nothing else. The animation is on in every
  * preference row and each version is one higher (D-090-16, D-090-20).
- * The update adds the two empty cycle tables and the cutover columns
- * (CS-PLAN-091 WP-B1), whose values `verifyCutover` checks. Every column
+ * The update adds the two cycle tables and the bonus-period table, all
+ * empty, and the columns of the cutover and of the coin multipliers
+ * (CS-PLAN-091 WP-B1 and WP-B5), whose values `verifyCutover` checks. Every column
  * the source build had, every other table and the app config are
  * identical, and no preference row appeared for a member who had none.
  */
@@ -227,14 +229,14 @@ function verify(): string {
 	$before = json_decode((string)file_get_contents(BEFORE), true, 512, JSON_THROW_ON_ERROR);
 	$after = snapshot();
 	check(array_values(array_diff(array_keys($after), array_keys($before))) === NEW_TABLES
-		&& array_diff(array_keys($before), array_keys($after)) === [], 'The update must add the two cycle tables and no other');
+		&& array_diff(array_keys($before), array_keys($after)) === [], 'The update must add the cycle and bonus-period tables and no other');
 	foreach (NEW_TABLES as $table) {
 		check($after[$table] === [], 'The update wrote rows into ' . $table);
 	}
 	foreach ($before as $table => $rows) {
 		$added = array_flip(NEW_COLUMNS[$table] ?? []);
 		foreach ($after[$table] as $row) {
-			check(count(array_intersect_key($row, $added)) === count($added), 'A cutover column is missing in ' . $table);
+			check(count(array_intersect_key($row, $added)) === count($added), 'A column of the update is missing in ' . $table);
 		}
 		$kept = inStableOrder(array_map(static fn (array $row): array => array_diff_key($row, $added), $after[$table]));
 		check($table === PREFS || $rows === $kept, 'Stored rows changed in ' . $table);
@@ -256,7 +258,7 @@ function verify(): string {
 	check($switched === 3, 'The populated source must hold three rows with the animation off');
 	return count($old) . ' preference rows on (' . $switched . ' switched), versions +1; '
 		. (count($before) - 1) . ' other row sets identical in every stored column, ' . count($before['chorestrike_pauses'])
-		. ' pause rows among them; two empty cycle tables added; ' . $cutover;
+		. ' pause rows among them; ' . count(NEW_TABLES) . ' empty tables added; ' . $cutover;
 }
 
 /** Reads and writes through the candidate's services on the upgraded copy. */

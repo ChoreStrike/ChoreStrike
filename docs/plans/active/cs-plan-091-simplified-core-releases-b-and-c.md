@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; RF-091-06 open for WP-B7, RF-091-07 and RF-091-08 for the WP-B4/WP-B5 round, RF-091-09 for WP-B6; next: WP-B4 and WP-B5)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; RF-091-06 open for WP-B7, RF-091-09 and RF-091-10 for WP-B6; next: WP-B6)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -293,6 +293,126 @@ The operator chose the recommended option of each question.
   role or visibility change before the lock is refused on replay too (CommandService guard
   contract).
 
+### Implementation decisions (WP-B4 and WP-B5, for the interim review)
+
+Taken while implementing; each is open to the interim review of WP-B4 and WP-B5.
+The interim Full review of 2026-11-18 accepted them, with D-091-66 extended by
+D-091-82, D-091-67 by D-091-83, D-091-68 by D-091-84 and D-091-75 reworded.
+Gates of the implementation round (2026-11-18, uncommitted tree on `d3b91359`): Jest 184 suites / 2562 tests, ESLint, stylelint, build, l10n (1302 keys), php-cs-fixer; PHPUnit unit 1817 and integration 679 on PostgreSQL (canonical), MariaDB, SQLite and the AIO row (matrix `r91b45`), no skips; proof P4 with `Version1037` applied on PostgreSQL, MariaDB, SQLite and the AIO row, proofs P1 (PostgreSQL, MariaDB, SQLite), P2 and P3; focused browser specs 117 passed on `chromium-serial-db`, the bonus day on *Today* among them, and the phone core set 11 passed each on `mobile-chromium` and `mobile-webkit`.
+
+- **D-091-64 One schema step for the multipliers:** `Version1037` adds
+  `house_users.coin_factor` (default 1), `completed_tasks.bonus_percent` and `coin_factors`
+  (both nullable) and `chorestrike_bonus_periods` (`house_id`, `starts_on`, `ends_on`,
+  `created_at`, `cancelled_at`; index on `(house_id, ends_on)`). No percent and no actor
+  column: a period is always × 1.5 and the command receipt names the owner. No data step:
+  a stored completion keeps both columns empty and reads as × 1 at 100 percent, which is
+  what it was paid. Completes D-091-24.
+- **D-091-65 The asleep block is the receipt of waking:** a sleeping task's `cycle` block is
+  `{state: "asleep", expectedVersion, wakeOn}`, and asleep wins over bonus. The sleep
+  command and the completion of a sleeping task name the version only, never a cycle key.
+- **D-091-66 Going to sleep keeps what happened:** the fixed cycles that had stopped being
+  current are recorded as missed first, the current cycle ends without an outcome, and a
+  repeated `sleeping: true` only moves the wake date. The wake date is a real house-local
+  day after today, at most 366 days ahead (translated `400`).
+- **D-091-67 The wake anchor:** an after-completion or one-time task hangs on the wake day;
+  a fixed rule continues on its first rule day on or after it, counted from its stored
+  anchor, so it keeps its parity and its day of the month, and the time asleep counts no
+  miss. A bounded fixed rule with no rule day left is anchored on the wake day itself, so
+  it ends instead of bringing its last cycle back as overdue. The timeline job wakes a task
+  on its `wake_on` and anchors it on that date also when the job runs later. Refines
+  D-091-22 and D-091-28.
+- **D-091-68 The bonus rule is per person and holds for corrections:** a bonus task takes
+  any number of completions a day, each person once (`409 BONUS_ALREADY_TODAY`), checked
+  under the house lock against the valid shares of the work day. The owner's change of
+  people is refused the same way for a member it would newly credit; the corrected entry
+  does not count against itself. A date correction of a bonus entry keeps the neighbour
+  rule of D-091-50, so it can never put two credits of one person on one day. Replaces
+  D-091-42.
+- **D-091-69 Bonus rows have their own read:** `GET /room-tasks/bonus` lists the visible
+  bonus tasks that are not asleep with `creditedToday`, the members they counted for
+  today. A child reads its own and the unassigned ones; the daily limit and the
+  availability gate do not apply to work that is never planned. *Today* shows them in a
+  section below the day's work, under the same *mine / everyone* filter. A hold credits
+  the assignees (the viewer when there are none); once they are counted the row shows a
+  check, whom it counted for and *Someone else*, whose picker disables the counted people.
+- **D-091-70 The multipliers are frozen once:** the percent is the one of the work day at
+  the moment of recording. A later date correction keeps it, as it keeps shares and coins
+  (D-091-49); cancelling a period keeps what its days paid; a change of people is priced
+  with the frozen map, and a member missing from it counts × 1.
+- **D-091-71 Every member reads the multipliers:** the member list carries `coinFactor`, the
+  house payload `bonusPeriod` (the running period, else the next planned one) and
+  `cyclesFrom`. Only the owner writes them: both commands check the role before the house
+  lock and again under it, are receipt-protected and listed in the command audit.
+- **D-091-72 Period limits:** a period starts today or at most 366 days ahead and overlaps
+  no other period that is not cancelled (`409`). Cancelling a cancelled period changes
+  nothing; an ended one answers `409`. The command id of the `DELETE` is a query parameter.
+- **D-091-73 Erasure reaches the frozen factors:** erasing an account removes its wallet id
+  from `coin_factors` of the house's completions, with the rest of its ledger identity.
+- **D-091-74 Interim homes until WP-B6:** the sleep control sits in the opened row of the
+  task list (adults and the owner), the bonus switch in the edit form only — creation takes
+  the flag with the one form of WP-B6 — and `RewardSettings` hosts the coin factors and the
+  bonus days above the catalog under *Settings → Household → Rewards*. `TodayView.vue` grew
+  from 551 to 567 non-blank lines (banner and bonus section) and `TaskEditForm.vue` from
+  953 to 978; WP-B6 rebuilds the form, and its GUI review decides on the length of *Today*
+  (§8, the criterion on view length).
+- **D-091-75 Contract details that came with RF-091-07:** `recordedBy` of a recorder who
+  left the house is the placeholder the completion read model already used (`userId: null`,
+  *Removed member*; the feed's allocation rows say *Former member*, RF-091-10); postponing a deleted room task answers `404` like its history, through
+  the one visible-room-task resolver; `expectedVersion` is a whole number or its canonical
+  decimal string in the complete, postpone and sleep commands; `isVoluntary` must be a
+  boolean.
+- **D-091-76 No index on the audit rows:** the activity read with its events stays at 13
+  statements for 3 and for 30 rows, so the budget shows no need (D-091-09). The limit of
+  three presses sent by the server stays with RF-091-09.
+- **D-091-77 Proof P4 covers the multipliers:** the upgrade fixture expects the new table
+  and columns, checks that every member starts at × 1 and that no stored completion got a
+  frozen multiplier, and on the upgraded household sets a factor and a bonus day and
+  compares every wallet with what the frozen multipliers of one completion say
+  (`tests/recovery/upgrade-cycles.php`). Extends D-091-40.
+
+### Review decisions (interim Full review of WP-B4 and WP-B5, 2026-11-18)
+
+The operator chose the recommended option of each question.
+
+- **D-091-78 Fix the verified defects now, the privacy one included:** the erasure of
+  an account that had left the house reaches the frozen coin factors too (D-091-73),
+  and the correctness defects below are fixed in the review, each with a regression
+  test; so are a check icon shown before the viewer is known, a missing test for a
+  member the frozen map does not know (D-091-70), a browser budget that the bonus read
+  had broken, and the stable log key of ADR-011 §5.
+- **D-091-79 Structure and performance leftovers are routed:** the duplicates that
+  RF-091-07 meant to remove, the narrower reads of the new paths and the placeholder
+  of departed members go to RF-091-10, the accessibility findings of the new
+  surfaces fold into RF-091-09; both are due with WP-B6, which rebuilds these
+  surfaces. Documentation and behaviour-neutral nits are fixed in the review.
+- **D-091-80 Budgets now, no index:** the WP-B4/WP-B5 paths are pinned in
+  `CycleCommandQueryBudgetTest` (bonus rows 11, constant for 3 and 30 tasks; sleep 22;
+  wake 20; a bonus completion 74; a sleeping task's completion 88; the bonus period of
+  the house payload 1), and the activity budget is measured with as many absences as
+  rows: 14, not the 13 RF-091-08 recorded. No index on
+  `completed_tasks(room_task_id, work_date)`: the per-person rule filters by the
+  indexed room task, and a bonus task has a few rows per day.
+
+How the approved fixes work:
+
+- **D-091-81 A bonus task that becomes a regular task starts on the edit day:** the
+  anchor its bonus time left behind would have recorded a miss for every rule day it
+  spent as a bonus task, or turned an after-completion task red at once. Refines
+  D-091-28 and D-091-44.
+- **D-091-82 Going to sleep ends the postponement:** the current cycle ends without an
+  outcome and its `cycle_key`, `postpone_count` and `postpone_days` with it, so the
+  fresh cycle of the wake day starts unmoved also when it gets the same key. Extends
+  D-091-66.
+- **D-091-83 A sleeping task whose bounded rule ended cannot be completed:** waking it
+  leaves no cycle to fulfil, so its completion is refused with `409 TASK_ENDED` and a
+  translated toast; waking it closes it. The refusal used to read `STALE_TARGET`, which
+  a reload never cured. Extends D-091-67.
+- **D-091-84 A bonus completion leaves the version as it is:** a bonus task has no
+  cycle, so its completions, their undo and their date corrections only move its
+  last-completed mark; several members complete it on one day with the version their
+  rows showed. Edits, sleeping and waking still move it. Extends D-091-68; ADR-021 §3
+  and §8 amended.
+
 ### Positions for the Standard A review
 
 These settle the remaining open points of the concept. They bind once Standard A passes.
@@ -525,6 +645,16 @@ new:      lib/Service/CompletionAuthority.php, CompletionDateCorrection.php, Pos
           RecognitionPass.php, lib/Controller/RoomTaskCycleController.php (WP-B2, WP-B3)
 new:      src/components/Tasks/CompletionPicker.vue, PostponeButton.vue, TaskHistory.vue,
           src/store/taskCycle.js, src/utils/commandId.js (WP-B2, WP-B3)
+new:      lib/Migration/Version1037Date20261118000000.php, lib/Db/BonusPeriod.php,
+          BonusPeriodMapper.php, lib/Service/SleepService.php, CoinMultiplierService.php,
+          CreditPolicy.php, lib/Controller/CoinMultiplierController.php (WP-B4, WP-B5)
+new:      lib/Service/CompletionAccess.php, CorrectionTarget.php, CompletionLocks.php,
+          CompletionEvidence.php, CompletionRecognition.php, CompletionReadModel.php,
+          CompletionDateCommand.php, ParticipantAllocation.php, RoomTaskAccess.php,
+          RoomTaskList.php, CycleReceipt.php (RF-091-07)
+new:      src/components/Today/TodayBonusSection.vue, TodayBonusRow.vue, BonusDaysBanner.vue,
+          src/components/Tasks/SleepControl.vue, src/components/Settings/RewardSettings.vue,
+          CoinFactorSettings.vue, BonusDaysSettings.vue (WP-B4, WP-B5)
 modified: lib/Service/OccurrenceReconcileService.php, OccurrenceService.php,
           OccurrenceSelectionService.php, OccurrenceCompletionService.php, CompletionService.php,
           EffortAllocationService.php, RhythmService.php, WeeklyGoalService.php, RankingService.php,
@@ -702,7 +832,7 @@ Routed by the interim Full review of WP-B2 and WP-B3 (2026-11-18); every verifie
 that review was fixed in it (D-091-59), these are the structure, performance and
 accessibility findings it deferred.
 
-- [ ] **RF-091-07 Structure of the correction commands** (WP-B2/WP-B3, architecture; due in
+- [x] **RF-091-07 Structure of the correction commands** (WP-B2/WP-B3, architecture; due in
   the WP-B4/WP-B5 round, which touches `CompletionService` for the coin factors):
   `CompletionService` grew to 1,546 non-blank lines with the date correction, against the
   §7 mitigation — move `changeDate`/`dateAggregate` into a command collaborator of their
@@ -718,7 +848,24 @@ accessibility findings it deferred.
   `PostponeService::visibleRoomTask()`), the recognition pass of `GET /game/state` in a
   service, the post-commit seam named for corrections (`runForUndo`), and a result object
   instead of the by-reference `$tasksById` of the `RoomTaskReadService` list reads.
-- [ ] **RF-091-08 Performance and budgets of the WP-B2/WP-B3 paths** (WP-B2/WP-B3,
+  **Fixed 2026-11-18:** `CompletionService` keeps the three ledger aggregates (complete,
+  undo, attribution) at 677 non-blank lines, down from 1,546. `CompletionDateCommand` holds
+  the date correction; `CompletionAccess::lockTarget()` is the one correction skeleton and
+  `CompletionRecognition::recompute()` the one tail; `CompletionLocks`, `CompletionEvidence`,
+  `CompletionReadModel` and `ParticipantAllocation` take the member and wallet locks, the
+  share and audit writes, the read models and the split. The follower's completion write is
+  `CompletionDateCorrection::moveFollower()`, and `CycleService::redatedUnderLock()` only
+  projects. One classifier (`CompletedTask::classify()`), one postponability rule
+  (`WindowService::postponeRefusal()`) with one stale-target check
+  (`CycleService::assertTarget()`), one receipt validator (`CycleReceipt`, also for the
+  sleep command), one rule for *recorded for others*
+  (`CompletionReadModel::recordedForOthers()`), the key factories `CurrentCycle::keyAfter()`
+  and `keyOn()`, one visible-room-task resolver (`RoomTaskAccess`),
+  `GameLogicService::recognitionsFor()` for `GET /game/state`,
+  `CompletionPostCommitService::runForCorrection()` and the `RoomTaskList` result object.
+  `CompletionService` is still above the size guideline with its three aggregates; the
+  size inventory keeps it.
+- [x] **RF-091-08 Performance and budgets of the WP-B2/WP-B3 paths** (WP-B2/WP-B3,
   performance; due with RF-091-07): request budgets for the history read (10 against 50
   entries), the postpone command, the date correction and the activity read with events at
   two sizes, and the completion budget with sub-tasks (`CycleProgressMapper::checkAll()`
@@ -730,6 +877,20 @@ accessibility findings it deferred.
   per week), the picker's progress read for a task without sub-tasks, the second visibility
   and member pass of `ActivityEventService`; an index on the revisions' `(action,
   created_at)` if a budget shows the need (D-091-09).
+  **Fixed 2026-11-18:** `CycleCommandQueryBudgetTest` pins the history read at 8 statements
+  for 10 and 50 entries, the postpone command at 20, the date correction at 82, the activity
+  read with events at 13 for 3 and 30 rows, and one tick write per sub-task of a completion;
+  `complete()` fell from 91 to 87 and `undo()` from 83 to 72 (`WorkflowQueryBudgetTest`),
+  with the provider overhead pinned apart (`QueryBudgets`). The absence read takes the
+  groups with a revision in the period (`PauseMapper::findGroupsRevisedSince()`); the list
+  states resolve the zone and the definitions once; the postpone command reads the
+  histories once and decides visibility in its guard; the date correction loads the members
+  in one read and its target once; `GET /game/state` and the medal scan run one recognition
+  pass each and read the house once; the picker reads the ticks only for a task with
+  sub-tasks; the activity events share the visibility and member pass of the completions.
+  No index is needed (D-091-76). *Corrected by the interim review (D-091-80):* the
+  activity budget had been measured without an absence; with as many absences as rows
+  it is 14.
 - [ ] **RF-091-09 Client structure and accessibility of the cycle surfaces** (WP-B2/WP-B3,
   frontend; due with WP-B6, which rebuilds these surfaces in the inline row): a public
   completion-target getter of `useRoomTasksStore` for `useTaskCycleStore`; one refusal
@@ -739,6 +900,45 @@ accessibility findings it deferred.
   entry; the history's rights note from the server flags instead of the role; the reason of
   a disabled postpone reachable without a pointer; focus kept through a date edit in
   `TaskHistory`; the year in history dates outside the current year.
+  *Folded in by the interim review of WP-B4 and WP-B5 (D-091-79):* focus that falls to
+  the page and no live region when `SleepControl` and `BonusDaysSettings` swap their
+  controls; a *Someone else* button of `TodayBonusRow` whose name lacks the task, and
+  focus lost when its hold turns into the check; `showServerRefusal` as a fourth
+  refusal strategy (with `showHistoryError`); the sleep command of `taskCycle.js` as a
+  copy of the postpone skeleton and a second caller of the private completion-target
+  read; the people of a bonus row named by another inline formatter.
+
+Routed by the interim Full review of WP-B4 and WP-B5 (2026-11-18); every verified
+defect of that review was fixed in it (D-091-78), this is the structure and
+performance work it deferred (D-091-79).
+
+- [ ] **RF-091-10 What RF-091-07 left duplicated, and the reads of the new paths**
+  (WP-B4/WP-B5, architecture and performance; due with WP-B6): the stale-target
+  check of `SleepService` beside `CycleService::assertTarget()`; the live member and
+  the visibility of a resolved room task in `CompletionAccess::authorize()`,
+  `CompletionService::complete()` and `CompletionReadModel::show()` beside
+  `RoomTaskAccess`, and `CompletionAccess::roomTask()` without the deleted check;
+  three rules for `expectedVersion` and three copies of the closed-body loop
+  (`CycleReceipt`, `CommandService::requireExpectedVersion()`,
+  `CompletionController::validateCorrectionPayload()`, `CoinMultiplierController`);
+  the child rule of `getBonusTaskRows()` beside `isChildEligible()`; the "credited on
+  a day" predicate twice in `WorkShareMapper`; the real-day parser in `SleepService`,
+  `CoinMultiplierService` and `TaskCreationService`; the command skeleton and the
+  fresh-answer tail of `SleepService`, `PostponeService` and `CompletionReadModel`;
+  the post-commit merge and the member locks of the date command beside the undo, and
+  its logger identity; the cycle-key format outside `CurrentCycle` (`p` keys,
+  `TestDataService`); the "has a cycle" predicate twice and two bonus tests in
+  complete and attribute; `CommandService` naming `CoinMultiplierService` constants;
+  `cancelPeriod` orchestrating in the controller and the two period commands
+  answering different things (so `startBonusPeriod` reads the house again); the
+  allocation projection of `ActivityService` beside `CompletionReadModel`, with two
+  placeholders for a departed member (*Former member*, *Removed member*);
+  `SleepControl` repeating the asleep label of `taskDisplay.js`. Performance: the
+  bonus read derives the cycles of every room task of the house before it keeps the
+  bonus ones; `currentFor()` reads the histories of a sleeping or bonus task it does
+  not need (twice when a completion wakes a task); the sleep answer reads the house
+  zone and the histories again. The sleep and wake rules are the extraction
+  candidate of `CycleService` (511 non-blank lines).
 
 ## Review Outcome
 
@@ -823,3 +1023,27 @@ integration 653 on the canonical stack; php-cs-fixer, l10n (1256 keys), adapter,
 backlog checks; focused browser specs 48 passed on `chromium-serial-db` and the phone set 19 passed on
 `mobile-chromium` and `mobile-webkit`. No schema step: matrix and P4 not repeated. Interim review:
 the plan stays in `active/`.
+
+**Interim Full review of WP-B4 and WP-B5, 2026-11-18: `PASS-WITH-FIXES`.** Scope: the whole
+uncommitted package on `feat/simplified-core-bc` (base `d3b91359`, 147 paths, fingerprint
+`2063ebb6…ac48c0`), four reviewer tracks plus the main agent. Record:
+[CODE_REVIEW_2026-11-18](../../backlog/archive/CODE_REVIEW_2026-11-18.md#full-interim---cs-plan-091-wp-b4-and-wp-b5-sleeping-bonus-tasks-and-coin-multipliers).
+
+Fixed in the review (D-091-78): a required browser budget the bonus read had turned red;
+the erasure of an account that had left the house kept its wallet in the frozen coin
+factors; a bonus task turned regular recorded a miss for its bonus days (D-091-81); a
+postponement survived sleep and wake (D-091-82); a sleeping task whose bounded rule ended
+could not be completed and said *stale* (D-091-83); a bonus completion moved the version
+and refused the next member (D-091-84); stale bonus rows after a correction; the retry of
+bonus days; an untested unknown member of a frozen map; the renamed log key of ADR-011;
+the stale size inventory, service sections, source tree and store boundaries of the
+architecture document. Budgets added for the new paths, the activity budget re-measured
+with absences (D-091-80). D-091-64 to D-091-77 accepted, D-091-75 reworded. Routed:
+RF-091-10, a fold-in to RF-091-09.
+
+Gates: Jest 184 suites / 2567 tests, ESLint, stylelint, build; PHPUnit unit 1817 and
+integration 690 on the canonical stack, no skips; php-cs-fixer, l10n (1303 keys), adapter,
+docs and backlog checks; focused browser specs 6 passed on `chromium` and 20 on
+`chromium-serial-db`, the phone set 19 passed on `mobile-chromium` and `mobile-webkit`.
+`Version1037` unchanged: matrix and P4 of the implementation round stand. Interim review: the
+plan stays in `active/`.

@@ -48,7 +48,17 @@ describe the WP3 model as the shipped contract.
   not take part (ADR-021 §10, Q-074-02 reversed): anyone records for anyone
   who may see the task, and the completion keeps who recorded it.
 - Exact math: `energyMinor = totalEnergy × sharePct`, `coinMinor = 10 ×
-  totalEnergy × sharePct`. No floating point anywhere.
+  totalEnergy × sharePct × coinFactor × bonusPercent / 100`, rounded down
+  once. No floating point anywhere.
+- Two coin multipliers, coins only (ADR-021 §11, `CoinMultiplierService`): the
+  owner-set coin factor of a member (1, 2 or 3) and the bonus percent of the
+  work day (150 inside a bonus period, else 100). A completion freezes both
+  (`coin_factors` by wallet id, `bonus_percent`); attribution prices new shares
+  with the frozen values, undo reverses the stored share amounts. Energy,
+  contribution and every recognition never see a multiplier.
+- A bonus task (`is_voluntary`) has no cycle and pays each person at most once
+  per house-local day (`409 BONUS_ALREADY_TODAY`, `CreditPolicy`), on
+  completion and on the owner's change of people.
 - A later attribution (`PUT /completions/{id}/attribution`, owner authority
   only + explicit `allocationReviewed` deviation confirmation) rewrites the
   selected allocation. The reversal union is keyed by **wallet id

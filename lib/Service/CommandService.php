@@ -228,7 +228,8 @@ class CommandService {
 		if (!$outcome['replay'] && in_array($action, [
 			'house.reset', 'scheduling.apply', 'occurrence.amend', 'occurrence.catch-up', 'occurrence.restart',
 			'pause.request', 'pause.house', 'pause.approve', 'pause.reject', 'pause.recognize-illness', 'pause.shorten',
-			'pause.delete',
+			'pause.delete', CoinMultiplierService::ACTION_FACTOR, CoinMultiplierService::ACTION_PERIOD_START,
+			CoinMultiplierService::ACTION_PERIOD_CANCEL,
 		], true)) {
 			$this->appLogger->audit('House command committed', [
 				'event' => 'house.command.committed', 'service' => 'CommandService',

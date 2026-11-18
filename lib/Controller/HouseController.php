@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\ArcadeAccessService;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CoinMultiplierService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskCategoryService;
 use OCP\AppFramework\Controller;
@@ -36,6 +37,7 @@ class HouseController extends Controller {
 	private \OCA\ChoreStrike\Service\CalendarService $calendarService;
 	private ArcadeAccessService $arcadeAccess;
 	private TaskCategoryService $taskCategories;
+	private CoinMultiplierService $multipliers;
 
 	public function __construct(
 		IRequest $request,
@@ -47,8 +49,10 @@ class HouseController extends Controller {
 		\OCA\ChoreStrike\Service\CalendarService $calendarService,
 		ArcadeAccessService $arcadeAccess,
 		TaskCategoryService $taskCategories,
+		CoinMultiplierService $multipliers,
 	) {
 		$this->taskCategories = $taskCategories;
+		$this->multipliers = $multipliers;
 		parent::__construct('chorestrike', $request);
 		$this->houseService = $houseService;
 		$this->authService = $authService;
@@ -63,7 +67,8 @@ class HouseController extends Controller {
 	 * The house payload of every response the client stores as its house:
 	 * the entity plus the household's arcade gate flag (CS-PLAN-086
 	 * D-086-02) and task categories (CS-PLAN-090 D-090-65), which live in
-	 * app config rather than on the house row.
+	 * app config rather than on the house row, and the running or next
+	 * bonus period (ADR-021 decision 11).
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -71,6 +76,7 @@ class HouseController extends Controller {
 		return $house->jsonSerialize() + [
 			'arcadeGateEnabled' => $this->arcadeAccess->isGateEnabled(),
 			'taskCategories' => $this->taskCategories->getList(),
+			'bonusPeriod' => $this->multipliers->runningOrNext($house)?->toPayload(),
 		];
 	}
 

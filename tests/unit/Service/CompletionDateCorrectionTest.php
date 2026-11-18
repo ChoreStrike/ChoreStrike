@@ -12,6 +12,8 @@ use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\CompletionDateCorrection;
+use OCA\ChoreStrike\Service\RecurrenceCalculator;
+use OCA\ChoreStrike\Service\WindowService;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
@@ -31,7 +33,9 @@ class CompletionDateCorrectionTest extends TestCase {
 		$this->mapper->method('findValidNeighbours')->willReturnCallback(fn (): array => $this->neighbours);
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		$this->correction = new CompletionDateCorrection($this->mapper, new CalendarService(), $l10n);
+		$this->correction = new CompletionDateCorrection(
+			$this->mapper, new WindowService(new RecurrenceCalculator(), $this->mapper), new CalendarService(), $l10n
+		);
 		$this->berlin = new \DateTimeZone('Europe/Berlin');
 	}
 

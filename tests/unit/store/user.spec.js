@@ -253,6 +253,38 @@ describe('User Store', () => {
 			})
 		})
 
+		describe('setCoinFactor (CS-PLAN-091 WP-B5)', () => {
+			it('saves the factor with a fresh command and keeps what the list adds to a member', async () => {
+				store.houseUsers = [
+					{ id: 1, nextcloudUserId: 'mom', displayName: 'Mom', coinFactor: 1 },
+					{ id: 2, nextcloudUserId: 'kid@home', displayName: 'Kid', coinFactor: 1, currentTitle: { tier: 1 } },
+				]
+				store.currentUser = { id: 2, nextcloudUserId: 'kid@home', coinFactor: 1, role: 'child' }
+				const saved = { id: 2, nextcloudUserId: 'kid@home', displayName: 'Kid', coinFactor: 3 }
+				api.put.mockResolvedValue(saved)
+
+				await expect(store.setCoinFactor('kid@home', 3)).resolves.toEqual(saved)
+
+				expect(api.put).toHaveBeenCalledWith('/api/v1/house/members/kid%40home/coin-factor', {
+					commandId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+					factor: 3,
+				})
+				expect(store.houseUsers[1]).toEqual({ ...saved, currentTitle: { tier: 1 } })
+				expect(store.houseUsers[0].coinFactor).toBe(1)
+				expect(store.currentUser).toEqual({ id: 2, nextcloudUserId: 'kid@home', coinFactor: 3, role: 'child' })
+			})
+
+			it('hands a refusal on and leaves the members as they are', async () => {
+				store.houseUsers = [{ id: 2, nextcloudUserId: 'kid', coinFactor: 1 }]
+				const refusal = Object.assign(new Error('Owner role required'), { status: 403, code: 'FORBIDDEN' })
+				api.put.mockRejectedValue(refusal)
+
+				await expect(store.setCoinFactor('kid', 2)).rejects.toBe(refusal)
+
+				expect(store.houseUsers[0].coinFactor).toBe(1)
+			})
+		})
+
 		describe('clearError', () => {
 			it('clears error', () => {
 				store.error = 'Some error'

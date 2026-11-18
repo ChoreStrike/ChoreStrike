@@ -42,6 +42,7 @@ describe('taskCycle store', () => {
 			reconcileCompletionPayload: jest.fn(),
 			refreshDerivedProjections: jest.fn(),
 			undoRoomTaskCompletion: jest.fn().mockResolvedValue({}),
+			isBonusTask: jest.fn(() => false),
 		}
 		store = useTaskCycleStore()
 	})
@@ -158,6 +159,18 @@ describe('taskCycle store', () => {
 			})
 			expect(mockRoomTasksStore.reconcileCompletionPayload).toHaveBeenCalledWith(7, answer)
 			expect(store.historyOf(7)[0]).toMatchObject({ workDate: '2026-11-14', version: 2 })
+			expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalledWith({ bonus: false })
+		})
+
+		it('rereads whom a bonus row paid today after an entry of it moved to another day', async () => {
+			mockRoomTasksStore.isBonusTask.mockReturnValue(true)
+			api.put.mockResolvedValue({ roomTask: { id: 40 }, cycle: { state: 'bonus', expectedVersion: 2 } })
+			api.get.mockResolvedValue({ completions: [] })
+
+			await store.changeDate(40, entries[0], '2026-11-14')
+
+			expect(mockRoomTasksStore.isBonusTask).toHaveBeenCalledWith(40)
+			expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalledWith({ bonus: true })
 		})
 
 		it('reads the history again after a refused date, so the entry shows what the server holds', async () => {
@@ -190,6 +203,56 @@ describe('taskCycle store', () => {
 
 			expect(mockRoomTasksStore.undoRoomTaskCompletion).toHaveBeenCalledWith(42, 1)
 			expect(store.historyOf(7)).toEqual([])
+		})
+	})
+
+	describe('setSleeping (CS-PLAN-091 WP-B4)', () => {
+		it('puts the shown task to sleep with its version and rereads the lists it left', async () => {
+			const answer = { roomTask: { id: 7 }, cycle: { state: 'asleep', expectedVersion: 5, wakeOn: '2026-12-01' }, replay: false }
+			api.put.mockResolvedValue(answer)
+
+			await expect(store.setSleeping(7, true, '2026-12-01')).resolves.toBe(answer)
+
+			expect(api.put).toHaveBeenCalledWith('/api/v1/room-tasks/7/sleep', {
+				commandId: expect.stringMatching(UUID),
+				expectedVersion: 4,
+				sleeping: true,
+				wakeOn: '2026-12-01',
+			})
+			expect(mockRoomTasksStore.reconcileCompletionPayload).toHaveBeenCalledWith(7, answer)
+			expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalledWith({ rows: true })
+		})
+
+		it('wakes a sleeping task with the version of its block and sends no wake date', async () => {
+			mockRoomTasksStore._completionTargetFor.mockReturnValue({ state: 'asleep', expectedVersion: 9, wakeOn: '2026-12-01' })
+			api.put.mockResolvedValue({ cycle: { cycleKey: 'd2026-11-18', expectedVersion: 10 } })
+
+			await store.setSleeping(7, false, '2026-12-24')
+
+			expect(api.put).toHaveBeenCalledWith('/api/v1/room-tasks/7/sleep', {
+				commandId: expect.stringMatching(UUID),
+				expectedVersion: 9,
+				sleeping: false,
+			})
+		})
+
+		it('refuses a task whose row is stale without a request', async () => {
+			mockRoomTasksStore._completionTargetFor.mockReturnValue(null)
+
+			await expect(store.setSleeping(7, true)).rejects.toMatchObject({ code: 'STALE_TARGET' })
+			expect(api.put).not.toHaveBeenCalled()
+		})
+
+		it('repeats an uncertain command with its UUID, and rereads the rows after a conflict', async () => {
+			api.put.mockRejectedValueOnce(refusal(undefined, null)).mockRejectedValueOnce(refusal(409, 'STALE_TARGET'))
+
+			await expect(store.setSleeping(7, true)).rejects.toThrow()
+			const first = api.put.mock.calls[0][1].commandId
+			await expect(store.setSleeping(7, true)).rejects.toMatchObject({ code: 'STALE_TARGET' })
+
+			expect(api.put.mock.calls[1][1].commandId).toBe(first)
+			expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalledTimes(1)
+			expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalledWith({ rows: true })
 		})
 	})
 

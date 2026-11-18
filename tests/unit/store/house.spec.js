@@ -7,6 +7,7 @@ jest.mock('../../../src/services/api.js', () => ({
 		get: jest.fn(),
 		put: jest.fn(),
 		post: jest.fn(),
+		delete: jest.fn(),
 	},
 	setCatalogEnabled: jest.fn(),
 }))
@@ -336,6 +337,79 @@ describe('House Store', () => {
 				expect(store.error).toBe('Owner role required')
 				expect(store.arcadeGateEnabled).toBe(true)
 				expect(store.loading).toBe(false)
+			})
+		})
+
+		describe('bonus days (CS-PLAN-091 WP-B5)', () => {
+			const period = { id: 3, startsOn: '2026-11-20', endsOn: '2026-11-21' }
+
+			it('reads no period until the house says so', () => {
+				expect(store.bonusPeriod).toBeNull()
+				store.house = { id: 1, bonusPeriod: period }
+				expect(store.bonusPeriod).toEqual(period)
+			})
+
+			it('starts a period with a fresh command and reads which one the house shows now', async () => {
+				store.house = { id: 1, bonusPeriod: null }
+				api.post.mockResolvedValue({ bonusPeriod: period })
+				api.get.mockResolvedValue({ id: 1, bonusPeriod: period })
+
+				await expect(store.startBonusPeriod('2026-11-20', 2)).resolves.toEqual(period)
+
+				expect(api.post).toHaveBeenCalledWith('/api/v1/house/bonus-periods', {
+					commandId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+					startsOn: '2026-11-20',
+					days: 2,
+				})
+				expect(api.get).toHaveBeenCalledWith('/api/v1/house')
+				expect(store.bonusPeriod).toEqual(period)
+			})
+
+			it('hands a refused start on and leaves the house as it is', async () => {
+				store.house = { id: 1, bonusPeriod: null }
+				const refusal = Object.assign(new Error('Bonus days are already planned for this time'), { status: 409, code: 'CONFLICT' })
+				api.post.mockRejectedValue(refusal)
+
+				await expect(store.startBonusPeriod('2026-11-20', 2)).rejects.toBe(refusal)
+
+				expect(api.get).not.toHaveBeenCalled()
+				expect(store.bonusPeriod).toBeNull()
+			})
+
+			it('retries a start whose answer was lost with the same command, and shows a committed period at once', async () => {
+				store.house = { id: 1, bonusPeriod: null }
+				const lost = Object.assign(new Error('Network Error'), { status: null })
+				api.post.mockRejectedValueOnce(lost).mockResolvedValueOnce({ bonusPeriod: period })
+				// The first attempt committed: the house read after the failure already shows it.
+				api.get.mockResolvedValue({ id: 1, bonusPeriod: period })
+
+				await expect(store.startBonusPeriod('2026-11-20', 2)).rejects.toBe(lost)
+				expect(store.bonusPeriod).toEqual(period)
+				await store.startBonusPeriod('2026-11-20', 2)
+
+				const [first, second] = api.post.mock.calls.map(([, body]) => body.commandId)
+				expect(second).toBe(first)
+				expect(store.pendingBonusStart).toBeNull()
+
+				// Another period is another command.
+				api.post.mockResolvedValueOnce({ bonusPeriod: period })
+				await store.startBonusPeriod('2026-11-27', 1)
+				expect(api.post.mock.calls[2][1].commandId).not.toBe(first)
+			})
+
+			it('cancels a period and shows what the server says is next', async () => {
+				const next = { id: 4, startsOn: '2026-12-01', endsOn: '2026-12-01' }
+				store.house = { id: 1, name: 'Home', bonusPeriod: period }
+				api.delete.mockResolvedValue({ bonusPeriod: next })
+
+				await store.cancelBonusPeriod(3)
+
+				expect(api.delete).toHaveBeenCalledWith('/api/v1/house/bonus-periods/3', { params: { commandId: expect.stringMatching(/^[0-9a-f-]{36}$/) } })
+				expect(store.house).toEqual({ id: 1, name: 'Home', bonusPeriod: next })
+
+				api.delete.mockResolvedValue({ bonusPeriod: null })
+				await store.cancelBonusPeriod(4)
+				expect(store.bonusPeriod).toBeNull()
 			})
 		})
 

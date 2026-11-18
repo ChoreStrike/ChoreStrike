@@ -92,16 +92,12 @@
 					@toggle="toggle">
 					<TaskCategorySettings />
 				</SettingsCategory>
-				<!-- Catalog administration works while browsing is hidden or
-				     the gate is off (CS-PLAN-070 WP8 §3.1). -->
 				<SettingsCategory id="rewards"
 					:title="t('chorestrike', 'Rewards')"
 					:open="isOpen('rewards')"
 					testid="catalog-section"
 					@toggle="toggle">
-					<div class="setting-card">
-						<RewardCatalogEditor />
-					</div>
+					<RewardSettings />
 				</SettingsCategory>
 				<SettingsCategory id="arcade"
 					:title="t('chorestrike', 'Arcade')"
@@ -129,13 +125,13 @@ import { useRoute, useRouter } from 'vue-router'
 import Icon from '../components/Common/Icon.vue'
 import SegmentedSwitch from '../components/Common/SegmentedSwitch.vue'
 import MemberList from '../components/Members/MemberList.vue'
-import RewardCatalogEditor from '../components/Rewards/RewardCatalogEditor.vue'
 import AppearanceSettings from '../components/Settings/AppearanceSettings.vue'
 import ArcadeSettings from '../components/Settings/ArcadeSettings.vue'
 import DangerZoneSettings from '../components/Settings/DangerZoneSettings.vue'
 import HouseSettings from '../components/Settings/HouseSettings.vue'
 import NotificationPreferences from '../components/Settings/NotificationPreferences.vue'
 import PlanningSettings from '../components/Settings/PlanningSettings.vue'
+import RewardSettings from '../components/Settings/RewardSettings.vue'
 import SettingsCategory from '../components/Settings/SettingsCategory.vue'
 import StructureSettings from '../components/Settings/StructureSettings.vue'
 import TaskCategorySettings from '../components/Settings/TaskCategorySettings.vue'
@@ -180,7 +176,7 @@ export default {
 		MemberList,
 		StructureSettings,
 		TaskCategorySettings,
-		RewardCatalogEditor,
+		RewardSettings,
 		ArcadeSettings,
 		DangerZoneSettings,
 	},

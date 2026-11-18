@@ -114,7 +114,11 @@ the implementation and the populated-upgrade tests):
   `checked_at` and `checked_by_user_id`. The occurrence-keyed
   `chorestrike_chk_progress` stays as history; its unique key cannot take rows
   without an occurrence.
-- New table `chorestrike_bonus_periods` (decision 11).
+- New table `chorestrike_bonus_periods` (decision 11): `house_id`, `starts_on`
+  and `ends_on` (house-local days, both inclusive), `created_at` and
+  `cancelled_at` (nullable; a cancelled period keeps its row); indexed on
+  `(house_id, ends_on)`. The percent is not stored: a period is always × 1.5,
+  and the command receipt names the owner who started it (D-091-64).
 
 `room_tasks.next_due` stays as a projection of the current window's end day for
 the list queries that filter and sort by it. Every command that changes a window
@@ -122,7 +126,8 @@ updates it in its own transaction; the timeline job repairs only what the
 passing of time changes. `cycle_version` bumps with every change of the current
 cycle: a completion, an undo or date correction that moves it, a postponement,
 sleeping and waking, and every edit of the rule, flex, energy, assignees or
-first date.
+first date. An awake bonus task has no current cycle: its completions, their
+undo and their date corrections leave the version as it is (D-091-84).
 
 ### 4. Completion
 
@@ -139,8 +144,7 @@ keeps its row (D-091-08).
 - **Any time, except the same day.** A task can be completed before its window
   opens, inside it or late. It cannot be completed on the house-local day of its
   latest valid completion (`409 SAME_DAY`); bonus tasks have their own rule
-  (decision 8; until it ships with WP-B4 the day rule holds for them too,
-  D-091-42).
+  (decision 8).
 - **The completion closes the cycle** in its transaction: it writes the
   `chorestrike_cycles` row (`outcome = done`) and freezes the cycle facts on the
   completion. The postponement stays stored with its `cycle_key`, so the next
@@ -157,7 +161,8 @@ keeps its row (D-091-08).
   shares and ledger rows follow ADR-014.
 - **Sleeping tasks** have no cycle. Completing one wakes it: the completion
   fulfils a fresh cycle anchored on its day, and the rhythm continues from it
-  (D-091-22).
+  (D-091-22). Like a bonus task it is completed with `expectedVersion` and
+  without a `cycleKey` (D-091-65).
 
 ### 5. Classification and recognitions
 
@@ -208,6 +213,26 @@ overdue, no capacity, no suggestion. On `wake_on` (the timeline job) or when it
 is woken, it starts a fresh cycle: an after-completion or one-time task is
 anchored on the wake day, a fixed rule continues with its next rule day.
 
+- **The row carries the receipt of waking it** (D-091-65): the `cycle` block of
+  a sleeping task is `{state: "asleep", expectedVersion, wakeOn}`; asleep wins
+  over bonus. The command names the room task and the version, never a cycle.
+- **Going to sleep keeps what already happened** (D-091-66): the fixed cycles
+  that stopped being current before the command are recorded as missed first
+  (decision 5); the current cycle ends without an outcome, and its
+  postponement with it, so the fresh cycle of the wake day starts unmoved also
+  when it has the same key (D-091-82). Sending `sleeping: true` again only
+  moves the wake date.
+  `wakeOn` is a real house-local day after today, at most 366 days ahead.
+- **Waking** (D-091-67): a fixed rule is anchored on its first rule day on or
+  after the wake day, counted from its stored anchor, so a fortnightly rule
+  keeps its parity and a monthly rule its day. The time asleep counts no missed
+  cycle. A bounded fixed rule with no rule day left is anchored on the wake day
+  itself, so it ends instead of bringing back its last cycle as overdue; its
+  completion while asleep is refused with `409 TASK_ENDED`, since waking it
+  leaves nothing to complete (D-091-83). The
+  job wakes a task on its `wake_on` and anchors it on that date also when the
+  job runs later.
+
 ### 8. Bonus tasks
 
 A definition with `is_voluntary` is a bonus task. It is never due, never
@@ -216,6 +241,24 @@ energy and coins. Each credited member may be credited at most once per bonus
 task and house-local day (`409 BONUS_ALREADY_TODAY`). Its completions carry
 `bonus` and count for no recognition. Existing voluntary definitions become
 bonus tasks at the cutover.
+
+- **The rule is per person, not per task** (D-091-68): a bonus task takes any
+  number of completions on a day, and the day rule of decision 4 does not apply
+  to it. The check runs under the house lock against the valid work shares of
+  the room task on the house-local work day. The owner's change of people
+  (decision 9) is refused the same way for a member it would newly credit; the
+  corrected entry itself does not count. A date correction of a bonus entry
+  keeps the rule that the day lies strictly between its neighbours, so it can
+  never put two credits of one person on one day.
+- **`GET /room-tasks/bonus`** (D-091-69) lists the visible bonus tasks that are
+  not asleep, each with `creditedToday`, the members it already counted for
+  today. A child reads its own and the unassigned ones; the daily limit and the
+  availability gate do not apply to work that is never planned.
+- `isVoluntary` is a boolean of the definition; any other value is refused. A
+  bonus task that becomes a regular task is anchored on the edit day, so the
+  days it spent as a bonus task count no missed cycle (D-091-81).
+- **Its version stays with its completions** (D-091-84): several members may
+  complete a bonus task on one day with the version their rows showed.
 
 ### 9. Corrections and rights
 
@@ -278,6 +321,21 @@ over someone else's red entry keeps its digest receipt.
   missing from it counts × 1); undo reverses the stored shares exactly.
 - Energy, the weekly goal, the rhythm, the ranking and the arcade unlocks never
   see a factor.
+- **Frozen once** (D-091-70): the percent is the one of the work day at the
+  moment of recording. A later date correction keeps it, as it keeps shares and
+  coins (decision 9); cancelling a period keeps what its days paid. A completion
+  from before these columns has both empty and reads as × 1 at 100 percent,
+  which is what it was paid; no stored row is rewritten.
+- **Visible, owner-set** (D-091-71): every member reads the coin factors in the
+  member list and the bonus period in the house payload. Both commands are
+  receipt-protected, check the owner role before the house lock and again under
+  it, and appear in the command audit.
+- **Periods** (D-091-72) start today or at most 366 days ahead. Cancelling a
+  cancelled period changes nothing; an ended period cannot be cancelled
+  (`409 CONFLICT`).
+- **Erasure** (D-091-73): erasing an account removes its wallet from the frozen
+  `coin_factors` of stored completions, with the rest of its ledger identity
+  (ADR-014).
 
 ### 12. Cutover
 

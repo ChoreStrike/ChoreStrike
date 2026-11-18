@@ -106,6 +106,49 @@ class EffortAllocationServiceTest extends TestCase {
 		$this->assertSame(['energyMinor' => 500, 'coinMinor' => 5000], $this->service->allocate(20, 25));
 	}
 
+	/**
+	 * ADR-021 decision 11, D-091-15: `10 × E × P × factor × bonusPercent /
+	 * 100` coin minor; the energy never sees a multiplier.
+	 *
+	 * @dataProvider multipliedShares
+	 */
+	public function testAllocate_MultipliesCoinsOnly(int $energy, int $sharePct, int $factor, int $bonusPercent, int $coinMinor): void {
+		$this->assertSame(
+			['energyMinor' => $energy * $sharePct, 'coinMinor' => $coinMinor],
+			$this->service->allocate($energy, $sharePct, $factor, $bonusPercent)
+		);
+	}
+
+	public static function multipliedShares(): array {
+		return [
+			'no multiplier is the frozen rate' => [3, 100, 1, 100, 3000],
+			'factor 2' => [3, 100, 2, 100, 6000],
+			'factor 3 on a third' => [1, 34, 3, 100, 1020],
+			'a bonus day alone' => [1, 33, 1, 150, 495],
+			'both multiply' => [2, 34, 3, 150, 3060],
+			'the largest task at the largest multipliers' => [20, 100, 3, 150, 90000],
+		];
+	}
+
+	public function testAllocate_SharesOfOneCompletionEachUseTheirOwnFactor(): void {
+		// Energy 1 by three people at × 1, × 2 and × 3 on a bonus day.
+		$coins = [];
+		foreach ([[34, 1], [33, 2], [33, 3]] as [$sharePct, $factor]) {
+			$coins[] = $this->service->allocate(1, $sharePct, $factor, 150)['coinMinor'];
+		}
+		$this->assertSame([510, 990, 1485], $coins);
+	}
+
+	/** @dataProvider unknownMultipliers */
+	public function testAllocate_RejectsAnUnknownMultiplier(int $factor, int $bonusPercent): void {
+		$this->expectException(\InvalidArgumentException::class);
+		$this->service->allocate(1, 100, $factor, $bonusPercent);
+	}
+
+	public static function unknownMultipliers(): array {
+		return ['factor 0' => [0, 100], 'factor 4' => [4, 100], 'percent 0' => [1, 0], 'percent 200' => [1, 200], 'percent 125' => [1, 125]];
+	}
+
 	public function testAssertSafeAmountAcceptsJsSafeBound(): void {
 		$this->service->assertSafeAmount(EffortAllocationService::JS_SAFE_INTEGER_MAX, 'x');
 		$this->service->assertSafeAmount(-EffortAllocationService::JS_SAFE_INTEGER_MAX, 'x');

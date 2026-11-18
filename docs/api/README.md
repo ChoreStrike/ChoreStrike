@@ -104,26 +104,32 @@ Every house payload (`GET`/`PUT /house`, `PUT /house/catalog`,
 `arcadeGateEnabled` — the household arcade unlock gate, stored in app config
 rather than on the house row (CS-PLAN-086, see `PUT /house/arcade-gate`) —
 and `taskCategories`, the household's task categories (CS-PLAN-090 WP-I, see
-`PUT /house/task-categories`). **Planned (ADR-021, CS-PLAN-091 WP-B5):** it also
-carries `bonusPeriod` — the running or next bonus period
-(`{ "id": 3, "startsOn": "Y-m-d", "endsOn": "Y-m-d" }`) or `null` — and
-`cyclesFrom`, the first house-local day of derived windows. Neither is serialized yet.
+`PUT /house/task-categories`). Since ADR-021 (CS-PLAN-091 WP-B5) it also
+carries `bonusPeriod` — the running bonus period, else the next planned one
+(`{ "id": 3, "startsOn": "Y-m-d", "endsOn": "Y-m-d" }`, house-local days, both
+inclusive) or `null` — and `cyclesFrom`, the first house-local day of derived
+windows.
 
 #### PUT /house/members/{userId}/coin-factor
-Owner only (ADR-021 §11, planned: CS-PLAN-091 WP-B5). Closed body `{ "commandId": "<uuid>", "factor": 1 }`
-with `factor` 1, 2 or 3; a non-member is `404`, another role `403`. The factor
+Owner only (ADR-021 §11, CS-PLAN-091 WP-B5). Closed body `{ "commandId": "<uuid>", "factor": 1 }`
+with the whole number `factor` 1, 2 or 3 (`400 VALIDATION_ERROR` otherwise, also
+for an unknown field); a non-member is `404`, another role `403`. The factor
 applies to coins of completions recorded from now on; completed work keeps the
-factors frozen on it. The member list (`GET /users`) carries each member's
-`coinFactor`.
+factors frozen on it. Answers with the member; the member list (`GET /users`)
+carries each member's `coinFactor`. A repeated `commandId` replays.
 
 #### POST /house/bonus-periods · DELETE /house/bonus-periods/{id}
-Owner only (ADR-021 §11, planned: CS-PLAN-091 WP-B5). `POST` takes
+Owner only (ADR-021 §11, CS-PLAN-091 WP-B5). `POST` takes
 `{ "commandId": "<uuid>", "startsOn": "Y-m-d", "days": 1 }` (`days` 1–3,
-`startsOn` today or later, house-local) and answers `409 CONFLICT` when the
-period would overlap another one that is not cancelled. During a period every
-member's coins count × 1.5. `DELETE` cancels a period that has not ended, with
-`{ "commandId": "<uuid>" }`; an ended period answers `409 CONFLICT`. Both are
-receipt-protected.
+`startsOn` today or at most 366 days ahead, house-local; `400 VALIDATION_ERROR`
+otherwise) and answers `409 CONFLICT` when the period would overlap another one
+that is not cancelled. During a period every member's coins count × 1.5, on top
+of the coin factor; a completion takes the percent of its work day and keeps
+it. `DELETE` cancels a period that has not ended; its `commandId` is a query
+parameter (`?commandId=<uuid>`). An ended period answers `409 CONFLICT`, an
+unknown one `404`, and cancelling a cancelled period again changes nothing.
+Both are receipt-protected and answer `{ "bonusPeriod": … }` — `POST` with the
+new period, `DELETE` with the period the house shows now (or `null`).
 
 #### PUT /house
 Update house name and (owner only) timezone and ranking flag.
@@ -388,8 +394,15 @@ repeated effects, a changed payload under the same UUID conflicts.
 > `recordedBy` when someone recorded the work for other people (WP-B2). The rights
 > follow ADR-021 §9 (WP-B3, D-091-23): the owner corrects any entry; a member who is
 > not the owner may delete or re-date only the **latest valid completion of the room
-> task that they recorded**; the people are the **owner's alone** to change. **Planned:**
-> the frozen coin factors (`coinFactors`, `bonusPercent`, WP-B5).
+> task that they recorded**; the people are the **owner's alone** to change. The read
+> model names the frozen coin multipliers (WP-B5): `bonusPercent` (100 or 150) on the
+> completion and `coinFactor` on every share of `allocation`; a completion from before
+> the multipliers reads 100 and 1, which is what it was paid. A change of people is
+> priced with these frozen values, an undo reverses the amounts its shares recorded.
+> `recordedBy` of a recorder who left the house is `{ "userId": null, "displayName":
+> "Removed member" }`. When the recorder and everyone credited have left, the
+> entry no longer tells whether it was recorded for others (both read as a
+> former member), so `recordedBy` is `null`.
 
 #### GET /completions/{id}
 The viewer-safe read model of one completion: frozen work facts
@@ -775,11 +788,34 @@ presses included (D-091-62). A repeated `commandId` replays (`replay: true`).
 The answer is `{ roomTask, cycle, replay }` with the fresh `cycle` block; the
 recent activity shows the postponement.
 
-#### PUT /room-tasks/{id}/sleep (ADR-021 §7, planned: CS-PLAN-091 WP-B4)
+#### PUT /room-tasks/{id}/sleep (ADR-021 §7, CS-PLAN-091 WP-B4)
 Closed body `{ "commandId": "<uuid>", "expectedVersion": 4, "sleeping": true,
-"wakeOn": "Y-m-d" }` (`wakeOn` optional, house-local, after today). Adults and
-the owner. A sleeping task has no cycle and appears in no suggestion; on
-`wakeOn`, on `sleeping: false` or on a completion it wakes with a fresh cycle.
+"wakeOn": "Y-m-d" }` — `expectedVersion` from the row's `cycle` block, no
+`cycleKey`; `wakeOn` optional, a real house-local day after today and at most
+366 days ahead (`400 VALIDATION_ERROR` otherwise). Adults and the owner who may
+see the task (`403` for a child, `404` for a task the member cannot see);
+`409 STALE_TARGET` for a version that moved on, `409 CONFLICT` for an inactive
+task. A sleeping task has no cycle, is never overdue and appears in no list of
+due work; fixed cycles it had already missed are recorded first, and the
+current cycle ends with its postponement (D-091-82). Sending
+`sleeping: true` for a sleeping task only moves the wake date. On `wakeOn` (the
+timeline job, also when it runs late), on `sleeping: false` or on a completion
+the task wakes with a fresh cycle: an after-completion or one-time task hangs
+on the wake day, a fixed rule continues on its next rule day and keeps its
+parity; the sleep time counts no missed cycle. A bounded fixed rule with no
+rule day left ends when it wakes; its completion while asleep is refused with
+`409 TASK_ENDED`. A repeated `commandId` replays.
+The answer is `{ roomTask, cycle, replay }` with the fresh `cycle` block.
+
+#### GET /room-tasks/bonus (ADR-021 §8, CS-PLAN-091 WP-B4)
+The bonus tasks *Today* lists in their own section: the active, awake,
+viewer-visible room tasks whose definition is a bonus task. Rows have the
+shape of the filtered daily rows (`roomTask`, `task`, `room`, `assignees`,
+`cycle` = `{ "state": "bonus", "expectedVersion": n }`, `openWindow`,
+`checklistItemCount`) plus `creditedToday`: the user ids the task already
+counted for on this house-local day, who cannot be credited again today. A
+child reads its own and the unassigned bonus tasks; neither the daily limit
+nor availability applies, because bonus work is never planned.
 
 #### GET /room-tasks/overdue · GET /room-tasks/due-today (CS-PLAN-066 §3.1)
 Complete viewer-visible overdue / due-today execution rows. Visibility,
@@ -880,8 +916,10 @@ the task's one current cycle, derived on read:
 - `state` is `upcoming` (the window has not opened), `open` or `overdue` (the
   window ended; one red entry per task). A bonus task carries only
   `{ "state": "bonus", "expectedVersion": n }`, a sleeping task
-  `{ "state": "asleep" }`; a task without a cycle (a one-time task that is done,
-  an inactive one) carries `cycle: null`.
+  `{ "state": "asleep", "expectedVersion": n, "wakeOn": "Y-m-d" | null }` —
+  asleep wins over bonus; both are completed with the version and without a
+  `cycleKey`. A task without a cycle (a one-time task that is done, an inactive
+  one) carries `cycle: null`.
 - `canPostpone` is the precondition of the postpone command; `postponeCount` says how often the cycle was moved (at most three times).
 
 **`status` (CS-PLAN-084 D-084-08)** derives from it: `overdue` for an `overdue`
@@ -1045,7 +1083,9 @@ window (D-091-25). The conflicts carry a machine-readable `error.code`:
 |------|------|
 | `STALE_TARGET` | `cycleKey` is not the current cycle, or `expectedVersion` moved on (an edit of the rule, flex, energy, assignees or first date; another completion or undo) |
 | `ALREADY_COMPLETED` | a new command on a cycle that a valid completion already closed |
-| `SAME_DAY` | the room task already has a valid completion on this house-local day; until WP-B4 brings the per-person rule this holds for a bonus task too (D-091-42) |
+| `SAME_DAY` | the room task already has a valid completion on this house-local day (not for a bonus task) |
+| `BONUS_ALREADY_TODAY` | a bonus task already counted for one of the people to credit on this house-local day (ADR-021 §8); the same rule refuses the owner's change of people onto such a member |
+| `TASK_ENDED` | a sleeping task whose bounded rule ended while it slept: the completion would wake it into no cycle; waking it (`PUT /room-tasks/{id}/sleep`) closes it (D-091-83) |
 
 The transaction freezes the work evidence (the cycle key and its final window,
 the classification `on_time` — before or inside the window — `late` or
@@ -1067,9 +1107,14 @@ digest receipt. Gates run before any write: inactive room task →
 effects (weekly-goal read, notification dispatches) are failure-isolated: the
 endpoint still answers `200` with `rewards.weeklyGoal = null`.
 
-> **Planned (CS-PLAN-091 WP-B4, WP-B5):** a second credit of one member on a
-> bonus task the same day answers `409 BONUS_ALREADY_TODAY`, completing a
-> sleeping task wakes it, and the coin factors are frozen on the completion.
+A bonus task takes any number of completions a day, each person once; its
+completions, their undo and their date corrections leave its `expectedVersion`
+as it is, so several members complete it with the version their rows showed
+(D-091-84). A sleeping task is woken by its completion (WP-B4). The completion freezes the
+coin factor of every member and the bonus percent of its work day, and pays
+each share `10 × energy × sharePct × factor × bonusPercent / 100` coin minor,
+rounded down once (WP-B5, D-091-15); energy and the recognitions never see a
+multiplier. `rewards.completion.bonusPercent` names the percent.
 
 **Response (WP3 evidence shape):**
 ```json
@@ -1786,6 +1831,7 @@ The following stable error codes are returned by the API. **Note:** The `message
 | `ALREADY_COMPLETED` | 409 | ADR-021: the cycle already has a valid completion |
 | `SAME_DAY` | 409 | ADR-021: the room task was already completed on this house-local day |
 | `BONUS_ALREADY_TODAY` | 409 | ADR-021: the member was already credited on this bonus task today |
+| `TASK_ENDED` | 409 | ADR-021: a sleeping task whose bounded rule ended cannot be completed; waking it closes it |
 | `NOT_POSTPONABLE` | 409 | ADR-021: the task has no flex days, or the cycle was postponed three times |
 | `WINDOW_ENDED` | 409 | ADR-021: the window has ended; a red task cannot be postponed |
 | `USERS_ERROR` | 500 | Internal error during users operation |

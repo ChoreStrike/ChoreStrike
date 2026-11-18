@@ -12,7 +12,7 @@
 
 import { translate as t } from '@nextcloud/l10n'
 import { ENERGY_LISTED_MAX, ENERGY_LONGER, ENERGY_MAX } from '../constants/scheduling.js'
-import { dateKeyInZone, todayKeyInZone } from './dateKeys.js'
+import { dateKeyInZone, formatDayKey, todayKeyInZone } from './dateKeys.js'
 
 /**
  * Visible assignment names, including the unassigned state.
@@ -223,6 +223,15 @@ export function dueClass(roomTask, timezone) {
 export function dueText(roomTask, timezone) {
 	if (!roomTask.isActive) {
 		return t('chorestrike', 'Completed')
+	}
+	// A sleeping task and a bonus task have no window (ADR-021 decisions 7 and 8).
+	if (roomTask.cycle?.state === 'asleep') {
+		return roomTask.cycle.wakeOn
+			? t('chorestrike', 'Asleep until {date}', { date: formatDayKey(roomTask.cycle.wakeOn) })
+			: t('chorestrike', 'Asleep')
+	}
+	if (roomTask.cycle?.state === 'bonus') {
+		return t('chorestrike', 'Bonus task')
 	}
 	const days = dueDayOffset(roomTask, timezone)
 	if (days === null) {

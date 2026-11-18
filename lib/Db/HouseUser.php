@@ -45,6 +45,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setStreakBase(?int $streakBase)
  * @method int|null getLongestStreakBase()
  * @method void setLongestStreakBase(?int $longestStreakBase)
+ * @method int getCoinFactor()
+ * @method void setCoinFactor(int $coinFactor)
  */
 class HouseUser extends Entity implements JsonSerializable {
 	/** @var int */
@@ -127,6 +129,15 @@ class HouseUser extends Entity implements JsonSerializable {
 	/** @var int|null */
 	protected $longestStreakBase;
 
+	/**
+	 * What the member's coins count: 1, 2 or 3 (ADR-021 decision 11). The
+	 * owner sets it; a completion freezes it, so it never reaches energy,
+	 * the weekly goal, the rhythm, the ranking or the arcade unlocks.
+	 *
+	 * @var int
+	 */
+	protected $coinFactor = 1;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('houseId', 'integer');
@@ -144,6 +155,7 @@ class HouseUser extends Entity implements JsonSerializable {
 		$this->addType('walletId', 'integer');
 		$this->addType('streakBase', 'integer');
 		$this->addType('longestStreakBase', 'integer');
+		$this->addType('coinFactor', 'integer');
 	}
 
 	/**
@@ -162,6 +174,7 @@ class HouseUser extends Entity implements JsonSerializable {
 			'role' => $this->role,
 			'joinedAt' => $this->joinedAt?->format('c'),
 			'schedulingPreferences' => $this->schedulingPreferences,
+			'coinFactor' => $this->coinFactor,
 		];
 	}
 

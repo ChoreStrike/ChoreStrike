@@ -14,7 +14,6 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
@@ -45,7 +44,7 @@ class ActivityService {
 	private TaskMapper $taskMapper;
 	private RoomMapper $roomMapper;
 	private HouseUserMapper $houseUserMapper;
-	private TaskAssigneeMapper $taskAssigneeMapper;
+	private RoomTaskAccess $access;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private WorkShareMapper $workShareMapper;
 	private CompletionAuthority $authority;
@@ -58,7 +57,7 @@ class ActivityService {
 		TaskMapper $taskMapper,
 		RoomMapper $roomMapper,
 		HouseUserMapper $houseUserMapper,
-		TaskAssigneeMapper $taskAssigneeMapper,
+		RoomTaskAccess $access,
 		TaskAccessPolicy $taskAccessPolicy,
 		WorkShareMapper $workShareMapper,
 		CompletionAuthority $authority,
@@ -70,7 +69,7 @@ class ActivityService {
 		$this->taskMapper = $taskMapper;
 		$this->roomMapper = $roomMapper;
 		$this->houseUserMapper = $houseUserMapper;
-		$this->taskAssigneeMapper = $taskAssigneeMapper;
+		$this->access = $access;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->workShareMapper = $workShareMapper;
 		$this->authority = $authority;
@@ -113,13 +112,25 @@ class ActivityService {
 
 		$completions = $this->completedTaskMapper->findActivityBetweenByHouse($houseId, $start, $end, $limit, $houseUserId);
 		$total = $this->completedTaskMapper->countActivityByHouse($houseId, $start, $end, $houseUserId);
+		// Postponements, date changes, deletions and absences of the same
+		// period: this visibility replaces approval.
+		$taskEvents = $this->events->taskEventsSince($houseId, $start, $limit, $houseUserId);
+		// Houses are small — one membership read and one visibility
+		// decision serve the completions and the events.
+		$members = $this->houseUserMapper->findByHouseId($houseId);
+		$scope = $this->scopeOf($houseId, $viewer, [
+			...array_map(static fn (CompletedTask $completion): int => $completion->getRoomTaskId(), $completions),
+			...array_column($taskEvents, 'roomTaskId'),
+		]);
+		$titles = [];
+		foreach (array_keys($scope['visible']) as $roomTaskId) {
+			$titles[$roomTaskId] = $scope['tasksById'][$scope['roomTasksById'][$roomTaskId]->getTaskId()]->getName();
+		}
 
 		return [
-			'completions' => $this->enrich($houseId, $completions, $viewer),
+			'completions' => $this->enrich($completions, $viewer, $members, $scope),
 			'total' => $total,
-			// Postponements, date changes, deletions and absences of the
-			// same period: this visibility replaces approval.
-			'events' => $this->events->eventsSince($houseId, $start, $limit, $houseUserId, $viewer),
+			'events' => $this->events->present($houseId, $start, $limit, $houseUserId, $taskEvents, $titles, $members),
 		];
 	}
 
@@ -131,17 +142,47 @@ class ActivityService {
 	 * @throws NotFoundException a foreign, deleted or invisible room task
 	 */
 	public function getRoomTaskHistory(int $houseId, int $roomTaskId, int $limit, HouseUser $viewer): array {
-		$roomTask = $this->roomTaskMapper->findByIdsScopedToHouse([$roomTaskId], $houseId)[0] ?? null;
-		// A deleted room task has no row to open a history from.
-		$roomTask = $roomTask?->getDeletedAt() === null ? $roomTask : null;
-		$task = $roomTask !== null ? ($this->taskMapper->findByIds([$roomTask->getTaskId()])[$roomTask->getTaskId()] ?? null) : null;
-		if ($task === null) {
-			throw new NotFoundException($this->l10n->t('Room task not found'));
-		}
-		$this->taskAccessPolicy->assertCanView($task, $viewer, $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId));
+		$resolved = $this->access->visible($houseId, $viewer, $roomTaskId);
 
 		$limit = max(1, min($limit, self::MAX_HISTORY_LIMIT));
-		return ['completions' => $this->enrich($houseId, $this->completedTaskMapper->findValidByRoomTask($roomTaskId, $limit), $viewer)];
+		// The room task is resolved and visible: its entries need no second decision.
+		return ['completions' => $this->enrich(
+			$this->completedTaskMapper->findValidByRoomTask($roomTaskId, $limit),
+			$viewer,
+			$this->houseUserMapper->findByHouseId($houseId),
+			[
+				'roomTasksById' => [$roomTaskId => $resolved['roomTask']],
+				'tasksById' => [(int)$resolved['task']->getId() => $resolved['task']],
+				'visible' => [$roomTaskId => true],
+			]
+		)];
+	}
+
+	/**
+	 * The room tasks a batch of rows names, their definitions and which of
+	 * them the viewer may see (D2 matrix, ADR-010: a private task per room
+	 * task, by its creator and THAT room task's assignees) — decided once
+	 * per read. `findByIdsScopedToHouse` is skip-on-missing: a dangling id
+	 * is absent and its rows fall back to nulls.
+	 *
+	 * @param int[] $roomTaskIds
+	 * @return array{roomTasksById: array<int, \OCA\ChoreStrike\Db\RoomTask>, tasksById: array<int, \OCA\ChoreStrike\Db\Task>, visible: array<int, true>}
+	 */
+	private function scopeOf(int $houseId, HouseUser $viewer, array $roomTaskIds): array {
+		$ids = array_values(array_unique(array_filter($roomTaskIds)));
+		$roomTasksById = [];
+		foreach ($ids === [] ? [] : $this->roomTaskMapper->findByIdsScopedToHouse($ids, $houseId) as $roomTask) {
+			$roomTasksById[(int)$roomTask->getId()] = $roomTask;
+		}
+		$tasksById = $roomTasksById === [] ? [] : $this->taskMapper->findByIds(array_values(array_unique(array_map(
+			static fn ($roomTask): int => $roomTask->getTaskId(),
+			$roomTasksById
+		))));
+		$visible = [];
+		foreach ($this->taskAccessPolicy->filterVisibleRoomTasks(array_values($roomTasksById), $tasksById, $viewer) as $roomTask) {
+			$visible[(int)$roomTask->getId()] = true;
+		}
+		return ['roomTasksById' => $roomTasksById, 'tasksById' => $tasksById, 'visible' => $visible];
 	}
 
 	/**
@@ -149,53 +190,33 @@ class ActivityService {
 	 *
 	 * One IN-map fetch per referenced table (CS-PLAN-036 idioms); dangling
 	 * references simply miss the map and serialize as null. Task content of
-	 * tasks invisible to the viewer is redacted via the ONE visibility
-	 * matrix (TaskAccessPolicy, one batched assignee fetch — no N+1).
+	 * tasks invisible to the viewer is redacted: the content of a row
+	 * outside the scope's visible set serializes as null.
 	 *
-	 * @param int $houseId The house ID
 	 * @param CompletedTask[] $completions Completions of the house
 	 * @param HouseUser $viewer The acting user's house membership
+	 * @param HouseUser[] $members The members of the house
+	 * @param array{roomTasksById: array<int, \OCA\ChoreStrike\Db\RoomTask>, tasksById: array<int, \OCA\ChoreStrike\Db\Task>, visible: array<int, true>} $scope {@see scopeOf()}
 	 * @return array<int, array<string, mixed>>
 	 */
-	private function enrich(int $houseId, array $completions, HouseUser $viewer): array {
+	private function enrich(array $completions, HouseUser $viewer, array $members, array $scope): array {
 		if ($completions === []) {
 			return [];
 		}
-
-		$roomTaskIds = [];
-		foreach ($completions as $completion) {
-			$roomTaskIds[$completion->getRoomTaskId()] = true;
-		}
-
-		// findByIdsScopedToHouse is skip-on-missing — dangling room task ids
-		// are absent from the map and their completions fall back to nulls.
-		$roomTasksById = [];
-		foreach ($this->roomTaskMapper->findByIdsScopedToHouse(array_keys($roomTaskIds), $houseId) as $roomTask) {
-			$roomTasksById[$roomTask->getId()] = $roomTask;
-		}
-
-		$taskIds = [];
+		['roomTasksById' => $roomTasksById, 'tasksById' => $tasksById, 'visible' => $visibleRoomTaskIds] = $scope;
+		// Only the rooms of the completions; the scope may name more room tasks.
 		$roomIds = [];
-		foreach ($roomTasksById as $roomTask) {
-			$taskIds[$roomTask->getTaskId()] = true;
-			$roomIds[$roomTask->getRoomId()] = true;
+		foreach ($completions as $completion) {
+			$roomTask = $roomTasksById[$completion->getRoomTaskId()] ?? null;
+			if ($roomTask !== null) {
+				$roomIds[$roomTask->getRoomId()] = true;
+			}
 		}
-		$tasksById = $this->taskMapper->findByIds(array_keys($taskIds));
 		$roomsById = $this->roomMapper->findByIds(array_keys($roomIds));
 
-		// Visibility redaction set: the room tasks of this batch the viewer
-		// may see (D2 matrix, ADR-010: a private task per room task, its
-		// creator and THAT room task's assignees). Content of the other rows
-		// serializes as null.
-		$visibleRoomTaskIds = [];
-		foreach ($this->taskAccessPolicy->filterVisibleRoomTasks(array_values($roomTasksById), $tasksById, $viewer) as $roomTask) {
-			$visibleRoomTaskIds[(int)$roomTask->getId()] = true;
-		}
-
-		// Houses are small — one membership fetch covers every completer.
 		$membersById = [];
 		$membersByWalletId = [];
-		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
+		foreach ($members as $member) {
 			$membersById[$member->getId()] = $member;
 			if ($member->getWalletId() !== null) {
 				$membersByWalletId[$member->getWalletId()] = $member;
@@ -205,7 +226,10 @@ class ActivityService {
 			static fn (CompletedTask $completion): int => (int)$completion->getId(),
 			$completions
 		));
-		$latestValidIds = $this->completedTaskMapper->findLatestValidIdsByRoomTasks(array_keys($roomTaskIds));
+		$latestValidIds = $this->completedTaskMapper->findLatestValidIdsByRoomTasks(array_values(array_unique(array_map(
+			static fn (CompletedTask $completion): int => $completion->getRoomTaskId(),
+			$completions
+		))));
 
 		$items = [];
 		foreach ($completions as $completion) {
@@ -231,8 +255,9 @@ class ActivityService {
 				}
 			}
 			// Someone recorded the work for other people (decision 10).
-			$item['recordedForOthers'] = $item['allocation'] !== [] && $completion->getUserId() !== null
-				&& !in_array(($membersById[$completion->getUserId()] ?? null)?->getNextcloudUserId(), array_column($item['allocation'], 'userId'), true);
+			$item['recordedForOthers'] = CompletionReadModel::recordedForOthers(
+				$completion->getUserId(), $membersById[(int)($completion->getUserId() ?? 0)] ?? null, array_column($item['allocation'], 'userId')
+			);
 			$items[] = $item;
 		}
 

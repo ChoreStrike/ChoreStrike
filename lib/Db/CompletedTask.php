@@ -63,6 +63,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setWindowStartOn(?\DateTime $windowStartOn)
  * @method \DateTime|null getWindowEndOn()
  * @method void setWindowEndOn(?\DateTime $windowEndOn)
+ * @method int|null getBonusPercent()
+ * @method void setBonusPercent(?int $bonusPercent)
+ * @method array|null getCoinFactors()
+ * @method void setCoinFactors(?array $coinFactors)
  */
 class CompletedTask extends Entity implements JsonSerializable {
 	/** Completion classified inside its agreed window (CS-PLAN-072 WP1). */
@@ -174,6 +178,19 @@ class CompletedTask extends Entity implements JsonSerializable {
 	/** @var \DateTime|null */
 	protected $windowEndOn;
 
+	/**
+	 * The two coin multipliers, frozen with the completion (ADR-021
+	 * decision 11): the percent of its work day (100 or 150) and the coin
+	 * factor of every member of the house by wallet id. NULL on rows from
+	 * before the multipliers, which were paid at factor 1 and 100 percent.
+	 *
+	 * @var int|null
+	 */
+	protected $bonusPercent;
+
+	/** @var array<string, int>|null */
+	protected $coinFactors;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('roomTaskId', 'integer');
@@ -194,6 +211,8 @@ class CompletedTask extends Entity implements JsonSerializable {
 		$this->addType('cycleKey', 'string');
 		$this->addType('windowStartOn', 'date');
 		$this->addType('windowEndOn', 'date');
+		$this->addType('bonusPercent', 'integer');
+		$this->addType('coinFactors', 'json');
 	}
 
 	/**
@@ -219,7 +238,28 @@ class CompletedTask extends Entity implements JsonSerializable {
 		if ($this->windowEndOn === null || $this->completionClass === self::CLASS_BONUS) {
 			return (string)$this->completionClass;
 		}
-		return $workDayKey <= $this->windowEndOn->format('Y-m-d') ? self::CLASS_ON_TIME : self::CLASS_LATE;
+		return self::classify($workDayKey, $this->windowEndOn->format('Y-m-d'));
+	}
+
+	/**
+	 * The one classifier (D-091-02): work done up to the last day of its
+	 * window, a postponement included, is on time; after it is late.
+	 *
+	 * @param string $workDayKey House-local work day (`Y-m-d`)
+	 * @param string $windowEndOn Last day of the window (`Y-m-d`)
+	 */
+	public static function classify(string $workDayKey, string $windowEndOn): string {
+		return $workDayKey <= $windowEndOn ? self::CLASS_ON_TIME : self::CLASS_LATE;
+	}
+
+	/** The percent the completion's coins counted on its work day (100 without a bonus period). */
+	public function bonusPercentOrDefault(): int {
+		return $this->bonusPercent ?? BonusPeriod::PERCENT_NONE;
+	}
+
+	/** The frozen coin factor of a wallet; a member the completion did not know counts × 1. */
+	public function coinFactorOf(int $walletId): int {
+		return max(1, (int)($this->coinFactors[(string)$walletId] ?? 1));
 	}
 
 	/**

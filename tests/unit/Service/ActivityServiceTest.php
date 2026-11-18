@@ -26,6 +26,7 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityEventService;
 use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\CompletionAuthority;
+use OCA\ChoreStrike\Service\RoomTaskAccess;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -77,7 +78,7 @@ class ActivityServiceTest extends TestCase {
 			$this->taskMapper,
 			$this->roomMapper,
 			$this->houseUserMapper,
-			$this->taskAssigneeMapper,
+			new RoomTaskAccess($this->roomTaskMapper, $this->taskMapper, $this->taskAssigneeMapper, $this->houseUserMapper, $this->taskAccessPolicy, $l10n),
 			$this->taskAccessPolicy,
 			$this->workShareMapper,
 			new CompletionAuthority($this->completedTaskMapper, $l10n),
@@ -238,8 +239,12 @@ class ActivityServiceTest extends TestCase {
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$worker, $recorder]);
 		$this->workShareMapper->method('findSelectedByCompletionIds')->willReturn([101 => [$share]]);
 		$this->taskAccessPolicy->method('canView')->willReturn(true);
-		$this->events->expects($this->once())->method('eventsSince')
-			->with(1, $this->isInstanceOf(\DateTimeInterface::class), 50, null, $this->isInstanceOf(HouseUser::class))
+		// The events get the same membership read and only the titles the viewer may read.
+		$taskEvents = [['type' => 'postponed', 'roomTaskId' => 21]];
+		$this->events->expects($this->once())->method('taskEventsSince')
+			->with(1, $this->isInstanceOf(\DateTimeInterface::class), 50, null)->willReturn($taskEvents);
+		$this->events->expects($this->once())->method('present')
+			->with(1, $this->isInstanceOf(\DateTimeInterface::class), 50, null, $taskEvents, [21 => $task->getName()], [$worker, $recorder])
 			->willReturn([['type' => 'postponed']]);
 
 		$result = $this->service->getActivity(1, 30, 50, null, $this->makeViewer());
@@ -306,7 +311,9 @@ class ActivityServiceTest extends TestCase {
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 		$service = new ActivityService(
 			$this->completedTaskMapper, $this->roomTaskMapper, $this->taskMapper, $this->roomMapper,
-			$this->houseUserMapper, $this->taskAssigneeMapper, $policy, $this->workShareMapper,
+			$this->houseUserMapper,
+			new RoomTaskAccess($this->roomTaskMapper, $this->taskMapper, $this->taskAssigneeMapper, $this->houseUserMapper, $policy, $l10n),
+			$policy, $this->workShareMapper,
 			new CompletionAuthority($this->completedTaskMapper, $l10n), $this->events, $l10n,
 		);
 		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturn([

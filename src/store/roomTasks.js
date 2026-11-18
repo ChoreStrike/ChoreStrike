@@ -71,6 +71,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// separate so Today items never bleed into the shared flat list
 		// consumed by TaskManager.
 		dailyTasks: [],
+		// CS-PLAN-091 WP-B4: the bonus tasks of Today — never due, so apart
+		// from the daily list. Each row says whom it paid today.
+		bonusTasks: [],
+		bonusLoaded: false,
+		bonusRequestSeq: 0,
 		// CS-PLAN-066 (D2): dedicated due-today/overdue count projections.
 		// They hold complete viewer-visible ENDPOINT results (enriched rows
 		// `{roomTask, task, room, assignees}`) so counters stay truthful on
@@ -135,6 +140,15 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		isCompleting: (state) => (roomTaskId) => state.completingIds[roomTaskId] === true,
 
 		wasJustCompleted: (state) => (roomTaskId) => state.justCompletedIds[roomTaskId] === true,
+
+		/**
+		 * Whether a room task is one of the bonus rows of Today, whose
+		 * `creditedToday` a correction can change.
+		 *
+		 * @param {object} state Pinia state
+		 * @return {function(?number): boolean}
+		 */
+		isBonusTask: (state) => (roomTaskId) => state.bonusTasks.some((item) => item.roomTask?.id === roomTaskId),
 
 		/**
 		 * Finished room tasks: the on-demand inactive read plus rows of the
@@ -535,7 +549,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				// reuses the pending command UUID so an uncertain first
 				// response replays the original receipt instead of 409ing on
 				// a new command against the now-fulfilled target.
-				const commandKey = `${roomTaskId}:${target.cycleKey ?? 'bonus'}:${target.expectedVersion}`
+				const commandKey = `${roomTaskId}:${target.cycleKey ?? target.state}:${target.expectedVersion}`
 				let commandId = this.pendingCommands[commandKey]
 				if (!commandId) {
 					commandId = generateCommandId()
@@ -560,6 +574,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 					this.reconcileCompletionPayload(roomTaskId, data)
 					this.markJustCompleted(roomTaskId)
+					if (target.state === 'bonus') {
+						this._markBonusCredited(roomTaskId, data.rewards?.participants ?? [])
+					}
 
 					const rewards = data.rewards
 					emit('chorestrike:task-completed', {
@@ -626,17 +643,20 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Resolve the shown completion target of a room task from any
-		 * cached slice: the row's `cycle` block with the cycle key (none
-		 * for a bonus task) and the cycle version. Returns null when no
-		 * completable block is cached — a task that is done, asleep or
-		 * shown from stale state (the caller surfaces a reload hint).
+		 * Resolve the shown target of a room task from any cached slice:
+		 * the row's `cycle` block with the cycle key and the cycle version.
+		 * A bonus task and a sleeping one have no cycle to name; their
+		 * version alone is the receipt (completing a sleeping task wakes
+		 * it, ADR-021 decision 7). Returns null when no such block is
+		 * cached — a task that is done or shown from stale state (the
+		 * caller surfaces a reload hint).
 		 * @param {number} roomTaskId Room task identifier.
 		 * @return {?object} `{ cycleKey?, expectedVersion, state }`
 		 */
 		_completionTargetFor(roomTaskId) {
 			const sources = [
 				this.dailyTasks,
+				this.bonusTasks,
 				this.dueTodayTasks,
 				this.overdueTasks,
 				this.roomTasks,
@@ -644,11 +664,28 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			for (const slice of sources) {
 				const row = slice.find((item) => (item.roomTask?.id ?? item.id) === roomTaskId)
 				const cycle = row?.cycle ?? row?.roomTask?.cycle
-				if (Number.isInteger(cycle?.expectedVersion) && (cycle.cycleKey || cycle.state === 'bonus')) {
+				if (Number.isInteger(cycle?.expectedVersion) && (cycle.cycleKey || ['bonus', 'asleep'].includes(cycle.state))) {
 					return cycle
 				}
 			}
 			return null
+		},
+
+		/**
+		 * A bonus task paid the given people today: its row says so at
+		 * once, so the page offers it to the others only (ADR-021
+		 * decision 8). The next read of the bonus rows confirms it.
+		 * @param {number} roomTaskId The bonus room task.
+		 * @param {Array<{userId: ?string}>} participants The people the completion credited.
+		 */
+		_markBonusCredited(roomTaskId, participants) {
+			const index = this.bonusTasks.findIndex((item) => item.roomTask?.id === roomTaskId)
+			if (index < 0) {
+				return
+			}
+			const row = this.bonusTasks[index]
+			const credited = new Set([...(row.creditedToday ?? []), ...participants.map((participant) => participant.userId).filter(Boolean)])
+			this.bonusTasks[index] = { ...row, creditedToday: [...credited].sort() }
 		},
 
 		/**
@@ -682,7 +719,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				const roomTask = this.reconcileCompletionPayload(data.roomTask?.id ?? null, data)
 				emit('chorestrike:task-uncompleted', { roomTaskId: data.roomTask?.id ?? null, roomTask })
 
-				this.refreshDerivedProjections()
+				// A deleted entry of a bonus task frees its people for the day:
+				// the bonus rows read again who was paid.
+				this.refreshDerivedProjections({ bonus: data.cycle?.state === 'bonus' })
 
 				return data
 			} catch (error) {
@@ -766,7 +805,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				delete this.pendingAttributions[completionId]
 
 				this.reconcileCompletionPayload(data.roomTask?.id ?? null, data)
-				this.refreshDerivedProjections()
+				// A change of people on a bonus entry changes whom it paid today.
+				this.refreshDerivedProjections({ bonus: this.isBonusTask(data.roomTask?.id ?? null) })
 
 				return data
 			} catch (error) {
@@ -894,7 +934,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			}
 
-			for (const slice of ['dueTodayTasks', 'overdueTasks']) {
+			for (const slice of ['dueTodayTasks', 'overdueTasks', 'bonusTasks']) {
 				const sliceIndex = this[slice].findIndex((item) => item.roomTask?.id === roomTaskId)
 				if (sliceIndex >= 0) {
 					this[slice][sliceIndex] = {
@@ -920,7 +960,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					cycle: cycle ?? null,
 				}
 			}
-			for (const slice of ['dailyTasks', 'dueTodayTasks', 'overdueTasks']) {
+			for (const slice of ['dailyTasks', 'dueTodayTasks', 'overdueTasks', 'bonusTasks']) {
 				const sliceIndex = this[slice].findIndex((item) => item.roomTask?.id === roomTaskId)
 				if (sliceIndex >= 0) {
 					this[slice][sliceIndex] = {
@@ -1057,9 +1097,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * them (a saved definition edit, a conflict after someone else's edit).
 		 * @param {?number} [options.roomId] The room to reread when the house
 		 * list is not loaded.
+		 * @param {boolean} [options.bonus] Reread only the bonus rows: a
+		 * correction of a bonus entry changed whom they paid today.
 		 * @return {Promise<boolean>} True when every attempted refresh succeeded.
 		 */
-		async refreshDerivedProjections({ rows = false, roomId = null } = {}) {
+		async refreshDerivedProjections({ rows = false, roomId = null, bonus = false } = {}) {
 			if (this.countsRefreshing) {
 				// A refresh is already in flight for this transition — one
 				// owner per mutation, no duplicate refetches.
@@ -1075,6 +1117,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			}
 			if (rows && this.dailyTasks.length > 0) {
 				attempts.push(() => this.fetchFilteredDailyTasks())
+			}
+			// `bonus`: only whom the bonus rows paid today changed (a correction of a bonus entry).
+			if ((rows || bonus) && this.bonusLoaded) {
+				attempts.push(() => this.fetchBonusTasks())
 			}
 			if (rows && this.houseLoaded) {
 				attempts.push(() => this.fetchHouseRoomTasks())
@@ -1196,6 +1242,28 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
+		 * Fetch the bonus tasks of Today (ADR-021 decision 8): every
+		 * visible bonus task that is not asleep, each with the members it
+		 * already paid today (`creditedToday`). An optional read: a failure
+		 * leaves the section empty and never the day's work in an error.
+		 * @return {Promise<Array>} The bonus rows.
+		 */
+		async fetchBonusTasks() {
+			const seq = ++this.bonusRequestSeq
+			try {
+				const data = await api.get('/api/v1/room-tasks/bonus')
+				if (seq === this.bonusRequestSeq) {
+					this.bonusTasks = data
+					this.bonusLoaded = true
+				}
+				return this.bonusTasks
+			} catch (error) {
+				logger.error('Failed to fetch bonus tasks', error, { store: 'roomTasks', action: 'fetchBonusTasks' })
+				throw error
+			}
+		},
+
+		/**
 		 * Clear error state
 		 */
 		clearError() {
@@ -1243,6 +1311,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 			this.rangeTasks = { scheduled: [], completed: [], from: null, to: null }
 			this.dailyTasks = []
+			this.bonusTasks = []
+			this.bonusLoaded = false
 			this.dueTodayTasks = []
 			this.overdueTasks = []
 			this.dueTodayLoaded = false
@@ -1265,6 +1335,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			// Invalidate in-flight reads so a stale response cannot land
 			// after the reset (house/user change).
 			this.dailyRequestSeq++
+			this.bonusRequestSeq++
 			this.rangeRequestSeq++
 			this.dueTodayRequestSeq++
 			this.overdueRequestSeq++

@@ -24,9 +24,13 @@
 						<input
 							v-model="participant.active"
 							type="checkbox"
+							:disabled="unavailable.includes(participant.userId)"
 							:data-testid="`participant-active-${participant.userId}`"
 							@change="onActiveChange">
 						{{ participant.displayName }}
+						<span v-if="unavailableNote && unavailable.includes(participant.userId)" class="participant-note">
+							{{ unavailableNote }}
+						</span>
 					</label>
 					<input
 						v-model.number="participant.sharePct"
@@ -115,6 +119,21 @@ export default {
 			default: null,
 		},
 
+		/**
+		 * Completion mode: user ids that cannot be credited (a bonus task
+		 * already paid them today). Their rows stay visible, unticked and
+		 * disabled, with `unavailableNote` as the reason.
+		 */
+		unavailable: {
+			type: Array,
+			default: () => [],
+		},
+
+		unavailableNote: {
+			type: String,
+			default: '',
+		},
+
 		/** Optional dialog heading override (defaults to the completion copy). */
 		heading: {
 			type: String,
@@ -195,7 +214,7 @@ export default {
 				.map((member) => ({
 					userId: member.userId,
 					displayName: member.displayName,
-					active: ticked === null || ticked.includes(member.userId),
+					active: (ticked === null || ticked.includes(member.userId)) && !this.unavailable.includes(member.userId),
 					sharePct: 0,
 				}))
 				.sort((a, b) => String(a.userId).localeCompare(String(b.userId)))
@@ -254,6 +273,12 @@ export default {
 .participation-dialog h2 {
 	margin: 0 0 0.5rem 0;
 	font-size: 1.2rem;
+}
+
+.participant-note {
+	margin-inline-start: 0.35rem;
+	font-size: 0.8rem;
+	color: var(--color-text-maxcontrast);
 }
 
 .dialog-hint {

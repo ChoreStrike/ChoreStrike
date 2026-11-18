@@ -163,7 +163,7 @@ neutral (D-091-03) and keep what was earned before the update (D-091-04). Detail
 ---
 
 ### [P2] FEAT-UX-069 — Sleeping and bonus tasks
-**Status**: In Progress (CS-PLAN-091 WP-B4, active 2026-11-16) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task setup
+**Status**: In Progress (CS-PLAN-091 WP-B4, implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task setup
 **Owning**: CS-PLAN-091 WP-B4 · **Depends on**: FEAT-UX-068 · **Blocks**: — · **Folded-in**: —
 **Source**: Operator decision of 2026-11-09 (CONCEPT-002)
 
@@ -172,13 +172,16 @@ overdue, no capacity. Bonus tasks are voluntary and always available: never due 
 at most one completion per person, task and day, energy and coins paid, outside the weekly
 goal, the rhythm and the ranking.
 
-- [ ] Sleep and wake per room task; bonus as a definition property; *Today* lists bonus tasks.
-- [ ] Tests per CS-PLAN-091 §4 (WP-B4).
+- [x] Sleep and wake per room task; bonus as a definition property; *Today* lists bonus tasks
+      (implemented 2026-11-18, D-091-65 to D-091-69; interim Full review `PASS-WITH-FIXES`, D-091-81 to D-091-84. The
+      sleep control and the bonus switch move into the one form with WP-B6, D-091-74).
+- [x] Tests per CS-PLAN-091 §4 (WP-B4): `SleepAndBonusTest`, `WindowServiceTest`, the
+      controller and store specs, and the browser scenario of a bonus day on *Today*.
 
 ---
 
 ### [P2] FEAT-UX-070 — Coin factor per member and bonus days
-**Status**: In Progress (CS-PLAN-091 WP-B5, active 2026-11-16) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: rewards
+**Status**: In Progress (CS-PLAN-091 WP-B5, implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: rewards
 **Owning**: CS-PLAN-091 WP-B5 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator decisions of 2026-11-09 and 2026-11-10 (CONCEPT-002)
 
@@ -187,9 +190,13 @@ days, × 1.5). Both apply to coins only, multiply with each other and are frozen
 completion, so undo and attribution reverse exactly what was paid. Energy and every
 recognition stay unchanged. Amends ADR-014.
 
-- [ ] ADR-014 amendment in ADR-021 before code.
-- [ ] Owner settings, frozen factors, *Today* shows a running bonus period.
-- [ ] Tests per CS-PLAN-091 §4 (WP-B5).
+- [x] ADR-014 amendment in ADR-021 before code (decision 11, WP-0).
+- [x] Owner settings, frozen factors, *Today* shows a running bonus period (implemented
+      2026-11-18 with the schema step `Version1037`, D-091-64 and D-091-70 to D-091-73; interim
+      Full review `PASS-WITH-FIXES`, the erasure of a departed account fixed, D-091-78).
+- [x] Tests per CS-PLAN-091 §4 (WP-B5): `CoinMultiplierTest`, `CoinMultiplierStepTest`,
+      `EffortAllocationServiceTest`, the controller and settings specs, the provider matrix
+      and proof P4 on both runtime rows.
 
 ---
 

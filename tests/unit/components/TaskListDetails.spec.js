@@ -92,7 +92,23 @@ describe('TaskListDetails cycle actions (CS-PLAN-091 WP-B3)', () => {
 		const wrapper = mountDetails({ item: { roomTask: roomTask({ isActive: false, cycle: null }), task: task() } })
 
 		expect(wrapper.findComponent({ name: 'PostponeButton' }).exists()).toBe(false)
+		expect(wrapper.findComponent({ name: 'SleepControl' }).exists()).toBe(false)
 		expect(wrapper.findComponent({ name: 'TaskHistory' }).exists()).toBe(true)
+	})
+
+	it('offers sleeping to adults and the owner only (CS-PLAN-091 WP-B4)', () => {
+		const item = { roomTask: roomTask({ cycle }), task: task({ flexDays: 2 }) }
+
+		expect(mountDetails({ item }).findComponent({ name: 'SleepControl' }).props()).toEqual({ roomTaskId: 42, cycle })
+		expect(mountDetails({ item, canManageTasks: false }).findComponent({ name: 'SleepControl' }).exists()).toBe(false)
+	})
+
+	it('offers waking a sleeping task, which has nothing to postpone', () => {
+		const asleep = { state: 'asleep', expectedVersion: 5, wakeOn: null }
+		const wrapper = mountDetails({ item: { roomTask: roomTask({ cycle: asleep }), task: task() } })
+
+		expect(wrapper.find('[data-testid="postpone-button"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="sleep-wake"]').exists()).toBe(true)
 	})
 })
 

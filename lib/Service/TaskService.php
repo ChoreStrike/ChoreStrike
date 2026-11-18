@@ -472,6 +472,11 @@ class TaskService {
 			}
 		}
 
+		// The bonus flag (ADR-021 decision 8) is a boolean, never coerced.
+		if (array_key_exists('isVoluntary', $taskData) && !is_bool($taskData['isVoluntary'])) {
+			$errors[] = $this->typeError('isVoluntary');
+		}
+
 		return $errors;
 	}
 

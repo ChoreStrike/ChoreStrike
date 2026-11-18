@@ -64,9 +64,13 @@ class CycleService {
 	 * Resolve the cycle a completion names UNDER LOCK (decision 4): it
 	 * must be the current one at the version the client showed. A task
 	 * can be completed before, inside or after its window, but not on the
-	 * house-local day of its latest valid completion. Until WP-B4 brings
-	 * the per-person rule of decision 8, that day rule holds for a bonus
-	 * task too.
+	 * house-local day of its latest valid completion.
+	 *
+	 * A bonus task and a sleeping task have no cycle to name: the client
+	 * sends the version alone. A bonus task has no day rule here; whom it
+	 * may still pay today is the completion's question (decision 8). A
+	 * sleeping task wakes with the completion, which fulfils the fresh
+	 * cycle (D-091-22).
 	 *
 	 * The fixed cycles that stopped being current before the target are
 	 * recorded as missed first: the timeline job may not have reached them,
@@ -77,28 +81,68 @@ class CycleService {
 	 */
 	public function resolveTargetUnderLock(int $houseId, RoomTask $roomTask, Task $task, ?string $cycleKey, int $expectedVersion, \DateTimeZone $timeZone, \DateTime $now): ?CurrentCycle {
 		$roomTaskId = (int)$roomTask->getId();
-		$stale = new StaleTargetException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
-		if ($task->getIsVoluntary()) {
-			if ($cycleKey !== null || $roomTask->getCycleVersion() !== $expectedVersion) {
-				throw $stale;
+		$named = !$task->getIsVoluntary() && $roomTask->getSleepingSince() === null;
+		if (!$named) {
+			$this->assertTarget(null, $roomTask, $cycleKey, $expectedVersion);
+			if ($roomTask->getSleepingSince() !== null) {
+				$this->wakeUnderLock($roomTask, $task, WindowService::todayKey($now, $timeZone), $timeZone, $now);
 			}
-			$this->assertNotDoneToday($this->windows->historiesFor([$roomTaskId])[$roomTaskId] ?? null, $timeZone, $now);
-			return null;
-		}
-		if ($cycleKey !== null && $this->cycleMapper->findByKey($roomTaskId, $cycleKey)?->getOutcome() === Cycle::OUTCOME_DONE) {
+			if ($task->getIsVoluntary()) {
+				return null;
+			}
+		} elseif ($cycleKey !== null && $this->cycleMapper->findByKey($roomTaskId, $cycleKey)?->getOutcome() === Cycle::OUTCOME_DONE) {
 			throw new ConflictException($this->l10n->t('This task is already completed'), ConflictException::REASON_ALREADY_COMPLETED);
 		}
 
 		$history = $this->windows->historiesFor([$roomTaskId])[$roomTaskId] ?? null;
 		$cycle = $this->windows->currentCycle($roomTask, $task, $history, $timeZone, $now);
-		if ($cycle === null || $cycle->key !== $cycleKey || $roomTask->getCycleVersion() !== $expectedVersion) {
-			throw $stale;
+		if ($named) {
+			$this->assertTarget($cycle, $roomTask, $cycleKey, $expectedVersion);
+		} elseif ($cycle === null) {
+			// The woken rule has no cycle left: a bounded rule ended while the
+			// task slept. Waking it closes it; nothing is left to complete.
+			throw new ConflictException($this->l10n->t('This task has ended. Wake it up to close it.'), ConflictException::REASON_TASK_ENDED);
 		}
 		$this->assertNotDoneToday($history, $timeZone, $now);
 		if (self::canMiss($task)) {
 			$this->recordMissedUnderLock($this->houseMapper->find($houseId), $roomTask, $task, $history, $timeZone, $now);
 		}
 		return $cycle;
+	}
+
+	/**
+	 * The one stale-target check (decision 2): the key the client showed is
+	 * the current cycle's — none for a task without a cycle to name — at
+	 * the cycle version it showed.
+	 *
+	 * @throws StaleTargetException
+	 */
+	private function assertTarget(?CurrentCycle $cycle, RoomTask $roomTask, ?string $cycleKey, int $expectedVersion): void {
+		if ($cycle?->key !== $cycleKey || $roomTask->getCycleVersion() !== $expectedVersion) {
+			throw new StaleTargetException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
+		}
+	}
+
+	/**
+	 * The completions of a bonus task moved UNDER LOCK (a completion, an
+	 * undo, a date correction): it has no cycle, so nothing derives and its
+	 * version stays — several people complete it on one day (decision 8,
+	 * D-091-84). Only its last-completed mark follows.
+	 */
+	public function bonusDoneUnderLock(RoomTask $roomTask, ?\DateTime $lastCompleted): void {
+		$roomTask->setLastCompleted($lastCompleted);
+		$this->roomTaskMapper->update($roomTask);
+	}
+
+	/** An awake bonus task: no cycle, so its completions never move its version (D-091-84). */
+	private static function isAwakeBonus(RoomTask $roomTask, Task $task): bool {
+		return $task->getIsVoluntary() && $roomTask->getSleepingSince() === null;
+	}
+
+	/** Whether a sleeping room task is due to wake: its wake date has come (decision 7). */
+	public static function wakesBy(RoomTask $roomTask, string $todayKey): bool {
+		return $roomTask->getSleepingSince() !== null && $roomTask->getWakeOn() !== null
+			&& $roomTask->getWakeOn()->format('Y-m-d') <= $todayKey;
 	}
 
 	/** Only a recurring fixed rule has cycles that can be missed (decision 5). */
@@ -152,6 +196,10 @@ class CycleService {
 		$this->cycleMapper->deleteByCompletionId($roomTaskId, (int)$completion->getId());
 		$latest = $this->completedTaskMapper->findNewestRevertibleByRoomTask($roomTaskId);
 		$roomTask->setLastCompleted($latest?->getCompletedAt());
+		if (self::isAwakeBonus($roomTask, $task)) {
+			$this->roomTaskMapper->update($roomTask);
+			return;
+		}
 		if (!$roomTask->getIsActive() && $roomTask->getDeletedAt() === null) {
 			$roomTask->setIsActive(true);
 		}
@@ -181,48 +229,90 @@ class CycleService {
 	 * @throws ConflictException `STALE_TARGET`, `WINDOW_ENDED` or `NOT_POSTPONABLE`
 	 */
 	public function postponeUnderLock(RoomTask $roomTask, Task $task, string $cycleKey, int $expectedVersion, \DateTimeZone $timeZone, \DateTime $now): CurrentCycle {
-		$cycle = $this->currentFor($roomTask, $task, $timeZone, $now);
-		if ($cycle === null || $cycle->key !== $cycleKey || $roomTask->getCycleVersion() !== $expectedVersion) {
+		// A postponement moves no completion: one read serves both derivations.
+		$histories = $this->windows->historiesFor([(int)$roomTask->getId()]);
+		$cycle = $this->currentFor($roomTask, $task, $timeZone, $now, $histories);
+		if ($cycle === null) {
 			throw new StaleTargetException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
 		}
-		if ($cycle->isOverdue(WindowService::todayKey($now, $timeZone))) {
-			throw new ConflictException($this->l10n->t('An overdue task cannot be postponed'), ConflictException::REASON_WINDOW_ENDED);
-		}
-		$step = WindowService::postponeStep((int)$task->getFlexDays());
-		if ($step === 0 || $cycle->postponeCount >= WindowService::MAX_POSTPONEMENTS) {
-			throw new ConflictException($this->l10n->t('This task cannot be postponed any further'), ConflictException::REASON_NOT_POSTPONABLE);
+		$this->assertTarget($cycle, $roomTask, $cycleKey, $expectedVersion);
+		$refusal = WindowService::postponeRefusal($task, $cycle, WindowService::todayKey($now, $timeZone));
+		if ($refusal !== null) {
+			throw new ConflictException($refusal === ConflictException::REASON_WINDOW_ENDED
+				? $this->l10n->t('An overdue task cannot be postponed')
+				: $this->l10n->t('This task cannot be postponed any further'), $refusal);
 		}
 		$roomTask->setCycleKey($cycle->key);
 		$roomTask->setPostponeCount($cycle->postponeCount + 1);
-		$roomTask->setPostponeDays($cycle->postponeDays + $step);
+		$roomTask->setPostponeDays($cycle->postponeDays + WindowService::postponeStep((int)$task->getFlexDays()));
+		return $this->changedUnderLock($roomTask, $task, $timeZone, $now, $histories);
+	}
+
+	/**
+	 * Put a room task to sleep UNDER LOCK (decision 7): it has no cycle
+	 * until it wakes — no window, never overdue, nothing to suggest. A
+	 * fixed cycle that had already stopped being current is recorded as
+	 * missed first; the one that is current goes without a trace. Called
+	 * again for a sleeping task, it only moves the wake date.
+	 *
+	 * @param string|null $wakeOn The house-local day the timeline job wakes it (`Y-m-d`)
+	 */
+	public function sleepUnderLock(House $house, RoomTask $roomTask, Task $task, ?string $wakeOn, \DateTimeZone $timeZone, \DateTime $now): void {
+		if ($roomTask->getSleepingSince() === null) {
+			if (self::canMiss($task)) {
+				$roomTaskId = (int)$roomTask->getId();
+				$this->recordMissedUnderLock($house, $roomTask, $task, $this->windows->historiesFor([$roomTaskId])[$roomTaskId] ?? null, $timeZone, $now);
+			}
+			// The current cycle ends without an outcome, and its postponement
+			// with it: the fresh cycle of the wake day starts unmoved, also
+			// when it gets the same key (D-091-82).
+			$roomTask->setCycleKey(null);
+			$roomTask->setPostponeCount(0);
+			$roomTask->setPostponeDays(0);
+			$roomTask->setSleepingSince($now);
+		}
+		$roomTask->setWakeOn($wakeOn === null ? null : RecurrenceCalculator::dayKeyToDate($wakeOn));
+		$this->changedUnderLock($roomTask, $task, $timeZone, $now);
+	}
+
+	/**
+	 * Wake a sleeping room task UNDER LOCK (decision 7): it starts a fresh
+	 * cycle from the wake day ({@see WindowService::wakeAnchor()}). The
+	 * time it slept leaves no missed cycle, because no rule day before the
+	 * new anchor counts.
+	 *
+	 * @param string $wakeDayKey The house-local day it wakes on (`Y-m-d`)
+	 */
+	public function wakeUnderLock(RoomTask $roomTask, Task $task, string $wakeDayKey, \DateTimeZone $timeZone, \DateTime $now): ?CurrentCycle {
+		$anchor = $this->windows->wakeAnchor($roomTask, $task, $wakeDayKey, $timeZone);
+		if ($anchor !== null) {
+			$roomTask->setAnchorOn(RecurrenceCalculator::dayKeyToDate($anchor));
+		}
+		$roomTask->setSleepingSince(null);
+		$roomTask->setWakeOn(null);
 		return $this->changedUnderLock($roomTask, $task, $timeZone, $now);
 	}
 
 	/**
-	 * A date correction UNDER LOCK (decision 9), after the entry itself was
-	 * saved with its new day and its re-derived classification. Its cycle
-	 * row takes that classification. Under an after-completion rule the
-	 * cycle that followed the entry hangs on its day: that cycle's frozen
-	 * window moves with the corrected day and decides its classification
-	 * again. The current cycle derives anew.
+	 * A date correction UNDER LOCK (decision 9), after the completion side
+	 * saved the entry with its new day and classification and moved the
+	 * frozen window of the entry that followed it under an after-completion
+	 * rule. The closed cycles project those frozen facts again, and the
+	 * current cycle derives anew.
 	 *
-	 * @param string $previousDay The entry's work day before the correction
+	 * @param CompletedTask|null $follower The entry whose window moved with the corrected day
 	 */
-	public function redatedUnderLock(RoomTask $roomTask, Task $task, CompletedTask $completion, string $previousDay, \DateTimeZone $timeZone, \DateTime $now): ?CurrentCycle {
+	public function redatedUnderLock(RoomTask $roomTask, Task $task, CompletedTask $completion, ?CompletedTask $follower, \DateTimeZone $timeZone, \DateTime $now): ?CurrentCycle {
 		$roomTaskId = (int)$roomTask->getId();
-		$own = $this->cycleMapper->findByCompletion($roomTaskId, (int)$completion->getId());
-		if ($own !== null && $own->getCompletionClass() !== $completion->getCompletionClass()) {
-			$own->setCompletionClass($completion->getCompletionClass());
-			$this->cycleMapper->update($own);
-		}
-
-		$follower = $this->completedTaskMapper->findValidByCycleKey($roomTaskId, 'c' . $completion->getId());
-		$shift = $this->windows->shiftAfterCompletion($task, $previousDay, $completion->getWorkDate()->format('Y-m-d'));
-		if ($follower !== null && $follower->getWindowEndOn() !== null && $shift !== 0) {
-			$this->moveClosedWindow($roomTaskId, $follower, $shift);
+		foreach (array_filter([$completion, $follower]) as $entry) {
+			$this->projectClosed($roomTaskId, $entry);
 		}
 
 		$roomTask->setLastCompleted($this->completedTaskMapper->findNewestRevertibleByRoomTask($roomTaskId)?->getCompletedAt());
+		if (self::isAwakeBonus($roomTask, $task)) {
+			$this->roomTaskMapper->update($roomTask);
+			return null;
+		}
 		// As the undo: a bounded task that ended may have a cycle again on
 		// the corrected day; the derivation below ends it again if not.
 		if (!$roomTask->getIsActive() && $roomTask->getDeletedAt() === null) {
@@ -231,23 +321,27 @@ class CycleService {
 		return $this->changedUnderLock($roomTask, $task, $timeZone, $now);
 	}
 
-	/** Move the frozen window of a closed cycle and of its completion, and classify the completion against it. */
-	private function moveClosedWindow(int $roomTaskId, CompletedTask $completion, int $shiftDays): void {
-		$startOn = RecurrenceCalculator::offsetDays($completion->getWindowStartOn()->format('Y-m-d'), $shiftDays);
-		$endOn = RecurrenceCalculator::offsetDays($completion->getWindowEndOn()->format('Y-m-d'), $shiftDays);
-		$completion->setWindowStartOn(RecurrenceCalculator::dayKeyToDate($startOn));
-		$completion->setWindowEndOn(RecurrenceCalculator::dayKeyToDate($endOn));
-		$completion->setCompletionClass($completion->classOn($completion->getWorkDate()->format('Y-m-d')));
-		$this->completedTaskMapper->update($completion);
-
+	/**
+	 * The done row of a completion only projects the cycle facts frozen on
+	 * it: bring the row in line after a correction changed them. An entry
+	 * from before the derived model has no row.
+	 */
+	private function projectClosed(int $roomTaskId, CompletedTask $completion): void {
 		$row = $this->cycleMapper->findByCompletion($roomTaskId, (int)$completion->getId());
-		if ($row !== null) {
-			$row->setWindowStartOn(RecurrenceCalculator::dayKeyToDate($startOn));
-			$row->setWindowEndOn(RecurrenceCalculator::dayKeyToDate($endOn));
-			$row->setWeekStart(RecurrenceCalculator::dayKeyToDate(RecurrenceCalculator::mondayOf($endOn)));
-			$row->setCompletionClass($completion->getCompletionClass());
-			$this->cycleMapper->update($row);
+		if ($row === null || $completion->getWindowEndOn() === null) {
+			return;
 		}
+		$startOn = $completion->getWindowStartOn()->format('Y-m-d');
+		$endOn = $completion->getWindowEndOn()->format('Y-m-d');
+		if ($row->getWindowStartOn()->format('Y-m-d') === $startOn && $row->getWindowEndOn()->format('Y-m-d') === $endOn
+			&& $row->getCompletionClass() === $completion->getCompletionClass()) {
+			return;
+		}
+		$row->setWindowStartOn(RecurrenceCalculator::dayKeyToDate($startOn));
+		$row->setWindowEndOn(RecurrenceCalculator::dayKeyToDate($endOn));
+		$row->setWeekStart(RecurrenceCalculator::dayKeyToDate(RecurrenceCalculator::mondayOf($endOn)));
+		$row->setCompletionClass($completion->getCompletionClass());
+		$this->cycleMapper->update($row);
 	}
 
 	/**
@@ -272,7 +366,12 @@ class CycleService {
 	 */
 	public function ruleChangedUnderLock(RoomTask $roomTask, Task $before, Task $after, \DateTimeZone $timeZone, \DateTime $now, ?array $histories = null): ?CurrentCycle {
 		$becomesFixed = $after->getSchedulingMode() === Task::SCHEDULING_STATIC && $after->getRecurrenceMode() !== Task::RECURRENCE_ONCE;
-		if ($becomesFixed && self::ruleShape($before) !== self::ruleShape($after)) {
+		if ($before->getIsVoluntary() && !$after->getIsVoluntary()) {
+			// A bonus task starts producing cycles on the edit day, never from
+			// an anchor its bonus time left behind: those days count no miss
+			// (D-091-81).
+			$roomTask->setAnchorOn(RecurrenceCalculator::dayKeyToDate(WindowService::todayKey($now, $timeZone)));
+		} elseif ($becomesFixed && self::ruleShape($before) !== self::ruleShape($after)) {
 			$previous = CycleRule::fromTask($before);
 			$replaced = $previous->fixed && !$previous->once ? $this->currentFor($roomTask, $before, $timeZone, $now, $histories) : null;
 			$roomTask->setAnchorOn(RecurrenceCalculator::dayKeyToDate($replaced?->centreOn ?? WindowService::todayKey($now, $timeZone)));

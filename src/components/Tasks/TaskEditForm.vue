@@ -268,6 +268,18 @@
 			</div>
 		</div>
 
+		<!-- CS-PLAN-091 WP-B4: the switch of an existing definition; the one
+		     form of WP-B6 brings it to new tasks. -->
+		<div v-if="isEditing" class="form-section">
+			<label class="bonus-switch">
+				<input v-model="isBonus" type="checkbox" data-testid="task-bonus-switch">
+				<span>{{ t('chorestrike', 'Bonus task') }}</span>
+			</label>
+			<p class="visibility-hint">
+				{{ t('chorestrike', 'Voluntary and always available: never due, never overdue. It counts once per person and day, and not for the weekly goal or the streak.') }}
+			</p>
+		</div>
+
 		<div class="form-section">
 			<h3>{{ t('chorestrike', 'Visibility') }}</h3>
 
@@ -494,6 +506,8 @@ export default {
 		// Creation-only first date (kept out of the editable-definition form
 		// payload — it is a room-task property, CS-PLAN-063 §3.5).
 		const firstDate = ref('')
+		// Edit-only: the creation route does not take the bonus flag yet.
+		const isBonus = ref(false)
 
 		const selectedWeekdays = ref([])
 		const selectedRoomId = ref(props.presetRoomId ?? props.initialRoomId)
@@ -592,6 +606,7 @@ export default {
 				form.fixedScheduleTime = newTask.fixedScheduleTime || ''
 				form.flexDays = newTask.flexDays || 0
 				form.visibilityType = newTask.visibilityType || VISIBILITY_PUBLIC
+				isBonus.value = newTask.isVoluntary === true
 				selectedWeekdays.value = parseWeekdays(newTask.fixedScheduleDays)
 			}
 		}, { immediate: true })
@@ -722,12 +737,15 @@ export default {
 				data.roomId = selectedRoomId.value
 				data.assigneeUserIds = [...assigneeUserIds.value]
 				data.firstDate = firstDate.value || null
+			} else {
+				data.isVoluntary = isBonus.value
 			}
 			emit('submit', data)
 		}
 
 		return {
 			form,
+			isBonus,
 			categoryChoices,
 			firstDate,
 			isEditing,
@@ -899,6 +917,15 @@ export default {
 .checkbox-text small {
 	color: var(--color-text-maxcontrast);
 	font-size: 0.85rem;
+}
+
+.bonus-switch {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 44px;
+	font-weight: 600;
+	cursor: pointer;
 }
 
 .visibility-hint {

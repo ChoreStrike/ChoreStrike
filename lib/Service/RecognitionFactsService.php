@@ -90,11 +90,11 @@ class RecognitionFactsService {
 	public function factsForWeek(House $house, string $weekKey, \DateTime $now, ?RecognitionPass $pass = null): array {
 		$endKey = RecurrenceCalculator::offsetDays($weekKey, 6);
 		$pass ??= $this->beginPass($house);
-		return [
+		return $pass->week($weekKey, fn (): array => [
 			...$this->storedFacts($house, $weekKey, $endKey, $now),
 			...$this->closedFacts($this->cycleMapper->findByHouseEndingBetween((int)$house->getId(), max($weekKey, $this->cyclesFrom($house)), $endKey), $pass->absences),
 			...$this->openFacts($house, $now, $weekKey, $endKey, true, $pass),
-		];
+		]);
 	}
 
 	/**

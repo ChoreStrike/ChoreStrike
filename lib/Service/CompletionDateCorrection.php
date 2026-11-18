@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\Task;
 use OCP\IL10N;
 
 /**
@@ -21,11 +22,14 @@ use OCP\IL10N;
  * one, so the latest valid completion remains the one with the highest id
  * and no day ever holds two entries of one task. The work instant keeps
  * its clock time on the corrected day; the classification is decided
- * again against the frozen window of the cycle the entry fulfilled.
+ * again against the frozen window of the cycle the entry fulfilled. Under
+ * an after-completion rule the entry that followed hangs on the corrected
+ * day: its frozen window moves with it.
  */
 class CompletionDateCorrection {
 	public function __construct(
 		private CompletedTaskMapper $completedTaskMapper,
+		private WindowService $windows,
 		private CalendarService $calendar,
 		private IL10N $l10n,
 	) {
@@ -67,6 +71,34 @@ class CompletionDateCorrection {
 		$completion->setWorkZone($timeZone->getName());
 		$completion->setCompletionClass($completion->classOn($dateKey));
 		return $previousDay;
+	}
+
+	/**
+	 * Move the frozen window of the entry that followed the corrected one
+	 * under an after-completion rule, classify it against the moved window
+	 * and persist it. The closed cycle of that entry follows in
+	 * {@see CycleService::redatedUnderLock()}.
+	 *
+	 * @param CompletedTask $corrected The entry after {@see apply()}
+	 * @param string $previousDay Its work day before the correction
+	 * @return CompletedTask|null The entry that moved; null when none hangs on the corrected day
+	 */
+	public function moveFollower(CompletedTask $corrected, Task $task, string $previousDay): ?CompletedTask {
+		$shift = $this->windows->shiftAfterCompletion($task, $previousDay, $corrected->getWorkDate()->format('Y-m-d'));
+		$follower = $shift === 0 ? null : $this->completedTaskMapper->findValidByCycleKey(
+			(int)$corrected->getRoomTaskId(), CurrentCycle::keyAfter((int)$corrected->getId())
+		);
+		if ($follower === null || $follower->getWindowEndOn() === null) {
+			return null;
+		}
+		foreach (['WindowStartOn', 'WindowEndOn'] as $bound) {
+			$follower->{'set' . $bound}(RecurrenceCalculator::dayKeyToDate(
+				RecurrenceCalculator::offsetDays($follower->{'get' . $bound}()->format('Y-m-d'), $shift)
+			));
+		}
+		$follower->setCompletionClass($follower->classOn($follower->getWorkDate()->format('Y-m-d')));
+		$this->completedTaskMapper->update($follower);
+		return $follower;
 	}
 
 	/** The house-local day an entry counts on; a row from before work dates falls back to its instant. */

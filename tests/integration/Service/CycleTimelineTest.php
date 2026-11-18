@@ -577,13 +577,13 @@ PHP);
 		self::assertSame(WindowService::STATE_BONUS, $this->block($f)['state'], 'and stays available');
 		self::assertTrue((bool)$this->rows('chorestrike_room_tasks', 'id', $f['roomTaskId'])[0]['is_active']);
 
-		// Until WP-B4 brings the per-person rule, the day rule holds for
-		// bonus work too (WP-B1 interim review: no unlimited payouts).
+		// Decision 8: whoever records it, the task pays its assignee once a
+		// day (the limits per person: SleepAndBonusTest).
 		try {
 			$this->complete($f, 'ct_helper');
-			self::fail('a second bonus completion on the same day must conflict');
+			self::fail('a second credit of the same person on the same day must conflict');
 		} catch (ConflictException $e) {
-			self::assertSame(ConflictException::REASON_SAME_DAY, $e->getReason());
+			self::assertSame(ConflictException::REASON_BONUS_ALREADY_TODAY, $e->getReason());
 		}
 		self::assertCount(1, $this->rows('chorestrike_completed_tasks', 'room_task_id', $f['roomTaskId']));
 	}

@@ -73,6 +73,7 @@
 			:roomTaskId="id"
 			:taskId="item.task.id"
 			:assignees="item.assignees ?? item.roomTask.assignees ?? []"
+			:withoutSubTasks="item.checklistItemCount === 0"
 			@close="picking = false"
 			@confirm="completeAs" />
 	</div>

@@ -335,7 +335,7 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 			$houseService,
 			$s->get(AppLogger::class),
 		);
-		$prop = (new \ReflectionClass(CompletionService::class))->getProperty('postCommitService');
+		$prop = (new \ReflectionClass(CompletionService::class))->getProperty('postCommit');
 		$prop->setAccessible(true);
 		$prop->setValue($service, $postCommit);
 		return $service;

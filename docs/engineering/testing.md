@@ -460,9 +460,10 @@ with filtered reruns. The current portability findings/evidence live in
 [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md).
 
 Workflow query budgets retain their MariaDB ceilings. The provider checks pin
-PostgreSQL's exact `SELECT lastval()` count (1/8/3 for due-date/completion/undo)
-and SQLite's exact self-assignment lock count (2/7/7); only those documented
-transport/locking statements are added to the corresponding raw query ceiling.
+PostgreSQL's exact `SELECT lastval()` count (7/3/1/2 for completion, undo,
+postpone and date correction) and SQLite's exact self-assignment lock count
+(7/7/2/5); only those documented transport/locking statements are added to the
+corresponding raw query ceiling (`QueryBudgets::assertPortableWriteBudget()`).
 No arbitrary provider allowance or dropped result/lock assertion is permitted.
 
 #### Current-Stable Candidate Staging
@@ -1442,6 +1443,21 @@ fixtures or lock choreography elsewhere:
   field filtering.
 - Query-budget pins: `WorkflowQueryBudgetTest` (the completion flow budget
   includes the pause-independent appointment stamping, RF-073-WP2-20).
+- `tests/integration/Service/SleepAndBonusTest.php` — sleeping and bonus tasks
+  (ADR-021 §7 and §8): sleep and wake by command, by the job on the wake date
+  and by a completion, the wake anchor per rule, no missed cycle for the time
+  asleep; a bonus task paying each person once per house-local day, also on
+  the owner's change of people, and counting for no recognition; the bonus
+  rows of *Today* with `creditedToday`.
+- `tests/integration/Service/CoinMultiplierTest.php` — the coin factor and the
+  bonus periods (ADR-021 §11): owner-only commands, coins in exact minor units
+  with both multipliers, frozen through attribution, undo and a cancelled
+  period, the recognitions untouched, erasure of the frozen wallet id.
+- `tests/integration/Db/CoinMultiplierStepTest.php` — the schema step
+  `Version1037` on a populated household: members read × 1 from the column
+  default, a completion stored before the step is corrected at the rate it was
+  paid, the step adds nothing a second time and the runner does not apply it
+  again. The upgrade from the retained baseline is proof P4.
 - Browser layer: `family-rhythm.spec.ts`, describes *"Family rhythm —
   derived cycles"* (the receipt and its coded conflicts) and *"Family rhythm
   — absences, limits & visibility"* (absences and a house pause leaving the
@@ -1825,8 +1841,19 @@ doctrine/deprecations is inert unless explicitly enabled) and `detach()` in a
 | Empty house read | 1 | mapper fetch only — no enrichment |
 | House list with its cycles | 5 | the house-wide read (3) + the two completion-input reads of the cycle derivation; CONSTANT in row count — the list hands its definitions and the house zone on |
 | A further recognition week of one pass | 3 | the stored occurrences of that week, its closed cycles and their work shares; the open work and the absences come from the `RecognitionPass` |
-| `complete()` | 91 | command receipt read/INSERT + ADR-011/071 house-first locks (house → room_task → room → house_user → wallets) + the current cycle derived under lock (ADR-021) + the work evidence/shares/audit trio + wallet entries and contribution recache + room journal replay + the cycle close (savepoint-guarded insert-if-absent, version bump, `next_due` projection) + rhythm re-derivation on re-loaded members + post-commit weekly-goal cluster + response `cycle` block |
-| `undo()` | 83 | same house-first gate/lock structure + under-lock completion re-read and re-authorization + negative ledger entries + work-share-driven contribution recache + journal replay + the cycle reopen (closed row deleted, projection re-derived) + rhythm re-derivation over both recognition sources + compact-response hydration |
+| `complete()` | 87 | command receipt read/INSERT + ADR-011/071 house-first locks (house → room_task → room → house_user → wallets) + the current cycle derived under lock (ADR-021) + the bonus periods of the work day (the frozen multipliers) + the work evidence/shares/audit trio + wallet entries and contribution recache + room journal replay + the cycle close (savepoint-guarded insert-if-absent, version bump, `next_due` projection) + rhythm re-derivation on re-loaded members + post-commit weekly-goal cluster + response `cycle` block |
+| `undo()` | 72 | same house-first gate/lock structure + under-lock completion re-read and re-authorization + negative ledger entries from the stored share rows + work-share-driven contribution recache + journal replay + the cycle reopen (closed row deleted, projection re-derived) + rhythm re-derivation over both recognition sources + compact-response hydration |
+| Task history read | 8 | the room task with its definition and assignees (the one visibility decision), the entries, the members, the room, the selected shares and the latest valid entry; CONSTANT in entry count (Q(50) = Q(10)) |
+| `postpone()` | 20 | guard and aggregate under the house lock, the receipt, the cycle derivation (one completion read for both derivations) and the fresh row of the answer |
+| Date correction | 82 | a correction aggregate without a ledger effect: the entry and its neighbours, the audit row, the room journal replay, the closed cycle and the cycle that follows, the rhythm and the answer |
+| Activity read with events | 14 | completions, their count, the task events (receipts and audit rows), one membership read, one visibility decision for both lists, the rooms, the shares, the latest valid entries and the absences of the period (the groups with a revision in it, then their chains); CONSTANT in row count (Q(30) = Q(3), with as many absences) |
+| A sub-task of a completion | 1 | one tick write per sub-task marked inside the command |
+| Bonus rows of *Today* | 11 | the visible room tasks with their definitions, assignees and rooms, the cycle inputs, and whom each paid today with the members it maps to; CONSTANT in the number of bonus tasks (Q(30) = Q(3)) |
+| Sleep command | 22 | guard and aggregate under the house lock, the receipt, the fixed cycles already missed recorded first, and the fresh row of the answer |
+| Wake command | 20 | the same frame with the fresh anchor of the wake day |
+| Bonus completion | 74 | `complete()` without a cycle to close, with the per-person rule of the day and the bonus periods of the work day; the version stays (D-091-84) |
+| Completion of a sleeping task | 88 | `complete()` with the wake inside the target resolution |
+| Bonus period of the house payload | 1 | `CoinMultiplierService::runningOrNext()`: one read of the periods ending from today |
 
 > **CS-PLAN-091 WP-B1 note:** derived windows (ADR-021) replaced the occurrence
 > timeline: `complete()` closes and `undo()` reopens one cycle row, and the
@@ -1835,6 +1862,26 @@ doctrine/deprecations is inert unless explicitly enabled) and `detach()` in a
 > WP-B2 and WP-B3 kept both numbers (sub-tasks marked inside the command, the
 > correction rights) and added the two read budgets above (RF-091-03,
 > RF-091-04, D-091-58).
+>
+> **CS-PLAN-091 WP-B4/WP-B5 note (RF-091-07, RF-091-08):** the correction
+> commands share one skeleton and one recognition tail, and the repeated reads
+> of the command paths went, so `complete()` fell from 91 to 87 and `undo()`
+> from 83 to 72 although the completion now reads the bonus periods of its
+> day. `CycleCommandQueryBudgetTest` pins the history read, the postpone
+> command, the date correction, the activity read with events and the cost of
+> a sub-task. The literals are the statement counts without provider overhead:
+> `QueryBudgets::assertPortableWriteBudget()` pins that overhead separately —
+> one `lastval()` read per insert with a generated id on PostgreSQL, one
+> self-assignment write per row lock on SQLite — so one literal holds on every
+> supported provider.
+>
+> **Interim Full review of WP-B4 and WP-B5 (D-091-80):** the activity budget
+> had been measured without an absence; with as many absences as rows it is 14
+> (the second statement of the absence read). The review pinned the WP-B4/WP-B5
+> paths in `CycleCommandQueryBudgetTest` (the last six rows above), measured on
+> the canonical stack; the provider matrix of the WP-G qualification confirms
+> them on the other providers. No index for the per-person bonus rule: it filters
+> by the indexed `room_task_id` and a bonus task has a few rows per day.
 
 **Rules:** every budget test also asserts exact result IDs or state (a lower
 count must never be bought with wrong data); budgets are re-measured on the

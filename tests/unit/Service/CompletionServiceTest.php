@@ -29,14 +29,24 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\ChecklistService;
+use OCA\ChoreStrike\Service\CoinMultiplierService;
 use OCA\ChoreStrike\Service\CommandService;
+use OCA\ChoreStrike\Service\CompletionAccess;
 use OCA\ChoreStrike\Service\CompletionAuthority;
+use OCA\ChoreStrike\Service\CompletionDateCommand;
 use OCA\ChoreStrike\Service\CompletionDateCorrection;
+use OCA\ChoreStrike\Service\CompletionEvidence;
+use OCA\ChoreStrike\Service\CompletionLocks;
 use OCA\ChoreStrike\Service\CompletionPostCommitService;
+use OCA\ChoreStrike\Service\CompletionReadModel;
+use OCA\ChoreStrike\Service\CompletionRecognition;
 use OCA\ChoreStrike\Service\CompletionService;
+use OCA\ChoreStrike\Service\CreditPolicy;
 use OCA\ChoreStrike\Service\CurrentCycle;
 use OCA\ChoreStrike\Service\CycleService;
 use OCA\ChoreStrike\Service\EffortAllocationService;
+use OCA\ChoreStrike\Service\ParticipantAllocation;
+use OCA\ChoreStrike\Service\RecurrenceCalculator;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCA\ChoreStrike\Service\RhythmService;
 use OCA\ChoreStrike\Service\RoomReplayService;
@@ -44,13 +54,16 @@ use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCA\ChoreStrike\Service\TaskResponsibility;
 use OCA\ChoreStrike\Service\WalletService;
+use OCA\ChoreStrike\Service\WindowService;
 use OCP\IDBConnection;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for the WP3 completion/undo/attribution aggregates
- * (CS-PLAN-070 §3.3): frozen evidence writes, exact wallet credit, room
+ * Unit tests for the completion, undo, attribution and date-correction
+ * aggregates and their read model (CS-PLAN-070 §3.3, ADR-021), wired from
+ * their real collaborators over mocked mappers: frozen evidence writes,
+ * exact wallet credit, room
  * journal, house state version bump, terminal-before-version undo
  * ordering, the one-time reversal of the latest selected allocation and
  * the exact union-delta attribution. Cycle targeting and closing delegate
@@ -81,7 +94,12 @@ class CompletionServiceTest extends TestCase {
 	private CommandService $commandService;
 	private ChecklistService $checklists;
 	private AppLogger $appLogger;
+	private CoinMultiplierService $multipliers;
 	private CompletionService $service;
+	private CompletionDateCommand $dateCommand;
+	private CompletionReadModel $readModel;
+	/** What a completion freezes (test seam). */
+	private array $frozen = ['factors' => [], 'percent' => 100];
 
 	private HouseUser $actor;
 	private Wallet $wallet;
@@ -224,44 +242,50 @@ class CompletionServiceTest extends TestCase {
 		$this->cycle = new CurrentCycle('d2099-01-05', '2099-01-05', '2099-01-04', '2099-01-06');
 
 		$this->postCommitService->method('runForCompletion')->willReturn(['weeklyGoal' => [], 'degraded' => false]);
-		$this->postCommitService->method('runForUndo')->willReturn(['weeklyGoal' => [], 'degraded' => false]);
+		$this->postCommitService->method('runForCorrection')->willReturn(['weeklyGoal' => [], 'degraded' => false]);
 		$this->configService->method('getTitlesEnabled')->willReturn(false);
 		$this->roomReplayService->method('resyncRoomCache')->willReturnCallback(
 			fn (Room $room): Room => $room
 		);
 
+		$this->multipliers = $this->createMock(CoinMultiplierService::class);
+		$this->multipliers->method('freeze')->willReturnCallback(fn (): array => $this->frozen);
+
+		// The real collaborators over the mocked mappers.
+		$l10n = $this->createIdentityL10n();
+		$authority = new CompletionAuthority($this->completedTaskMapper, $l10n);
+		$access = new CompletionAccess(
+			$this->completedTaskMapper, $this->roomTaskMapper, $this->taskMapper, $this->roomMapper, $this->houseUserMapper,
+			$this->taskAssigneeMapper, $this->taskAccessPolicy, $authority, $l10n
+		);
+		$creditPolicy = new CreditPolicy($this->taskAccessPolicy, $this->workShareMapper, $this->houseUserMapper, $l10n);
+		$locks = new CompletionLocks($this->houseUserMapper, $this->walletMapper, $this->walletService, $creditPolicy, $l10n);
+		$allocationService = new EffortAllocationService();
+		$evidence = new CompletionEvidence($this->workShareMapper, $this->completionRevisionMapper, $allocationService);
+		$recognition = new CompletionRecognition($this->houseUserMapper, $this->houseMapper, $this->rhythmService, null, $this->configService);
+		$responsibility = new TaskResponsibility($this->taskAssigneeMapper, $this->houseUserMapper);
+		$this->readModel = new CompletionReadModel(
+			$access, $this->completedTaskMapper, $this->workShareMapper, $this->completionRevisionMapper, $this->houseUserMapper,
+			$this->walletMapper, $this->taskAssigneeMapper, $this->taskAccessPolicy, $authority, $this->walletService,
+			$this->roomTaskReads, $this->calendarService, $l10n
+		);
 		$this->service = new CompletionService(
-			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
-			$this->roomTaskMapper,
-			$this->taskMapper,
-			$this->roomMapper,
-			$this->houseMapper,
-			$this->houseUserMapper,
-			$this->walletMapper,
-			$this->taskAssigneeMapper,
-			$this->completedTaskMapper,
-			$this->workShareMapper,
-			$this->completionRevisionMapper,
-			$this->postCommitService,
+			$this->commandService, $access, $locks, $evidence, $recognition, $this->readModel, $this->postCommitService,
+			new ParticipantAllocation($allocationService, $l10n), $creditPolicy, $this->multipliers,
+			$this->roomTaskMapper, $this->roomMapper, $this->houseMapper, $this->houseUserMapper, $this->taskAssigneeMapper,
+			$this->completedTaskMapper, $this->workShareMapper,
 			$this->createMock(\OCA\ChoreStrike\Db\DigestChangeMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Service\DigestScheduleService::class),
-			$this->walletService,
-			$this->roomReplayService,
-			new EffortAllocationService(),
-			$this->rhythmService,
-			null,
-			$this->configService,
-			$this->calendarService,
-			$this->taskAccessPolicy,
-			$this->cycleService,
-			$this->roomTaskReads,
-			$this->commandService,
-			new CompletionAuthority($this->completedTaskMapper, $this->createIdentityL10n()),
-			new CompletionDateCorrection($this->completedTaskMapper, $this->calendarService, $this->createIdentityL10n()),
-			new TaskResponsibility($this->taskAssigneeMapper, $this->houseUserMapper),
-			$this->checklists,
-			$this->createIdentityL10n(),
-			$this->appLogger,
+			$this->walletService, $this->roomReplayService, $this->calendarService, $this->taskAccessPolicy, $this->cycleService,
+			$responsibility, $this->checklists, $l10n, $this->appLogger
+		);
+		$this->dateCommand = new CompletionDateCommand(
+			$this->commandService, $access, $locks, $evidence, $recognition, $this->readModel,
+			new CompletionDateCorrection(
+				$this->completedTaskMapper, new WindowService(new RecurrenceCalculator(), $this->completedTaskMapper), $this->calendarService, $l10n
+			),
+			$this->postCommitService, $this->completedTaskMapper, $this->workShareMapper, $this->houseMapper, $this->roomReplayService,
+			$this->cycleService, $responsibility, $this->calendarService, $l10n, $this->appLogger
 		);
 	}
 
@@ -522,7 +546,9 @@ class CompletionServiceTest extends TestCase {
 		$bonus->method('resolveTargetUnderLock')->willReturn(null);
 		$bonus->method('currentFor')->willReturn(null);
 		$bonus->expects($this->never())->method('closeUnderLock');
-		$bonus->expects($this->once())->method('changedUnderLock')->with($this->roomTask, $this->task);
+		// No cycle changed, so the version stays (D-091-84): only the last-completed mark moves.
+		$bonus->expects($this->never())->method('changedUnderLock');
+		$bonus->expects($this->once())->method('bonusDoneUnderLock')->with($this->roomTask, $this->isInstanceOf(\DateTime::class));
 		$this->checklists->expects($this->never())->method('markCycleDoneUnderLock');
 		$inserted = null;
 		$this->completedTaskMapper->method('insert')->willReturnCallback(function (CompletedTask $row) use (&$inserted): CompletedTask {
@@ -530,14 +556,180 @@ class CompletionServiceTest extends TestCase {
 			$row->setId(99);
 			return $row;
 		});
-		$property = new \ReflectionProperty(CompletionService::class, 'cycleService');
+		$property = new \ReflectionProperty(CompletionService::class, 'cycles');
 		$property->setAccessible(true);
 		$property->setValue($this->service, $bonus);
 
 		$this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', null, 0);
 
 		$this->assertSame([CompletedTask::CLASS_BONUS, null, null], [$inserted->getCompletionClass(), $inserted->getCycleKey(), $inserted->getWindowEndOn()]);
-		$this->assertNotNull($this->roomTask->getLastCompleted());
+	}
+
+	/** ADR-021 decision 11: the completion freezes both multipliers and pays its shares with them. */
+	public function testComplete_FreezesTheMultipliersAndPaysTheSharesWithThem(): void {
+		$this->soloCompletionContext();
+		$this->member(8, 'dad', 501);
+		// Mom at × 2, dad at × 3, on a bonus day.
+		$this->frozen = ['factors' => [500 => 2, 501 => 3], 'percent' => 150];
+		$this->multipliers->expects($this->once())->method('freeze')
+			->with(1, $this->houseMembers, $this->callback(static fn (array $wallets): bool => array_keys($wallets) === ['mom', 'dad']), $this->matchesRegularExpression('/^\d{4}-\d{2}-\d{2}$/'));
+		$inserted = null;
+		$this->completedTaskMapper->method('insert')->willReturnCallback(function (CompletedTask $row) use (&$inserted): CompletedTask {
+			$inserted = $row;
+			$row->setId(99);
+			return $row;
+		});
+		$shares = [];
+		$this->workShareMapper->method('insert')->willReturnCallback(function (WorkShare $share) use (&$shares): WorkShare {
+			$shares[$share->getWalletId()] = [$share->getEnergyMinor(), $share->getCoinMinor()];
+			return $share;
+		});
+		// Energy 3, half each: 10 × 3 × 50 = 1500, × 2 × 1.5 and × 3 × 1.5.
+		$this->walletService->expects($this->once())->method('postEntries')
+			->with(1, WalletService::SOURCE_COMPLETION, 99, 1, [500 => 4500, 501 => 6750], WalletService::REASON_COMPLETION, 7);
+
+		$this->service->complete(
+			1, 'mom', 11, '11111111-2222-4333-8444-555555555555', 'd2099-01-05', 0,
+			[['userId' => 'mom', 'sharePct' => 50], ['userId' => 'dad', 'sharePct' => 50]], true
+		);
+
+		$this->assertSame([150, [500 => 2, 501 => 3]], [$inserted->getBonusPercent(), $inserted->getCoinFactors()]);
+		ksort($shares);
+		$this->assertSame([500 => [150, 4500], 501 => [150, 6750]], $shares, 'the energy never sees a multiplier');
+	}
+
+	/** Decision 8: a bonus task pays a person once per day; the refusal writes nothing. */
+	public function testComplete_BonusTaskThatPaidThePersonToday_Conflict(): void {
+		$this->soloCompletionContext();
+		$bonus = $this->createMock(CycleService::class);
+		$bonus->method('resolveTargetUnderLock')->willReturn(null);
+		$property = new \ReflectionProperty(CompletionService::class, 'cycles');
+		$property->setAccessible(true);
+		$property->setValue($this->service, $bonus);
+		$this->workShareMapper->expects($this->once())->method('findWalletIdsCreditedOn')
+			->with(11, $this->matchesRegularExpression('/^\d{4}-\d{2}-\d{2}$/'), null)->willReturn([500]);
+		$this->completedTaskMapper->expects($this->never())->method('insert');
+		$this->walletService->expects($this->never())->method('postEntries');
+
+		try {
+			$this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', null, 0);
+			$this->fail('the second credit of the day must be refused');
+		} catch (ConflictException $e) {
+			$this->assertSame(ConflictException::REASON_BONUS_ALREADY_TODAY, $e->getReason());
+		}
+	}
+
+	/** A task with a cycle has no per-person day rule: the cycle is its limit. */
+	public function testComplete_TaskWithACycle_AsksNoBonusRule(): void {
+		$this->soloCompletionContext();
+		$this->workShareMapper->expects($this->never())->method('findWalletIdsCreditedOn');
+
+		$this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', 'd2099-01-05', 0);
+	}
+
+	/** Decision 11: a change of people is priced with the multipliers frozen on the completion. */
+	public function testAttribute_PricesTheNewSharesWithTheFrozenMultipliers(): void {
+		$this->soloCompletionContext();
+		$this->actor->setRole('owner');
+		$dad = $this->member(8, 'dad', 501);
+		// Dad's factor is × 1 today; the completion froze × 3 for him and a bonus day.
+		$dad->setCoinFactor(1);
+		$live = $this->entry(9, 7);
+		$live->setCoinFactors([500 => 1, 501 => 3]);
+		$live->setBonusPercent(150);
+		$this->completionToFind = $live;
+
+		$previous = new WorkShare();
+		$previous->setCompletionId(9);
+		$previous->setAllocationRevision(1);
+		$previous->setWalletId(500);
+		$previous->setSharePct(100);
+		$previous->setEnergyMinor(300);
+		// What the share was paid: 10 × 3 × 100 × 1 × 1.5.
+		$previous->setCoinMinor(4500);
+		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$previous]);
+		$this->multipliers->expects($this->never())->method('freeze');
+
+		// Mom 100% → 0 (−4500, exactly what she was paid); dad 0 → 100% at the frozen × 3 × 1.5.
+		$this->walletService->expects($this->once())->method('postEntries')
+			->with(1, WalletService::SOURCE_COMPLETION, 9, 2, [500 => -4500, 501 => 13500], WalletService::REASON_ATTRIBUTION, 7);
+
+		$this->service->attribute(
+			1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, [['userId' => 'dad', 'sharePct' => 100]], true, null
+		);
+	}
+
+	/** Decision 8: the owner cannot move bonus work onto someone the task paid that day. */
+	public function testAttribute_BonusEntryOntoSomeoneItPaidThatDay_Conflict(): void {
+		$this->soloCompletionContext();
+		$this->actor->setRole('owner');
+		$this->member(8, 'dad', 501);
+		$live = $this->entry(9, 7);
+		$live->setCompletionClass(CompletedTask::CLASS_BONUS);
+		$this->completionToFind = $live;
+		$previous = new WorkShare();
+		$previous->setCompletionId(9);
+		$previous->setAllocationRevision(1);
+		$previous->setWalletId(500);
+		$previous->setSharePct(100);
+		$previous->setEnergyMinor(300);
+		$previous->setCoinMinor(3000);
+		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$previous]);
+		// Only who joins is asked about, and this entry itself does not count.
+		$this->workShareMapper->expects($this->once())->method('findWalletIdsCreditedOn')->with(11, '2026-09-20', 9)->willReturn([501]);
+		$this->walletService->expects($this->never())->method('postEntries');
+
+		$this->expectException(ConflictException::class);
+		$this->service->attribute(
+			1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0,
+			[['userId' => 'mom', 'sharePct' => 50], ['userId' => 'dad', 'sharePct' => 50]], true, null
+		);
+	}
+
+	/** A reversal is what the share rows recorded, whatever the factors are today. */
+	public function testUndo_ReversesTheStoredShareAmounts_NotTodaysRate(): void {
+		$this->soloCompletionContext();
+		$this->actor->setCoinFactor(1);
+		$live = $this->entry(9, 7);
+		$live->setCoinFactors([500 => 3]);
+		$live->setBonusPercent(150);
+		$this->completionToFind = $live;
+		$share = new WorkShare();
+		$share->setCompletionId(9);
+		$share->setAllocationRevision(1);
+		$share->setWalletId(500);
+		$share->setSharePct(100);
+		$share->setEnergyMinor(300);
+		$share->setCoinMinor(13500);
+		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$share]);
+
+		$this->walletService->expects($this->once())->method('postEntries')
+			->with(1, WalletService::SOURCE_COMPLETION_UNDO, 9, 1, [500 => -13500], WalletService::REASON_UNDO, 7);
+
+		$this->service->undo(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, null);
+	}
+
+	public function testShowCompletion_NamesTheFrozenMultipliers_AndADepartedRecorder(): void {
+		$this->soloCompletionContext();
+		// Recorded by a member who left since (house user 8 is gone).
+		$entry = $this->entry(9, 8);
+		$entry->setCoinFactors([500 => 2]);
+		$entry->setBonusPercent(150);
+		$this->completionToFind = $entry;
+		$share = new WorkShare();
+		$share->setCompletionId(9);
+		$share->setAllocationRevision(1);
+		$share->setWalletId(500);
+		$share->setSharePct(100);
+		$share->setEnergyMinor(300);
+		$share->setCoinMinor(9000);
+		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$share]);
+
+		$data = $this->readModel->show(1, $this->actor, 9);
+
+		$this->assertSame([150, 2], [$data['bonusPercent'], $data['allocation'][0]['coinFactor']]);
+		// One rule with the activity feed: a recorder who left still recorded it for others.
+		$this->assertSame(['userId' => null, 'displayName' => 'Removed member'], $data['recordedBy']);
 	}
 
 	public function testComplete_RefusedTarget_WritesNothing(): void {
@@ -545,7 +737,7 @@ class CompletionServiceTest extends TestCase {
 		$refusing = $this->createMock(CycleService::class);
 		$refusing->method('resolveTargetUnderLock')
 			->willThrowException(new ConflictException('This task was already completed today', ConflictException::REASON_SAME_DAY));
-		$property = new \ReflectionProperty(CompletionService::class, 'cycleService');
+		$property = new \ReflectionProperty(CompletionService::class, 'cycles');
 		$property->setAccessible(true);
 		$property->setValue($this->service, $refusing);
 		$this->completedTaskMapper->expects($this->never())->method('insert');
@@ -820,11 +1012,11 @@ class CompletionServiceTest extends TestCase {
 		$this->roomReplayService->expects($this->once())->method('moveCompletion')
 			->with(9, $this->callback(static fn (\DateTime $at): bool => $at->format('Y-m-d H:i:s') === '2026-09-19 08:00:00'));
 		$this->cycleService->expects($this->once())->method('redatedUnderLock')
-			->with($this->roomTask, $this->task, $entry, '2026-09-20', $this->isInstanceOf(\DateTimeZone::class), $this->isInstanceOf(\DateTime::class));
+			->with($this->roomTask, $this->task, $entry, null, $this->isInstanceOf(\DateTimeZone::class), $this->isInstanceOf(\DateTime::class));
 		// Shares, energy and coins stay as recorded.
 		$this->walletService->expects($this->never())->method('postEntries');
 
-		$result = $this->service->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-19');
+		$result = $this->dateCommand->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-19');
 
 		$this->assertSame('2026-09-19', $entry->getWorkDate()->format('Y-m-d'));
 		$this->assertSame(CompletedTask::CLASS_ON_TIME, $entry->getCompletionClass(), 'classified again against the frozen window');
@@ -843,7 +1035,7 @@ class CompletionServiceTest extends TestCase {
 		$this->cycleService->expects($this->never())->method('redatedUnderLock');
 
 		$this->expectException(\InvalidArgumentException::class);
-		$this->service->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-18');
+		$this->dateCommand->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-18');
 	}
 
 	public function testChangeDate_DeletedEntry_Conflict(): void {
@@ -855,7 +1047,7 @@ class CompletionServiceTest extends TestCase {
 		$this->completedTaskMapper->expects($this->never())->method('update');
 
 		$this->expectException(ConflictException::class);
-		$this->service->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-19');
+		$this->dateCommand->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-19');
 	}
 
 	public function testChangeDate_OwnEntryThatIsNoLongerTheLatest_Forbidden(): void {
@@ -866,7 +1058,7 @@ class CompletionServiceTest extends TestCase {
 
 		// D-091-23: the state part of the right is decided under the lock.
 		$this->expectException(ForbiddenException::class);
-		$this->service->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-19');
+		$this->dateCommand->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-19');
 	}
 
 	public function testChangeDate_ReplayAfterANewerEntry_AnswersTheCommittedResult(): void {
@@ -877,7 +1069,7 @@ class CompletionServiceTest extends TestCase {
 		$this->receiptReplay = true;
 		$this->completedTaskMapper->expects($this->never())->method('update');
 
-		$result = $this->service->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-19');
+		$result = $this->dateCommand->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-19');
 
 		$this->assertTrue($result['replay'], 'a replay never re-tests the state precondition');
 	}
@@ -1177,7 +1369,7 @@ class CompletionServiceTest extends TestCase {
 		}
 		return match ($kind) {
 			'attribution' => $this->service->attribute(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, [['userId' => 'mom', 'sharePct' => 100]], true, null),
-			'date' => $this->service->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-19'),
+			'date' => $this->dateCommand->changeDate(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, '2026-09-19'),
 			default => $this->service->undo(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, null),
 		};
 	}
@@ -1204,7 +1396,7 @@ class CompletionServiceTest extends TestCase {
 		$share->setCoinMinor(3000);
 		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$share]);
 
-		$data = $this->service->showCompletion(1, $this->actor, 9);
+		$data = $this->readModel->show(1, $this->actor, 9);
 
 		$this->assertSame(9, $data['id']);
 		$this->assertSame(1, $data['version']);
@@ -1233,7 +1425,7 @@ class CompletionServiceTest extends TestCase {
 		$share->setCoinMinor(3000);
 		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$share]);
 
-		$data = $this->service->showCompletion(1, $this->actor, 9);
+		$data = $this->readModel->show(1, $this->actor, 9);
 
 		$this->assertSame(['userId' => 'dad', 'displayName' => 'Dad'], $data['recordedBy']);
 		$this->assertFalse($data['canCorrect'], 'credited, but neither the recorder nor the owner');

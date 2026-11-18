@@ -40,12 +40,17 @@
 			@reorder="handleReorderChecklistItems" />
 
 		<!-- CS-PLAN-091 WP-B3: every member postpones and reads the history;
-		     the corrections follow the rights the server grants. -->
+		     the corrections follow the rights the server grants. WP-B4:
+		     adults and the owner put the task to sleep. -->
 		<div v-if="item.roomTask.isActive" class="cycle-actions">
 			<PostponeButton
 				:roomTaskId="item.roomTask.id"
 				:cycle="item.roomTask.cycle"
 				:flexDays="item.task.flexDays ?? 0" />
+			<SleepControl
+				v-if="canManageTasks"
+				:roomTaskId="item.roomTask.id"
+				:cycle="item.roomTask.cycle" />
 		</div>
 		<TaskHistory :roomTaskId="item.roomTask.id" />
 	</div>
@@ -57,6 +62,7 @@ import { translate as t } from '@nextcloud/l10n'
 import HelpEntry from '../Help/HelpEntry.vue'
 import AssigneeChips from './AssigneeChips.vue'
 import PostponeButton from './PostponeButton.vue'
+import SleepControl from './SleepControl.vue'
 import TaskChecklist from './TaskChecklist.vue'
 import TaskHistory from './TaskHistory.vue'
 import { useChecklistStore } from '../../store/checklist.js'
@@ -66,7 +72,8 @@ import { logger } from '../../utils/logger.js'
  * The expanded details surface of a TaskList row (CS-PLAN-067 §3.4): the
  * assignee multi-select (reuse of AssigneeChips, no per-row member fetch —
  * members arrive via the preloaded list), the TaskChecklist wiring, and
- * since CS-PLAN-091 WP-B3 the postpone button and the task's history.
+ * since CS-PLAN-091 WP-B3 and WP-B4 the postpone button, the sleep
+ * control and the task's history.
  *
  * The optimistic assignee DRAFT stays owned by the TaskList orchestrator
  * (CS-PLAN-065 §3.5): this component diffs the AssigneeChips value change
@@ -79,6 +86,7 @@ export default {
 	components: {
 		AssigneeChips,
 		PostponeButton,
+		SleepControl,
 		TaskChecklist,
 		TaskHistory,
 		HelpEntry,

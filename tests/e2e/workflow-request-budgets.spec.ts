@@ -6,8 +6,9 @@ import { createUserContext } from './fixtures/auth-contexts.ts'
  * D5): the TaskManager and Scheduling views must load their instance data
  * with exactly ONE house-wide GET /api/v1/room-tasks request — never the
  * per-room loop (an N+1 of requests) the house batch read replaced, also
- * when the list is grouped by room or person. Today reads its own two
- * projections once each and no instance list at all.
+ * when the list is grouped by room or person. Today reads its own three
+ * projections once each (the day, the overdue work and the bonus tasks of
+ * CS-PLAN-091 WP-B4) and no instance list at all.
  *
  * Read-only spec: it only navigates and counts XHRs, so it stays in the
  * default (non-serial) Playwright pool.
@@ -55,7 +56,7 @@ test.describe('Workflow request budgets (CS-PLAN-067)', () => {
 		}
 	})
 
-	test('Today reads its two projections once each and no instance list (CS-PLAN-090 WP-B)', async ({ browser }) => {
+	test('Today reads its three projections once each and no instance list (CS-PLAN-090 WP-B, CS-PLAN-091 WP-B4)', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const roomTaskRequests: string[] = []
@@ -75,9 +76,10 @@ test.describe('Workflow request budgets (CS-PLAN-067)', () => {
 			await page.getByTestId('today-filter-all').click()
 			await page.waitForLoadState('networkidle')
 
-			// The frozen budget: the day and the overdue work — no due-today
-			// count, no house-wide or per-room list, no range read.
-			expect([...roomTaskRequests].sort()).toEqual(['/filtered-daily', '/overdue'])
+			// The frozen budget: the day, the overdue work and the bonus tasks
+			// (their own read, D-091-69) — no due-today count, no house-wide or
+			// per-room list, no range read.
+			expect([...roomTaskRequests].sort()).toEqual(['/bonus', '/filtered-daily', '/overdue'])
 		} finally {
 			await context.close()
 		}

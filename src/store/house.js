@@ -33,6 +33,8 @@ export const useHouseStore = defineStore('house', {
 		insightsRequestSeq: 0,
 		activityRequestSeq: 0,
 		pendingResetCommand: null,
+		/** @type {?{key: string, commandId: string}} The start of bonus days whose answer was lost. */
+		pendingBonusStart: null,
 	}),
 
 	getters: {
@@ -84,6 +86,14 @@ export const useHouseStore = defineStore('house', {
 		 * @return {{revision: number, items: Array<{key: string, label: ?string}>}}
 		 */
 		taskCategories: (state) => state.house?.taskCategories ?? DEFAULT_CATEGORY_LIST,
+		/**
+		 * The bonus days the house shows (CS-PLAN-091 WP-B5, ADR-021
+		 * decision 11): the running period, else the next planned one.
+		 *
+		 * @param {object} state Pinia state
+		 * @return {?{id: number, startsOn: string, endsOn: string}}
+		 */
+		bonusPeriod: (state) => state.house?.bonusPeriod ?? null,
 	},
 
 	actions: {
@@ -263,6 +273,56 @@ export const useHouseStore = defineStore('house', {
 		},
 
 		/**
+		 * Start bonus days (owner only): one to three house-local days from
+		 * `startsOn`, on which everyone's coins count × 1.5.
+		 * @param {string} startsOn First day (`YYYY-MM-DD`), today or later.
+		 * @param {number} days One to three.
+		 * @return {Promise<object>} The period.
+		 */
+		async startBonusPeriod(startsOn, days) {
+			// The same period again after an uncertain failure replays its
+			// receipt instead of meeting itself as an overlap (409).
+			const key = `${startsOn}:${days}`
+			if (this.pendingBonusStart?.key !== key) {
+				this.pendingBonusStart = { key, commandId: generateCommandId() }
+			}
+			let data
+			try {
+				data = await api.post('/api/v1/house/bonus-periods', { commandId: this.pendingBonusStart.commandId, startsOn, days })
+				this.pendingBonusStart = null
+			} catch (error) {
+				// A timeout or 5xx may have committed: keep the command id, and
+				// read the house so a committed period shows.
+				if (error?.status >= 400 && error.status < 500) {
+					this.pendingBonusStart = null
+				} else {
+					await this.fetchHouse().catch(() => null)
+				}
+				logger.error('Failed to start bonus days', error, { store: 'house', action: 'startBonusPeriod' })
+				throw error
+			}
+			// The house shows the running period, else the next one: read which.
+			await this.fetchHouse()
+			return data.bonusPeriod
+		},
+
+		/**
+		 * Cancel bonus days that have not ended (owner only). Work recorded
+		 * while they ran keeps what it paid.
+		 * @param {number} periodId The period.
+		 */
+		async cancelBonusPeriod(periodId) {
+			try {
+				const data = await api.delete(`/api/v1/house/bonus-periods/${periodId}`, { params: { commandId: generateCommandId() } })
+				this.houseRequestSeq++
+				this.house = { ...this.house, bonusPeriod: data.bonusPeriod ?? null }
+			} catch (error) {
+				logger.error('Failed to cancel bonus days', error, { store: 'house', action: 'cancelBonusPeriod', periodId })
+				throw error
+			}
+		},
+
+		/**
 		 * Save the household's task categories (owner only, CS-PLAN-090
 		 * WP-I) against the revision this client read. A 409 means another
 		 * save landed first: the house is read again, so the editor shows
@@ -405,6 +465,7 @@ export const useHouseStore = defineStore('house', {
 			this.activity = []
 			this.activityEvents = []
 			this.pendingResetCommand = null
+			this.pendingBonusStart = null
 			this.activityLoading = false
 			this.activityError = null
 		},

@@ -68,7 +68,7 @@ jest.mock('../../../src/components/Settings/StructureSettings.vue', () => mockCa
 jest.mock('../../../src/components/Settings/TaskCategorySettings.vue', () => mockCategory('TaskCategorySettings'))
 jest.mock('../../../src/components/Settings/DangerZoneSettings.vue', () => mockCategory('DangerZoneSettings'))
 jest.mock('../../../src/components/Members/MemberList.vue', () => mockCategory('MemberList'))
-jest.mock('../../../src/components/Rewards/RewardCatalogEditor.vue', () => mockCategory('RewardCatalogEditor'))
+jest.mock('../../../src/components/Settings/RewardSettings.vue', () => mockCategory('RewardSettings'))
 jest.mock('../../../src/components/Settings/ArcadeSettings.vue', () => mockCategory('ArcadeSettings'))
 
 const PERSONAL = ['title', 'notifications', 'appearance', 'planning']
@@ -137,7 +137,7 @@ describe('Settings.vue', () => {
 		['members', 'MemberList'],
 		['structure', 'StructureSettings'],
 		['categories', 'TaskCategorySettings'],
-		['rewards', 'RewardCatalogEditor'],
+		['rewards', 'RewardSettings'],
 		['arcade', 'ArcadeSettings'],
 		['danger', 'DangerZoneSettings'],
 	])('hosts the %s category', async (id, component) => {

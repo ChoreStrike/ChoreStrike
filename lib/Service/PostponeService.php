@@ -10,10 +10,8 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
@@ -37,12 +35,10 @@ class PostponeService {
 		private CommandService $commandService,
 		private CycleService $cycleService,
 		private RoomTaskReadService $roomTaskReads,
+		private RoomTaskAccess $access,
 		private RoomTaskMapper $roomTaskMapper,
 		private TaskMapper $taskMapper,
-		private TaskAssigneeMapper $taskAssigneeMapper,
 		private HouseMapper $houseMapper,
-		private HouseUserMapper $houseUserMapper,
-		private TaskAccessPolicy $taskAccessPolicy,
 		private CalendarService $calendar,
 		private IL10N $l10n,
 	) {
@@ -55,8 +51,6 @@ class PostponeService {
 	 * @throws ConflictException `STALE_TARGET`, `WINDOW_ENDED`, `NOT_POSTPONABLE`, or an inactive task
 	 */
 	public function postpone(int $houseId, HouseUser $actor, int $roomTaskId, string $commandId, string $cycleKey, int $expectedVersion): array {
-		$this->visibleRoomTask($houseId, $actor, $roomTaskId);
-
 		$command = $this->commandService->runCommand(
 			$houseId,
 			(int)$actor->getId(),
@@ -78,41 +72,20 @@ class PostponeService {
 				);
 				return ['roomTaskId' => $roomTaskId, 'cycleKey' => $cycle->key, 'postponeCount' => $cycle->postponeCount];
 			},
-			// Execution and replay alike: a member who left, or lost sight of
-			// the task, gets no answer about it.
+			// Execution and replay alike, before any answer: a member who
+			// left, or lost sight of the task, learns nothing about it.
 			function () use ($houseId, $actor, $roomTaskId): void {
-				$this->visibleRoomTask($houseId, $actor, $roomTaskId);
+				$this->access->visible($houseId, $this->access->liveMember($houseId, $actor), $roomTaskId);
 			},
 		);
 
-		$roomTask = $this->visibleRoomTask($houseId, $actor, $roomTaskId);
+		// The answer is read fresh, for the member as they are now.
+		$fresh = $this->access->visible($houseId, $this->access->liveMember($houseId, $actor), $roomTaskId);
+		$tasksById = [(int)$fresh['task']->getId() => $fresh['task']];
 		return [
-			'roomTask' => $roomTask,
-			'cycle' => $this->roomTaskReads->cycleFacts($houseId, [$roomTask])[$roomTaskId]['block'] ?? null,
+			'roomTask' => $fresh['roomTask'],
+			'cycle' => $this->roomTaskReads->cycleFacts($houseId, [$fresh['roomTask']], $tasksById)[$roomTaskId]['block'] ?? null,
 			'replay' => $command['replay'],
 		];
-	}
-
-	/**
-	 * The room task as the acting member may see it, read fresh.
-	 *
-	 * @throws NotFoundException
-	 * @throws ForbiddenException
-	 */
-	private function visibleRoomTask(int $houseId, HouseUser $actor, int $roomTaskId): RoomTask {
-		$live = $this->houseUserMapper->findByHouseAndUser($houseId, $actor->getNextcloudUserId());
-		if ($live === null || (int)$live->getId() !== (int)$actor->getId()) {
-			throw new ForbiddenException($this->l10n->t('Not a member of this house'));
-		}
-		$roomTask = $this->roomTaskMapper->findByIdsScopedToHouse([$roomTaskId], $houseId)[0] ?? null;
-		if ($roomTask === null) {
-			throw new NotFoundException($this->l10n->t('Room task not found'));
-		}
-		$this->taskAccessPolicy->assertCanView(
-			$this->taskMapper->find($roomTask->getTaskId()),
-			$live,
-			$this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId)
-		);
-		return $roomTask;
 	}
 }

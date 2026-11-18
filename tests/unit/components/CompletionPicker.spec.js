@@ -48,7 +48,7 @@ describe('CompletionPicker', () => {
 			items: {},
 			getTaskItems: jest.fn((taskId) => mockChecklistStore.items[taskId] ?? []),
 			getRoomTaskProgress: jest.fn(() => [{ checklistItemId: 77, isChecked: true }]),
-			fetchTaskItems: jest.fn().mockResolvedValue([]),
+			fetchTaskItems: jest.fn(async (taskId) => mockChecklistStore.items[taskId] ?? []),
 			fetchRoomTaskProgress: jest.fn().mockResolvedValue({}),
 			toggleItem: jest.fn().mockResolvedValue({}),
 		}
@@ -116,12 +116,31 @@ describe('CompletionPicker', () => {
 		expect(wrapper.emitted('close')).toHaveLength(1)
 	})
 
-	it('shows no sub-task section for a task without sub-tasks', async () => {
+	it('shows no sub-task section for a task without sub-tasks and reads no ticks for it', async () => {
 		const wrapper = await mountPicker()
 
 		expect(mockChecklistStore.fetchTaskItems).toHaveBeenCalledWith(3)
-		expect(mockChecklistStore.fetchRoomTaskProgress).toHaveBeenCalledWith(11)
+		expect(mockChecklistStore.fetchRoomTaskProgress).not.toHaveBeenCalled()
 		expect(wrapper.find('[data-testid="picker-subtasks"]').exists()).toBe(false)
+	})
+
+	it('reads nothing for a task known to have no sub-tasks to tick', async () => {
+		mockChecklistStore.items[3] = [{ id: 77, label: 'Carpet' }]
+		const wrapper = await mountPicker({ withoutSubTasks: true })
+
+		expect(mockChecklistStore.fetchTaskItems).not.toHaveBeenCalled()
+		expect(mockChecklistStore.fetchRoomTaskProgress).not.toHaveBeenCalled()
+		expect(wrapper.find('[data-testid="picker-subtasks"]').exists()).toBe(false)
+	})
+
+	it('hands on who cannot be credited, with the reason', async () => {
+		const wrapper = await mountPicker({ unavailable: ['kid'], unavailableNote: 'counted today' })
+
+		expect(dialog(wrapper).props()).toMatchObject({ unavailable: ['kid'], unavailableNote: 'counted today' })
+		expect(wrapper.get('[data-testid="participant-active-kid"]').element.disabled).toBe(true)
+		expect(wrapper.get('[data-testid="participant-active-kid"]').element.checked).toBe(false)
+		expect(wrapper.get('[data-testid="participant-row-kid"]').text()).toContain('counted today')
+		expect(wrapper.get('[data-testid="participant-active-mom"]').element.disabled).toBe(false)
 	})
 
 	it('shows the sub-tasks with their ticks and saves a tick at once', async () => {
@@ -129,6 +148,7 @@ describe('CompletionPicker', () => {
 		const wrapper = await mountPicker()
 
 		const checklist = wrapper.findComponent({ name: 'TaskChecklist' })
+		expect(mockChecklistStore.fetchRoomTaskProgress).toHaveBeenCalledWith(11)
 		expect(checklist.props()).toMatchObject({ canEdit: false, roomTaskId: 11, taskId: 3, progress: [{ checklistItemId: 77, isChecked: true }] })
 		expect(wrapper.get('[data-testid="picker-subtasks-note"]').text()).toContain('completes the task with every sub-task')
 

@@ -36,6 +36,7 @@ class HouseControllerTest extends TestCase {
 	private $activityService;
 	private $arcadeAccess;
 	private $taskCategories;
+	private $multipliers;
 	private $request;
 
 	protected function setUp(): void {
@@ -51,6 +52,7 @@ class HouseControllerTest extends TestCase {
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$this->taskCategories = $this->createMock(\OCA\ChoreStrike\Service\TaskCategoryService::class);
+		$this->multipliers = $this->createMock(\OCA\ChoreStrike\Service\CoinMultiplierService::class);
 		$this->taskCategories->method('isKnown')->willReturnCallback(static fn (string $key): bool => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true));
 		$this->taskCategories->method('keyOrOther')->willReturnCallback(static fn (string $key): string => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true) ? $key : 'other');
 		$this->taskCategories->method('getList')->willReturn(['revision' => 0, 'items' => array_map(static fn (string $key): array => ['key' => $key, 'label' => null], \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS)]);
@@ -64,6 +66,7 @@ class HouseControllerTest extends TestCase {
 			new CalendarService(),
 			$this->arcadeAccess,
 			$this->taskCategories,
+			$this->multipliers,
 		);
 	}
 
@@ -367,7 +370,33 @@ class HouseControllerTest extends TestCase {
 		$data = $this->controller->get()->getData()['data'];
 
 		$this->assertFalse($data['arcadeGateEnabled']);
-		$this->assertSame(array_keys($house->jsonSerialize()), array_slice(array_keys($data), 0, -2), 'the entity fields stay unchanged');
+		$this->assertSame(array_keys($house->jsonSerialize()), array_slice(array_keys($data), 0, -3), 'the entity fields stay unchanged');
+	}
+
+	/**
+	 * CS-PLAN-091 WP-B5 (ADR-021 decision 11): every member reads the bonus
+	 * period that runs or comes next, and the day derived windows start from.
+	 */
+	public function testGet_CarriesTheBonusPeriodAndTheFirstDayOfCycles(): void {
+		$house = new House();
+		$house->setId(1);
+		$house->setCyclesFrom(new \DateTime('2026-11-01'));
+		$period = new \OCA\ChoreStrike\Db\BonusPeriod();
+		$period->setId(5);
+		$period->setStartsOn(new \DateTime('2026-11-20'));
+		$period->setEndsOn(new \DateTime('2026-11-22'));
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->multipliers->expects($this->exactly(2))->method('runningOrNext')->with($house)->willReturnOnConsecutiveCalls($period, null);
+
+		$data = $this->controller->get()->getData()['data'];
+
+		$this->assertSame(['id' => 5, 'startsOn' => '2026-11-20', 'endsOn' => '2026-11-22'], $data['bonusPeriod']);
+		$this->assertSame('2026-11-01', $data['cyclesFrom']);
+		// No period is an explicit null, so a client can drop the one it showed.
+		$without = $this->controller->get()->getData()['data'];
+		$this->assertArrayHasKey('bonusPeriod', $without);
+		$this->assertNull($without['bonusPeriod']);
 	}
 
 	/**

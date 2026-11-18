@@ -366,7 +366,7 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 
 		// ...re-dates their own latest entry (audit actor = the member)...
 		$member = $this->houseUser($f['houseId'], 'cc_member');
-		$service->changeDate(
+		\OC::$server->get(\OCA\ChoreStrike\Service\CompletionDateCommand::class)->changeDate(
 			$f['houseId'], $member, (int)$completion['id'], $this->uuid(),
 			(int)$completion['completion_version'],
 			(new \DateTime('-1 day', new \DateTimeZone('UTC')))->format('Y-m-d')
@@ -377,7 +377,7 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 		\OC::$server->get(HouseService::class)->removeHouseMember((int)$member->getId());
 
 		$owner = $this->houseUser($f['houseId'], 'cc_owner');
-		$view = $service->showCompletion($f['houseId'], $owner, (int)$completion['id']);
+		$view = \OC::$server->get(\OCA\ChoreStrike\Service\CompletionReadModel::class)->show($f['houseId'], $owner, (int)$completion['id']);
 
 		self::assertSame('Removed member', $view['history'][1]['actorDisplayName']);
 		self::assertNull($view['history'][1]['actor']);
@@ -517,7 +517,7 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 		$uuid = $this->uuid();
 		$day = (new \DateTime('-1 day', new \DateTimeZone('UTC')))->format('Y-m-d');
 		if ($date) {
-			$service->changeDate($f['houseId'], $member, $id, $uuid, 0, $day);
+			\OC::$server->get(\OCA\ChoreStrike\Service\CompletionDateCommand::class)->changeDate($f['houseId'], $member, $id, $uuid, 0, $day);
 		} else {
 			$service->undo($f['houseId'], $member, $id, $uuid, 0, null);
 		}
@@ -529,7 +529,7 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 
 		$this->expectException(NotFoundException::class);
 		if ($date) {
-			$service->changeDate($f['houseId'], $member, $id, $uuid, 0, $day);
+			\OC::$server->get(\OCA\ChoreStrike\Service\CompletionDateCommand::class)->changeDate($f['houseId'], $member, $id, $uuid, 0, $day);
 		} else {
 			$service->undo($f['houseId'], $member, $id, $uuid, 0, null);
 		}

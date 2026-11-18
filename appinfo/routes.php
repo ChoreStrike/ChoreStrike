@@ -26,6 +26,10 @@ return [
         ['name' => 'arcadeSettings#updateThresholds', 'url' => '/api/v1/house/arcade-thresholds', 'verb' => 'PUT'],
         ['name' => 'arcadeSettings#resetMember', 'url' => '/api/v1/house/members/{userId}/arcade-reset', 'verb' => 'POST', 'requirements' => ['userId' => '[a-zA-Z0-9_.@-]+']],
         ['name' => 'arcadeSettings#progress', 'url' => '/api/v1/house/arcade-progress', 'verb' => 'GET'],
+        // CS-PLAN-091 WP-B5 (ADR-021 §11): the owner's two coin multipliers.
+        ['name' => 'coinMultiplier#setFactor', 'url' => '/api/v1/house/members/{userId}/coin-factor', 'verb' => 'PUT', 'requirements' => ['userId' => '[a-zA-Z0-9_.@-]+']],
+        ['name' => 'coinMultiplier#startPeriod', 'url' => '/api/v1/house/bonus-periods', 'verb' => 'POST'],
+        ['name' => 'coinMultiplier#cancelPeriod', 'url' => '/api/v1/house/bonus-periods/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
 
         // Floor API
         ['name' => 'floor#create', 'url' => '/api/v1/floors', 'verb' => 'POST'],
@@ -64,6 +68,8 @@ return [
         ['name' => 'room_task#fromTemplate', 'url' => '/api/v1/room-tasks/from-template', 'verb' => 'POST'],
         ['name' => 'room_task#range', 'url' => '/api/v1/room-tasks/range', 'verb' => 'GET'],
         ['name' => 'room_task#filteredDaily', 'url' => '/api/v1/room-tasks/filtered-daily', 'verb' => 'GET'],
+        // CS-PLAN-091 WP-B4 (ADR-021 §8): the bonus tasks of Today.
+        ['name' => 'room_task#bonus', 'url' => '/api/v1/room-tasks/bonus', 'verb' => 'GET'],
         // Static single-segment route — must stay ahead of the `{id}` block.
         ['name' => 'room_task#bulkAssign', 'url' => '/api/v1/room-tasks/bulk-assign', 'verb' => 'POST'],
         ['name' => 'room_task#create', 'url' => '/api/v1/room-tasks', 'verb' => 'POST'],
@@ -93,6 +99,9 @@ return [
         ['name' => 'completion#changeDate', 'url' => '/api/v1/completions/{id}/date', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
         ['name' => 'room_task_cycle#postpone', 'url' => '/api/v1/room-tasks/{id}/postpone', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
         ['name' => 'room_task_cycle#history', 'url' => '/api/v1/room-tasks/{id}/history', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
+        // CS-PLAN-091 WP-B4 (ADR-021 §7): adults and the owner put a room
+        // task to sleep, move its wake date or wake it.
+        ['name' => 'room_task_cycle#sleep', 'url' => '/api/v1/room-tasks/{id}/sleep', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
 
         // Pruned 2026-08-21 (CS-PLAN-040): `userTasks` read only the legacy
         // single-assignee column (misleading since multi-assignee) and

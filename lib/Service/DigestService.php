@@ -178,7 +178,7 @@ class DigestService {
 					return ['outcome' => 'quiet'];
 				}
 
-				$visibleRoomTasks = $this->roomTaskReadService->getHouseRoomTasks((int)$house->getId(), $member);
+				$visibleRoomTasks = $this->roomTaskReadService->getHouseRoomTasks((int)$house->getId(), $member)->roomTasks;
 				$visibleRoomTaskIds = array_fill_keys(array_map(
 					static fn (\OCA\ChoreStrike\Db\RoomTask $row): int => (int)$row->getId(),
 					$visibleRoomTasks

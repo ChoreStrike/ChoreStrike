@@ -309,15 +309,18 @@ class RouteMatrixTest extends TestCase {
 	 * "last done" writers and the owner's preview and apply → 96.
 	 * CS-PLAN-091 WP-B3 added the postpone command, the date correction and
 	 * the history of one task, each consumed by the task row → 99.
+	 * CS-PLAN-091 WP-B4 added the sleep command (the task row) and the bonus
+	 * rows of Today, WP-B5 the owner's coin factor and the two bonus-period
+	 * commands (the reward settings) → 104.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			99,
+			104,
 			$this->routes['routes'],
-			'Route count drifted from the pin (99 after CS-PLAN-091 WP-B3) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (104 after CS-PLAN-091 WP-B5) — add only with a consumer, then update deliberately'
 		);
 	}
 
@@ -333,6 +336,23 @@ class RouteMatrixTest extends TestCase {
 		$this->assertSame('POST /api/v1/room-tasks/{id}/postpone', $declared['room_task_cycle#postpone'] ?? null);
 		$this->assertSame('GET /api/v1/room-tasks/{id}/history', $declared['room_task_cycle#history'] ?? null);
 		$this->assertSame('PUT /api/v1/completions/{id}/date', $declared['completion#changeDate'] ?? null);
+	}
+
+	/**
+	 * CS-PLAN-091 WP-B4 and WP-B5 (ADR-021 decisions 7, 8 and 11): the
+	 * routes of sleeping, bonus tasks and the coin multipliers, as the API
+	 * reference names them.
+	 */
+	public function testSleepBonusAndMultiplierRoutesMatchTheContract(): void {
+		$declared = [];
+		foreach ($this->routes['routes'] as $route) {
+			$declared[$route['name']] = $route['verb'] . ' ' . $route['url'];
+		}
+		$this->assertSame('PUT /api/v1/room-tasks/{id}/sleep', $declared['room_task_cycle#sleep'] ?? null);
+		$this->assertSame('GET /api/v1/room-tasks/bonus', $declared['room_task#bonus'] ?? null);
+		$this->assertSame('PUT /api/v1/house/members/{userId}/coin-factor', $declared['coinMultiplier#setFactor'] ?? null);
+		$this->assertSame('POST /api/v1/house/bonus-periods', $declared['coinMultiplier#startPeriod'] ?? null);
+		$this->assertSame('DELETE /api/v1/house/bonus-periods/{id}', $declared['coinMultiplier#cancelPeriod'] ?? null);
 	}
 
 	/**

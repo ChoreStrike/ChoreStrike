@@ -60,7 +60,7 @@ class PostponeAndHistoryTest extends IntegrationTestCase {
 
 	private function redate(array $f, string $userId, int $completionId, string $day): array {
 		$version = (int)$this->rows('chorestrike_completed_tasks', 'id', $completionId)[0]['completion_version'];
-		return $this->completionService->changeDate($f['houseId'], $this->member($f['houseId'], $userId), $completionId, $this->newCommandId(), $version, $day);
+		return \OC::$server->get(\OCA\ChoreStrike\Service\CompletionDateCommand::class)->changeDate($f['houseId'], $this->member($f['houseId'], $userId), $completionId, $this->newCommandId(), $version, $day);
 	}
 
 	private function complete(array $f, string $userId): int {
@@ -263,7 +263,8 @@ class PostponeAndHistoryTest extends IntegrationTestCase {
 		$f = $this->fixture(['frequency_type' => 'weekly'], $this->day(-10));
 		$owner = $this->member($f['houseId'], self::OWNER);
 		$weekKey = (new \DateTime($this->day(-10)))->modify('monday this week')->format('Y-m-d');
-		$goal = fn (): array => \OC::$server->get(WeeklyGoalService::class)->getWeeklyGoalProgressForWeek($f['houseId'], $weekKey, new \DateTime());
+		$house = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($f['houseId']);
+		$goal = fn (): array => \OC::$server->get(WeeklyGoalService::class)->progressForPlannedWeek($house, $weekKey, new \DateTime());
 		$longest = fn (): int => \OC::$server->get(RhythmService::class)->evaluateForMembers($f['houseId'], [$owner], new \DateTime())[(int)$owner->getId()]['longestStreak'];
 
 		$completionId = $this->complete($f, self::OWNER);

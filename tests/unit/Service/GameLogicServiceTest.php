@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
+use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\GameLogicService;
+use OCA\ChoreStrike\Service\RecognitionPass;
+use OCA\ChoreStrike\Service\RhythmService;
 use OCA\ChoreStrike\Service\TitleService;
+use OCA\ChoreStrike\Service\WeeklyGoalService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -18,13 +22,56 @@ use PHPUnit\Framework\TestCase;
  * wallet ledger, streaks re-derive from valid history, titles
  * re-evaluate from valid stats. What remains is the read-side
  * serialization for `GET /game/state` — viewer-safe member progression
- * with NO Coin balances.
+ * with NO Coin balances — and the viewer's recognitions from one pass.
  */
 class GameLogicServiceTest extends TestCase {
 	private HouseUserMapper $houseUserMapper;
+	private WeeklyGoalService $weeklyGoalService;
+	private RhythmService $rhythmService;
 
 	protected function setUp(): void {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
+		$this->weeklyGoalService = $this->createMock(WeeklyGoalService::class);
+		$this->rhythmService = $this->createMock(RhythmService::class);
+	}
+
+	/**
+	 * Parent §3.4 read contract: one pass feeds the house goal, the
+	 * viewer's rhythm and the viewer's slice of the goal.
+	 */
+	public function testRecognitionsFor_OnePassFeedsTheGoalTheRhythmAndThePersonalSlice(): void {
+		$house = new House();
+		$house->setId(1);
+		$viewer = $this->member(11, 'Alice');
+		$now = new \DateTime('2026-07-15 10:00:00');
+		$pass = $this->createMock(RecognitionPass::class);
+		$this->weeklyGoalService->expects($this->once())->method('beginPass')->with($house)->willReturn($pass);
+		$this->weeklyGoalService->expects($this->once())->method('progressForWeek')->with($house, $now, $pass)->willReturn(['percent' => 80]);
+		// C1f evaluation is a pure read: a confirmed streak with a held day.
+		$this->rhythmService->expects($this->once())->method('evaluateForMembers')->with(1, [$viewer], $now, $pass)
+			->willReturn([11 => ['currentStreak' => 4, 'longestStreak' => 9, 'pending' => true]]);
+		$this->weeklyGoalService->expects($this->once())->method('progressForMember')->with($house, $viewer, $now, $pass)->willReturn(['eligible' => 3]);
+
+		$service = new GameLogicService($this->houseUserMapper, $this->weeklyGoalService, $this->rhythmService);
+
+		$this->assertSame([
+			'weeklyGoal' => ['percent' => 80],
+			'rhythm' => ['confirmed' => 4, 'current' => 4, 'best' => 9, 'pending' => true],
+			'myWeeklyGoal' => ['eligible' => 3],
+		], $service->recognitionsFor($house, $viewer, $now));
+	}
+
+	public function testRecognitionsFor_MemberWithoutAnEvaluation_StartsAtZero(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->rhythmService->method('evaluateForMembers')->willReturn([]);
+
+		$service = new GameLogicService($this->houseUserMapper, $this->weeklyGoalService, $this->rhythmService);
+
+		$this->assertSame(
+			['confirmed' => 0, 'current' => 0, 'best' => 0, 'pending' => false],
+			$service->recognitionsFor($house, $this->member(12, 'Bob'), new \DateTime())['rhythm']
+		);
 	}
 
 	private function member(int $id, string $name): HouseUser {
@@ -49,7 +96,7 @@ class GameLogicServiceTest extends TestCase {
 			->with(1)
 			->willReturn($members);
 
-		$service = new GameLogicService($this->houseUserMapper);
+		$service = new GameLogicService($this->houseUserMapper, $this->weeklyGoalService, $this->rhythmService);
 		$result = $service->getGameState(1);
 
 		$this->assertCount(2, $result['users']);
@@ -64,7 +111,7 @@ class GameLogicServiceTest extends TestCase {
 	public function testGetGameState_NoTitleService_SerializesRawEntityShape(): void {
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$this->member(11, 'Alice')]);
 
-		$service = new GameLogicService($this->houseUserMapper);
+		$service = new GameLogicService($this->houseUserMapper, $this->weeklyGoalService, $this->rhythmService);
 		$result = $service->getGameState(1);
 
 		$this->assertArrayNotHasKey('currentTitle', $result['users'][0]);
@@ -88,7 +135,7 @@ class GameLogicServiceTest extends TestCase {
 				return $data;
 			});
 
-		$service = new GameLogicService($this->houseUserMapper, $titleService);
+		$service = new GameLogicService($this->houseUserMapper, $this->weeklyGoalService, $this->rhythmService, $titleService);
 		$result = $service->getGameState(1);
 
 		$this->assertSame('family_rhythm.helper', $result['users'][0]['currentTitle']);
@@ -103,7 +150,7 @@ class GameLogicServiceTest extends TestCase {
 	public function testGetGameState_NeverExposesWalletBalances(): void {
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$this->member(11, 'Alice')]);
 
-		$service = new GameLogicService($this->houseUserMapper);
+		$service = new GameLogicService($this->houseUserMapper, $this->weeklyGoalService, $this->rhythmService);
 		$result = $service->getGameState(1);
 
 		$this->assertArrayNotHasKey('coins', $result['users'][0]);
@@ -117,7 +164,7 @@ class GameLogicServiceTest extends TestCase {
 	public function testGetGameState_EmptyHouse_ReturnsEmptyUsers(): void {
 		$this->houseUserMapper->method('findByHouseId')->willReturn([]);
 
-		$service = new GameLogicService($this->houseUserMapper);
+		$service = new GameLogicService($this->houseUserMapper, $this->weeklyGoalService, $this->rhythmService);
 		$result = $service->getGameState(1);
 
 		$this->assertSame(['users' => []], $result);

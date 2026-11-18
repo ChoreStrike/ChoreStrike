@@ -642,6 +642,32 @@ class TaskServiceTest extends TestCase {
 	}
 
 	/**
+	 * CS-PLAN-091 WP-B4: the bonus flag decides whether a task has cycles at
+	 * all, so only a real boolean is taken.
+	 *
+	 * @dataProvider bonusFlagProvider
+	 */
+	public function testValidateTaskData_BonusFlag(mixed $flag, bool $accepted): void {
+		$errors = $this->service->validateTaskData(['name' => 'Test', 'isVoluntary' => $flag]);
+
+		$this->assertSame($accepted, !in_array('Invalid value type for field: isVoluntary', $errors, true));
+	}
+
+	public static function bonusFlagProvider(): array {
+		return [
+			'true' => [true, true],
+			'false' => [false, true],
+			'the number 1' => [1, false],
+			'the text true' => ['true', false],
+			'null' => [null, false],
+		];
+	}
+
+	public function testValidateTaskData_WithoutABonusFlag_IsValid(): void {
+		$this->assertSame([], $this->service->validateTaskData(['name' => 'Test']));
+	}
+
+	/**
 	 * ValidateTaskData_InvalidScopeType_ReturnsError
 	 */
 	public function testValidateTaskData_InvalidScopeType_ReturnsError(): void {

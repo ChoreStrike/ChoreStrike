@@ -163,9 +163,11 @@ class AccountErasureService {
 					$this->walletEntryMapper->deleteByWalletIds([$wallet->getId()]);
 					$this->walletEntryMapper->anonymizeActorWallet((int)$wallet->getId());
 					$this->workShareMapper->anonymizeWallet((int)$wallet->getId());
-					// ADR-021: closed cycles of an already-departed account stop
-					// naming its wallet too.
+					// ADR-021: closed cycles and the coin factors frozen on
+					// completions of an already-departed account stop naming its
+					// wallet too (D-091-73).
 					$this->cycleMapper->forgetWallet((int)$wallet->getHouseId(), (int)$wallet->getId());
+					$this->completedTaskMapper->forgetCoinFactorWallet((int)$wallet->getHouseId(), (int)$wallet->getId());
 					$this->walletMapper->delete($wallet);
 				});
 			} catch (\Throwable $e) {
@@ -248,6 +250,8 @@ class AccountErasureService {
 				// ADR-021: closed cycles stay as shared facts and stop
 				// naming the erased wallet among their responsible members.
 				$this->cycleMapper->forgetWallet($houseId, (int)$wallet->getId());
+				// The coin factors frozen on completions are keyed by wallet too.
+				$this->completedTaskMapper->forgetCoinFactorWallet($houseId, (int)$wallet->getId());
 				// CS-PLAN-073 WP2 (§3.6): personal pause rows of the wallet
 				// go; shared pause facts keep their non-reidentifiable
 				// content and lose the account references below.

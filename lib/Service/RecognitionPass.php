@@ -18,11 +18,16 @@ use OCA\ChoreStrike\Db\Task;
  * room tasks with their definitions, completion inputs and responsible
  * wallets, and the recognized absences.
  *
- * A pass belongs to one evaluation — a job run, one request's reads. It is
- * a snapshot: code that writes work, rules or absences evaluates without
- * one, or begins a new one afterwards.
+ * A pass belongs to one evaluation — a job run, one request's reads — at
+ * one instant. It is a snapshot: code that writes work, rules or absences
+ * evaluates without one, or begins a new one afterwards. The facts of a
+ * week it evaluated are kept, so a second reader of that week (the house
+ * goal and a member's slice of it) reads nothing again.
  */
 class RecognitionPass {
+	/** @var array<string, list<RecognitionFact>> */
+	private array $weeks = [];
+
 	/**
 	 * @param Pause[] $absences Recognized absences of the house
 	 * @param RoomTask[] $roomTasks Active room tasks of the house
@@ -37,5 +42,16 @@ class RecognitionPass {
 		public readonly array $histories,
 		public readonly array $responsible,
 	) {
+	}
+
+	/**
+	 * The facts of a week, read once per pass.
+	 *
+	 * @param string $weekKey The week's Monday (`Y-m-d`)
+	 * @param callable(): list<RecognitionFact> $read
+	 * @return list<RecognitionFact>
+	 */
+	public function week(string $weekKey, callable $read): array {
+		return $this->weeks[$weekKey] ??= $read();
 	}
 }

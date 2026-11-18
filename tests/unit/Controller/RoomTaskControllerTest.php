@@ -113,7 +113,7 @@ class RoomTaskControllerTest extends TestCase {
 		$this->roomTaskReadService->expects($this->once())
 			->method('getRoomTasks')
 			->with(1, $this->identicalTo($houseUser), true)
-			->willReturn([$roomTask1, $roomTask2]);
+			->willReturn(new \OCA\ChoreStrike\Service\RoomTaskList([$roomTask1, $roomTask2], []));
 
 		$this->roomTaskReadService->method('assigneesByRoomTasks')->willReturn([]);
 
@@ -174,7 +174,7 @@ class RoomTaskControllerTest extends TestCase {
 		$this->roomTaskReadService->expects($this->once())
 			->method('getScopeTasksScopedToHouse')
 			->with(5, 1, $this->identicalTo($houseUser), true)
-			->willReturn([$roomTask]);
+			->willReturn(new \OCA\ChoreStrike\Service\RoomTaskList([$roomTask], []));
 
 		$this->roomTaskReadService->method('assigneesByRoomTasks')->willReturn([7 => ['user1']]);
 
@@ -748,6 +748,71 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->assertSame([3, 0], array_column($rows, 'checklistItemCount'));
 		$this->assertSame([true, false], array_column($rows, 'openWindow'));
+	}
+
+	/**
+	 * WP-B4 (ADR-021 decision 8): the bonus rows have the row shape of Today
+	 * and say whom each task already counted for on this day.
+	 */
+	public function testBonus_RowsCarryTheirCycleAndWhoIsCreditedToday(): void {
+		$house = new House();
+		$house->setId(1);
+		$roomTask = new RoomTask();
+		$roomTask->setId(40);
+		$task = new Task();
+		$task->setId(9);
+		$viewer = $this->createHouseUser();
+		$cycle = ['state' => 'bonus', 'expectedVersion' => 2];
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturn($viewer);
+		$this->roomTaskReadService->expects($this->once())->method('getBonusTaskRows')->with(1, $viewer)->willReturn([
+			['roomTask' => $roomTask, 'task' => $task, 'room' => new Room(), 'assignees' => ['kid'], 'cycle' => $cycle, 'creditedToday' => ['kid']],
+			['roomTask' => $roomTask, 'task' => $task, 'room' => new Room(), 'assignees' => [], 'cycle' => $cycle, 'creditedToday' => []],
+		]);
+		$this->roomTaskReadService->method('roomTaskPayload')->willReturn(['id' => 40]);
+
+		$response = $this->controller->bonus();
+
+		$this->assertSame(200, $response->getStatus());
+		$rows = $response->getData()['data'];
+		$this->assertSame(
+			['roomTask', 'task', 'room', 'assignees', 'cycle', 'openWindow', 'checklistItemCount', 'creditedToday'],
+			array_keys($rows[0])
+		);
+		$this->assertSame([['kid'], []], array_column($rows, 'creditedToday'));
+		$this->assertSame([$cycle, $cycle], array_column($rows, 'cycle'));
+		$this->assertSame([['kid'], []], array_column($rows, 'assignees'));
+	}
+
+	public function testBonus_ANonMemberIsRefused_AndAFailureHidesItsDetail(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturnOnConsecutiveCalls(
+			$this->throwException(new \OCA\ChoreStrike\Exception\ForbiddenException('Not a member of this house')),
+			$this->createHouseUser()
+		);
+		$this->roomTaskReadService->method('getBonusTaskRows')->willThrowException(new \RuntimeException('connection lost'));
+
+		$refused = $this->controller->bonus();
+		$failed = $this->controller->bonus();
+
+		$this->assertSame([403, 'FORBIDDEN'], [$refused->getStatus(), $refused->getData()['error']['code']]);
+		$this->assertSame(500, $failed->getStatus());
+		$this->assertSame(['code' => 'BONUS_TASKS_ERROR', 'message' => 'An unexpected error occurred'], $failed->getData()['error']);
+	}
+
+	/** The daily rows keep their shape: who is credited today is a fact of bonus rows only. */
+	public function testFilteredDaily_RowsHaveNoCreditedToday(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturn($this->createHouseUser());
+		$this->roomTaskReadService->method('getFilteredDailyTasksForUser')->willReturn([
+			['roomTask' => new RoomTask(), 'task' => new Task(), 'room' => new Room(), 'assignees' => []],
+		]);
+
+		$this->assertArrayNotHasKey('creditedToday', $this->controller->filteredDaily()->getData()['data'][0]);
 	}
 
 	/**

@@ -56,7 +56,7 @@ class FixtureCleanupTest extends IntegrationTestCase {
 				$populated = $this->snapshot();
 				foreach (['houses', 'floors', 'rooms', 'room_tasks', 'completed_tasks',
 					'work_shares', 'completion_revs', 'room_events', 'wallet_entries',
-					'wallets', 'chk_items', 'cycles', 'cycle_progress', 'commands', 'task_assignees',
+					'wallets', 'chk_items', 'cycles', 'cycle_progress', 'bonus_periods', 'commands', 'task_assignees',
 					// What a retained deployment still carries (ADR-021 decision 12).
 					'chk_progress', 'occurrences', 'occ_members', 'schedule_revs', 'agreements'] as $suffix) {
 					$table = 'chorestrike_' . $suffix;
@@ -86,7 +86,7 @@ class FixtureCleanupTest extends IntegrationTestCase {
 			$result->closeCursor();
 		}
 		ksort($rows);
-		self::assertCount(32, $rows, 'Snapshot every app table, including rows without a house key');
+		self::assertCount(33, $rows, 'Snapshot every app table, including rows without a house key');
 		return $rows;
 	}
 
@@ -122,6 +122,13 @@ class FixtureCleanupTest extends IntegrationTestCase {
 				$this->undoLatestForRoomTask($service, $houseId, $actor, $roomTaskId);
 				// The second completion stays: its closed cycle is a fact to clean.
 				$this->completeOccurrence($service, $houseId, $actor, $roomTaskId);
+				// A bonus period is a house-scoped fact no room task leads to.
+				$period = new \OCA\ChoreStrike\Db\BonusPeriod();
+				$period->setHouseId($houseId);
+				$period->setStartsOn(new \DateTime('2026-09-21'));
+				$period->setEndsOn(new \DateTime('2026-09-22'));
+				$period->setCreatedAt(new \DateTime());
+				\OC::$server->get(\OCA\ChoreStrike\Db\BonusPeriodMapper::class)->insert($period);
 				if ($foreignTask !== null) {
 					$mount = \OC::$server->get(RoomTaskMapper::class)->create($room->getId(), $foreignTask, new \DateTime());
 					$this->initializeScheduleForFixture($room->getId(), $mount->getId(), $foreignTask, $actor);

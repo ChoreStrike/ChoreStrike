@@ -75,7 +75,7 @@ class RecordingForOthersTest extends IntegrationTestCase {
 		self::assertSame('Helper', $entry['displayName']);
 		self::assertSame([self::OWNER], array_column($entry['allocation'], 'userId'));
 		self::assertTrue($entry['canCorrect'], 'the recorder corrects their own latest entry');
-		$shown = $this->completionService->showCompletion($f['houseId'], $this->member($f['houseId'], self::OWNER), $result['completionId']);
+		$shown = \OC::$server->get(\OCA\ChoreStrike\Service\CompletionReadModel::class)->show($f['houseId'], $this->member($f['houseId'], self::OWNER), $result['completionId']);
 		self::assertSame(self::HELPER, $shown['recordedBy']['userId']);
 
 		// The recorder takes the entry back; what was paid reverses exactly.

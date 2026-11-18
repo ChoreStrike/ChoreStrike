@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Service\CurrentCycle;
 use OCA\ChoreStrike\Service\CycleHistory;
 use OCA\ChoreStrike\Service\RecurrenceCalculator;
@@ -349,6 +350,78 @@ class WindowServiceTest extends TestCase {
 	// ------------------------------------------------------------------
 	// House-local days
 	// ------------------------------------------------------------------
+
+	public function testBlock_ASleepingTaskCarriesTheReceiptOfWakingIt(): void {
+		$asleep = $this->roomTask('2026-11-10', ['sleepingSince' => '2026-11-12 08:00:00']);
+		$asleep->setCycleVersion(6);
+		$this->assertSame(['state' => 'asleep', 'expectedVersion' => 6, 'wakeOn' => null], $this->windows->block($asleep, $this->task(), null, '2026-11-18'));
+
+		$asleep->setWakeOn(new \DateTime('2026-12-01'));
+		$this->assertSame('2026-12-01', $this->windows->block($asleep, $this->task(), null, '2026-11-18')['wakeOn']);
+		// Asleep wins over bonus: a sleeping bonus task is not on offer.
+		$this->assertSame('asleep', $this->windows->block($asleep, $this->task(['bonus' => true]), null, '2026-11-18')['state']);
+	}
+
+	/**
+	 * Decision 6: the row's `canPostpone` and the command decide through one rule.
+	 *
+	 * @dataProvider postponeRefusals
+	 */
+	public function testPostponeRefusal_SaysWhichRuleApplies(int $flex, int $presses, string $today, ?string $refusal): void {
+		$task = $this->task(['flex' => $flex]);
+		$roomTask = $this->roomTask('2026-11-18', $presses > 0 ? ['cycleKey' => 'd2026-11-18', 'postponeCount' => $presses, 'postponeDays' => 0] : []);
+		$cycle = $this->current($roomTask, $task, null, '2026-11-18 10:00:00');
+
+		$this->assertSame($refusal, WindowService::postponeRefusal($task, $cycle, $today));
+		$this->assertSame($refusal === null, $this->windows->block($roomTask, $task, $cycle, $today)['canPostpone']);
+	}
+
+	public static function postponeRefusals(): array {
+		return [
+			'flex days and presses left' => [2, 2, '2026-11-18', null],
+			'no flex days' => [0, 0, '2026-11-18', ConflictException::REASON_NOT_POSTPONABLE],
+			'three presses' => [2, 3, '2026-11-18', ConflictException::REASON_NOT_POSTPONABLE],
+			'a red task, whatever is left' => [2, 0, '2026-11-25', ConflictException::REASON_WINDOW_ENDED],
+		];
+	}
+
+	/**
+	 * Decision 7, D-091-28: a woken task hangs on its wake day; a fixed
+	 * rule continues on its next rule day and keeps its parity.
+	 *
+	 * @dataProvider wakeAnchors
+	 */
+	public function testWakeAnchor_FollowsTheRule(array $rule, string $anchor, string $wakeDay, ?string $expected): void {
+		$this->assertSame(
+			$expected,
+			$this->windows->wakeAnchor($this->roomTask($anchor), $this->task($rule), $wakeDay, new \DateTimeZone(self::ZONE))
+		);
+	}
+
+	public static function wakeAnchors(): array {
+		return [
+			'after completion: the wake day' => [[], '2026-09-01', '2026-11-18', '2026-11-18'],
+			'one-time: the wake day' => [['recurrence' => Task::RECURRENCE_ONCE], '2026-09-01', '2026-11-18', '2026-11-18'],
+			// 2026-11-18 is a Wednesday; Mondays every week.
+			'fixed weekday: the next rule day' => [['mode' => Task::SCHEDULING_STATIC, 'weekdays' => ['monday']], '2026-09-07', '2026-11-18', '2026-11-23'],
+			'fixed weekday on a rule day: that day' => [['mode' => Task::SCHEDULING_STATIC, 'weekdays' => ['monday']], '2026-09-07', '2026-11-23', '2026-11-23'],
+			// Every other Monday from 2026-09-07: 11-16 and 11-30 are rule days, 11-23 is not.
+			'fortnightly: the parity stays' => [['mode' => Task::SCHEDULING_STATIC, 'value' => 2, 'weekdays' => ['monday']], '2026-09-07', '2026-11-18', '2026-11-30'],
+			'fixed day of month: clamped as ever' => [['mode' => Task::SCHEDULING_STATIC, 'type' => 'monthly', 'monthDay' => 31], '2026-08-31', '2026-11-18', '2026-11-30'],
+			'a bounded rule past its end: the wake day, so no cycle is left' => [
+				['mode' => Task::SCHEDULING_STATIC, 'weekdays' => ['monday'], 'activeUntil' => '2026-10-31'], '2026-09-07', '2026-11-18', '2026-11-18',
+			],
+			'a bonus task has no anchor' => [['bonus' => true], '2026-09-01', '2026-11-18', null],
+		];
+	}
+
+	public function testWakeAnchor_ABoundedRulePastItsEnd_LeavesNoCycleAndNoMiss(): void {
+		$task = $this->task(['mode' => Task::SCHEDULING_STATIC, 'weekdays' => ['monday'], 'activeUntil' => '2026-10-31']);
+		$woken = $this->roomTask('2026-11-18');
+
+		$this->assertNull($this->current($woken, $task, null, '2026-11-18 10:00:00'));
+		$this->assertSame([], $this->windows->missedCycles($woken, $task, null, new \DateTimeZone(self::ZONE), $this->instant('2026-11-18 10:00:00')));
+	}
 
 	public function testHouseTimeZone_DecidesWhichDayItIs(): void {
 		$task = $this->task(['mode' => Task::SCHEDULING_STATIC, 'type' => 'daily']);

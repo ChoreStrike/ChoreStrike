@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\QueryBudgets;
 use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
 
 /**
@@ -46,6 +47,8 @@ use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
  *   control and the post-commit weekly-goal read.
  */
 class WorkflowQueryBudgetTest extends IntegrationTestCase {
+	use QueryBudgets;
+
 	private const HOUSE_READ_BUDGET = 3;
 	// The aggregate writes the work evidence/shares/audit trio, posts wallet
 	// entries with lazily ensured bindings, recalcs the derived contribution
@@ -53,20 +56,23 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	// insert-if-absent, ADR-021 decision 5) and re-derives the rhythm on
 	// re-loaded members. Correction safety adds under-lock
 	// membership/obligation reads; the compact receipt requires an
-	// after-commit viewer-safe read. Measured 91 on the fresh family profile
-	// (94 before the derived windows replaced the occurrence timeline); the
-	// share and cycle lookups are batched rather than per participant.
-	private const COMPLETE_BUDGET = 91;
+	// after-commit viewer-safe read. Measured 87 on the fresh family profile
+	// (91 before CS-PLAN-091 RF-091-08 removed repeated reads of the
+	// definition, the members and the completion; the two coin multipliers
+	// of ADR-021 decision 11 add the bonus-period read); the share and cycle
+	// lookups are batched rather than per participant.
+	private const COMPLETE_BUDGET = 87;
 	// The targeted undo is a full correction aggregate — under-lock
 	// completion re-read, wallet/member locking of the selected allocation,
 	// negative ledger entries, work-share-driven contribution recache,
 	// journal replay, the cycle reopen and the rhythm re-derivation over
 	// both recognition sources. Under-lock re-authorization, actor-wallet
 	// provenance, reset-bounded journal replay and compact-response
-	// hydration bring the fresh family-profile measurement to 83. These are
-	// one batched read per concern, not one query per historical event or
-	// work share.
-	private const UNDO_BUDGET = 83;
+	// hydration bring the fresh family-profile measurement to 72 (83 before
+	// CS-PLAN-091 RF-091-08: one correction skeleton, one batched member
+	// reload). These are one batched read per concern, not one query per
+	// historical event or work share.
+	private const UNDO_BUDGET = 72;
 	// The list read (3) plus the two completion-input reads of the cycle
 	// derivation; the definitions and the house zone are handed on.
 	private const LIST_WITH_CYCLES_BUDGET = 5;
@@ -99,11 +105,11 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		$counter = QueryCounter::attach($this->db);
 		try {
 			$counter->mark();
-			$smallResult = $readService->getHouseRoomTasks($smallHouse, $viewer);
+			$smallResult = $readService->getHouseRoomTasks($smallHouse, $viewer)->roomTasks;
 			$smallCount = $counter->count();
 
 			$counter->mark();
-			$bigResult = $readService->getHouseRoomTasks($bigHouse, $viewer);
+			$bigResult = $readService->getHouseRoomTasks($bigHouse, $viewer)->roomTasks;
 			$bigCount = $counter->count();
 		} finally {
 			$counter->detach();
@@ -151,9 +157,8 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		$viewer = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($smallHouse, $ownerId);
 		$zone = new \DateTimeZone('UTC');
 		$read = static function (int $houseId) use ($readService, $viewer, $zone): array {
-			$tasksById = null;
-			$roomTasks = $readService->getHouseRoomTasks($houseId, $viewer, true, $tasksById);
-			return $readService->cycleFacts($houseId, $roomTasks, $tasksById, null, $zone);
+			$list = $readService->getHouseRoomTasks($houseId, $viewer);
+			return $readService->cycleFacts($houseId, $list->roomTasks, $list->tasksById, null, $zone);
 		};
 
 		$counter = QueryCounter::attach($this->db);
@@ -240,7 +245,7 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		$counter = QueryCounter::attach($this->db);
 		try {
 			$counter->mark();
-			$result = $readService->getHouseRoomTasks($houseId, $viewer);
+			$result = $readService->getHouseRoomTasks($houseId, $viewer)->roomTasks;
 			$count = $counter->count();
 		} finally {
 			$counter->detach();
@@ -350,19 +355,6 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	}
 
 	// ========== Helpers ==========
-
-	private function assertPortableWriteBudget(QueryCounter $counter, int $budget, int $locks, int $generatedIds): void {
-		$sql = array_map(static fn (string $query): string => str_replace(['`', '"'], '', $query), $counter->sqlStatements());
-		$lockWrites = preg_grep('/^UPDATE oc_chorestrike_\w+ SET (\w+) = \1 WHERE /', $sql);
-		$identityReads = preg_grep('/^SELECT lastval\(\)$/i', $sql);
-		$sqlite = $this->db->getDatabaseProvider() === \OCP\IDBConnection::PLATFORM_SQLITE;
-		$postgres = $this->db->getDatabaseProvider() === \OCP\IDBConnection::PLATFORM_POSTGRES;
-		self::assertCount($sqlite ? $locks : 0, $lockWrites, 'each SQLite lock is one self-assignment write plus its read');
-		self::assertSame($sqlite ? 0 : $locks, $counter->countLockSelects());
-		self::assertCount($postgres ? $generatedIds : 0, $identityReads, 'PostgreSQL identity reads are bounded, not arbitrary extra queries');
-		$overhead = ($sqlite ? $locks : 0) + ($postgres ? $generatedIds : 0);
-		self::assertLessThanOrEqual($budget + $overhead, $counter->count(), implode("\n", $counter->sqlStatements()));
-	}
 
 	/**
 	 * @return array<int, array<string, mixed>>

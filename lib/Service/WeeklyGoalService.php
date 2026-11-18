@@ -53,13 +53,8 @@ class WeeklyGoalService {
 	 *
 	 * @return array{dueCount: int, completedCount: int, eligible: int, onTime: int, neutral: int, percent: int, targetPercent: int, achieved: bool, provisional: bool, weekKey: string, weekStart: string, weekEnd: string}
 	 */
-	public function getWeeklyGoalProgress(int $houseId, ?RecognitionPass $pass = null): array {
-		$house = $this->houseMapper->find($houseId);
-		return $this->progressForWeek($house, new \DateTime(), $pass);
-	}
-
-	public function getWeeklyGoalProgressForWeek(int $houseId, string $weekKey, \DateTime $now, ?RecognitionPass $pass = null): array {
-		return $this->progressForPlannedWeek($this->houseMapper->find($houseId), $weekKey, $now, $pass);
+	public function getWeeklyGoalProgress(int $houseId): array {
+		return $this->progressForWeek($this->houseMapper->find($houseId), new \DateTime());
 	}
 
 	/**

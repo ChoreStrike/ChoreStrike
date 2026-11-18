@@ -9,11 +9,13 @@
 		v-if="peopleReady"
 		:members="members"
 		:preselected="preselected"
+		:unavailable="unavailable"
+		:unavailableNote="unavailableNote"
 		:hint="t('chorestrike', 'Tick everyone who did the work. Their shares are equal unless you change them.')"
 		:confirmLabel="t('chorestrike', 'Done')"
 		@close="$emit('close')"
 		@confirm="$emit('confirm', $event)">
-		<div v-if="items.length > 0" class="picker-subtasks" data-testid="picker-subtasks">
+		<div v-if="!withoutSubTasks && items.length > 0" class="picker-subtasks" data-testid="picker-subtasks">
 			<TaskChecklist
 				:items="items"
 				:progress="checklistStore.getRoomTaskProgress(roomTaskId)"
@@ -52,6 +54,11 @@ const props = defineProps({
 	taskId: { type: Number, required: true },
 	/** The task's assignees: who a hold would credit. */
 	assignees: { type: Array, default: () => [] },
+	/** User ids that cannot be credited, with the reason shown next to them. */
+	unavailable: { type: Array, default: () => [] },
+	unavailableNote: { type: String, default: '' },
+	/** The task is known to have no sub-tasks to tick (none defined, or a bonus task, which has no cycle): nothing is read. */
+	withoutSubTasks: { type: Boolean, default: false },
 })
 
 defineEmits(['close', 'confirm'])
@@ -92,11 +99,15 @@ onMounted(async () => {
 	if (!peopleReady.value) {
 		loadPeople()
 	}
+	if (props.withoutSubTasks) {
+		return
+	}
 	try {
-		await Promise.all([
-			checklistStore.fetchTaskItems(props.taskId),
-			checklistStore.fetchRoomTaskProgress(props.roomTaskId),
-		])
+		// The ticks are read only for a task that has sub-tasks.
+		const defined = await checklistStore.fetchTaskItems(props.taskId)
+		if ((defined ?? []).length > 0) {
+			await checklistStore.fetchRoomTaskProgress(props.roomTaskId)
+		}
 	} catch (error) {
 		// The people can still be picked; the sub-tasks are done with the task.
 		logger.warn('Sub-tasks of the picker did not load', {

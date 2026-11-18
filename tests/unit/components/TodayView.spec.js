@@ -147,6 +147,8 @@ describe('TodayView', () => {
 			// from the owning store slices.
 			dailyTasks: todayFixture(),
 			overdueTasks: overdueFixture(),
+			bonusTasks: [],
+			fetchBonusTasks: jest.fn().mockResolvedValue([]),
 			rangeTasks: { scheduled: [], completed: [], from: null, to: null },
 			refreshFailed: false,
 			countsRefreshing: false,
@@ -181,7 +183,7 @@ describe('TodayView', () => {
 				return { roomTask: { id: roomTaskId, isActive: false }, rewards: {} }
 			}),
 		})
-		mockHouseStore = { timezone: 'UTC', house: { id: 1 }, fetchHouse: jest.fn().mockResolvedValue({ id: 1 }) }
+		mockHouseStore = { timezone: 'UTC', house: { id: 1 }, bonusPeriod: null, fetchHouse: jest.fn().mockResolvedValue({ id: 1 }) }
 		mockRoomsStore = reactive({
 			// A set-up house whose floors no other view has loaded yet.
 			floors: [],
@@ -256,6 +258,72 @@ describe('TodayView', () => {
 		expect(mockRoomTasksStore.fetchFilteredDailyTasks).toHaveBeenCalledTimes(1)
 		expect(mockRoomTasksStore.fetchOverdueTasks).toHaveBeenCalledTimes(1)
 		expect(mockRoomTasksStore.fetchDueTodayTasks).not.toHaveBeenCalled()
+	})
+
+	describe('bonus tasks and bonus days (CS-PLAN-091 WP-B4, WP-B5)', () => {
+		const bonusRow = (id, name, assignees = [], creditedToday = []) => ({
+			roomTask: { id, taskId: id, roomId: 1, isActive: true },
+			task: { id, name, energyCost: 1 },
+			room: { id: 1, name: 'Kitchen' },
+			assignees,
+			creditedToday,
+			cycle: { state: 'bonus', expectedVersion: 2 },
+		})
+
+		it('reads the bonus tasks once and lists them in their own section, after the day\'s work', async () => {
+			mockRoomTasksStore.bonusTasks = [bonusRow(40, 'Empty the dishwasher'), bonusRow(41, 'Cook dinner', ['teen'])]
+			const wrapper = await mountView()
+
+			expect(mockRoomTasksStore.fetchBonusTasks).toHaveBeenCalledTimes(1)
+			const section = wrapper.get('[data-testid="today-section-bonus"]')
+			// "My tasks": the unassigned one, not the one of someone else.
+			expect(section.text()).toContain('Empty the dishwasher')
+			expect(section.text()).not.toContain('Cook dinner')
+			expect(wrapper.get('[data-testid="today-section-today"]').text()).not.toContain('Empty the dishwasher')
+			const order = wrapper.html()
+			expect(order.indexOf('today-section-today')).toBeLessThan(order.indexOf('today-section-bonus'))
+
+			await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
+			expect(wrapper.get('[data-testid="today-section-bonus"]').text()).toContain('Cook dinner')
+		})
+
+		it('completes a bonus task through the shared flow and keeps the day\'s work untouched', async () => {
+			mockRoomTasksStore.bonusTasks = [bonusRow(40, 'Empty the dishwasher')]
+			const wrapper = await mountView()
+
+			await confirmHold(wrapper, '[data-testid="today-bonus-complete-40"]')
+
+			expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(40)
+			expect(wrapper.find('[data-testid="today-complete-button-11"]').exists()).toBe(true)
+		})
+
+		it('shows no bonus section without bonus tasks, and a failed read leaves the day as it is', async () => {
+			mockRoomTasksStore.fetchBonusTasks.mockRejectedValueOnce(new Error('offline'))
+			const wrapper = await mountView()
+
+			expect(wrapper.find('[data-testid="today-section-bonus"]').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="today-error"]').exists()).toBe(false)
+			expect(wrapper.text()).toContain('Do the dishes')
+		})
+
+		it('keeps the free-day state for a day with bonus tasks only: they are no planned work', async () => {
+			mockRoomTasksStore.dailyTasks = []
+			mockRoomTasksStore.overdueTasks = []
+			mockRoomTasksStore.bonusTasks = [bonusRow(40, 'Empty the dishwasher')]
+			const wrapper = await mountView()
+
+			expect(wrapper.find('[data-testid="today-empty-state"]').exists()).toBe(true)
+			expect(wrapper.find('[data-testid="today-section-bonus"]').exists()).toBe(true)
+		})
+
+		it('shows the bonus days while they run, and not the planned ones', async () => {
+			mockHouseStore.bonusPeriod = { id: 3, startsOn: dayKey(0), endsOn: dayKey(1) }
+			const running = await mountView()
+			expect(running.get('[data-testid="today-bonus-days"]').text()).toContain('coins count × 1.5')
+
+			mockHouseStore.bonusPeriod = { id: 4, startsOn: dayKey(2), endsOn: dayKey(3) }
+			expect((await mountView()).find('[data-testid="today-bonus-days"]').exists()).toBe(false)
+		})
 	})
 
 	it('keeps completion available when names fail and retries the optional member read', async () => {

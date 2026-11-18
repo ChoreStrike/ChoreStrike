@@ -13,6 +13,8 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CompletionDateCommand;
+use OCA\ChoreStrike\Service\CompletionReadModel;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
@@ -40,6 +42,8 @@ class CompletionController extends Controller {
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private CompletionService $completionService;
+	private CompletionDateCommand $dateCommand;
+	private CompletionReadModel $readModel;
 	private RoomTaskReadService $roomTaskReadService;
 	private IL10N $l;
 
@@ -48,6 +52,8 @@ class CompletionController extends Controller {
 		HouseService $houseService,
 		AuthorizationService $authService,
 		CompletionService $completionService,
+		CompletionDateCommand $dateCommand,
+		CompletionReadModel $readModel,
 		RoomTaskReadService $roomTaskReadService,
 		IL10N $l,
 		AppLogger $appLogger,
@@ -56,6 +62,8 @@ class CompletionController extends Controller {
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->completionService = $completionService;
+		$this->dateCommand = $dateCommand;
+		$this->readModel = $readModel;
 		$this->roomTaskReadService = $roomTaskReadService;
 		$this->l = $l;
 		$this->initializeControllerLogger($appLogger);
@@ -73,7 +81,7 @@ class CompletionController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$data = $this->completionService->showCompletion($house->getId(), $houseUser, $id);
+			$data = $this->readModel->show($house->getId(), $houseUser, $id);
 			return new JSONResponse(['success' => true, 'data' => $data]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -226,7 +234,7 @@ class CompletionController extends Controller {
 			}
 
 			$houseId = (int)$house->getId();
-			$result = $this->completionService->changeDate(
+			$result = $this->dateCommand->changeDate(
 				$houseId, $houseUser, $id, $payload['commandId'], $payload['expectedVersion'], $date
 			);
 			$result['roomTask'] = $this->roomTaskReadService->roomTaskPayload(

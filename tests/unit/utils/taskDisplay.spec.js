@@ -183,8 +183,16 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 
 		it('keeps an open flex window due today and labels a task without a window', () => {
 			expect(dueText(withCycle('open', -1, 1), tz)).toBe('Due today')
-			expect(dueText({ isActive: true, nextDue: '2000-01-01T00:00:00Z', cycle: { state: 'bonus', expectedVersion: 0 } }, tz)).toBe('No due date')
 			expect(dueText({ isActive: true, nextDue: null }, tz)).toBe('No due date')
+		})
+
+		it('names a bonus task and a sleeping one instead of a due day (ADR-021 decisions 7 and 8)', () => {
+			// The projected due instant is stale for both and never shown.
+			const stale = { isActive: true, nextDue: '2000-01-01T00:00:00Z' }
+			expect(dueText({ ...stale, cycle: { state: 'bonus', expectedVersion: 0 } }, tz)).toBe('Bonus task')
+			expect(dueText({ ...stale, cycle: { state: 'asleep', expectedVersion: 0, wakeOn: null } }, tz)).toBe('Asleep')
+			expect(dueText({ ...stale, cycle: { state: 'asleep', expectedVersion: 0, wakeOn: '2099-03-01' } }, tz)).toMatch(/^Asleep until /)
+			expect(dueText({ ...stale, isActive: false, cycle: { state: 'asleep' } }, tz)).toBe('Completed')
 		})
 	})
 

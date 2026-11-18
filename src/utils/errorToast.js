@@ -80,7 +80,35 @@ export function showCompletionError(error) {
 		showError(t('chorestrike', 'This task was already completed. Reload to see what is next.'))
 		return
 	}
+	if (error?.code === 'BONUS_ALREADY_TODAY') {
+		showError(t('chorestrike', 'This bonus task already counted for this person today. It counts again tomorrow.'))
+		return
+	}
+	if (error?.code === 'TASK_ENDED') {
+		showError(t('chorestrike', 'This task has ended. Wake it up to close it.'))
+		return
+	}
 	showErrorWithReference(t('chorestrike', 'Could not complete the task'), error)
+}
+
+/**
+ * The failure toast of a command whose refusals arrive with the server's
+ * localized reason (a rule of the command, a missing right, a conflict):
+ * the reason is shown as plain text, never decoded as markup. Anything
+ * else is the caller's message with the error reference.
+ * @param {unknown} error The caught error.
+ * @param {string} fallback Output of `t()` for an unexpected failure.
+ */
+export function showServerRefusal(error, fallback) {
+	if (error?.code === 'STALE_TARGET') {
+		showError(t('chorestrike', 'The task changed since it was displayed. Reload and try again.'))
+		return
+	}
+	if (['VALIDATION_ERROR', 'FORBIDDEN', 'CONFLICT'].includes(error?.code) && error?.message) {
+		showError(error.message, { isHTML: false })
+		return
+	}
+	showErrorWithReference(fallback, error)
 }
 
 /**

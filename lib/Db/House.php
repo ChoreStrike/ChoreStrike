@@ -143,6 +143,8 @@ class House extends Entity implements JsonSerializable {
 			// Consent-filtered ranking gate (CS-PLAN-070 WP4, C5i/D10b) —
 			// the Leaderboard's opt-in/closed state reads this.
 			'rankingEnabled' => $this->rankingEnabled,
+			// The first house-local day of derived windows (ADR-021 decision 12).
+			'cyclesFrom' => $this->cyclesFrom?->format('Y-m-d'),
 		];
 	}
 

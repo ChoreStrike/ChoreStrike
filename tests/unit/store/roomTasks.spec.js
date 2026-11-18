@@ -1009,6 +1009,111 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
+	describe('bonus and sleeping tasks (CS-PLAN-091 WP-B4)', () => {
+		const bonusRow = (over = {}) => ({
+			roomTask: { id: 40, roomId: 10, isActive: true },
+			task: { id: 9, name: 'Empty the dishwasher' },
+			room: { id: 10, name: 'Kitchen' },
+			assignees: [],
+			creditedToday: ['kid'],
+			cycle: { state: 'bonus', expectedVersion: 2 },
+			...over,
+		})
+
+		it('reads the bonus rows into their own slice and drops a superseded read', async () => {
+			let releaseFirst
+			api.get.mockReturnValueOnce(new Promise((resolve) => {
+				releaseFirst = resolve
+			})).mockResolvedValueOnce([bonusRow()])
+
+			const first = store.fetchBonusTasks()
+			await store.fetchBonusTasks()
+			releaseFirst([])
+			await first
+
+			expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks/bonus')
+			expect(store.bonusTasks).toEqual([bonusRow()])
+			expect(store.bonusLoaded).toBe(true)
+			expect(store.dailyTasks).toEqual([])
+		})
+
+		it('completes a bonus task with its version alone and marks whom it counted for', async () => {
+			store.bonusTasks = [bonusRow()]
+			api.get.mockResolvedValue({})
+			api.post.mockResolvedValue({
+				completionId: 91,
+				roomTask: { id: 40, roomId: 10, isActive: true },
+				cycle: { state: 'bonus', expectedVersion: 3 },
+				rewards: { completion: { id: 91, version: 0 }, participants: [{ userId: 'mom', sharePct: 100 }, { userId: null, sharePct: 0 }] },
+				replay: false,
+			})
+
+			await store.completeRoomTask(40)
+
+			expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks/40/complete', { commandId: expect.any(String), expectedVersion: 2 })
+			expect(store.bonusTasks[0].creditedToday).toEqual(['kid', 'mom'])
+			expect(store.bonusTasks[0].cycle).toEqual({ state: 'bonus', expectedVersion: 3 })
+		})
+
+		it('targets a sleeping task by its version: completing it wakes it', async () => {
+			store.roomTasks = [{ id: 7, roomId: 10, isActive: true, cycle: { state: 'asleep', expectedVersion: 6, wakeOn: null } }]
+			api.get.mockResolvedValue({})
+			api.post.mockResolvedValue({
+				completionId: 92,
+				roomTask: { id: 7, roomId: 10, isActive: true },
+				cycle: { cycleKey: 'c92', expectedVersion: 8, state: 'upcoming' },
+				rewards: { completion: { id: 92, version: 0 }, participants: [] },
+			})
+
+			expect(store._completionTargetFor(7)).toEqual({ state: 'asleep', expectedVersion: 6, wakeOn: null })
+			await store.completeRoomTask(7)
+
+			expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks/7/complete', { commandId: expect.any(String), expectedVersion: 6 })
+			expect(store.roomTasks[0].cycle.cycleKey).toBe('c92')
+		})
+
+		it('rereads the bonus rows with the other rows, and after a deleted bonus entry', async () => {
+			store.bonusTasks = [bonusRow()]
+			store.bonusLoaded = true
+			api.get.mockResolvedValue([bonusRow({ creditedToday: [] })])
+
+			await store.refreshDerivedProjections()
+			expect(api.get).not.toHaveBeenCalled()
+
+			api.post.mockResolvedValue({ roomTask: { id: 40, roomId: 10, isActive: true }, cycle: { state: 'bonus', expectedVersion: 4 }, undone: true })
+			await store.undoRoomTaskCompletion(91, 0)
+			await flushPromises()
+
+			expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks/bonus')
+			expect(api.get).toHaveBeenCalledTimes(1)
+			expect(store.bonusTasks[0].creditedToday).toEqual([])
+		})
+
+		it('rereads whom a bonus row paid after the owner changes the people of its entry', async () => {
+			store.bonusTasks = [bonusRow()]
+			store.bonusLoaded = true
+			expect([store.isBonusTask(40), store.isBonusTask(41)]).toEqual([true, false])
+			api.put.mockResolvedValue({ roomTask: { id: 40, roomId: 10, isActive: true }, rewards: { completion: { id: 91, version: 1 }, participants: [] } })
+			api.get.mockResolvedValue([bonusRow({ creditedToday: ['dad'] })])
+
+			await store.attributeCompletion(91, { participants: [{ userId: 'dad', sharePct: 100 }], expectedVersion: 0 })
+			await flushPromises()
+
+			expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks/bonus')
+			expect(store.bonusTasks[0].creditedToday).toEqual(['dad'])
+		})
+
+		it('forgets the bonus rows on a reset', () => {
+			store.bonusTasks = [bonusRow()]
+			store.bonusLoaded = true
+
+			store.reset()
+
+			expect(store.bonusTasks).toEqual([])
+			expect(store.bonusLoaded).toBe(false)
+		})
+	})
+
 	describe('fetchFilteredDailyTasks', () => {
 		it('fetches filtered daily tasks into the dedicated dailyTasks slice', async () => {
 			const mockTasks = [

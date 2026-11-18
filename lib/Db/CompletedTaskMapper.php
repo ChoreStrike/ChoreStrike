@@ -603,6 +603,39 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Account erasure: the wallet leaves the frozen coin factors of every
+	 * completion of the house (ADR-021 decision 11). The completion stays
+	 * as a shared fact; like an erased work share it no longer names the
+	 * person. Shares and ledger rows keep what was paid.
+	 */
+	public function forgetCoinFactorWallet(int $houseId, int $walletId): void {
+		$afterId = 0;
+		do {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('ct.*')
+				->from($this->getTableName(), 'ct')
+				->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
+				->innerJoin('rt', 'chorestrike_rooms', 'r', $qb->expr()->eq('rt.room_id', 'r.id'))
+				->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
+				->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+				->andWhere($qb->expr()->isNotNull('ct.coin_factors'))
+				->andWhere($qb->expr()->gt('ct.id', $qb->createNamedParameter($afterId, IQueryBuilder::PARAM_INT)))
+				->orderBy('ct.id', 'ASC')
+				->setMaxResults(500);
+			$page = $this->findEntities($qb);
+			foreach ($page as $completion) {
+				$afterId = (int)$completion->getId();
+				$factors = $completion->getCoinFactors() ?? [];
+				if (array_key_exists($walletId, $factors)) {
+					unset($factors[$walletId]);
+					$completion->setCoinFactors($factors);
+					$this->update($completion);
+				}
+			}
+		} while (count($page) === 500);
+	}
+
+	/**
 	 * Mark a ledger row undone (WP5): stamps `undone_at` so the occurrence
 	 * stops being revertible and drops out of every D11-filtered read.
 	 */

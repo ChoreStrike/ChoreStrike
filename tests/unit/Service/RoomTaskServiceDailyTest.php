@@ -39,6 +39,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
 	private \OCA\ChoreStrike\Service\WindowService|MockObject $windows;
 	private \OCA\ChoreStrike\Db\TaskChecklistItemMapper|MockObject $checklistItemMapper;
+	private \OCA\ChoreStrike\Service\CreditPolicy|MockObject $creditPolicy;
 	/** @var int[]|null Room tasks with work planned today (null = all). */
 	private ?array $dueTodayIds = null;
 	/**
@@ -58,6 +59,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
 		$this->checklistItemMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class);
+		$this->creditPolicy = $this->createMock(\OCA\ChoreStrike\Service\CreditPolicy::class);
 		// CS-PLAN-057: day windows resolve the house timezone (UTC here, so
 		// the [start, end) bounds match the injected date's UTC calendar day).
 		$utcHouse = new House();
@@ -103,7 +105,8 @@ class RoomTaskServiceDailyTest extends TestCase {
 			new CalendarService(),
 			$this->windows,
 			$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class),
-			$this->checklistItemMapper
+			$this->checklistItemMapper,
+			$this->creditPolicy
 		);
 	}
 

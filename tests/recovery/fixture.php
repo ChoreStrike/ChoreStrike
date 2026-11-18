@@ -128,7 +128,7 @@ function seed(): void {
 function validateFacts(): void {
 	$ids = json_decode(file_get_contents('/evidence/fixture.json'), true, 512, JSON_THROW_ON_ERROR);
 	$actor = owner($ids['houseId']);
-	$history = \OC::$server->get(CompletionService::class)->showCompletion($ids['houseId'], $actor, $ids['completionId']);
+	$history = \OC::$server->get(\OCA\ChoreStrike\Service\CompletionReadModel::class)->show($ids['houseId'], $actor, $ids['completionId']);
 	check($history['allocationRevision'] > 1 && count($history['allocation']) === 2, 'Corrected work-share history missing');
 	$request = \OC::$server->get(RewardRequestService::class)->showForViewer($ids['houseId'], $actor, $ids['requestId']);
 	check($request['priceMinor'] === 100 && count($request['audit']) > 0, 'Reward terms or event history missing');

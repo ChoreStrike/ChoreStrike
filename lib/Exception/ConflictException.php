@@ -24,6 +24,10 @@ class ConflictException extends \Exception {
 	public const REASON_WINDOW_ENDED = 'WINDOW_ENDED';
 	/** The task has no flex days, or the cycle was postponed three times. */
 	public const REASON_NOT_POSTPONABLE = 'NOT_POSTPONABLE';
+	/** A bonus task already paid one of the people to credit on this house-local day. */
+	public const REASON_BONUS_ALREADY_TODAY = 'BONUS_ALREADY_TODAY';
+	/** A sleeping task whose bounded rule ended while it slept: waking closes it, nothing is left to complete. */
+	public const REASON_TASK_ENDED = 'TASK_ENDED';
 
 	public function __construct(
 		string $message = '',
