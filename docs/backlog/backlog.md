@@ -780,7 +780,7 @@ because a past day cannot be derived again once rules and assignees have changed
 
 ### [P2] FEAT-UX-071 — Cleanliness derived from the due windows
 **Status**: Backlog (operator proposal in the GUI review of CS-PLAN-091 WP-B6, 2026-11-21; concept and ADR before any implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: review and correction
-**Owning**: unassigned · **Depends on**: FEAT-UX-068 · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: FEAT-UX-068 · **Blocks**: — · **Folded-in**: the stored `house_health` column and the `houseHealth` field of the house payload, which nothing maintains since `GET /house/health` went (CS-PLAN-091 RF-091-11, 2026-11-21): the statistics compute the health on read, the column keeps its last written value and a reset still writes 100
 **Source**: Operator proposal (2026-11-21)
 
 A room's cleanliness is a stored value today: each completion raises it by an effect in the

@@ -183,3 +183,80 @@ implementing and waits for the operator.
 - Focused browser specs green (see Verification).
 - Checks: php-cs-fixer, `l10n:check-keys`, `agents:check`, `docs:encoding`,
   `backlog:check`, `git diff --check`, LF endings.
+
+## Full (interim) - CS-PLAN-091 WP-B7 follow-up, the two other routes without a client
+
+**Outcome:** `PASS-WITH-FIXES`. Interim review; the plan stays in `active/` and continues
+with WP-C.
+
+### Scope and capture
+
+- Tier: Full, four read-only `reviewer` tracks (correctness, architecture, security and
+  data flow, performance and code quality) plus the main agent's own reading of the
+  renamed guard and the statistics. Required: the package removes routes and a command.
+- Owning plan: [CS-PLAN-091](../../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md),
+  finding RF-091-11 of WP-B7, decided by the operator on 2026-11-21: retire both routes
+  (D-091-123).
+- Branch `feat/simplified-core-bc` in its pinned worktree, base HEAD `b35ab2fd` (the
+  committed WP-B7, 5 ahead of `master`, 0 behind), the package uncommitted. Captured
+  before the review: 28 modified paths, nothing staged, combined scope fingerprint
+  `839c05c470b549a7e0485576979a078ee1848b9cb12cb4b80a1bf81b7d2de6a2`.
+- Before any change of the review the build gate stood on the captured tree and the
+  provider matrix ran on it: PHPUnit unit 1837 and integration 689 on PostgreSQL, MariaDB,
+  SQLite and the AIO row (`r91b7d`), all green.
+
+### Decisions
+
+- Operator, before the implementation: both routes go (D-091-123).
+- Implementation, accepted by the review: the statistics compute the house health
+  (D-091-124); the tests that used the shortening as their vehicle (D-091-125). No further
+  question needed the operator.
+
+### Findings fixed in the review
+
+| Severity | Where | Finding | Fix |
+|---|---|---|---|
+| minor | `PauseAbsenceTest` | The converted projection test seeded a pending shortening for an adult and had the owner approve it: a shape that never existed, and the same path as the test next to it | The revision is stored as the command left it (acknowledged, decided by its subject) |
+| minor | `OwnerCommandAuthorizationTest` | A demoted or departed owner ending a household absence was only covered through the shortening | The deletion of a household absence joined the lost-authority cases |
+| minor | ADR-020, API reference, architecture, `HouseService` | The status note let pending and declined shortenings govern; the stored house health was called the value of the last reset, while a retained installation holds the last refreshed mean | Reworded in all places |
+| minor | `ui-use-cases.md`, `release-test-plan.md` | The absence row, the pause lifecycle check and the route surface still named the shortening and `house#health` | Corrected |
+| nit | `RoomReplayConcurrencyTest` | The health assertion of the reset replay could no longer fail on its own | A stored value the replay would overwrite, next to the computed one |
+| nit | `RouteMatrixTest`, plan | A retired route was said to answer 404; `PUT /pauses/{id}` answers 405, because DELETE keeps the path | Both say so |
+| nit | comments, imports | An unused import, two ragged comment blocks, a store comment, *two routes* for four | Corrected |
+
+### Findings routed
+
+- Nothing new went to the plan or to `backlog.md`. The stored `house_health` column and
+  the `houseHealth` field of the house payload were folded into FEAT-UX-071 while
+  implementing. RF-091-12 and RF-091-13 stay open for WP-C.
+- Observed on the development stack: after a route is removed, the running web server keeps
+  the cached route and answers 500 until it is restarted; a release changes the app version
+  and rebuilds the cache. The `docker-dev` skill names the restart for removed routes too.
+
+### Verification
+
+- Canonical stack (PostgreSQL 18.6, Nextcloud 35.0.3, this worktree): PHPUnit unit 1837
+  and integration 693, no skips. The same suites on PostgreSQL, MariaDB 11.8.6, SQLite and
+  the AIO row (matrix `r91b7e`): every suite passed.
+- On the running stack after a web server restart: `GET /house/health` 404,
+  `PUT /pauses/{id}` 405, the two routes of WP-B7 404; `GET /house/stats` reports 63 on the
+  family seed, where it reported the stored 100 before.
+- The preservation proofs passed on the final tree: P1 on PostgreSQL, MariaDB and SQLite,
+  P2, P3 and P4 on PostgreSQL, each with a clean teardown.
+- Jest 186 suites / 2658 tests, ESLint, php-cs-fixer (507 files clean), `l10n:check-keys`
+  (1280 keys), `agents:check`, `docs:encoding`, `backlog:check`, `git diff --check`, LF
+  endings. No file under `src/` changed.
+- Browser, focused on absences, Insights and the settings (no retries): 85 passed on
+  `chromium-serial-db` (`calm-core-ui`, `family-rhythm`, `family-core-ux`,
+  `insights-flow`, `settings`, `today-view`, `multi-user-interactions`, `quiet-digest`,
+  `core-household-journey`), 10 on `chromium`, `mobile-core` 11 each on
+  `mobile-chromium` and `mobile-webkit`. No skips, no flaky results.
+
+### Gates
+
+- Build gate: Jest 186 suites / 2658 tests and ESLint green; no frontend source changed.
+- PHPUnit, both suites without skips, unit 1837 and integration 693 on the canonical stack
+  and on all four rows of the matrix.
+- Focused browser specs green (see Verification).
+- Checks: php-cs-fixer, `l10n:check-keys`, `agents:check`, `docs:encoding`,
+  `backlog:check`, `git diff --check`, LF endings.

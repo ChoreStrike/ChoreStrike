@@ -177,7 +177,7 @@ visibility should be read-only). **Entry points:** Settings; Insights.
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | Rename house | Settings | `PUT /house` | ⚠️ silent save, no toast (UX-006) |
-| House health bar | — | `GET /house/health` | ⛔ removed with the Dashboard (CS-PLAN-090 WP-B, D-090-11); house health shows in the Insights statistics, and the route stays without a client until Release B |
+| House health bar | — | — | ⛔ removed with the Dashboard (CS-PLAN-090 WP-B, D-090-11); house health shows in the Insights statistics, which compute it on read; the refresh route is pruned (CS-PLAN-091 RF-091-11) |
 | Household weekly goal | TodayView status line (`TodayStatusLine`) | `GET /game/state` | ✅ (CS-PLAN-090 WP-B; the Dashboard bar is gone) |
 | House statistics | InsightsView `HouseStatsCards` | `GET /house/stats` | ✅ (live since CS-PLAN-040; wrapper renamed to `fetchInsights`) |
 | Reset house (typed `RESET` confirm) | Settings danger zone | `POST /house/reset` | ✅ server owner-gated |
@@ -345,7 +345,7 @@ for the weekly plan, which left the navigation and opens from the calendar heade
 | Set a child's daily-task limit | `AvailabilityEditModal` (owner, non-self only) | `PUT /scheduling/members/{userId}` (`maxDailyTasks`) | ✅ CS-PLAN-065 (decision D5): omitted = unchanged, `null` = unlimited, 1-100 = finite bound; the personal endpoints reject the key |
 | Capacity calendar (members × days) | `ScheduleCalendar` | `GET /scheduling/members` + client getters | ✅ |
 | Preview and apply a plan | retired with ADR-022 (CS-PLAN-091 WP-B1): `SchedulePlanner`, its proposal rows, capacity grid and consent attestation are gone; the live suggestion follows in WP-C | — (`POST /scheduling/suggestions` and `POST /scheduling/apply` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
-| Absence (enter, see everyone's, delete; owner: household, for someone afterwards, pending requests) | `AbsenceView` (`#/absence`) with `AbsenceOwnerPanel`. An absence writes nothing on the work: tasks stay visible and can be completed; a window inside the absence is neutral for the absent member (ADR-021 §5) | `GET/POST /pauses`, `DELETE /pauses/{id}`, `POST /pauses/{id}/approve\|reject`, `POST /pauses/recognize-illness` | ✅ CS-PLAN-090 WP-A, [ADR-020](../adr/ADR-020-absences-without-requests.md) — every role acknowledged at once, no reason asked or shown, deletion as a cancelled revision; `PUT /pauses/{id}` (shorten) has no client until Release B (D-090-10) |
+| Absence (enter, see everyone's, delete; owner: household, for someone afterwards, pending requests) | `AbsenceView` (`#/absence`) with `AbsenceOwnerPanel`. An absence writes nothing on the work: tasks stay visible and can be completed; a window inside the absence is neutral for the absent member (ADR-021 §5) | `GET/POST /pauses`, `DELETE /pauses/{id}`, `POST /pauses/{id}/approve\|reject`, `POST /pauses/recognize-illness` | ✅ CS-PLAN-090 WP-A, [ADR-020](../adr/ADR-020-absences-without-requests.md) — every role acknowledged at once, no reason asked or shown, deletion as a cancelled revision; the shortening route is pruned (CS-PLAN-091 RF-091-11), and an acknowledged shortening that is stored keeps governing |
 | Occurrence agreements (amend/catch-up/restart) | retired with ADR-021 (CS-PLAN-091 WP-B1); stored agreements stay as history | — (`POST /occurrences/{key}/…` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
 
 *Last verified: 2026-09-24 (CS-PLAN-073 WP2 fix round).*

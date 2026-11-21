@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 open for the operator, RF-091-12 and RF-091-13 open for WP-C; next: WP-C)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; RF-091-12 and RF-091-13 open for WP-C; next: WP-C)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -652,6 +652,32 @@ RF-091-11 stays open for the operator.
   `GET /room-tasks?roomId=` on a real database; every help topic is checked for the
   retired words; the three retired-route guards of the route matrix share one body.
 
+### Follow-up of WP-B7: the two other routes without a client (RF-091-11, 2026-11-21)
+
+- **D-091-123 Both routes go (operator, 2026-11-21):** `PUT /pauses/{id}` with
+  `PauseController::update()` and the `pause.shorten` command, and `GET /house/health`
+  with `HouseController::health()`. An absence is ended by deleting it (ADR-020). Stored
+  shortened revisions keep governing; a pending one is still decided and a declined one
+  still leaves its absence deletable. The right to end an absence keeps its one check, now
+  named `assertCanEndPause()`.
+- **D-091-124 The statistics compute the house health:** `GET /house/stats` reported the
+  stored `house_health`, and only `GET /house/health` refreshed it. Its client went with
+  the Dashboard in Release A, so *Insights* has shown the last stored value since then
+  (100 % on the family seed, whose rooms average 63 %; on the retained baseline the last
+  mean the Dashboard refreshed). The statistics now take the mean
+  cleanliness of the rooms they read, 100 without rooms, with no further query;
+  `HouseService::calculateHouseHealth()` and `HouseMapper::updateHealth()` went. The stored
+  column keeps its last written value, a reset still writes 100, and its removal from the
+  house payload is folded into FEAT-UX-071.
+- **D-091-125 Tests that used the shortening as their vehicle:** the two races of
+  `PauseConcurrencyTest` (two connections on one revision, one receipt replayed on two
+  connections) run on the deletion; the projection of a shortened absence is proven on a
+  revision stored as the command left it (acknowledged, decided by its subject), next to
+  the pending one from before ADR-020 that the owner acknowledges; the lost-authority
+  cases of `OwnerCommandAuthorizationTest` keep the commands that are left and gain the
+  deletion of a household absence, which only the shortening had covered. The tests of the command's own rules (clamp to today, no earlier end, a child's
+  direct acknowledgment, the role refusals) went with it.
+
 ### Positions for the Standard A review
 
 These settle the remaining open points of the concept. They bind once Standard A passes.
@@ -811,7 +837,8 @@ These settle the remaining open points of the concept. They bind once Standard A
 
 - Routes go: `PUT /rooms/{id}/cleanliness` (`RoomController`, D-089-09), whose retained
   journal entries keep replaying, and `room_task#roomStats`, which has had no client since
-  D-090-10. The two other routes of those decisions are RF-091-11.
+  D-090-10. The two other routes of those decisions went in the follow-up (RF-091-11,
+  D-091-123): `PUT /pauses/{id}` and `GET /house/health`.
 - Digest: the agreement lines and their relevance check go; their queue writes went with the
   writers in WP-B1, and retained agreement rows are skipped (D-091-12, BUG-UX-015).
 - Help, glossary and user guide drop catch-up, agreements, *last done on* and the applied plan.
@@ -867,6 +894,9 @@ approval.
   scenarios moved, none dropped without a successor or a recorded reason.
 - **WP-B7:** the cleanliness and the room-statistics route answer 404 and the route matrix
   pins both; retained journal entries and agreement queue rows still read or are skipped.
+  Follow-up (RF-091-11): the shortening and the health route have no route (the health
+  one answers 404, the shortening 405 because DELETE keeps its path) and are pinned;
+  stored shortened revisions keep governing; the statistics compute the health.
 - **WP-C:** `SuggestionServiceTest` (D-091-11 rules, preferred days, absences, team tasks,
   overload, the child limit); the daily snapshot (one per house and day under concurrent first
   reads, the leave and join rules, deletion of old days); request budgets for *Today* and the
@@ -949,6 +979,9 @@ modified: lib/Db/AgreementMapper.php, OccurrenceMapper.php, OccurrenceMemberMapp
           development.md, docs/concepts/notifications.md, ui-use-cases.md (WP-B7 and its review)
 removed:  tests/unit/Db/OccurrenceTest.php, tests/unit/Db/Entity/RoomTaskChecklistProgressTest.php
           (interim Full review of WP-B7)
+modified: lib/Controller/HouseController.php, PauseController.php, lib/Service/HouseService.php,
+          PauseService.php, lib/Db/HouseMapper.php, docs/adr/ADR-020 (status note),
+          docs/concepts/task-model-and-sync.md (RF-091-11)
 modified: l10n/de.json, l10n/en.json, l10n/templates/chorestrike.pot
 modified: tests named in section 4, tests/e2e/required-scenarios.json, scripts/run-e2e-gate.js
 modified: docs/concepts/*.md named in WP-0, docs/api/README.md, docs/api/notifications.md,
@@ -1104,7 +1137,7 @@ the defects now, route refactors, performance and the recovery tooling to WP-B2)
 
 Found while implementing WP-B7 (2026-11-21).
 
-- [ ] **RF-091-11 Two more routes without a client are not named by WP-B7** (scope, operator
+- [x] **RF-091-11 Two more routes without a client are not named by WP-B7** (scope, operator
   decision): D-090-10 kept `PUT /pauses/{id}` (shortening an absence) and D-090-38
   `GET /house/health` (which recalculates and stores the house health on a read) *until
   Release B reworks both surfaces*; the API reference repeats that. WP-B7 names only the
@@ -1113,7 +1146,9 @@ Found while implementing WP-B7 (2026-11-21).
   retire both in this package's follow-up, with `PauseController::update()`, the shortening
   command of `PauseService` and `HouseController::health()` and their tests, keeping the
   health calculation that the reset and the statistics use. Alternative: keep them and say
-  so in the API reference without *until Release B*.
+  so in the API reference without *until Release B*. **Fixed 2026-11-21:** the operator
+  chose to retire both (D-091-123); 92 routes. The statistics did not use the calculation:
+  they reported the stored value, which only the retired route refreshed (D-091-124).
 
 Routed by the interim Full review of WP-B7 (2026-11-21); every other finding of that review
 was fixed in it.
@@ -1430,3 +1465,27 @@ checks; focused browser specs 126 passed on `chromium-serial-db`, 23 on `chromiu
 `mobile-webkit`; the preservation proofs passed on the final tree: P1 on PostgreSQL,
 MariaDB and SQLite, P2, P3 and P4 on PostgreSQL, each with a clean teardown. No schema
 step. Interim review: the plan stays in `active/`.
+
+**Interim Full review of the WP-B7 follow-up (RF-091-11), 2026-11-21: `PASS-WITH-FIXES`.**
+Scope: the uncommitted follow-up on `feat/simplified-core-bc` (base HEAD `b35ab2fd`, 28
+paths, fingerprint `839c05c4…7d2de6a2`), four reviewer tracks plus the main agent. Record:
+[CODE_REVIEW_2026-11-21](../../backlog/archive/CODE_REVIEW_2026-11-21.md#full-interim---cs-plan-091-wp-b7-follow-up-the-two-other-routes-without-a-client).
+
+The operator chose to retire both routes (D-091-123): `PUT /pauses/{id}` with the shortening
+command and `GET /house/health`; 92 routes. Found with it and fixed: the statistics reported
+a stored house health that nothing refreshed since Release A, and now compute it
+(D-091-124). Fixed in the review: the projection test stores the shortening as the command
+left it; the lost-authority cases gained the deletion of a household absence; ADR-020, the
+API reference and the architecture no longer let pending shortenings govern or call the
+stored health a reset value; the release test plan and the UI use cases dropped the
+shortening and the health route; a retired route answers 404, or 405 where another verb
+keeps its path. D-091-124 and D-091-125 accepted. Nothing routed; RF-091-11 is closed,
+RF-091-12 and RF-091-13 stay open for WP-C.
+
+Gates: Jest 186 suites / 2658 tests, ESLint; PHPUnit unit 1837 and integration 693 on the
+canonical stack and on PostgreSQL, MariaDB, SQLite and the AIO row (matrix `r91b7e`), no
+skips; php-cs-fixer, l10n (1280 keys), adapter, docs and backlog checks; focused browser
+specs 85 passed on `chromium-serial-db`, 10 on `chromium` and the phone set 11 each on
+`mobile-chromium` and `mobile-webkit`; the preservation proofs passed on the final tree: P1
+on PostgreSQL, MariaDB and SQLite, P2, P3 and P4 on PostgreSQL, each with a clean teardown.
+No schema step. Interim review: the plan stays in `active/`.

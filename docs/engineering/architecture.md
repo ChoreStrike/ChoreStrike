@@ -579,7 +579,7 @@ weaken the backend membership checks.
 ```javascript
 {
   state: {
-    house: null,          // the full house object; houseHealth lives on house.houseHealth
+    house: null,          // the full house object; the shown health is insights.stats.houseHealth
     insights: null,       // /insights payload (stats, fairness rows, medals)
     activity: [],         // activity feed rows (house store owns the feed source)
     loading: false,
@@ -609,10 +609,13 @@ weaken the backend membership checks.
 ```
 
 > There is **no** standalone `health` state field or `updateHealth()` action.
-> The house payload carries `houseHealth`; the one surface that shows it,
-> Insights, reads it from the insights payload. The client of
-> `GET /api/v1/house/health` went with the Dashboard's health bar (CS-PLAN-090
-> WP-B); the route stays until Release B reworks the surface. Canonical definition:
+> The one surface that shows the house health, Insights, reads
+> `stats.houseHealth` from the insights payload, which `GET /house/stats`
+> computes from the rooms on every read. `GET /api/v1/house/health`, which
+> refreshed a stored value, went with CS-PLAN-091 RF-091-11; the stored
+> `houseHealth` of the house payload keeps its last written value (a reset
+> writes 100) and is no longer maintained.
+> Canonical definition:
 > [`src/store/house.js`](../../src/store/house.js). (The former
 > `fetchHouseStats`/`initializeHouse` examples were fictional — removed,
 > CS-PLAN-068.)
@@ -1314,9 +1317,11 @@ CommandService receipt convention; every command authorizes BEFORE the receipt
 replay and commits domain facts, versions and the receipt in ONE transaction.
 
 - **`PauseService`** — revisioned pause groups (personal and house scope):
-  enter, approve/reject a request from before ADR-020, shorten, delete and
-  retrospective illness. An absence writes nothing on the work: no window
-  moves, no cycle version changes, and the work stays possible. The viewer
+  enter, approve/reject a request from before ADR-020, delete and
+  retrospective illness (the shortening command went with CS-PLAN-091
+  RF-091-11; stored shortened revisions keep governing). An absence writes
+  nothing on the work: no window moves, no cycle version changes, and the
+  work stays possible. The viewer
   list is an explicit field whitelist — personal reason and illness marker
   are self/owner data in every state (RF-073-WP2-28). Departure cancels
   pending personal requests (Q-073-03).
@@ -1471,6 +1476,9 @@ caller with the stored occurrences went. `RoomController` 338 → 269,
 333 → 59 fell below the guideline; `RoomTaskController` 630 → 581,
 `RoomTaskService` 424 → 366, `RoomService` 366 → 306, `RoomTaskMapper`
 544 → 494, `CompletedTaskMapper` 716 → 651 and `DigestService` 345 → 343.
+Its follow-up of the same day (RF-091-11: shortening an absence and the house
+health refresh): `HouseController` 425 → 394, `HouseService` 679 → 663 and
+`PauseService` 758 → 683.
 
 Dispositions: **accepted** (cohesive unit or static/data surface — splitting
 would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
@@ -1483,14 +1491,14 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `Controller/RoomTaskController.php` | 581 | Room-task route surface (selector modes, creation, lifecycle, range, the bonus rows, the cycle receipt of the completion); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
 | `Controller/SchedulingController.php` | 301 | Scheduling route surface (own preferences, member availability); thin methods | accepted (endpoint breadth, no logic depth) |
 | `Controller/UserController.php` | 367 | Member/profile route surface; thin methods (persistence delegated to HouseService, RF-058-04) | accepted (endpoint breadth) |
-| `Controller/HouseController.php` | 425 | House route surface (read, settings, the catalog and arcade gates, stats, activity, health, reset); every stored house payload adds the app-config arcade flag, the task categories and the bonus period; thin methods | accepted (endpoint breadth) |
+| `Controller/HouseController.php` | 394 | House route surface (read, settings, the catalog and arcade gates, stats, activity, reset); every stored house payload adds the app-config arcade flag, the task categories and the bonus period; thin methods | accepted (endpoint breadth) |
 | `Controller/RoomController.php` | — | Room route surface; the manual cleanliness delta went with CS-PLAN-091 WP-B7, which took it BELOW the guideline (269 non-blank lines); entry retired | removed from the inventory (2026-11-21) |
 | `Service/CompletionService.php` | 647 | The three WP3 ledger aggregates — completion, undo, attribution — with the WP5 transactional takeover queue and the frozen coin multipliers; the date correction, the correction skeleton, the locks, the evidence, the recognition tail, the read model and the split are collaborators (RF-091-07) | **named** (CS-PLAN-067 §3.5 / ADR-014: one visible ordered aggregate per command; further splitting would hide the lock/order contract) |
 | `Service/RoomTaskService.php` | 366 | Room-task ownership checks, deletion, calendar-range projection of the cycles (the room stats went with CS-PLAN-091 WP-B7) | **remainder** (CR-SVC-15: range projection extraction candidate) |
 | `Service/RoomTaskReadService.php` | 577 | Batched read/enrichment cluster (house/room/scope/daily/due/bonus + timezone); WP8 product; batched cycle blocks and the status derived from them | accepted (read-surface breadth, one owner per D1) |
 | `Service/HouseSetupService.php` | 513 | WP3 first-run setup transaction aggregate (first-run gate, structure, a definition per room and template, invites; first windows of the seeded tasks, ADR-021) | accepted (transaction aggregate) |
 | `Service/TaskService.php` | 556 | The definition's validation set and its one update path: prepared, applied under lock, the changed fields, and the revision of every mounted room task (a rule, flex or energy edit moves its current cycle) | accepted (one validation authority; the former `createTask` candidate of CR-SVC-15 left with CS-PLAN-063) |
-| `Service/HouseService.php` | 679 | House aggregate: membership, stats, timezone revision passes, ranking flag and consent-only reset, membership-keyed preference/digest cleanup | accepted (cohesive aggregate) |
+| `Service/HouseService.php` | 663 | House aggregate: membership, stats with the computed house health, timezone revision passes, ranking flag and consent-only reset, membership-keyed preference/digest cleanup | accepted (cohesive aggregate) |
 | `Service/SchedulingService.php` | 320 | Scheduling preferences/availability domain surface | accepted (cohesive domain) |
 | `Service/TemplateService.php` | 314 | Task catalog templates + level presets | accepted (catalog surface) |
 | `Service/RewardConfigService.php` | — | Static reward configuration registry — the WP4 retirement of the weekly-goal/threshold override keys dropped it BELOW the guideline (164 non-blank lines); entry retired | removed from the inventory (2026-09-27) |
@@ -1505,7 +1513,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `Service/DigestService.php` | 343 | WP5 five-minute pass, current-source/visibility relevance, house-first claim, commit-before-notify and outcome bookkeeping | accepted (one visible at-most-once delivery choreography; scheduling and persistence remain in their existing owners) |
 | `Service/RewardRequestService.php` | 974 | WP7 C4 request lifecycle: one ordered lock/authorization/receipt/effect/queue sequence per command, the role/departure/erasure hooks and the viewer-safe serialization |
 | `Service/RewardService.php` | 409 | WP7 catalog owner: item CRUD with strict terms, the household-gate command and the scope matrix |
-| `Service/PauseService.php` | 758 | Revisioned pause lifecycle with the ADR-020 deletion, viewer projection, departure and WP5 transactional decision queue writes | accepted (one ordered lock/revision/queue sequence per command) |
+| `Service/PauseService.php` | 683 | Revisioned pause lifecycle with the ADR-020 deletion, viewer projection, departure and WP5 transactional decision queue writes | accepted (one ordered lock/revision/queue sequence per command) |
 | `Db/RoomTask.php` | — | Central entity: domain accessors, the stored inputs of the derived window, JSON serialization; the ideal-date helpers of the legacy recurrence engine went with CS-PLAN-091 WP-B7, which took it BELOW the guideline (279 non-blank lines); entry retired | removed from the inventory (2026-11-21) |
 | `Db/RoomTaskMapper.php` | 494 | SQL primitives for the central instance table (house/room/scope/daily/locks) | accepted (SQL primitive collection) |
 | `Db/CompletedTaskMapper.php` | 651 | Ledger SQL: stats aggregates, occurrence lookups of old rows, cycle anchors, the neighbours and the history of one room task, weekly windows, completion revisions, the erasure of a wallet from the frozen coin factors | accepted (SQL primitive collection) |

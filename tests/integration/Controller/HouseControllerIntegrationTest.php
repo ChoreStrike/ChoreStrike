@@ -254,21 +254,4 @@ class HouseControllerIntegrationTest extends TestCase {
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
 	}
-
-	/**
-	 * GetHealth_ReturnsHouseHealth_SuccessResponse
-	 */
-	public function testGetHealth_ReturnsHouseHealth_SuccessResponse(): void {
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->houseService->method('calculateHouseHealth')
-			->willReturn(82);
-		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
-
-		$response = $this->controller->health();
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-	}
 }

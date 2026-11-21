@@ -318,16 +318,18 @@ class RouteMatrixTest extends TestCase {
 	 * four sub-task writers → 96.
 	 * CS-PLAN-091 WP-B7 retired the two routes that had lost their client
 	 * (D-089-09, D-090-10): the manual cleanliness delta and the task
-	 * statistics of a room → 94.
+	 * statistics of a room → 94, and the two others of those decisions
+	 * (RF-091-11, D-090-10, D-090-38): shortening an absence and the house
+	 * health refresh → 92.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			94,
+			92,
 			$this->routes['routes'],
-			'Route count drifted from the pin (94 after CS-PLAN-091 WP-B7) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (92 after CS-PLAN-091 WP-B7) — add only with a consumer, then update deliberately'
 		);
 	}
 
@@ -546,10 +548,13 @@ class RouteMatrixTest extends TestCase {
 	}
 
 	/**
-	 * CS-PLAN-091 WP-B7 (D-089-09, D-090-10): the routes without a client
-	 * stay gone — a request to either finds no route and answers 404, and
-	 * no controller method is left behind them. The journal entries of the
-	 * manual delta keep replaying (`RoomReplayConcurrencyTest`).
+	 * CS-PLAN-091 WP-B7 (D-089-09, D-090-10, D-090-38, RF-091-11): the
+	 * routes without a client stay gone — a request to any of them finds no
+	 * route (404, or 405 where another verb keeps the path, as DELETE does
+	 * for /pauses/{id}), and no controller method is left behind them.
+	 * The journal entries of the manual delta keep replaying
+	 * (`RoomReplayConcurrencyTest`), stored shortened absences keep governing
+	 * (`PauseAbsenceTest`), and the statistics compute the house health.
 	 *
 	 * @dataProvider retiredClientlessRouteProvider
 	 */
@@ -562,6 +567,8 @@ class RouteMatrixTest extends TestCase {
 		return [
 			'manual cleanliness delta' => ['PUT /api/v1/rooms/{id}/cleanliness', 'room#updateCleanliness', \OCA\ChoreStrike\Controller\RoomController::class, 'updateCleanliness'],
 			'room task statistics' => ['GET /api/v1/room-tasks/room/{roomId}/stats', 'room_task#roomStats', \OCA\ChoreStrike\Controller\RoomTaskController::class, 'roomStats'],
+			'absence shortening' => ['PUT /api/v1/pauses/{id}', 'pause#update', \OCA\ChoreStrike\Controller\PauseController::class, 'update'],
+			'house health refresh' => ['GET /api/v1/house/health', 'house#health', \OCA\ChoreStrike\Controller\HouseController::class, 'health'],
 		];
 	}
 

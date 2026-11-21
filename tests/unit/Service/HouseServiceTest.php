@@ -375,56 +375,6 @@ class HouseServiceTest extends TestCase {
 	}
 
 	/**
-	 * CalculateHouseHealth_NoRooms_Returns100
-	 */
-	public function testCalculateHouseHealth_NoRooms_Returns100(): void {
-		$houseId = 1;
-
-		$this->roomMapper
-			->expects($this->once())
-			->method('findByHouseId')
-			->with($houseId)
-			->willReturn([]);
-
-		$result = $this->service->calculateHouseHealth($houseId);
-
-		$this->assertEquals(100, $result);
-	}
-
-	/**
-	 * CalculateHouseHealth_WithRooms_ReturnsAverageCleanliness
-	 *
-	 * CS-PLAN-036: one house-scoped room fetch replaces the
-	 * floors → findByFloorId loop.
-	 */
-	public function testCalculateHouseHealth_WithRooms_ReturnsAverageCleanliness(): void {
-		$houseId = 1;
-
-		$room1 = new Room();
-		$room1->setId(1);
-		$room1->setCleanliness(80);
-
-		$room2 = new Room();
-		$room2->setId(2);
-		$room2->setCleanliness(60);
-
-		$this->roomMapper
-			->expects($this->once())
-			->method('findByHouseId')
-			->with($houseId)
-			->willReturn([$room1, $room2]);
-
-		$this->houseMapper
-			->expects($this->once())
-			->method('updateHealth')
-			->with($houseId, 70);
-
-		$result = $this->service->calculateHouseHealth($houseId);
-
-		$this->assertEquals(70, $result);
-	}
-
-	/**
 	 * GetHouseStats_WithRooms_ReturnsCompleteStats
 	 */
 	public function testGetHouseStats_WithRooms_ReturnsCompleteStats(): void {
@@ -464,7 +414,22 @@ class HouseServiceTest extends TestCase {
 		$this->assertEquals(2, $result['stats']['totalRooms']);
 		$this->assertEquals(1, $result['stats']['cleanRooms']);
 		$this->assertEquals(1, $result['stats']['dirtyRooms']);
-		$this->assertEquals(75, $result['stats']['houseHealth']);
+		$this->assertSame(55, $result['stats']['houseHealth'], 'the mean cleanliness of the rooms, not the stored 75');
+	}
+
+	/**
+	 * CS-PLAN-091 RF-091-11: the health is computed from the rooms the
+	 * statistics read; nothing refreshes the stored column any more.
+	 */
+	public function testGetHouseStats_WithoutRooms_HealthIsPerfect(): void {
+		$house = new House();
+		$house->setId(1);
+		$house->setHouseHealth(40);
+		$this->defaultHouse = $house;
+		$this->floorMapper->method('findByHouseId')->willReturn([]);
+		$this->roomMapper->method('findByHouseId')->willReturn([]);
+
+		$this->assertSame(100, $this->service->getHouseStats(1)['stats']['houseHealth']);
 	}
 
 	/**

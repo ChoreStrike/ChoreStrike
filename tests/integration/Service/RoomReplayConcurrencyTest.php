@@ -214,14 +214,20 @@ class RoomReplayConcurrencyTest extends IntegrationTestCase {
 		$this->insertStoredManualDelta($newRoomId, -10);
 		$this->resyncRoom($f['roomId']);
 		$this->resyncRoom($newRoomId);
-		$health = $service->calculateHouseHealth($f['houseId']);
+		// The reset stored 100; any other stored value would show a second write.
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_houses')
+			->set('house_health', $qb->createNamedParameter(37, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($f['houseId'], IQueryBuilder::PARAM_INT)))
+			->executeStatement();
 		$version = $houses->find($f['houseId'])->getStateVersion();
 
 		$service->resetHouse($f['houseId'], $uuid, $original);
 		self::assertSame(70, (int)$this->roomRow($f['roomId'])['cleanliness']);
 		self::assertSame(40, (int)$this->roomRow($newRoomId)['cleanliness']);
 		self::assertSame(0, $this->countRoomEvents($newRoomId, 'reset'));
-		self::assertSame($health, $houses->find($f['houseId'])->getHouseHealth());
+		self::assertSame(37, $houses->find($f['houseId'])->getHouseHealth(), 'the replayed reset does not write the house again');
+		self::assertSame(55, $service->getHouseStats($f['houseId'])['stats']['houseHealth'], 'the statistics report the mean of the two rooms');
 		self::assertSame($version, $houses->find($f['houseId'])->getStateVersion());
 	}
 

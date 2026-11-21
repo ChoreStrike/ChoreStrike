@@ -367,41 +367,6 @@ class HouseController extends Controller {
 	}
 
 	/**
-	 * Calculate and update house health
-	 *
-	 * @NoAdminRequired
-	 */
-	public function health(): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-
-			// Require house membership
-			$this->authService->assertHouseMember($house->getId());
-
-			$health = $this->houseService->calculateHouseHealth($house->getId());
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => [
-					'houseHealth' => $health
-				]
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('health', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'HEALTH_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
 	 * Reset house to initial state
 	 *
 	 * @NoAdminRequired

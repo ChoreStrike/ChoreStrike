@@ -261,13 +261,6 @@ A `label` of `null` keeps the translated name of a built-in key.
   `409 CONFLICT` when the list changed since `revision`,
   `500 TASK_CATEGORIES_ERROR`.
 
-#### GET /house/health
-Recalculates the house health as the average cleanliness of its rooms, stores
-it on the house and returns it as `{ "houseHealth": 85 }` (100 for a house
-without rooms, then nothing is stored). Members only. The app has no
-client for this route since Today replaced the Dashboard (CS-PLAN-090
-D-090-38); it stays until Release B.
-
 #### GET /house/stats
 House overview statistics for the Insights view (CS-PLAN-040).
 
@@ -280,10 +273,16 @@ House overview statistics for the Insights view (CS-PLAN-040).
     "cleanRooms": 4,
     "dirtyRooms": 2,
     "roomsNeedingCleaning": 1,
-    "houseHealth": 85
+    "houseHealth": 63
   }
 }
 ```
+
+`stats.houseHealth` is computed on this read: the mean cleanliness of the rooms,
+rounded, and 100 for a house without rooms. The `houseHealth` of the `house`
+object, here and in `GET /house`, is the last stored value (a reset writes 100)
+and is not maintained any more (CS-PLAN-091 RF-091-11; FEAT-UX-071 redefines
+both).
 
 #### GET /house/activity?days=&limit=&userId=
 Completion activity feed ("who did what when", CS-PLAN-040; WP3 §3.6 evidence
@@ -1064,7 +1063,7 @@ from the one form after a confirmation (D-091-86).
 > inactive room task and the coded conflicts of its receipt (below).
 
 > **Full route list:** the canonical, complete route table is
-> [`appinfo/routes.php`](../../appinfo/routes.php) (94 routes spanning `house`,
+> [`appinfo/routes.php`](../../appinfo/routes.php) (92 routes spanning `house`,
 > `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,
 > `checklist`, `minigame`, `setup`, and `test`). The task-sync ×6 and
 > reward-config ×2 HTTP surfaces were pruned in CS-PLAN-055 together with
@@ -1074,9 +1073,11 @@ from the one form after a confirmation (D-091-86).
 > adding the undo aggregate. CS-PLAN-091 WP-B6 pruned `PUT /tasks/{id}`,
 > `POST /room-tasks/from-template`, `POST /room-tasks/bulk-assign`,
 > `GET|PUT /room-tasks/{id}/assignees` and the four checklist-item writes for
-> the one form's two aggregates. CS-PLAN-091 WP-B7 pruned the two routes
+> the one form's two aggregates. CS-PLAN-091 WP-B7 pruned the four routes
 > that had lost their client: `PUT /rooms/{id}/cleanliness` (its journal
-> entries keep replaying) and `GET /room-tasks/room/{roomId}/stats`.
+> entries keep replaying), `GET /room-tasks/room/{roomId}/stats`,
+> `PUT /pauses/{id}` (shortening an absence; stored shortened revisions keep
+> governing) and `GET /house/health` (the statistics compute the health).
 > Re-adding a route requires a consumer.
 > This document covers the core CRUD + completion
 > flows; the `RouteMatrixTest` contract test guards route↔controller drift.

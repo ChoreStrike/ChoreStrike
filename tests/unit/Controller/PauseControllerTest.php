@@ -133,15 +133,6 @@ class PauseControllerTest extends TestCase {
 		$this->assertEquals(403, $response->getStatus());
 	}
 
-	public function testUpdate_MapsNotFoundTo404(): void {
-		$this->params([]);
-		$this->pauseService->method('shorten')->willThrowException(new NotFoundException('Pause not found'));
-
-		$response = $this->controller->update(99);
-
-		$this->assertEquals(404, $response->getStatus());
-	}
-
 	public function testDestroy_DelegatesToDeleteWithoutRoutingParams(): void {
 		$this->params(['commandId' => 'x', 'expectedRevision' => 2, 'id' => 7, '_route' => 'chorestrike.pause.destroy']);
 		$this->pauseService->expects($this->once())

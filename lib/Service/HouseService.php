@@ -563,33 +563,6 @@ class HouseService {
 	}
 
 	/**
-	 * Calculate overall house health based on room cleanliness
-	 *
-	 * One house-scoped room fetch (CS-PLAN-036) instead of a
-	 * floors → findByFloorId loop (1 + N_floors → 1 query).
-	 *
-	 * @param int $houseId The house ID
-	 */
-	public function calculateHouseHealth(int $houseId): int {
-		$rooms = $this->roomMapper->findByHouseId($houseId);
-		$roomCount = count($rooms);
-
-		if ($roomCount === 0) {
-			return 100; // Empty house is perfectly clean
-		}
-
-		$totalCleanliness = 0;
-		foreach ($rooms as $room) {
-			$totalCleanliness += $room->getCleanliness();
-		}
-
-		$averageCleanliness = (int)round($totalCleanliness / $roomCount);
-		$this->houseMapper->updateHealth($houseId, $averageCleanliness);
-
-		return $averageCleanliness;
-	}
-
-	/**
 	 * Get house statistics
 	 *
 	 * Rooms come from one house-scoped fetch (CS-PLAN-036) instead of a
@@ -607,9 +580,11 @@ class HouseService {
 		$cleanRooms = 0;
 		$dirtyRooms = 0;
 		$roomsNeedingCleaning = 0;
+		$cleanlinessSum = 0;
 
 		foreach ($rooms as $room) {
 			$roomCount++;
+			$cleanlinessSum += $room->getCleanliness();
 
 			if ($room->getCleanliness() >= 60) {
 				$cleanRooms++;
@@ -630,7 +605,11 @@ class HouseService {
 				'cleanRooms' => $cleanRooms,
 				'dirtyRooms' => $dirtyRooms,
 				'roomsNeedingCleaning' => $roomsNeedingCleaning,
-				'houseHealth' => $house->getHouseHealth(),
+				// The mean cleanliness of the rooms as they are now; a house
+				// without rooms is perfectly clean. The stored column holds
+				// its last written value (a reset writes 100), is no longer
+				// maintained and is not read here.
+				'houseHealth' => $roomCount > 0 ? (int)round($cleanlinessSum / $roomCount) : 100,
 			]
 		];
 	}

@@ -22,7 +22,7 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * cover the retained `PauseService`. Every scenario runs a SECOND
  * Nextcloud-bootstrapped process against the same installed DB:
  *
- *  1. two shortenings against the same absence revision: exactly one
+ *  1. two deletions of the same absence revision: exactly one
  *     appends revision 2, the other gets the stale-revision conflict;
  *  2. the SAME receipt UUID fired from two connections: one commit, the
  *     other a pure replay — a single effect;
@@ -74,13 +74,12 @@ class PauseConcurrencyTest extends IntegrationTestCase {
 		]);
 	}
 
-	/** The main side of a shortening race: `ok` or `conflict`. */
-	private function shortenOutcome(PauseService $pauseService, array $f, array $created, string $commandId): string {
+	/** The main side of a deletion race: `ok` or `conflict`. */
+	private function deleteOutcome(PauseService $pauseService, array $f, array $created, string $commandId): string {
 		try {
-			$pauseService->shorten($f['houseId'], $f['member'], $created['pauseGroupId'], [
+			$pauseService->delete($f['houseId'], $f['member'], $created['pauseGroupId'], [
 				'commandId' => $commandId,
 				'expectedRevision' => $created['revision'],
-				'endDate' => $this->todayKey,
 			]);
 			return 'ok';
 		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
@@ -88,23 +87,23 @@ class PauseConcurrencyTest extends IntegrationTestCase {
 		}
 	}
 
-	public function testConcurrentShortenings_SameExpectedRevision_OneStaleConflict(): void {
+	public function testConcurrentDeletions_SameExpectedRevision_OneStaleConflict(): void {
 		$f = $this->raceHouse('S');
 		$pauseService = \OC::$server->get(PauseService::class);
 		$created = $this->absence($pauseService, $f);
 
 		$outcome = $this->raceWithHelper(
-			$this->buildShortenHelperScript(),
+			$this->buildDeleteHelperScript(),
 			[
 				(string)$f['houseId'], $f['member'], (string)$created['pauseGroupId'],
-				(string)$created['revision'], $this->todayKey, $this->uuid(),
+				(string)$created['revision'], $this->uuid(),
 			],
-			fn (): string => $this->shortenOutcome($pauseService, $f, $created, $this->uuid())
+			fn (): string => $this->deleteOutcome($pauseService, $f, $created, $this->uuid())
 		);
 
 		$outcomes = [$outcome['main'], $outcome['helper']];
 		sort($outcomes);
-		self::assertSame(['conflict', 'ok'], $outcomes, 'exactly one shortening appends revision 2, the other sees the stale revision');
+		self::assertSame(['conflict', 'ok'], $outcomes, 'exactly one deletion appends revision 2, the other sees the stale revision');
 		self::assertSame(2, $this->currentRevision($created['pauseGroupId']));
 	}
 
@@ -117,16 +116,16 @@ class PauseConcurrencyTest extends IntegrationTestCase {
 		// a pure receipt replay — never a second revision, never a conflict.
 		$sharedUuid = $this->uuid();
 		$outcome = $this->raceWithHelper(
-			$this->buildShortenHelperScript(),
+			$this->buildDeleteHelperScript(),
 			[
 				(string)$f['houseId'], $f['member'], (string)$created['pauseGroupId'],
-				(string)$created['revision'], $this->todayKey, $sharedUuid,
+				(string)$created['revision'], $sharedUuid,
 			],
-			fn (): string => $this->shortenOutcome($pauseService, $f, $created, $sharedUuid)
+			fn (): string => $this->deleteOutcome($pauseService, $f, $created, $sharedUuid)
 		);
 
 		self::assertSame(['ok', 'ok'], [$outcome['main'], $outcome['helper']], 'the replayed receipt returns the original result on both connections');
-		self::assertSame(2, $this->currentRevision($created['pauseGroupId']), 'the shortening took effect exactly once');
+		self::assertSame(2, $this->currentRevision($created['pauseGroupId']), 'the deletion took effect exactly once');
 		self::assertSame(1, $this->countReceipts($f['houseId'], $sharedUuid));
 	}
 
@@ -231,7 +230,7 @@ class PauseConcurrencyTest extends IntegrationTestCase {
 		}
 	}
 
-	private function buildShortenHelperScript(): string {
+	private function buildDeleteHelperScript(): string {
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
@@ -240,11 +239,10 @@ $houseId = (int)$argv[1];
 $member = $argv[2];
 $pauseGroupId = (int)$argv[3];
 $expectedRevision = (int)$argv[4];
-$endDate = $argv[5];
-$commandId = $argv[6];
-$readyFile = $argv[7];
-$goFile = $argv[8];
-$resultFile = $argv[9];
+$commandId = $argv[5];
+$readyFile = $argv[6];
+$goFile = $argv[7];
+$resultFile = $argv[8];
 
 try {
     file_put_contents($readyFile, 'ready');
@@ -254,10 +252,9 @@ try {
         usleep(20000);
     }
     try {
-        \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class)->shorten($houseId, $member, $pauseGroupId, [
+        \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class)->delete($houseId, $member, $pauseGroupId, [
             'commandId' => $commandId,
             'expectedRevision' => $expectedRevision,
-            'endDate' => $endDate,
         ]);
         file_put_contents($resultFile, 'ok');
     } catch (\OCA\ChoreStrike\Exception\ConflictException $e) {

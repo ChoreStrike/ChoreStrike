@@ -28,20 +28,21 @@ use OCP\IL10N;
  * Commands run as ONE `CommandService` command each (house lock first,
  * receipt replay per UUID): personal pause request/acknowledgment,
  * household pause, explicit owner approve/reject, explicit
- * retrospective-illness recognition, the next-day shortening and the
- * deletion (ADR-020). A pause writes nothing onto tasks: the recognitions
- * decide on read whether a window lay inside an absence (ADR-021
- * decision 5, PauseProjectionService), so an absence entered or deleted
- * later is honoured. Stored occurrences keep the suspension facts they
+ * retrospective-illness recognition and the deletion (ADR-020). The
+ * shortening command went with its route (CS-PLAN-091 WP-B7); stored
+ * shortened revisions keep governing. A pause writes nothing onto tasks:
+ * the recognitions decide on read whether a window lay inside an absence
+ * (ADR-021 decision 5, PauseProjectionService), so an absence entered or
+ * deleted later is honoured. Stored occurrences keep the suspension facts they
  * had at the cutover.
  *
  * Frozen rules (plan §3.4): pending/rejected requests have no execution
  * effect; expired requests stay pending until an authorized decision;
- * shortening is effective no earlier than the NEXT local day of the
- * pause's saved zone while today's and earlier recognized excuses are
- * preserved (the retained old revision keeps covering them); ordinary
- * approval never excuses an expired miss retroactively — only the
- * explicit retrospective-illness action does. No free text, no synthetic
+ * a deletion (and a stored shortening) is effective no earlier than the
+ * NEXT local day of the pause's saved zone while today's and earlier
+ * recognized excuses are preserved (the retained old revision keeps
+ * covering them); ordinary approval never excuses an expired miss
+ * retroactively — only the explicit retrospective-illness action does. No free text, no synthetic
  * completions, no automatic redistribution.
  */
 class PauseService {
@@ -51,7 +52,6 @@ class PauseService {
 	public const ACTION_APPROVE = 'pause.approve';
 	public const ACTION_REJECT = 'pause.reject';
 	public const ACTION_RECOGNIZE_ILLNESS = 'pause.recognize-illness';
-	public const ACTION_SHORTEN = 'pause.shorten';
 	public const ACTION_DELETE = 'pause.delete';
 
 	private CommandService $commands;
@@ -346,86 +346,6 @@ class PauseService {
 	}
 
 	/**
-	 * Shorten / revoke an acknowledged pause (plan §3.4): appends a new
-	 * revision whose coverage ends no earlier than TODAY in the pause's
-	 * saved zone — today's and earlier recognized excuses are preserved
-	 * by the retained old revision. The subject of a personal pause and
-	 * the owner append an `acknowledged` revision directly (ADR-020).
-	 *
-	 * Payload: {commandId, endDate, expectedRevision}.
-	 *
-	 * @return array<string, mixed>
-	 */
-	public function shorten(int $houseId, string $actorUserId, int $pauseGroupId, array $payload): array {
-		$actor = $this->assertMember($houseId, $actorUserId);
-		['commandId' => $commandId, 'expectedRevision' => $expectedRevisionInt] = $this->validateRevisionPayload($payload);
-		$newEnd = $payload['endDate'] ?? null;
-		if (!is_string($newEnd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $newEnd)
-			|| \DateTime::createFromFormat('Y-m-d', $newEnd)->format('Y-m-d') !== $newEnd) {
-			throw new \InvalidArgumentException($this->l10n->t('endDate must be a valid Y-m-d date'));
-		}
-		$receipt = [
-			'pauseGroupId' => $pauseGroupId,
-			'expectedRevision' => $expectedRevisionInt,
-			'endDate' => $newEnd,
-			'commandId' => $commandId,
-		];
-
-		['result' => $refs] = $this->commands->runCommand(
-			$houseId,
-			(int)$actor->getId(),
-			$commandId,
-			self::ACTION_SHORTEN,
-			$receipt,
-			function () use ($houseId, &$actor, $pauseGroupId, $expectedRevisionInt, $newEnd): array {
-				$current = $this->pauseMapper->findCurrentByGroup($pauseGroupId);
-				if ($current->getHouseId() !== $houseId) {
-					throw new NotFoundException($this->l10n->t('Absence not found'));
-				}
-				if ($current->getRevision() !== $expectedRevisionInt) {
-					throw new ConflictException($this->l10n->t('The absence changed since it was displayed. Reload and try again.'));
-				}
-				// Role denial is VISIBLE (403 before the state conflict):
-				// personal pauses — the subject shortens their own, the
-				// owner may shorten anyone's; house scope is owner-only.
-				$this->assertCanShortenPause($houseId, $actor, $current);
-				// Plan §3.4 row 6 scopes shortening/revocation to
-				// ACKNOWLEDGED pauses (RF-073-WP2-18): a pending request
-				// carries no recognized effect to shorten — it is decided
-				// (approve/reject), not shortened.
-				if ($current->getState() !== Pause::STATE_ACKNOWLEDGED) {
-					throw new ConflictException($this->l10n->t('Only an acknowledged pause can be shortened'));
-				}
-
-				$zone = $current->getTimezone();
-				$todayKey = $this->calendar->dayKey(new \DateTime(), new \DateTimeZone($zone));
-				// Next-day boundary: never cut today's or earlier
-				// recognized excuses (plan §3.4).
-				$effectiveEnd = max($newEnd, $todayKey);
-				$endKey = $current->getEndDate()->format('Y-m-d');
-				$startKey = $current->getStartDate()->format('Y-m-d');
-				if ($effectiveEnd >= $endKey) {
-					throw new ConflictException($this->l10n->t('The pause already covers no later date'));
-				}
-				if ($effectiveEnd < $startKey) {
-					throw new ConflictException($this->l10n->t('The shortened pause would lose its start date'));
-				}
-
-				$now = new \DateTime();
-				$revision = $this->nextRevisionOf($current, $actor, Pause::STATE_ACKNOWLEDGED, $now);
-				$revision->setEndDate(\DateTime::createFromFormat('Y-m-d', $effectiveEnd) ?: $current->getEndDate());
-				$revision = $this->pauseMapper->appendRevision($revision);
-				// WP5 (C5m): a shortening is a pause decision affecting the
-				// subject — transactional queue write.
-				$this->queuePauseChange($houseId, (int)$actor->getId(), $revision, $now);
-				return ['pauseGroupId' => $pauseGroupId, 'revision' => $revision->getRevision(), 'state' => $revision->getState()];
-			},
-			$this->actorGuard($actor, false, $pauseGroupId), audited: true
-		);
-		return $refs;
-	}
-
-	/**
 	 * Delete an absence (ADR-020): the subject deletes an own personal
 	 * one, the owner any, a household one included. Appends a `cancelled`
 	 * revision that governs from the NEXT local day of the pause's saved
@@ -462,7 +382,7 @@ class PauseService {
 				if ($current->getRevision() !== $expectedRevision) {
 					throw new ConflictException($this->l10n->t('The absence changed since it was displayed. Reload and try again.'));
 				}
-				$this->assertCanShortenPause($houseId, $actor, $current);
+				$this->assertCanEndPause($houseId, $actor, $current);
 				$history = $this->pauseMapper->findByGroup($pauseGroupId);
 				$blocker = $this->deletionBlocker($history);
 				if ($blocker !== null) {
@@ -744,14 +664,15 @@ class PauseService {
 					throw new NotFoundException($this->l10n->t('Absence not found'));
 				}
 				if (!$ownerOnly) {
-					$this->assertCanShortenPause($houseId, $fresh, $pause);
+					$this->assertCanEndPause($houseId, $fresh, $pause);
 				}
 			}
 			$actor = $fresh;
 		};
 	}
 
-	private function assertCanShortenPause(int $houseId, HouseUser $actor, Pause $pause): void {
+	/** The subject ends an own personal absence, the owner any; a household one is the owner's. */
+	private function assertCanEndPause(int $houseId, HouseUser $actor, Pause $pause): void {
 		if ($actor->isOwner()) {
 			return;
 		}

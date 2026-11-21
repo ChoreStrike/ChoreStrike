@@ -35,7 +35,7 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  *   is stored on the work and the work stays possible;
  * - a pending request from before ADR-020 has no effect until the owner
  *   decides it;
- * - shortening or deleting frees the following days while today's
+ * - a stored shortening or a deletion frees the following days while today's
  *   recognized excuse is preserved;
  * - an absence entered after a window ended is honoured;
  * - the owner role gates and the revision-staleness conflict.
@@ -141,6 +141,35 @@ class PauseAbsenceTest extends IntegrationTestCase {
 	private function pendingKidRequest(?int $pauseGroupId = null, ?string $endDate = null): array {
 		$range = $this->range();
 		return $this->seedPendingPauseRequest($this->houseId, 'pa_kid', $range['startDate'], $endDate ?? $range['endDate'], $pauseGroupId);
+	}
+
+	/**
+	 * A shortening as the retired command stored it (CS-PLAN-091
+	 * RF-091-11): a further `acknowledged` revision of the absence with an
+	 * earlier end, requested and decided by its subject.
+	 */
+	private function storedShortening(int $pauseGroupId, string $userId, string $endKey): Pause {
+		$mapper = \OC::$server->get(\OCA\ChoreStrike\Db\PauseMapper::class);
+		$current = $mapper->findCurrentByGroup($pauseGroupId);
+		$member = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findByNextcloudUserId($this->houseId, $userId);
+		$now = new \DateTime();
+
+		$revision = new Pause();
+		$revision->setHouseId($current->getHouseId());
+		$revision->setPauseGroupId($pauseGroupId);
+		$revision->setScope($current->getScope());
+		$revision->setSubjectWalletId($current->getSubjectWalletId());
+		$revision->setRequesterHouseUserId((int)$member->getId());
+		$revision->setDeciderHouseUserId((int)$member->getId());
+		$revision->setState(Pause::STATE_ACKNOWLEDGED);
+		$revision->setReasonCode($current->getReasonCode());
+		$revision->setIsRetrospectiveIllness($current->getIsRetrospectiveIllness());
+		$revision->setStartDate($current->getStartDate());
+		$revision->setEndDate(new \DateTime($endKey));
+		$revision->setTimezone($current->getTimezone());
+		$revision->setCreatedAt($now);
+		$revision->setUpdatedAt($now);
+		return $mapper->appendRevision($revision);
 	}
 
 	private function selfAbsence(string $userId, ?array $range = null): array {
@@ -316,7 +345,7 @@ class PauseAbsenceTest extends IntegrationTestCase {
 	}
 
 	// ------------------------------------------------------------------
-	// Decisions and shortening
+	// Decisions and stored shortenings
 	// ------------------------------------------------------------------
 
 	public function testStaleRevisionDecision_Conflicts(): void {
@@ -324,43 +353,6 @@ class PauseAbsenceTest extends IntegrationTestCase {
 
 		$this->expectException(ConflictException::class);
 		$this->pauseService->approve($this->houseId, 'pa_owner', $result['pauseGroupId'], ['commandId' => $this->uuid(), 'expectedRevision' => $result['revision'] + 3]);
-	}
-
-	public function testShorteningByNonOwnerForeignSubject_Forbidden(): void {
-		$created = $this->selfAbsence('pa_mom');
-
-		$this->expectException(ForbiddenException::class);
-		$this->pauseService->shorten(
-			$this->houseId,
-			'pa_kid',
-			$created['pauseGroupId'],
-			['commandId' => $this->uuid(), 'expectedRevision' => $created['revision'], 'endDate' => $this->todayKey]
-		);
-	}
-
-	/**
-	 * RF-073-WP2-18: shortening is scoped to ACKNOWLEDGED absences (plan
-	 * §3.4 row 6) — a pending request carries no recognized effect to
-	 * shorten and is decided (approve/reject) instead.
-	 */
-	public function testShorten_PendingRequest_Conflicts(): void {
-		$kidTaskId = $this->kidTask();
-		$created = $this->pendingKidRequest();
-
-		try {
-			$this->pauseService->shorten(
-				$this->houseId,
-				'pa_owner',
-				$created['pauseGroupId'],
-				['commandId' => $this->uuid(), 'expectedRevision' => $created['revision'], 'endDate' => $this->todayKey]
-			);
-			self::fail('shortening a pending request must conflict');
-		} catch (ConflictException $e) {
-			self::assertStringContainsString('acknowledged', $e->getMessage());
-		}
-
-		self::assertCount(1, $this->fetchPauseRows($created['pauseGroupId']), 'no revision was appended');
-		self::assertFalse($this->isNeutral($kidTaskId, $this->todayKey, 'pa_kid'), 'the pending request kept zero effect');
 	}
 
 	/**
@@ -383,9 +375,11 @@ class PauseAbsenceTest extends IntegrationTestCase {
 	 * R2 / RF-073-WP2-23: a shortening removes the SUPERSEDED FUTURE
 	 * coverage with the full persisted revision history in place — the
 	 * retained old revision must not keep the shortened-away dates alive,
-	 * while today's recognized excuse survives.
+	 * while today's recognized excuse survives. No command shortens any
+	 * more (CS-PLAN-091 RF-091-11); the revision is stored as the retired
+	 * command left it: appended as acknowledged, decided by its subject.
 	 */
-	public function testShortening_RemovesSupersededFutureCoverage_FullPersistedHistory(): void {
+	public function testStoredShortening_RemovesSupersededFutureCoverage_FullPersistedHistory(): void {
 		$roomTaskId = $this->dailyFixedTask('pa_mom', $this->todayKey, 'Shorten dishes');
 		$created = $this->selfAbsence('pa_mom');
 		self::assertSame(Pause::STATE_ACKNOWLEDGED, $created['state']);
@@ -394,13 +388,9 @@ class PauseAbsenceTest extends IntegrationTestCase {
 		}
 		self::assertFalse($this->isNeutral($roomTaskId, $this->dayKey(5), 'pa_mom'));
 
-		$shortened = $this->pauseService->shorten($this->houseId, 'pa_mom', $created['pauseGroupId'], [
-			'commandId' => $this->uuid(),
-			'expectedRevision' => $created['revision'],
-			'endDate' => $this->todayKey,
-		]);
-		self::assertSame(Pause::STATE_ACKNOWLEDGED, $shortened['state'], 'an adult self-shortening appends an acknowledged revision');
-		self::assertSame(2, $shortened['revision']);
+		$shortened = $this->storedShortening($created['pauseGroupId'], 'pa_mom', $this->todayKey);
+		self::assertSame(Pause::STATE_ACKNOWLEDGED, $shortened->getState());
+		self::assertSame(2, $shortened->getRevision());
 
 		// Today (the decision day in the saved zone) keeps its recognized
 		// excuse; every superseded future date actually loses coverage —
@@ -410,25 +400,6 @@ class PauseAbsenceTest extends IntegrationTestCase {
 		for ($offset = 1; $offset <= 4; $offset++) {
 			self::assertFalse($this->isNeutral($roomTaskId, $this->dayKey($offset), 'pa_mom'), "the superseded future day +$offset is a duty again");
 		}
-	}
-
-	/**
-	 * ADR-020: a child's shortening is acknowledged directly and removes
-	 * the superseded future coverage without an owner decision.
-	 */
-	public function testChildShortening_TakesEffectWithoutOwnerDecision(): void {
-		$roomTaskId = $this->dailyFixedTask('pa_kid', $this->todayKey, 'Kid shorten');
-		$created = $this->selfAbsence('pa_kid');
-
-		$shortened = $this->pauseService->shorten($this->houseId, 'pa_kid', $created['pauseGroupId'], [
-			'commandId' => $this->uuid(),
-			'expectedRevision' => 1,
-			'endDate' => $this->todayKey,
-		]);
-
-		self::assertSame(Pause::STATE_ACKNOWLEDGED, $shortened['state']);
-		self::assertTrue($this->isNeutral($roomTaskId, $this->todayKey, 'pa_kid'), 'today stays recognized');
-		self::assertFalse($this->isNeutral($roomTaskId, $this->dayKey(1), 'pa_kid'));
 	}
 
 	/**

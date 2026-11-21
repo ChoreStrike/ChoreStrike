@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration;
 
 use OCA\ChoreStrike\Controller\UserController;
-use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -266,51 +265,6 @@ class RoleGuardApiTest extends IntegrationTestCase {
 
 	private function uuid2(): string {
 		return sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
-	}
-
-	/**
-	 * A pending request from before ADR-020 is decided, not shortened
-	 * (plan §3.4 row 6), and a member shortening a foreign pause is
-	 * denied 403.
-	 */
-	public function testShortening_PendingRequest_Rejected_AndForeignShortening_Forbidden(): void {
-		$f = $this->wp2House();
-		$pauseService = \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class);
-		$todayKey = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
-		$range = [
-			'startDate' => $todayKey,
-			'endDate' => (new \DateTime($todayKey))->modify('+3 days')->format('Y-m-d'),
-			'reasonCode' => \OCA\ChoreStrike\Db\Pause::REASON_TRAVEL,
-		];
-
-		$created = $this->seedPendingPauseRequest($f['houseId'], 'rg2_child', $range['startDate'], $range['endDate']);
-
-		try {
-			$pauseService->shorten($f['houseId'], 'rg2_child', $created['pauseGroupId'], [
-				'commandId' => $this->uuid2(),
-				'expectedRevision' => $created['revision'],
-				'endDate' => $todayKey,
-			]);
-			self::fail('a child may not shorten its own pending request');
-		} catch (ConflictException $e) {
-			self::assertStringContainsString('acknowledged', $e->getMessage());
-		}
-
-		// A member shortening a foreign (owner-acknowledged) pause: 403.
-		$ownerPause = $pauseService->requestForSelf($f['houseId'], 'rg2_owner', array_merge(['commandId' => $this->uuid2()], $range));
-		try {
-			$pauseService->shorten($f['houseId'], 'rg2_member', $ownerPause['pauseGroupId'], [
-				'commandId' => $this->uuid2(),
-				'expectedRevision' => $ownerPause['revision'],
-				'endDate' => $todayKey,
-			]);
-			self::fail('a member may not shorten a foreign pause');
-		} catch (\OCA\ChoreStrike\Exception\ForbiddenException $e) {
-			self::assertStringContainsString('Owner role required', $e->getMessage());
-		}
-
-		// The pending request kept its single revision.
-		self::assertSame(1, $created['revision']);
 	}
 
 	/**

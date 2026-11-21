@@ -24,7 +24,7 @@ use OCP\IRequest;
  * Pause API (CS-PLAN-073 WP2 §3.5, ADR-020): the viewer-safe list, the
  * personal absence, the household absence, owner decisions on requests
  * stored before ADR-020 (approve/reject), the owner's entry for someone
- * else afterwards, the next-day shortening and the deletion.
+ * else afterwards and the deletion.
  *
  * All routes are relative to `/apps/chorestrike/api/v1` and use
  * `@NoAdminRequired` with normal CSRF protection. Stable pause group
@@ -190,32 +190,6 @@ class PauseController extends Controller {
 			return ControllerErrorFormatter::conflictResponse($e);
 		} catch (\Exception $e) {
 			return $this->error('recognizeIllness', $e);
-		}
-	}
-
-	/**
-	 * Shorten / revoke an acknowledged pause (next-day boundary).
-	 *
-	 * Body: {commandId, endDate, expectedRevision}.
-	 *
-	 * @param int $id Pause group id
-	 * @NoAdminRequired
-	 */
-	public function update(int $id): JSONResponse {
-		try {
-			$house = $this->house();
-			$userId = $this->authService->requireCurrentUserId();
-			return new JSONResponse(['success' => true, 'data' => $this->pauseService->shorten((int)$house->getId(), $userId, $id, $this->params())]);
-		} catch (\InvalidArgumentException $e) {
-			return ControllerErrorFormatter::validation($e);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (NotFoundException $e) {
-			return ControllerErrorFormatter::notFoundResponse($e);
-		} catch (ConflictException $e) {
-			return ControllerErrorFormatter::conflictResponse($e);
-		} catch (\Exception $e) {
-			return $this->error('update', $e);
 		}
 	}
 

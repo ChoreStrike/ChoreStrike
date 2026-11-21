@@ -162,25 +162,6 @@ class HouseMapper extends QBMapper {
 	}
 
 	/**
-	 * Update house health
-	 *
-	 * @param int $houseId The house ID
-	 * @param int $health The new health value (0-100)
-	 */
-	public function updateHealth(int $houseId, int $health): void {
-		$health = max(0, min(100, $health)); // Clamp between 0 and 100
-
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->update($this->getTableName())
-			->set('house_health', $qb->createNamedParameter($health, IQueryBuilder::PARAM_INT))
-			->set('updated_at', $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
-
-		$qb->executeStatement();
-	}
-
-	/**
 	 * Atomically bump the house's aggregate mutation counter (CS-PLAN-071
 	 * WP0, parent §3.2: "increment relevant version on every
 	 * plan/accounting/preference mutation"). Must be called while the house

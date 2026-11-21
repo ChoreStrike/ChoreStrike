@@ -93,7 +93,11 @@ Two properties of the stored data had to be respected:
 - Stored pause rows are untouched by the update. The only reread is the one
   of item 4.
 - `PUT /api/v1/pauses/{id}` (shorten) has no client any more and stays until
-  Release B reworks the surface.
+  Release B reworks the surface. **Retired 2026-11-21 (CS-PLAN-091 RF-091-11):**
+  the route and the `pause.shorten` command are gone; an absence is ended by
+  deleting it. An acknowledged shortening that is stored keeps governing
+  (item 3); a pending one is still decided, and a declined one leaves its
+  absence as it stood, still deletable (item 5).
 - `cancelled` now has two origins, a departure and a deletion. Code that needs
   to tell them apart would need a new fact; nothing does today.
 - The audit event `house.command.committed` lists `pause.delete`.

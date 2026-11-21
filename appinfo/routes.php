@@ -9,7 +9,9 @@ return [
         ['name' => 'house#update', 'url' => '/api/v1/house', 'verb' => 'PUT'],
         ['name' => 'house#stats', 'url' => '/api/v1/house/stats', 'verb' => 'GET'],
         ['name' => 'house#activity', 'url' => '/api/v1/house/activity', 'verb' => 'GET'],
-        ['name' => 'house#health', 'url' => '/api/v1/house/health', 'verb' => 'GET'],
+        // Pruned 2026-11-21 (CS-PLAN-091 WP-B7, RF-091-11): `house#health`
+        // (GET /house/health) — no client since Today replaced the Dashboard
+        // (D-090-38); GET /house/stats computes the health it reports.
         ['name' => 'house#reset', 'url' => '/api/v1/house/reset', 'verb' => 'POST'],
         // CS-PLAN-070 WP7 (CS-PLAN-078 §3.3): the owner-only, versioned
         // reward-catalog gate writer (narrow refinement of the shared
@@ -200,7 +202,9 @@ return [
         ['name' => 'pause#recognizeIllness', 'url' => '/api/v1/pauses/recognize-illness', 'verb' => 'POST'],
         ['name' => 'pause#approve', 'url' => '/api/v1/pauses/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
         ['name' => 'pause#reject', 'url' => '/api/v1/pauses/{id}/reject', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
-        ['name' => 'pause#update', 'url' => '/api/v1/pauses/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        // Pruned 2026-11-21 (CS-PLAN-091 WP-B7, RF-091-11): `pause#update`
+        // (PUT /pauses/{id}, shortening) — no client since ADR-020 (D-090-10):
+        // an absence is deleted, and stored shortened revisions keep governing.
         ['name' => 'pause#destroy', 'url' => '/api/v1/pauses/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
 
         // Smart Scheduler API — removed 2026-07-28 (CS-016 review: the

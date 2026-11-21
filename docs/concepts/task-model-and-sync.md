@@ -306,8 +306,10 @@ Target rules only; completion, assignment and pause APIs are not changed here.
   preserve occurrence identity and visible exceptions. The
   [whole-day capacity contract](energy-and-balancing.md#approved-whole-day-capacity-c2-2026-09-17)
   protects new commitments without suppressing actual completed work.
-- Shortening or deleting an acknowledged pause takes effect no earlier than the next
-  local day: the subject for an own one, the owner for any (ADR-020). A deleted
+- Deleting an acknowledged pause takes effect no earlier than the next
+  local day: the subject for an own one, the owner for any (ADR-020). A
+  shortening stored before the command was retired (CS-PLAN-091 RF-091-11)
+  governs the same way. A deleted
   absence that has not started leaves no coverage at all. Already excused obligations for today or
   earlier stay neutral, without retrospective misses. Voluntary actual work is
   recordable today without creating a retrospective duty; future commitments must

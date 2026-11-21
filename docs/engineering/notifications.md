@@ -69,7 +69,7 @@ existing source transaction (the house lock is already held):
 
 - `CompletionService` — overdue takeover (RF-076-02: the queue write
   joins the completion transaction; a rollback leaves no queued change).
-- `PauseService` — acknowledge/reject/shorten/delete/retrospective
+- `PauseService` — acknowledge/reject/delete/retrospective
   recognition/household pause; personal pauses notify the subject,
   household pauses every member. Entering or deleting one's own absence
   queues nothing (ADR-020).

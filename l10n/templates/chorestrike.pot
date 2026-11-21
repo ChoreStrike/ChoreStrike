@@ -1931,9 +1931,6 @@ msgstr ""
 msgid "Only a pending pause request can be decided"
 msgstr ""
 
-msgid "Only an acknowledged pause can be shortened"
-msgstr ""
-
 msgid "Only confirm once the reward was actually handed over. The {price} Coins are then spent exactly once."
 msgstr ""
 
@@ -2951,9 +2948,6 @@ msgstr ""
 msgid "The optional list of family-agreed rewards. Owners enable it for the household and each person decides whether to see it — the two choices are independent. Hiding it never touches existing requests."
 msgstr ""
 
-msgid "The pause already covers no later date"
-msgstr ""
-
 msgid "The person needs an existing Nextcloud account with this email address."
 msgstr ""
 
@@ -3039,9 +3033,6 @@ msgid "The shared goal of the whole household for this week."
 msgstr ""
 
 msgid "The shares differ from the suggested split and must be confirmed"
-msgstr ""
-
-msgid "The shortened pause would lose its start date"
 msgstr ""
 
 msgid "The supplied settlement reference does not match this request"

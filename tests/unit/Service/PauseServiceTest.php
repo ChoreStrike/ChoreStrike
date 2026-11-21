@@ -29,8 +29,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * The pause command semantics (CS-PLAN-073 §3.4, ADR-020): direct
  * acknowledgment for every role, the owner household pause, the owner
- * decision gate with the expected revision, the next-day shortening
- * boundary in the pause's saved zone and the deletion. The
+ * decision gate with the expected revision and the deletion with its
+ * next-day boundary in the pause's saved zone. The
  * CommandService mock EXECUTES the aggregate callable directly — the
  * receipt mechanics are CommandService's own contract.
  *
@@ -161,29 +161,6 @@ class PauseServiceTest extends TestCase {
 			return $pause;
 		});
 		self::assertSame(Pause::STATE_ACKNOWLEDGED, $this->service->requestForSelf(7, 'dad', $this->payload())['state']);
-	}
-
-	/** @dataProvider shortenReplayProvider */
-	public function testShorten_ReplayAfterAuthorityLoss_DeniesWithoutNewRevision(string $loss): void {
-		$actor = $this->member('dad', 'owner');
-		$fresh = clone $actor;
-		if ($loss === 'departed') {
-			$fresh = null;
-		} else {
-			$fresh->setRole('member');
-		}
-		$this->commandReplay = true;
-		$this->houseUserMapper->method('findByHouseAndUser')->willReturnOnConsecutiveCalls($actor, $fresh);
-		$pause = $this->pause();
-		$pause->setScope(Pause::SCOPE_HOUSE);
-		$this->pauseMapper->method('findCurrentByGroup')->willReturn($pause);
-		$this->pauseMapper->expects($this->never())->method('appendRevision');
-		$this->expectException(ForbiddenException::class);
-		$this->service->shorten(7, 'dad', 5, ['commandId' => $this->payload()['commandId'], 'expectedRevision' => 1, 'endDate' => '2026-10-06']);
-	}
-
-	public static function shortenReplayProvider(): array {
-		return ['demoted' => ['demoted'], 'departed' => ['departed']];
 	}
 
 	// -----------------------------------------------------------------
@@ -337,96 +314,6 @@ class PauseServiceTest extends TestCase {
 		self::assertSame(Pause::STATE_ACKNOWLEDGED, $result['state']);
 		self::assertSame(Pause::STATE_ACKNOWLEDGED, $updated?->getState());
 		self::assertSame(2, $updated?->getDeciderHouseUserId());
-	}
-
-	// -----------------------------------------------------------------
-	// Shortening boundary (next-day, saved zone)
-	// ------------------------------------------------------------------
-
-	public function testShorten_TodayPreserved_NextDayEarliestEffective(): void {
-		$owner = $this->member('dad', 'owner');
-		$owner->setId(2);
-		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($owner);
-		$acknowledged = $this->pause();
-		$acknowledged->setState(Pause::STATE_ACKNOWLEDGED);
-		$this->pauseMapper->method('findCurrentByGroup')->willReturn($acknowledged);
-		$this->pauseMapper->method('nextGroupRevision')->willReturn(2);
-		$this->pauseMapper->method('nextGroupRevision')->willReturn(2);
-		$created = null;
-		$this->pauseMapper->method('appendRevision')->willReturnCallback(function (Pause $pause) use (&$created): Pause {
-			$pause->setId(9);
-			$pause->setRevision(2);
-			$created = $pause;
-			return $pause;
-		});
-
-		// Attempting to cut to YESTERDAY must preserve today: the
-		// effective end clamps to today (the invariant tested is
-		// `effectiveEnd >= today` and `< old end`).
-		$todayKey = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
-		$acknowledged->setStartDate(new \DateTime('2020-01-01'));
-		$acknowledged->setEndDate(new \DateTime('2999-12-31'));
-
-		$result = $this->service->shorten(7, 'dad', 1, [
-			'commandId' => '11111111-2222-4333-8444-555555555555',
-			'expectedRevision' => 1,
-			'endDate' => '2000-01-01',
-		]);
-
-		self::assertSame(Pause::STATE_ACKNOWLEDGED, $result['state']);
-		self::assertGreaterThanOrEqual(
-			strtotime($todayKey),
-			$created?->getEndDate()?->getTimestamp(),
-			'the shortened coverage never cuts today\'s recognized excuse'
-		);
-	}
-
-	public function testShorten_NoEarlierEnd_Conflict(): void {
-		$owner = $this->member('dad', 'owner');
-		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($owner);
-		$acknowledged = $this->pause();
-		$acknowledged->setState(Pause::STATE_ACKNOWLEDGED);
-		$this->pauseMapper->method('findCurrentByGroup')->willReturn($acknowledged);
-
-		$this->expectException(ConflictException::class);
-		$this->service->shorten(7, 'dad', 1, [
-			'commandId' => '11111111-2222-4333-8444-555555555555',
-			'expectedRevision' => 1,
-			'endDate' => '2026-10-09',
-		]);
-	}
-
-	public function testShorten_StaleRevision_Conflict(): void {
-		$owner = $this->member('dad', 'owner');
-		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($owner);
-		$acknowledged = $this->pause();
-		$acknowledged->setState(Pause::STATE_ACKNOWLEDGED);
-		$acknowledged->setRevision(4);
-		$this->pauseMapper->method('findCurrentByGroup')->willReturn($acknowledged);
-
-		$this->expectException(ConflictException::class);
-		$this->service->shorten(7, 'dad', 1, [
-			'commandId' => '11111111-2222-4333-8444-555555555555',
-			'expectedRevision' => 1,
-			'endDate' => '2026-10-08',
-		]);
-	}
-
-	public function testShorten_ChildSubject_AcknowledgedWithoutOwnerDecision(): void {
-		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->member('kid', 'child'));
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$this->member('kid', 'child')]);
-		$acknowledged = $this->pause();
-		$acknowledged->setState(Pause::STATE_ACKNOWLEDGED);
-		$acknowledged->setStartDate(new \DateTime('2020-01-01'));
-		$acknowledged->setEndDate(new \DateTime('2999-12-31'));
-		$this->pauseMapper->method('findCurrentByGroup')->willReturn($acknowledged);
-		$created = null;
-		$this->captureAppended($created);
-
-		$result = $this->service->shorten(7, 'kid', 1, ['endDate' => '2999-01-01'] + self::REVISION_PAYLOAD);
-
-		self::assertSame(Pause::STATE_ACKNOWLEDGED, $result['state']);
-		self::assertSame(1, $created?->getDeciderHouseUserId(), 'the child decides for itself');
 	}
 
 	// -----------------------------------------------------------------
