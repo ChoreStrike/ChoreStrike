@@ -241,17 +241,9 @@ class ActivityService {
 			$item['canAttribute'] = $visible && $this->authority->canAttribute($viewer, $completion);
 			$item['allocation'] = [];
 			if ($visible) {
+				// Withheld with the energy for a task the viewer cannot see.
 				foreach ($sharesByCompletion[$completion->getId()] ?? [] as $share) {
-					$shareMember = $membersByWalletId[$share->getWalletId()] ?? null;
-					$item['allocation'][] = [
-						'userId' => $shareMember?->getNextcloudUserId(),
-						'displayName' => $shareMember?->getDisplayName() ?? $this->l10n->t('Former member'),
-						'sharePct' => $share->getSharePct(),
-						'energyMinor' => $share->getEnergyMinor(),
-						// What the share paid, frozen at completion; withheld
-						// with the energy for a task the viewer cannot see.
-						'coinMinor' => $share->getCoinMinor(),
-					];
+					$item['allocation'][] = CompletionReadModel::shareRow($share, $membersByWalletId[$share->getWalletId()] ?? null, $this->l10n);
 				}
 			}
 			// Someone recorded the work for other people (decision 10).

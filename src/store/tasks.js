@@ -21,8 +21,11 @@ export const useTasksStore = defineStore('tasks', {
 	getters: {
 		activeTasks: (state) => state.tasks,
 
-		getTaskById: (state) => (taskId) => {
-			return state.tasks.find((task) => task.id === taskId)
+		// The definitions by id: every room task has one of its own (D-091-88), so a list never searches per row.
+		tasksById: (state) => new Map(state.tasks.map((task) => [task.id, task])),
+
+		getTaskById() {
+			return (taskId) => this.tasksById.get(taskId)
 		},
 	},
 
@@ -54,36 +57,25 @@ export const useTasksStore = defineStore('tasks', {
 			}
 		},
 
-		// CS-PLAN-063: the former createTask action was pruned with the
-		// definition-only POST /tasks endpoint — creation runs through the
-		// atomic aggregate (roomTasksStore.createTaskAggregate).
+		// CS-PLAN-063 pruned createTask and CS-PLAN-091 WP-B6 updateTask:
+		// the one form creates and saves through the taskForm store, which
+		// puts the saved definition back here (upsertTask).
 
 		/**
-		 * Update task
-		 * @param {number} taskId Task identifier to update.
-		 * @param {object} updates Partial task data to apply.
+		 * Put the definition a save or a creation answered into the cache;
+		 * it invalidates every definition read that started before it.
+		 * @param {object} task The definition as the server holds it now.
 		 */
-		async updateTask(taskId, updates) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.put(`/api/v1/tasks/${taskId}`, updates)
-
-				// Accepted mutation invalidates pre-mutation definition reads
-				// (CS-PLAN-066 §3.3) — the authoritative row lands here.
-				this.requestSeq++
-				const taskIndex = this.tasks.findIndex((t) => t.id === taskId)
-				if (taskIndex >= 0) {
-					this.tasks[taskIndex] = data
-				}
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to update task', error, { store: 'tasks', action: 'updateTask', taskId })
-				throw error
-			} finally {
-				this.loading = false
+		upsertTask(task) {
+			if (!task?.id) {
+				return
+			}
+			this.requestSeq++
+			const index = this.tasks.findIndex((entry) => entry.id === task.id)
+			if (index >= 0) {
+				this.tasks[index] = task
+			} else {
+				this.tasks.push(task)
 			}
 		},
 

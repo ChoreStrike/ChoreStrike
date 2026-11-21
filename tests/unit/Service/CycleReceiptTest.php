@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
+use OCA\ChoreStrike\Service\CommandService;
 use OCA\ChoreStrike\Service\CycleReceipt;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -122,5 +123,49 @@ class CycleReceiptTest extends TestCase {
 		);
 
 		$this->assertSame(2, $receipt->expectedVersion);
+	}
+
+	/** @return array<string, array{mixed}> */
+	public static function versionsCommandServiceRefuses(): array {
+		return [
+			'absent' => [null],
+			'negative' => [-1],
+			'a padded string' => ['04'],
+			'a float' => [4.0],
+			'a float string' => ['4.0'],
+			'a signed string' => ['+4'],
+			'a negative string' => ['-1'],
+			'a word' => ['four'],
+			'a boolean' => [true],
+		];
+	}
+
+	/**
+	 * One rule for the version a client showed (RF-091-10): a whole number
+	 * or its canonical decimal string, for every command surface.
+	 *
+	 * @dataProvider versionsCommandServiceRefuses
+	 */
+	public function testRequireExpectedVersion_RefusesWhatIsNoWholeNumber(mixed $version): void {
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('A valid expectedVersion is required');
+
+		CommandService::requireExpectedVersion($version === null ? [] : ['expectedVersion' => $version], $this->l10n);
+	}
+
+	public function testRequireExpectedVersion_TakesTheNumberAndItsString(): void {
+		$this->assertSame([0, 7, 7], [
+			CommandService::requireExpectedVersion(['expectedVersion' => 0], $this->l10n),
+			CommandService::requireExpectedVersion(['expectedVersion' => 7], $this->l10n),
+			CommandService::requireExpectedVersion(['expectedVersion' => '7'], $this->l10n),
+		]);
+	}
+
+	public function testAssertClosedBody_NamesTheFirstUnknownField(): void {
+		CommandService::assertClosedBody(['commandId' => self::UUID, 'factor' => 2], ['commandId', 'factor'], $this->l10n);
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Unknown field: days');
+		CommandService::assertClosedBody(['commandId' => self::UUID, 'days' => 3], ['commandId', 'factor'], $this->l10n);
 	}
 }

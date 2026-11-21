@@ -79,6 +79,16 @@ folded into the one undo aggregate by CS-PLAN-064/ADR-011), assignment, and
 definition mutation all delegate to the same policy — the "creator can't
 reactivate their own private task" divergence is gone.
 
+**Mutations of a private task (CS-PLAN-091 WP-B6, operator 2026-11-21):** the
+one form's save (`PUT /room-tasks/{id}`) keeps the matrix in three ways. Only
+the owner of a private task changes its visibility; an assignee edits
+everything else (`403`, D-091-109). A save never takes the acting member's own
+sight of the task: leaving the assignees of a private task that is not one's
+own is refused (`403`, D-091-108). A member who may not see every room task of
+a shared private definition never edits the others: the save splits off a copy
+for the member's room task and neither asks nor names them (D-091-110). A task
+that becomes private is owned by the member who saves it (D-091-95).
+
 ### D3 — Denial standard: visibility → 404, role → 403
 
 - Visibility denials (foreign/nonexistent id, or an id the caller cannot see)

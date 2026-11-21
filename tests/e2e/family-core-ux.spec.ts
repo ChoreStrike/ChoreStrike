@@ -5,12 +5,13 @@
  * WP7 exit journey — canonical client state + family UX (CS-PLAN-066 §4.3).
  *
  * Pins the full family matrix against the `family` profile:
- *  - Owner desktop: cold count projections (D2), the real HTTP
- *    PUT /tasks/{id} edit roundtrip (D6/BUG-API-001), complete → coordinated
- *    reconciliation without reload (D3/D10) and the queued undo.
+ *  - Owner desktop: cold count projections (D2), the one form's real HTTP
+ *    PUT /room-tasks/{id} save (D6/BUG-API-001, CS-PLAN-091 WP-B6), the scope
+ *    question of a shared task, complete → coordinated reconciliation
+ *    without reload (D3/D10) and the queued undo.
  *  - Child (teen): the D4 landing redirect (bare root → My Day), explicit
  *    deep links stay usable, non-actionable manage controls are hidden, and
- *    the execute-only My Day checklist.
+ *    the execute-only sub-tasks of an opened My Day row.
  *  - Member/child mobile viewport: My Day completion + checklist execution
  *    with 44px touch targets.
  *
@@ -26,6 +27,7 @@ import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { nonTextContrastViolations } from './fixtures/non-text-contrast.ts'
 import { runOcc } from './fixtures/occ-runner.ts'
+import { addSubTasks, openEditForm } from './fixtures/task-form.ts'
 import { useTheme } from './fixtures/theme.ts'
 
 test.describe('Family core UX (CS-PLAN-066)', () => {
@@ -91,11 +93,20 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				if (width < 768) {
 					await filterToggle.click()
 				}
-				await page.getByTestId('person-filter').selectOption('teen')
+				// The people filter: a tick per member, and the scope buttons are its presets.
+				await page.getByTestId('people-filter-toggle').click()
+				await page.getByTestId('people-filter-none').click()
+				await page.getByTestId('people-filter-teen').check()
 				await expect(other).toBeVisible()
 				await expect(unassigned).toHaveCount(0)
-				await page.getByTestId('floor-filter').selectOption(String(kitchenFloor.floor.id))
-				await page.getByTestId('room-filter').selectOption(String(kitchen.id))
+				await expect(page.getByTestId('tasks-filter-unassigned')).toHaveAttribute('aria-pressed', 'false')
+				// The quick filter: a floor, then one of its rooms.
+				const quickFilter = page.locator('.task-filter-bar').getByTestId('room-picker')
+				await quickFilter.getByTestId('room-picker-toggle').click()
+				await quickFilter.getByTestId(`room-picker-floor-${kitchenFloor.floor.id}`).click()
+				await expect(other).toBeVisible()
+				await quickFilter.getByTestId(`room-picker-room-${kitchen.id}`).click()
+				await expect(quickFilter.getByTestId('room-picker-toggle')).toContainText(kitchen.name)
 				await expect(other).toBeVisible()
 				await page.getByTestId('tasks-filter-mine').focus()
 				await page.keyboard.press('Enter')
@@ -255,7 +266,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		}
 	})
 
-	test('owner desktop: the real HTTP PUT /tasks/{id} edit roundtrip works with the production body shape (D6)', async ({ browser, seededData }) => {
+	test('owner desktop: the one form saves an edit with one real HTTP PUT /room-tasks/{id} (D6)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
@@ -264,31 +275,80 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await page.getByTestId('nav-tasks').click()
 			await page.getByTestId('task-manager-view').waitFor({ state: 'visible' })
 
-			// Open the seeded dishes row's edit form.
-			const row = page.locator('.task-item').filter({ hasText: 'Do the dishes' }).first()
-			await row.locator('button[title="Edit"]').click()
-			await page.getByTestId('task-name-input').waitFor({ state: 'visible' })
+			// Open the seeded dishes row in place, then its form.
+			const row = page.getByTestId('task-item').filter({ hasText: 'Do the dishes' }).first()
+			await openEditForm(page, row)
 
 			const updatedName = 'Do the dishes properly'
 			await page.getByTestId('task-name-input').fill(updatedName)
 
-			// BUG-API-001 (D6): the client sends the edited fields as the
-			// TOP-LEVEL JSON body — before the fix this request died with a
-			// 500 (TypeError: array argument bound from a missing key).
+			// BUG-API-001 (D6): the body is the TOP-LEVEL JSON object of the one
+			// edit aggregate — receipt and form fields together, one request.
 			const putEdit = page.waitForResponse((response) => {
 				const pathname = new URL(response.url()).pathname
 				return response.request().method() === 'PUT'
-					&& /^\/apps\/chorestrike\/api\/v1\/tasks\/\d+$/.test(pathname)
+					&& /^\/apps\/chorestrike\/api\/v1\/room-tasks\/\d+$/.test(pathname)
 			})
 			await page.getByTestId('save-task-button').click()
 			const response = await putEdit
-			expect(response.ok()).toBeTruthy()
+			expect(response.ok(), await response.text()).toBeTruthy()
+			const sent = response.request().postDataJSON()
+			expect(sent).toMatchObject({ expectedVersion: expect.any(Number), task: expect.objectContaining({ name: updatedName }) })
+			expect(sent.commandId).toMatch(/^[0-9a-f-]{36}$/)
 
 			const body = await response.json()
-			expect(body.data.name).toBe(updatedName)
+			expect(body.data.task.name).toBe(updatedName)
+			expect(body.data.replay).toBe(false)
 
-			// The reconciled definition shows without any reload.
-			await expect(page.locator('.task-item').filter({ hasText: updatedName }).first()).toBeVisible()
+			// The form closes and the saved definition shows without any reload.
+			await expect(page.getByTestId('task-form')).toHaveCount(0)
+			await expect(page.getByTestId('task-item').filter({ hasText: updatedName }).first()).toBeVisible()
+		} finally {
+			await context.close()
+		}
+	})
+
+	// FEAT-UX-043: a definition two rooms share changes only after the scope
+	// question; "Only this room" splits off a copy for this room.
+	test('owner: editing a task two rooms share asks for the scope and splits it off for this room', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const shared = (seededData as SeededShape).data.tasks.find((task) => task.name === 'Make bed')!
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			await page.goto('/apps/chorestrike/#/tasks?scope=all')
+			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+			// The seed mounts "Make bed" in the kids' and in the master bedroom.
+			const kidsRow = page.getByTestId('task-item').filter({ hasText: 'Make bed' }).filter({ hasText: 'Kids Bedroom' })
+			const masterRow = page.getByTestId('task-item').filter({ hasText: 'Make bed' }).filter({ hasText: 'Master Bedroom' })
+			await expect(kidsRow).toHaveCount(1, { timeout: 20000 })
+			await expect(masterRow).toHaveCount(1)
+
+			await openEditForm(page, kidsRow)
+			await expect(page.getByTestId('task-shared-hint')).toContainText('2 rooms')
+			await page.getByTestId('task-name-input').fill('Make bed neatly')
+
+			const saves: Array<{ status: number, scope?: string }> = []
+			page.on('response', (response) => {
+				if (response.request().method() === 'PUT' && /\/room-tasks\/\d+$/.test(new URL(response.url()).pathname)) {
+					saves.push({ status: response.status(), scope: response.request().postDataJSON().scope })
+				}
+			})
+			await page.getByTestId('save-task-button').click()
+			await expect(page.getByTestId('task-scope-dialog')).toBeVisible()
+			const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && response.status() === 200
+				&& /\/room-tasks\/\d+$/.test(new URL(response.url()).pathname))
+			await page.getByTestId('task-scope-this-room').click()
+			const body = (await (await saved).json()).data
+			expect(saves).toEqual([{ status: 409, scope: undefined }, { status: 200, scope: 'thisRoom' }])
+			expect(body.task.name).toBe('Make bed neatly')
+			expect(body.task.id).not.toBe(shared.id)
+
+			// The kids' room has a task of its own; the master bedroom keeps the shared one.
+			await expect(page.getByTestId('task-form')).toHaveCount(0)
+			await expect(kidsRow).toContainText('Make bed neatly')
+			await expect(masterRow).not.toContainText('neatly')
+			const definitions = (await (await page.request.get('/apps/chorestrike/api/v1/tasks')).json()).data as Array<{ id: number, name: string }>
+			expect(definitions.find((task) => task.id === shared.id)?.name).toBe('Make bed')
 		} finally {
 			await context.close()
 		}
@@ -320,13 +380,12 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const row = page.getByTestId('task-item').filter({ hasText: name })
 			await expect(row.getByTestId('task-energy')).toHaveText('1', { timeout: 20000 })
 
-			await row.locator('button[title="Edit"]').click()
+			await openEditForm(page, row)
 			await page.getByTestId('task-energy-select').selectOption('3')
-			// Completion reads the Today row first, so wait for that reread too.
-			const dailyReread = page.waitForResponse((response) => response.url().includes('/room-tasks/filtered-daily'))
+			// The save answers the fresh cycle; every row slice Today cached
+			// takes it, so the completion below needs no reread first.
 			await page.getByTestId('save-task-button').click()
 			await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 20000 })
-			await dailyReread
 			await expect(row.getByTestId('task-energy')).toHaveText('3', { timeout: 20000 })
 
 			const completed = await completeWithOptionalDialog(page, row.getByTestId('complete-task-button'))
@@ -388,28 +447,29 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		}
 	})
 
-	// BUG-UX-004 (CS-PLAN-088 feedback #10): toggling a member chip in the
-	// details of a lower row must not scroll the page.
-	test('owner: toggling a member chip in a lower row keeps the scroll position', async ({ browser, seededData }) => {
+	// BUG-UX-004 (CS-PLAN-088 feedback #10), with the one form of CS-PLAN-091
+	// WP-B6: saving the members of a lower row must not scroll the list.
+	test('owner: saving the members of a lower row keeps the scroll position', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom', { viewport: { width: 1280, height: 720 } })
 		try {
 			await page.goto('/apps/chorestrike/#/tasks')
 			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
 			await page.getByTestId('tasks-filter-all').click()
-			const row = page.getByTestId('task-item').last()
+			const name = (await page.getByTestId('task-item').last().locator('.task-name').textContent())!.trim()
+			const row = page.getByTestId('task-item').filter({ hasText: name }).last()
 			await row.scrollIntoViewIfNeeded()
-			await row.getByRole('button', { name: 'Show details', exact: true }).click()
-			const chip = row.getByTestId('assignee-chip-friend')
-			await chip.scrollIntoViewIfNeeded()
-			const top = () => chip.evaluate((element) => element.getBoundingClientRect().top)
+			await openEditForm(page, row)
+			const top = () => row.evaluate((element) => element.getBoundingClientRect().top)
 			const before = await top()
 
-			const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && /\/room-tasks\/\d+\/assignees$/.test(response.url()))
-			await chip.click()
+			await page.getByTestId('task-form').getByTestId('assignee-chip-friend').click()
+			const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && /\/room-tasks\/\d+$/.test(new URL(response.url()).pathname))
+			await page.getByTestId('save-task-button').click()
 			expect((await saved).status()).toBe(200)
-			await expect(chip).toHaveClass(/selected/)
-			expect(Math.abs(await top() - before), 'the chip stays where it was clicked').toBeLessThan(2)
+			await expect(page.getByTestId('task-form')).toHaveCount(0)
+			await expect(row.getByTestId('task-assignees')).toContainText('Friend')
+			expect(Math.abs(await top() - before), 'the row stays where it was saved').toBeLessThan(2)
 		} finally {
 			await context.close()
 		}
@@ -468,9 +528,8 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 	test('child: My Day hides manage controls and executes the checklist read-only (D4)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
-		// The owner adds one checklist item to teen's seeded counters task
-		// via the TaskManager details editor (canEdit surface), so the child
-		// has an execute-only checklist in My Day.
+		// The owner adds one sub-task to teen's seeded counters task in the
+		// one form (CS-PLAN-091 WP-B6), so the child has sub-tasks to execute.
 		const countersRoomTask = roomTaskByName(seededData, 'Wipe kitchen counters')
 		const { context: ownerContext, page: ownerPage } = await createUserContext(browser, 'mom')
 		const itemLabel = `Checklist regression ${Date.now()}`
@@ -481,19 +540,21 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await ownerPage.getByTestId('task-manager-view').waitFor({ state: 'visible' })
 
 			await ownerPage.getByTestId('tasks-filter-all').click()
-			const row = ownerPage.locator('.task-item').filter({ hasText: 'Wipe kitchen counters' }).first()
-			await row.locator('button[title="Show details"]').click()
-			await ownerPage.locator('[data-testid="task-checklist"]').waitFor({ state: 'visible' })
-			await ownerPage.locator('.add-item-trigger').click()
-			await ownerPage.getByTestId('checklist-new-item-input').fill(itemLabel)
-			await ownerPage.getByTestId('checklist-add-item-button').click()
-			await expect(ownerPage.locator('.checklist-item', { hasText: itemLabel })).toBeVisible()
+			const row = ownerPage.getByTestId('task-item').filter({ hasText: 'Wipe kitchen counters' }).first()
+			await openEditForm(ownerPage, row)
+			await addSubTasks(ownerPage, [itemLabel])
+			const saved = ownerPage.waitForResponse((response) => response.request().method() === 'PUT'
+				&& new URL(response.url()).pathname.endsWith(`/room-tasks/${countersRoomTask.id}`))
+			await ownerPage.getByTestId('save-task-button').click()
+			expect((await saved).status()).toBe(200)
+			await expect(ownerPage.getByTestId('task-form')).toHaveCount(0)
+			await expect(row.locator('xpath=..').locator('.checklist-item', { hasText: itemLabel })).toBeVisible()
 		} finally {
 			await ownerContext.close()
 		}
 
-		// The child sees the checklist toggle in My Day and can execute it —
-		// but never the add/edit affordances.
+		// The child opens the row on My Day and ticks the sub-task — but
+		// never sees the edit affordance.
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -502,33 +563,33 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const row = page.getByTestId('today-task-item').filter({ hasText: 'Wipe kitchen counters' }).first()
 			await expect(row).toBeVisible()
 
-			// No non-actionable manage surfaces for children (§3.5).
-			await expect(row.locator('button[title="Edit"]')).toHaveCount(0)
-			await expect(row.locator('.task-select')).toHaveCount(0)
-
 			// Traverse the actual tab order; programmatic focus would not prove reachability.
-			const tabTo = async (control: Locator) => {
+			const tabTo = async (control: Locator, key = 'Tab') => {
 				for (let i = 0; i < 60; i++) {
-					await page.keyboard.press('Tab')
+					await page.keyboard.press(key)
 					if (await control.evaluate((element) => element === document.activeElement)) {
 						return
 					}
 				}
 				throw new Error('Core control is unreachable by keyboard')
 			}
-			const toggle = page.getByTestId(`today-checklist-toggle-${countersRoomTask.id}`)
-			await tabTo(toggle)
-			await expect(toggle).toBeFocused()
+			const expand = row.getByTestId('task-expand')
+			await tabTo(expand)
+			await expect(expand).toBeFocused()
 			await page.keyboard.press('Enter')
-			const item = page.locator('.checklist-item', { hasText: itemLabel })
+			const details = row.locator('xpath=..').getByTestId('task-row-details')
+			await expect(details).toBeVisible()
+			// No non-actionable manage surfaces for children (§3.5).
+			await expect(details.getByTestId('task-edit-button')).toHaveCount(0)
+			await expect(details.getByTestId('sleep-control')).toHaveCount(0)
+			const item = details.locator('.checklist-item', { hasText: itemLabel })
 			await expect(item).toBeVisible()
-			await expect(page.getByTestId('checklist-add-item-button')).toHaveCount(0)
 
 			await tabTo(item.getByRole('checkbox'))
 			await page.keyboard.press('Space')
-			await expect(item.locator('.item-content')).toHaveClass(/is-completed/)
+			await expect(item.locator('.item-checkbox')).toHaveClass(/is-completed/)
 			const complete = page.getByTestId(`today-complete-button-${countersRoomTask.id}`)
-			await tabTo(complete)
+			await tabTo(complete, 'Shift+Tab')
 			await expect(complete).toBeFocused()
 			const response = page.waitForResponse((result) => result.request().method() === 'POST' && result.url().endsWith(`/${countersRoomTask.id}/complete`))
 			// WP-E: a held Enter confirms (a single press only shows the hint).

@@ -13,7 +13,6 @@ use OCA\ChoreStrike\Exception\ValidationException;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCA\ChoreStrike\Service\TaskService;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
@@ -37,11 +36,8 @@ class TaskServiceTest extends TestCase {
 		// (no parameter substitution), mirroring TemplateServiceTest.
 		$l10n->method('t')->willReturnCallback(static fn (string $text, array $parameters = []) => $parameters === [] ? $text : vsprintf($text, $parameters));
 
-		// CS-PLAN-071 WP0: updateTask writes run house-first — the house
-		// row lock is a stub here, and the under-lock task re-read returns
+		// The one form's save locks the definition row; the re-read returns
 		// the test's prepared entity (stubLockedTask).
-		$houseMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class);
-		$houseMapper->method('findForUpdate')->willReturn(new \OCA\ChoreStrike\Db\House());
 		$this->taskMapper->method('lockForUpdate')->willReturnCallback(function (): Task {
 			if ($this->lockedTask === null) {
 				throw new \LogicException('call stubLockedTask() for updateTask success-path tests');
@@ -55,16 +51,23 @@ class TaskServiceTest extends TestCase {
 		$taskCategories->method('getList')->willReturn(['revision' => 0, 'items' => array_map(static fn (string $key): array => ['key' => $key, 'label' => null], \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS)]);
 		$this->service = new TaskService(
 			$this->taskMapper,
-			$houseMapper,
 			$this->createMock(\OCA\ChoreStrike\Db\RoomTaskMapper::class),
 			$l10n,
 			$this->authorization,
 			$this->taskAccessPolicy,
-			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			$this->createMock(\OCA\ChoreStrike\Service\CycleService::class),
-			new \OCA\ChoreStrike\Service\CalendarService(),
 			$taskCategories,
 		);
+	}
+
+	/**
+	 * The definition part of the one form's save (CS-PLAN-091 WP-B6): the
+	 * gate before the lock, then the write on the locked row.
+	 */
+	private function update(int $taskId, array $updates, HouseUser $actor): Task {
+		$accepted = $this->service->prepareUpdate($this->taskMapper->find($taskId), $updates, $actor);
+		$locked = $this->taskMapper->lockForUpdate($taskId);
+		return $this->service->applyUnderLock($locked, clone $locked, $accepted);
 	}
 
 	/**
@@ -90,69 +93,6 @@ class TaskServiceTest extends TestCase {
 	 */
 	private function stubTaskVisible(bool $visible = true): void {
 		$this->taskAccessPolicy->method('canViewTask')->willReturn($visible);
-	}
-
-	/**
-	 * GetTask_ExistingId_ReturnsTask
-	 */
-	public function testGetTask_ExistingId_ReturnsTask(): void {
-		$taskId = 1;
-
-		$task = new Task();
-		$task->setId($taskId);
-		$task->setName('Test Task');
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('find')
-			->with($taskId)
-			->willReturn($task);
-
-		$result = $this->service->getTask($taskId);
-
-		$this->assertSame($task, $result);
-	}
-
-	/**
-	 * GetTask_NonExistingId_ThrowsNotFound
-	 *
-	 * CS-PLAN-061 §3.5: the mapper's DoesNotExistException is wrapped into
-	 * the app NotFoundException — a raw framework exception would 500.
-	 */
-	public function testGetTask_NonExistingId_ThrowsNotFound(): void {
-		$taskId = 999;
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('find')
-			->with($taskId)
-			->willThrowException(new DoesNotExistException('Task not found'));
-
-		$this->expectException(NotFoundException::class);
-		$this->expectExceptionMessage('Task not found');
-
-		$this->service->getTask($taskId);
-	}
-
-	/**
-	 * GetVisibleTask_InvisibleTask_ThrowsNotFound
-	 *
-	 * CS-PLAN-061 §3.2: the shared controller-preamble gate denies a caller
-	 * who cannot see the task with the 404 anti-enumeration NotFoundException.
-	 */
-	public function testGetVisibleTask_InvisibleTask_ThrowsNotFound(): void {
-		$task = new Task();
-		$task->setId(1);
-		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
-		$task->setOwnerUserId('someone-else');
-
-		$this->taskMapper->method('find')->willReturn($task);
-		$this->stubTaskVisible(false);
-
-		$this->expectException(NotFoundException::class);
-		$this->expectExceptionMessage('Task not found');
-
-		$this->service->getVisibleTask(1, $this->createHouseUser());
 	}
 
 	// CS-PLAN-063: the former createTask tests moved to
@@ -195,7 +135,7 @@ class TaskServiceTest extends TestCase {
 			->method('update')
 			->willReturn($updatedTask);
 
-		$result = $this->service->updateTask($taskId, $updates, $actor);
+		$result = $this->update($taskId, $updates, $actor);
 
 		$this->assertEquals('Updated Name', $result->getName());
 		$this->assertEquals(4, $result->getEnergyCost());
@@ -225,7 +165,7 @@ class TaskServiceTest extends TestCase {
 			->method('update')
 			->willReturn($task);
 
-		$result = $this->service->updateTask($taskId, $updates, $this->createHouseUser());
+		$result = $this->update($taskId, $updates, $this->createHouseUser());
 
 		$this->assertSame($task, $result);
 	}
@@ -252,7 +192,7 @@ class TaskServiceTest extends TestCase {
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('Task not found');
 
-		$this->service->updateTask(1, ['ownerUserId' => 'attacker'], $this->createHouseUser('some-other-user'));
+		$this->update(1, ['ownerUserId' => 'attacker'], $this->createHouseUser('some-other-user'));
 	}
 
 	/**
@@ -269,7 +209,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
 		$this->stubLockedTask($task);
 
-		$result = $this->service->updateTask(1, ['name' => 'Renamed'], $this->createHouseUser('task-owner'));
+		$result = $this->update(1, ['name' => 'Renamed'], $this->createHouseUser('task-owner'));
 
 		$this->assertSame('Renamed', $result->getName());
 	}
@@ -289,7 +229,7 @@ class TaskServiceTest extends TestCase {
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('Task not found');
 
-		$this->service->updateTask(1, ['name' => 'Nope'], $this->createHouseUser('member-user'));
+		$this->update(1, ['name' => 'Nope'], $this->createHouseUser('member-user'));
 	}
 
 	/**
@@ -305,7 +245,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
 		$this->stubLockedTask($task);
 
-		$result = $this->service->updateTask(1, ['name' => 'Renamed'], $this->createHouseUser('house-owner', 'owner'));
+		$result = $this->update(1, ['name' => 'Renamed'], $this->createHouseUser('house-owner', 'owner'));
 
 		$this->assertSame('Renamed', $result->getName());
 	}
@@ -329,7 +269,7 @@ class TaskServiceTest extends TestCase {
 		$this->expectException(ForbiddenException::class);
 		$this->expectExceptionMessage('Only house owners can set admin-only visibility');
 
-		$this->service->updateTask(1, ['visibilityType' => Task::VISIBILITY_ADMIN_ONLY], $this->createHouseUser('member-user'));
+		$this->update(1, ['visibilityType' => Task::VISIBILITY_ADMIN_ONLY], $this->createHouseUser('member-user'));
 	}
 
 	/**
@@ -349,7 +289,7 @@ class TaskServiceTest extends TestCase {
 		$this->expectException(ForbiddenException::class);
 		$this->expectExceptionMessage('Only house owners can change admin-only task visibility');
 
-		$this->service->updateTask(1, ['visibilityType' => Task::VISIBILITY_PUBLIC], $this->createHouseUser('member-user'));
+		$this->update(1, ['visibilityType' => Task::VISIBILITY_PUBLIC], $this->createHouseUser('member-user'));
 	}
 
 	/**
@@ -365,7 +305,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
 		$this->stubLockedTask($task);
 
-		$result = $this->service->updateTask(1, ['visibilityType' => Task::VISIBILITY_ADMIN_ONLY], $this->createHouseUser('house-owner', 'owner'));
+		$result = $this->update(1, ['visibilityType' => Task::VISIBILITY_ADMIN_ONLY], $this->createHouseUser('house-owner', 'owner'));
 
 		$this->assertSame(Task::VISIBILITY_ADMIN_ONLY, $result->getVisibilityType());
 	}
@@ -383,7 +323,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
 		$this->stubLockedTask($task);
 
-		$result = $this->service->updateTask(1, ['name' => 'Renamed'], $this->createHouseUser('any-member'));
+		$result = $this->update(1, ['name' => 'Renamed'], $this->createHouseUser('any-member'));
 
 		$this->assertSame('Renamed', $result->getName());
 	}
@@ -411,58 +351,177 @@ class TaskServiceTest extends TestCase {
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: taskTier');
 
-		$this->service->updateTask(1, ['taskTier' => 'gold'], $this->createHouseUser('house-owner', 'owner'));
+		$this->update(1, ['taskTier' => 'gold'], $this->createHouseUser('house-owner', 'owner'));
 	}
 
 	/**
-	 * UpdateTask_OwnerTransferToNonMember_ThrowsForbidden
-	 *
-	 * CS-PLAN-061 §3.4: a changed ownerUserId target is validated as a
-	 * house member via AuthorizationService::assertUserInHouse — the
-	 * previously unvalidated transfer is closed (closes CR-SVC-17's
-	 * re-assignment-by-whitelist gap on the membership side).
+	 * The owner of a private task is no field of the form (CS-PLAN-091
+	 * WP-B6): a body that names one is refused before any write.
 	 */
-	public function testUpdateTask_OwnerTransferToNonMember_ThrowsForbidden(): void {
+	public function testPrepareUpdate_OwnerIsNoFormField(): void {
 		$task = new Task();
 		$task->setId(1);
 		$task->setOwnerUserId('old-owner');
-
-		$actor = $this->createHouseUser('house-owner', 'owner');
-		$actor->setHouseId(1);
-
-		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->taskMapper->method('find')->willReturn($task);
 		$this->stubTaskVisible();
-		$this->authorization->method('assertUserInHouse')
-			->willThrowException(new ForbiddenException('User is not a member of this house'));
 		$this->taskMapper->expects($this->never())->method('update');
 
-		$this->expectException(ForbiddenException::class);
+		$this->expectException(ValidationException::class);
+		$this->expectExceptionMessage('Unknown or immutable field: ownerUserId');
 
-		$this->service->updateTask(1, ['ownerUserId' => 'outsider'], $actor);
+		$this->update(1, ['ownerUserId' => 'new-owner'], $this->createHouseUser('house-owner', 'owner'));
+	}
+
+	/** A task that becomes private is claimed by whoever made it private, so somebody always sees it. */
+	public function testPrepareUpdate_TaskBecomingPrivate_ClaimsTheActor(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+		$this->stubTaskVisible();
+
+		$accepted = $this->service->prepareUpdate($task, ['visibilityType' => Task::VISIBILITY_PRIVATE], $this->createHouseUser('adult'));
+
+		$this->assertSame('adult', $accepted['ownerUserId']);
+	}
+
+	/** An assignee who edits a private task does not take it over from its owner. */
+	public function testPrepareUpdate_AssigneeEditOfAPrivateTask_KeepsItsOwner(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
+		$task->setOwnerUserId('creator');
+		$this->stubTaskVisible();
+
+		$accepted = $this->service->prepareUpdate($task, ['name' => 'Renamed', 'visibilityType' => Task::VISIBILITY_PRIVATE], $this->createHouseUser('assignee'));
+
+		$this->assertArrayNotHasKey('ownerUserId', $accepted);
 	}
 
 	/**
-	 * UpdateTask_OwnerTransferToMember_Succeeds
+	 * Only the owner of a private task changes its visibility (D-091-109):
+	 * an assignee neither opens it to the house nor claims it by a round
+	 * trip through public; the house owner's role is no exception.
+	 *
+	 * @dataProvider privateVisibilityChangers
 	 */
-	public function testUpdateTask_OwnerTransferToMember_Succeeds(): void {
+	public function testPrepareUpdate_VisibilityOfAPrivateTask_IsItsOwners(string $actorId, string $role, string $to, bool $allowed): void {
 		$task = new Task();
 		$task->setId(1);
-		$task->setOwnerUserId('old-owner');
-
-		$actor = $this->createHouseUser('house-owner', 'owner');
-		$actor->setHouseId(1);
-
-		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
+		$task->setOwnerUserId('creator');
 		$this->stubTaskVisible();
-		$this->authorization->expects($this->once())
-			->method('assertUserInHouse')
-			->with(1, 'new-owner');
-		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
-		$this->stubLockedTask($task);
+		if (!$allowed) {
+			$this->expectException(ForbiddenException::class);
+			$this->expectExceptionMessage('Only the owner of a private task can change its visibility');
+		}
 
-		$result = $this->service->updateTask(1, ['ownerUserId' => 'new-owner'], $actor);
+		$accepted = $this->service->prepareUpdate($task, ['visibilityType' => $to], $this->createHouseUser($actorId, $role));
 
-		$this->assertSame('new-owner', $result->getOwnerUserId());
+		$this->assertSame($to, $accepted['visibilityType']);
+		$this->assertArrayNotHasKey('ownerUserId', $accepted, 'no claim: the task has its owner');
+	}
+
+	/** @return array<string, array{string, string, string, bool}> */
+	public static function privateVisibilityChangers(): array {
+		return [
+			'an assignee opens it' => ['assignee', 'member', Task::VISIBILITY_PUBLIC, false],
+			'an assigned house owner opens it' => ['house-owner', 'owner', Task::VISIBILITY_PUBLIC, false],
+			'an assigned house owner makes it admin-only' => ['house-owner', 'owner', Task::VISIBILITY_ADMIN_ONLY, false],
+			'its owner opens it' => ['creator', 'member', Task::VISIBILITY_PUBLIC, true],
+			'an assignee sends the unchanged value' => ['assignee', 'member', Task::VISIBILITY_PRIVATE, true],
+		];
+	}
+
+	/** A private task nobody owns is claimed by whoever saves it, also with a new visibility. */
+	public function testPrepareUpdate_PrivateTaskWithoutAnOwner_KeepsTheClaimRule(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
+		$this->stubTaskVisible();
+
+		$kept = $this->service->prepareUpdate($task, ['visibilityType' => Task::VISIBILITY_PRIVATE], $this->createHouseUser('adult'));
+		$opened = $this->service->prepareUpdate($task, ['visibilityType' => Task::VISIBILITY_PUBLIC], $this->createHouseUser('adult'));
+
+		$this->assertSame('adult', $kept['ownerUserId']);
+		$this->assertSame(Task::VISIBILITY_PUBLIC, $opened['visibilityType']);
+	}
+
+	/** One stored form for creation and edit (D-091-100). */
+	public function testStoredValue_DatesTextsAndWeekdays(): void {
+		$this->assertNull(TaskService::storedValue('activeFrom', ''));
+		$this->assertSame('2026-03-01', TaskService::storedValue('activeFrom', '2026-03-01')->format('Y-m-d'));
+		$this->assertNull(TaskService::storedValue('description', ''));
+		$this->assertNull(TaskService::storedValue('tips', null));
+		$this->assertSame('Wipe it', TaskService::storedValue('instructions', 'Wipe it'));
+		$this->assertSame('["monday","friday"]', TaskService::storedValue('fixedScheduleDays', [3 => 'monday', 7 => 'friday']));
+		$this->assertNull(TaskService::storedValue('fixedScheduleDays', ''));
+		$this->assertSame('', TaskService::storedValue('name', ''), 'only optional texts turn empty into none');
+	}
+
+	/**
+	 * The name fits its column and the description has the cap of the
+	 * other free texts (D-091-111): a 400 with a message, never a
+	 * database error.
+	 *
+	 * @dataProvider textLimits
+	 */
+	public function testValidateTaskData_TextLimits(array $data, ?string $error): void {
+		$errors = $this->service->validateTaskData($data + ['name' => 'Dishes']);
+
+		$this->assertSame($error === null ? [] : [$error], $errors);
+	}
+
+	/** @return array<string, array{array<string, mixed>, ?string}> */
+	public static function textLimits(): array {
+		return [
+			'a name at the limit' => [['name' => str_repeat('ä', 255)], null],
+			'a name beyond the limit' => [['name' => str_repeat('ä', 256)], 'Task name must be at most 255 characters'],
+			'a description at the limit' => [['description' => str_repeat('ä', 2000)], null],
+			'a description beyond the limit' => [['description' => str_repeat('x', 2001)], 'Description must not exceed 2000 characters'],
+			'a description that is no text' => [['description' => ['Wipe']], 'Invalid value type for field: description'],
+			'no description' => [['description' => null], null],
+		];
+	}
+
+	/** The limits hold on the edit path as on creation. */
+	public function testPrepareUpdate_ANameBeyondItsColumn_IsRefused(): void {
+		$task = new Task();
+		$task->setId(1);
+		$this->stubTaskVisible();
+
+		$this->expectException(ValidationException::class);
+		$this->expectExceptionMessage('Task name must be at most 255 characters');
+
+		$this->service->prepareUpdate($task, ['name' => str_repeat('x', 256)], $this->createHouseUser());
+	}
+
+	/** The form sends every field; only the ones that differ change a shared definition. */
+	public function testChangedFields_KeepsOnlyRealChanges(): void {
+		$task = $this->ruleTask('weekly', 1, 1);
+		$task->setActiveFrom(new \DateTime('2026-03-01'));
+		$task->setFixedScheduleDays('["monday"]');
+
+		$changed = $this->service->changedFields($task, [
+			'name' => 'Clean the gutters',
+			'frequencyType' => 'weekly',
+			'flexDays' => 2,
+			'activeFrom' => '2026-03-01',
+			'fixedScheduleDays' => ['monday'],
+		]);
+
+		$this->assertSame(['flexDays' => 2], $changed);
+	}
+
+	/** The form sends an empty text field as '': no change of a definition without that text. */
+	public function testChangedFields_AnEmptyTextIsNoText(): void {
+		$task = $this->ruleTask('weekly', 1, 1);
+		$task->setDescription(null);
+		$task->setInstructions('');
+
+		$changed = $this->service->changedFields($task, ['description' => '', 'instructions' => '', 'tips' => '']);
+
+		$this->assertSame([], $changed);
+		$this->assertSame(['description' => 'Wipe it'], $this->service->changedFields($task, ['description' => 'Wipe it']));
 	}
 
 	// ------------------------------------------------------------------
@@ -491,7 +550,7 @@ class TaskServiceTest extends TestCase {
 		$this->stubEditableTask($this->ruleTask('monthly', 6, 7));
 		$this->taskMapper->method('update')->willReturnArgument(0);
 
-		$result = $this->service->updateTask(1, ['flexDays' => 90], $this->createHouseUser());
+		$result = $this->update(1, ['flexDays' => 90], $this->createHouseUser());
 
 		$this->assertSame(90, $result->getFlexDays());
 	}
@@ -501,7 +560,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->never())->method('update');
 
 		$this->expectException(ValidationException::class);
-		$this->service->updateTask(1, ['flexDays' => 91], $this->createHouseUser());
+		$this->update(1, ['flexDays' => 91], $this->createHouseUser());
 	}
 
 	public function testUpdateTask_UnrelatedEditOfALegacyValueAboveTheCap_Saves(): void {
@@ -510,7 +569,7 @@ class TaskServiceTest extends TestCase {
 		$this->stubEditableTask($this->ruleTask('daily', 1, 7));
 		$this->taskMapper->method('update')->willReturnArgument(0);
 
-		$result = $this->service->updateTask(1, [
+		$result = $this->update(1, [
 			'name' => 'Wipe the table',
 			'frequencyType' => 'daily',
 			'frequencyValue' => 1,
@@ -527,7 +586,7 @@ class TaskServiceTest extends TestCase {
 
 		$this->expectException(ValidationException::class);
 		// Every 2 days → cap 1, the stored 7 no longer fits the changed rule.
-		$this->service->updateTask(1, ['frequencyValue' => 2], $this->createHouseUser());
+		$this->update(1, ['frequencyValue' => 2], $this->createHouseUser());
 	}
 
 	public function testUpdateTask_FlexAboveTheSanityBound_RejectedBeforeTheLock(): void {
@@ -536,7 +595,7 @@ class TaskServiceTest extends TestCase {
 
 		// No stubLockedTask(): reaching the lock would fail the test.
 		$this->expectException(ValidationException::class);
-		$this->service->updateTask(1, ['flexDays' => 400], $this->createHouseUser());
+		$this->update(1, ['flexDays' => 400], $this->createHouseUser());
 	}
 
 	/**
@@ -590,7 +649,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->never())->method('update');
 
 		try {
-			$this->service->updateTask(1, ['energyCost' => 21], $this->createHouseUser());
+			$this->update(1, ['energyCost' => 21], $this->createHouseUser());
 			$this->fail('Expected ValidationException');
 		} catch (ValidationException $e) {
 			$this->assertSame(['Energy cost must be between 1 and 20'], $e->getErrors());

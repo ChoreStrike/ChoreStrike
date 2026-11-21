@@ -39,7 +39,7 @@ final class ControllerErrorFormatter {
 		// Only NotFoundException / ForbiddenException carry intentional,
 		// user-facing messages. InvalidArgumentException is intentionally
 		// excluded: services use it to reject bad input (e.g. an unknown
-		// mass-assignment field in TaskService::updateTask) and its message
+		// mass-assignment field of the one form) and its message
 		// echoes client-controlled values — surfacing it would leak internal
 		// entity schema. Callers that want to expose a validation message
 		// must catch it explicitly and return a curated 400 response.
@@ -61,7 +61,7 @@ final class ControllerErrorFormatter {
 	 * {@see safeMessage()}, which deliberately hides it (services also use
 	 * InvalidArgumentException to reject untrusted input whose message
 	 * echoes client-controlled values, e.g. an unknown mass-assignment
-	 * field in TaskService::updateTask). Only use this helper at catch
+	 * field of the one form). Only use this helper at catch
 	 * sites whose thrown messages are audited as client-safe (curated
 	 * constants or caller-owned values such as bounds and boost ids).
 	 */

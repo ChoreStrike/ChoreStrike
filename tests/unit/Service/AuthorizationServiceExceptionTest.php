@@ -264,6 +264,28 @@ class AuthorizationServiceExceptionTest extends TestCase {
 		$this->service->assertUserInHouse(1, 'outsider');
 	}
 
+	// ---------- assertMembersUnderLock (the one membership check of an aggregate) ----------
+
+	public function testAssertMembersUnderLock_ReadsTheMembersOnce_AndNamesTheFirstWhoIsNone(): void {
+		$this->houseUserMapper->expects($this->once())
+			->method('findByHouseIdAndNextcloudUserIds')
+			->with(1, ['alice', 'gone', 'bob'])
+			->willReturn(['alice' => $this->makeHouseUser('member', 'alice'), 'bob' => $this->makeHouseUser('child', 'bob')]);
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('User is not a member of this house: %1$s');
+		$this->service->assertMembersUnderLock(1, ['alice', 'gone', 'alice', 'bob']);
+	}
+
+	public function testAssertMembersUnderLock_AllMembers_OrNobody_DoesNotThrow(): void {
+		$this->houseUserMapper->method('findByHouseIdAndNextcloudUserIds')
+			->willReturnCallback(fn (int $houseId, array $ids): array => array_fill_keys($ids, $this->makeHouseUser('member', 'x')));
+
+		$this->service->assertMembersUnderLock(1, ['alice', 'bob']);
+		$this->service->assertMembersUnderLock(1, []);
+		$this->assertTrue(true);
+	}
+
 	// ---------- assertCanManageTasks (child role guard, CS-PLAN-061 D5) ----------
 
 	public function testAssertCanManageTasks_WhenChild_ThrowsForbidden(): void {

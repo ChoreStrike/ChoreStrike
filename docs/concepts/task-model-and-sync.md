@@ -54,31 +54,42 @@ aggregate (definition, room task, initial assignees) commits or rolls back
 together in **exactly one request** — `POST /room-tasks` (atomic
 `TaskCreationService` transaction; no orphan definitions on failure):
 
-1. the definition form (cascading floor→room picker — required, locked when
-   created from a room's context; member-chip assignees; optional first due
-   date; flex window; optional instructions; concise preview) submits
-   `{roomId, task, assigneeUserIds, nextDue}` once,
-2. template creation via the per-room picker (`POST
-   /room-tasks/from-template`) runs the same atomic body and returns the
-   same `{task, roomTask, assignees}` aggregate shape,
-3. mounting an existing definition (`{roomId, taskId}`) is the third variant
-   of the same endpoint.
+The one task form (CS-PLAN-091 WP-B6, FEAT-UX-040: one room button whose
+floors open their rooms, preset when opened from a room; member-chip assignees; rhythm with its
+flex days; energy; sub-tasks; the first date; the sleep switch; description,
+instructions, priority, category and visibility under a collapsed *More*)
+submits `{roomId, task, assigneeUserIds, checklistItems, firstDate, sleeping,
+wakeOn}` once and gets the `{task, roomTask, assignees}` aggregate back.
+*From template* only fills that form from `GET /setup/catalog`, the chosen
+room's type first; whatever is saved is a task of its own (FEAT-UX-043).
 
 Success means everything persisted; failure means nothing did and the form
-stays open with the input preserved (no partial-success toasts). Both create
-paths share one closed validation authority (service-owned), children are
-gated out of the creation surface (`canManageTasks`), and catalog-template
-prefill fills the form from `GET /setup/catalog` filtered by the selected
-room's type. The former definition-only `POST /tasks` and the three-request
-create chain were pruned (CS-PLAN-063; guarded by `RouteMatrixTest`).
+stays open with the input preserved (no partial-success toasts). One closed
+validation authority (service-owned) checks the definition, and children are
+gated out of the form (`canManageTasks`, and the server's `403`). The former
+definition-only `POST /tasks`, the three-request create chain (CS-PLAN-063),
+the per-room template endpoint and the mount variant `{roomId, taskId}`
+(CS-PLAN-091 WP-B6) are pruned; `RouteMatrixTest` guards them.
 
 Scope model: **custom tasks are always room-scoped** (the old room/floor/house
 scope selector was removed — decision D1). Whole-floor/house materialization is
-a template/wizard capability, not a manual-form capability. Editing a room task
-from its room shows a slim modal (due date + assignees) that persists exactly
-what it displays; the full definition form is for editing the definition only.
-Assignment is multi-assign via member chips — there is no free-text assignee
-input anywhere.
+a template/wizard capability, not a manual-form capability, and the setup
+wizard gives every room a definition of its own (D-091-88).
+
+**Editing (CS-PLAN-091 WP-B6).** The same form edits an existing task: *Edit*
+in the opened row opens it, and one save is one atomic `PUT /room-tasks/{id}`
+of the definition, the sub-tasks, the room, the assignees, the first date and
+the sleep switch (BUG-UX-011) — a refusal never leaves it half applied. A
+definition several rooms share asks first whether the change applies to *only
+this room*, which splits off a copy for this room task, or to *all rooms*
+(FEAT-UX-043). A move keeps the history with the task: completions and closed
+cycles belong to the room task, and the room journal keeps every entry in the
+room where it happened. The first date moves the first window only until the
+first completion; afterwards the form shows the next window read-only and the
+date of the latest entry moves it (ADR-021). The form deletes the task after a
+confirmation (D-091-86). Assignment is multi-assign via member chips in the
+form — there is no free-text assignee input and no bulk assignment
+(D-091-87).
 
 ## Today View (CS-PLAN-038)
 
@@ -106,8 +117,9 @@ days, after its due day is over. Work due today is never overdue, never shows a
 claim button to others, and a sibling completing it the same day takes nothing
 over. A takeover is recorded only when a non-assignee who is not obligated by
 the occurrence's agreement completes a missed occurrence; an agreed handover
-(amendment or catch-up with participants) is never a takeover. Confirming the
-overdue-claim dialog completes the work with the claimer as sole participant.
+(amendment or catch-up with participants) is never a takeover. The
+overdue-claim dialog is gone (CS-PLAN-091 WP-B6): a short tap on Done opens the
+picker, where anyone records who did the work (ADR-021 §13).
 
 The child availability/daily-limit filter applies to the daily query, not to
 the whole overdue list or all completion paths. "My tasks" also includes
@@ -489,7 +501,7 @@ payload under the same UUID conflicts). The domain model:
   so a completion pays out exactly the frozen total and never more. The
   frozen work facts and the room journal stay immutable; the audit chain
   (`completion_revs`) is append-only and a departed-not-erased actor renders
-  as the localized 'Removed member' placeholder.
+  as the localized 'Former member' placeholder.
 - **A date correction moves when the work was done.**
   `PUT /completions/{id}/date` (the rights of the undo) moves the work day
   between the days of the room task's neighbouring valid entries, never into

@@ -194,6 +194,42 @@ describe('Modal', () => {
 			opener.remove()
 		})
 
+		it('hands lost focus to the main region when the opener went with the dialog (a deleted row)', async () => {
+			const main = document.createElement('main')
+			const opener = document.createElement('button')
+			main.appendChild(opener)
+			document.body.appendChild(main)
+			opener.focus()
+
+			const wrapper = createWrapper({ show: true })
+			await wrapper.vm.$nextTick()
+			opener.remove()
+			await wrapper.setProps({ show: false })
+			await new Promise((resolve) => setTimeout(resolve))
+
+			expect(document.activeElement).toBe(main)
+			expect(main.getAttribute('tabindex')).toBe('-1')
+
+			main.remove()
+		})
+
+		it('leaves focus where the page put it after closing', async () => {
+			const main = document.createElement('main')
+			const opener = document.createElement('button')
+			main.appendChild(opener)
+			document.body.appendChild(main)
+			opener.focus()
+
+			const wrapper = createWrapper({ show: true })
+			await wrapper.vm.$nextTick()
+			await wrapper.setProps({ show: false })
+			await new Promise((resolve) => setTimeout(resolve))
+
+			expect(document.activeElement).toBe(opener)
+
+			main.remove()
+		})
+
 		it('wraps Tab at the last focusable element back to the first', async () => {
 			const wrapper = createWrapper({}, {
 				default: `

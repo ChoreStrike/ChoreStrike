@@ -18,6 +18,7 @@ import type { Page } from '@playwright/test'
 
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
+import { chooseFormRoom, openFormMore } from './fixtures/task-form.ts'
 import { createVisibilityFixture } from './fixtures/visibility-fixtures.ts'
 
 /** Open #/tasks without load-fragile networkidle waits (CS-PLAN-051). */
@@ -66,18 +67,13 @@ test.describe('Private Tasks', () => {
 			await page.waitForSelector('.modal-container', { timeout: 15000 })
 			await page.fill('[data-testid="task-name-input"]', 'My Private Reminder')
 
-			const visibilitySelect = page.locator('[data-testid="task-visibility-select"]')
-			if (await visibilitySelect.count() > 0) {
-				await visibilitySelect.selectOption('private')
-			}
+			// Visibility sits folded under "More" (D-091-85).
+			await openFormMore(page)
+			await page.getByTestId('task-visibility-select').selectOption('private')
 
 			// Unified creation (CS-PLAN-038): a room is required — pick the
 			// first available room so the save button enables.
-			const roomSelect = page.getByTestId('room-picker-room')
-			const roomOption = await roomSelect.locator('option').nth(1).getAttribute('value')
-			if (roomOption) {
-				await roomSelect.selectOption(roomOption)
-			}
+			await chooseFormRoom(page)
 
 			// CS-PLAN-063: the UI fires ONE atomic aggregate POST —
 			// `/api/v1/tasks` (definition-only create) was pruned.

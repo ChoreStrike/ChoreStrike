@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { createUserContext, userStatePath } from './fixtures/auth-contexts.ts'
 import { openRanking } from './fixtures/insights.ts'
 import { openSettingsCategory } from './fixtures/settings.ts'
+import { chooseFormRoom, openFormMore } from './fixtures/task-form.ts'
 import { createRoomViaSettings, setupTestHouse } from './fixtures/test-house.ts'
 
 /**
@@ -110,15 +111,15 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await expect(page.getByTestId('task-name-input')).toBeVisible({ timeout: 15000 })
 
 		await page.getByTestId('task-name-input').fill('Gästebad putzen')
-		await page.getByTestId('task-description-input').fill('Boden wischen, Spiegel reinigen')
 		await page.getByTestId('task-energy-select').selectOption('2')
+		await page.getByTestId('task-frequency-unit').selectOption('week')
+		// Description and priority sit folded under "More" (D-091-85).
+		await openFormMore(page)
+		await page.getByTestId('task-description-input').fill('Boden wischen, Spiegel reinigen')
 		await page.getByTestId('task-priority-select').selectOption('2')
-		await page.getByTestId('task-frequency-type').selectOption('weekly')
 
-		// Two-level picker (floor → rooms of that floor): select the target
-		// floor first, otherwise only the default floor's rooms are offered.
-		await page.getByTestId('room-picker-floor').selectOption({ label: 'Erdgeschoss' })
-		await page.getByTestId('room-picker-room').selectOption({ label: 'Gästebad' })
+		// The room picker: the floor opens its rooms, the room is the choice.
+		await chooseFormRoom(page, { floor: 'Erdgeschoss', room: 'Gästebad' })
 
 		const roomTaskResponsePromise = page.waitForResponse((response) => {
 			const isPostRequest = response.request().method() === 'POST'
@@ -145,8 +146,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 
 		await page.getByTestId('task-name-input').fill('Atomic Journey Task')
 		await page.getByTestId('task-energy-select').selectOption('2')
-		await page.getByTestId('room-picker-floor').selectOption({ label: 'Erdgeschoss' })
-		await page.getByTestId('room-picker-room').selectOption({ label: 'Gästebad' })
+		await chooseFormRoom(page, { floor: 'Erdgeschoss', room: 'Gästebad' })
 
 		// Pick one assignee chip (any house member). CS-PLAN-068: the chips
 		// render from the members prop the form now feeds — a missing chip
@@ -156,13 +156,13 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await chip.click()
 
 		let createPosts = 0
-		let assigneePuts = 0
+		let followUpWrites = 0
 		page.on('request', (request) => {
 			if (request.method() === 'POST' && request.url().includes('/api/v1/room-tasks')) {
 				createPosts++
 			}
-			if (request.method() === 'PUT' && request.url().includes('/assignees')) {
-				assigneePuts++
+			if (request.method() === 'PUT' && request.url().includes('/api/v1/room-tasks/')) {
+				followUpWrites++
 			}
 		})
 
@@ -180,7 +180,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		expect(body.data.assignees).toHaveLength(1)
 
 		// The modal closes and the row renders with the assignee badge
-		// immediately — driven by the aggregate response, not a second PUT.
+		// immediately — driven by the aggregate response, not a second write.
 		await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 15000 })
 		// The list opens on "My tasks"; the chip may name another member
 		// (e.g. admin after the parallel pool joined), so show everyone and
@@ -191,9 +191,9 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await expect(row).toBeVisible({ timeout: 15000 })
 		await expect(row.locator('.meta-item.assigned')).toBeVisible()
 
-		// Exactly one creation request, zero follow-up assignment requests.
+		// Exactly one creation request, zero follow-up writes.
 		expect(createPosts).toBe(1)
-		expect(assigneePuts).toBe(0)
+		expect(followUpWrites).toBe(0)
 	})
 
 	test('Creation failure leaves no orphan definition (CS-PLAN-063)', async ({ browser }) => {

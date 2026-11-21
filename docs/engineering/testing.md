@@ -972,9 +972,9 @@ descriptor with a current iOS user agent — the descriptor's iOS 16 agent is
 redirected to Nextcloud's unsupported-browser page). Each scenario seeds the
 family profile, signs people in on the project's device (viewport, touch,
 mobile user agent; `createUserContext` does not inherit the project device)
-and ends without horizontal overflow: Today hold-complete and undo, claim
-confirm, one-occurrence handover with the child's completion and the default
-owner's successor, reassignment visibility, the paged task list with
+and ends without horizontal overflow: Today hold-complete and undo, the
+takeover of overdue work in the picker, recording the work of someone else,
+postpone and history in a tapped-open row, reassignment through the one form, the paged task list with
 collapsed filters, Today's status line and overdue block with a room of the task list, and Settings through the
 phone navigation. `arcade-mobile.spec.ts` (CS-PLAN-086 WP-C) joins the set
 in both projects: the DOM games played by tapping (Spot Sprint and Sock
@@ -1139,7 +1139,7 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `settings.spec.ts`, `core-household-journey.spec.ts` | Settings (personal and household areas with categories that start closed; specs open one through `fixtures/settings.ts`, CS-PLAN-090 WP-D) and the canonical empty-house UI-only setup/invite/create/plan/complete/undo journey |
 | `leaderboard.spec.ts`, `ranking-consent.spec.ts`, `title-selection.spec.ts` | Gamification: the opt-in/closed ranking, a section of Insights since CS-PLAN-090 WP-E (WP4), the consent lifecycle (owner enable → join pending → withdraw, serial pool), and the single-series title surface (no pack selection) |
 | `private-tasks.spec.ts`, `admin-only-tasks.spec.ts`, `teamwork-rewards.spec.ts` | Visibility (private/admin-only) and teamwork-bonus rewards (CS-PLAN-005) |
-| `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover and multi-user/family interactions |
+| `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover in the completion picker (the claim dialog went with CS-PLAN-091 WP-B6) and multi-user/family interactions |
 | `time-travel-overdue.spec.ts`, `time-travel-streak-notification.spec.ts` | Time-travel flows (CS-PLAN-023): overdue via seeded past due-date, streak-freeze + at-risk notification via `trigger-jobs --as-of` |
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage — the arcade is its own opt-in surface under `#/arcade` (CS-PLAN-070 WP6), no longer a Dashboard section |
 | `calm-core-ui.spec.ts` | Calm core UI (CS-PLAN-070 WP6, CS-PLAN-090 WP-B): every role lands on Today and the old `#/dashboard` address leads there, Today shows the own Coins and no arcade, catalog or ranking surface, the optional arcade hiding together with its navigation entry while `arcadeVisible` is off, and the absence journey of ADR-020 (a child enters an absence, everyone sees it, the owner deletes it). Runs in `chromium-serial-db` (preference/pause state is seed-mutating) |
@@ -1251,7 +1251,7 @@ The Playwright suite runs against the real Vue frontend inside the Docker-based 
 Important implications:
 
 - **Selectors must match the current Vue components** (`src/views/*`, `src/components/*`).
-- **Form flows matter**. For example, current task creation uses `TaskEditForm.vue`, while room assignment uses `TaskForm.vue`.
+- **Form flows matter**. One form creates and edits a task (`TaskForm.vue`, CS-PLAN-091 WP-B6), opened from the task list and from the opened task row (`TaskRow.vue` → `TaskRowDetails.vue`).
 - **Release confidence comes from wired views**, not from orphaned or legacy-only components.
 
 When changing task or room flows, update these layers together:
@@ -1259,8 +1259,8 @@ When changing task or room flows, update these layers together:
 - `src/views/TaskManager.vue`
 - `src/components/Tasks/TaskGroupList.vue`
 - `src/components/Tasks/TaskList.vue`
-- `src/components/Tasks/TaskForm.vue`
-- `src/components/Tasks/TaskEditForm.vue`
+- `src/components/Tasks/TaskRow.vue` and `TaskRowDetails.vue`
+- `src/components/Tasks/TaskForm.vue` and its field components
 - the affected Playwright specs
 
 ### Troubleshooting E2E Tests

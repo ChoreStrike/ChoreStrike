@@ -294,10 +294,10 @@ isolated disposable SQLite environment.
 | `HouseSetupService::applySetup` | house | house (unchanged; now also creates wallets) |
 | `TaskCreationService::runAggregate` | house | house (unchanged, verified) |
 | `CompletionService::complete` / `undo` | room_task → room → house_user | house → room_task → room → house_user (supersedes ADR-011/012 entry order) |
-| `RoomTaskService::setAssignees` / `bulkAssignTasks` (per item) | room_task | house → room_task |
+| `RoomTaskService::setAssignees` / `bulkAssignTasks` (per item) | room_task | house → room_task (both retired with CS-PLAN-091 WP-B6: the form's save `RoomTaskEditService::edit` takes house → room_task → definition) |
 | `RoomTaskService::deleteRoomTask` | none (auto-commit deletes) | house → room_task (tombstone) |
 | `ChecklistService::toggleItem` (via progress mapper transaction) | progress row | house → room_task → progress row |
-| `ChecklistService` definition mutations (add/update/delete/reorder items) | none | house |
+| `ChecklistService` definition mutations (add/update/delete/reorder items) | none | house (retired with CS-PLAN-091 WP-B6: `SubTaskWriter` writes under the form's locks) |
 | `HouseService::inviteMember` | none (`createOrGet` auto-commit) | house → membership → wallet |
 | `HouseService::removeHouseMember` | none | house → assignees/house_user deletes (wallet preserved) |
 | `HouseService::updateUserRole` | none | house → house_user |
@@ -310,7 +310,7 @@ isolated disposable SQLite environment.
 | `RoomService::updateRoomCleanliness` | none (CR-SVC-63) | house → room (journal is WP3) |
 | `MinigameService::saveScore` / boost purchase | house_user only | house → score/user writes |
 | `SchedulingService` preference writes | none | house → house_user |
-| `TaskService::updateTask` | none | house → task definition |
+| `TaskService::updateTask` | none | house → task definition (retired with CS-PLAN-091 WP-B6: the definition changes under the save's locks, `TaskService::applyUnderLock`) |
 | `StreakFreezeService` / `StreakRestockService` jobs | none (auto-commit updates) | house → house_user (converted; retired in WP4) |
 | `TestDataService::reset` + seeds | test-mode only | test-mode only; includes `commands`/`wallets`/`wallet_entries`; seeds create wallets |
 | `RewardService::createItem` / `updateItem` / `setCatalogEnabled` (WP7) | none | house → owner membership (`findForUpdate` guard) → item/house writes |

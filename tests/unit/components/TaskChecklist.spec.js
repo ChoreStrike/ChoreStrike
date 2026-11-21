@@ -1,3 +1,9 @@
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
+import { describe, expect, it, jest } from '@jest/globals'
 import { mount } from '@vue/test-utils'
 import TaskChecklist from '../../../src/components/Tasks/TaskChecklist.vue'
 
@@ -5,79 +11,53 @@ jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, text) => text),
 }))
 
-jest.mock('../../../src/components/Common/Icon.vue', () => ({
-	name: 'Icon',
-	props: ['name', 'size'],
-	template: '<span class="icon">{{ name }}</span>',
-}))
-
-jest.mock('../../../src/components/Common/Modal.vue', () => ({
-	name: 'Modal',
-	props: ['ariaLabel'],
-	emits: ['close'],
-	template: '<div class="modal" :aria-label="ariaLabel"><slot /></div>',
-}))
-
+/**
+ * The sub-tasks of a task's current cycle, to tick (ADR-021 decision 3):
+ * execute-only — the one form edits them (CS-PLAN-091 WP-B6).
+ */
 describe('TaskChecklist', () => {
-	const createItem = (overrides = {}) => ({
-		id: 1,
-		title: 'Wipe table',
-		description: 'Use a damp cloth',
-		order: 1,
-		...overrides,
+	const items = [
+		{ id: 1, label: 'Wipe table', sortOrder: 2 },
+		{ id: 2, label: 'Clear plates', sortOrder: 1 },
+		{ id: 3, label: 'Sweep', sortOrder: 3 },
+	]
+	const mountList = (props = {}) => mount(TaskChecklist, { props: { items, progress: [], roomTaskId: 10, ...props } })
+	const box = (wrapper, id) => wrapper.get(`[data-testid="checklist-item-${id}"] input`)
+
+	it('lists the sub-tasks in their order with the ticks of the cycle', () => {
+		const wrapper = mountList({ progress: [{ checklistItemId: 3, isChecked: true }, { checklistItemId: 1, isChecked: false }] })
+
+		expect(wrapper.findAll('.item-title').map((title) => title.text())).toEqual(['Clear plates', 'Wipe table', 'Sweep'])
+		expect(box(wrapper, 3).element.checked).toBe(true)
+		expect(box(wrapper, 1).element.checked).toBe(false)
+		expect(wrapper.get('.progress-badge').text()).toBe('1/3')
 	})
 
-	it('should render active checklist action icons in edit mode', () => {
-		const wrapper = mount(TaskChecklist, {
-			props: {
-				items: [createItem()],
-				progress: [],
-				canEdit: true,
-				readonly: false,
-				roomTaskId: 10,
-			},
-		})
+	it('counts no tick of a sub-task the form removed', () => {
+		const wrapper = mountList({ items: items.slice(0, 2), progress: [{ checklistItemId: 3, isChecked: true }, { checklistItemId: 2, isChecked: true }] })
 
-		const iconTexts = wrapper.findAll('.icon').map(node => node.text())
-
-		expect(iconTexts).toContain('Edit2')
-		expect(iconTexts).toContain('Trash2')
-		expect(iconTexts).toContain('GripVertical')
-		expect(iconTexts).toContain('Plus')
+		expect(wrapper.get('.progress-badge').text()).toBe('1/2')
 	})
 
-	it('should hide checklist action icons when editing is disabled', () => {
-		const wrapper = mount(TaskChecklist, {
-			props: {
-				items: [createItem()],
-				progress: [],
-				canEdit: false,
-				readonly: false,
-				roomTaskId: 10,
-			},
-		})
+	it('reports a tick with the item and the room task', async () => {
+		const wrapper = mountList()
 
-		const iconTexts = wrapper.findAll('.icon').map(node => node.text())
+		await box(wrapper, 2).setValue(true)
 
-		expect(iconTexts).not.toContain('Edit2')
-		expect(iconTexts).not.toContain('Trash2')
-		expect(iconTexts).not.toContain('GripVertical')
-		expect(iconTexts).not.toContain('Plus')
+		expect(wrapper.emitted('toggle')).toEqual([[{ itemId: 2, roomTaskId: 10 }]])
 	})
 
-	it('names the item-edit dialog accessibly (UX-016)', async () => {
-		const wrapper = mount(TaskChecklist, {
-			props: {
-				items: [createItem()],
-				progress: [],
-				canEdit: true,
-				readonly: false,
-				roomTaskId: 10,
-			},
-		})
+	it('shows done work without taking ticks', () => {
+		const wrapper = mountList({ readonly: true })
 
-		await wrapper.find('.action-btn.edit').trigger('click')
+		expect(wrapper.findAll('input').every((input) => input.element.disabled)).toBe(true)
+	})
 
-		expect(wrapper.find('.modal').attributes('aria-label')).toBe('Edit Sub-Task')
+	it('offers no editing of the sub-tasks themselves', () => {
+		const wrapper = mountList()
+
+		expect(wrapper.findAll('button')).toHaveLength(0)
+		expect(wrapper.find('[data-testid="checklist-add-item-button"]').exists()).toBe(false)
+		expect(wrapper.find('[draggable="true"]').exists()).toBe(false)
 	})
 })

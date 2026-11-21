@@ -7,7 +7,6 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
@@ -38,7 +37,6 @@ class TaskCreationServiceTest extends TestCase {
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private HouseMapper $houseMapper;
-	private HouseUserMapper $houseUserMapper;
 	private RoomService $roomService;
 	private TaskService $taskService;
 	private TemplateService $templateService;
@@ -55,14 +53,17 @@ class TaskCreationServiceTest extends TestCase {
 	/** The task returned by taskMapper->create / taskMapper->find. */
 	private ?Task $persistedTask = null;
 
-	/** Value returned by houseUserMapper->findByHouseAndUser (null = miss). */
+	/** The member the under-lock check finds (null = a miss). */
 	private ?HouseUser $memberUnderLock = null;
 
 	/** @var \OCA\ChoreStrike\Service\CycleService&\PHPUnit\Framework\MockObject\MockObject */
 	private $cycleService;
 
-	/** Value returned by roomTaskMapper->exists for the mount guard. */
-	private bool $mountExists = false;
+	/** @var \OCA\ChoreStrike\Service\SleepService&\PHPUnit\Framework\MockObject\MockObject */
+	private $sleepService;
+
+	/** @var \OCA\ChoreStrike\Db\TaskChecklistItemMapper&\PHPUnit\Framework\MockObject\MockObject */
+	private $checklistItemMapper;
 
 	protected function setUp(): void {
 		$this->definitionInserts = [];
@@ -71,43 +72,39 @@ class TaskCreationServiceTest extends TestCase {
 		$this->assigneesRead = false;
 		$this->persistedTask = null;
 		$this->memberUnderLock = null;
-		$this->mountExists = false;
 
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
-		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->roomService = $this->createMock(RoomService::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
 		$this->authorization = $this->createMock(AuthorizationService::class);
 		$this->cycleService = $this->createMock(\OCA\ChoreStrike\Service\CycleService::class);
+		$this->sleepService = $this->createMock(\OCA\ChoreStrike\Service\SleepService::class);
+		$this->checklistItemMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class);
 
 		$l10n = $this->createIdentityL10n();
 
 		// The REAL TaskService validates through the closed constraint set —
 		// mocked validators would prove nothing about §3.1.
-		$taskServiceHouseMapper = $this->createMock(HouseMapper::class);
-		$taskServiceHouseMapper->method('findForUpdate')->willReturn(new \OCA\ChoreStrike\Db\House());
 		$taskCategories = $this->createMock(\OCA\ChoreStrike\Service\TaskCategoryService::class);
 		$taskCategories->method('isKnown')->willReturnCallback(static fn (string $key): bool => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true));
 		$taskCategories->method('keyOrOther')->willReturnCallback(static fn (string $key): string => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true) ? $key : 'other');
 		$taskCategories->method('getList')->willReturn(['revision' => 0, 'items' => array_map(static fn (string $key): array => ['key' => $key, 'label' => null], \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS)]);
 		$this->taskService = new TaskService(
 			$this->taskMapper,
-			$taskServiceHouseMapper,
 			$this->createMock(RoomTaskMapper::class),
 			$l10n,
 			$this->authorization,
 			$this->taskAccessPolicy,
-			new TransactionExecutor($this->createMock(IDBConnection::class)),
 			$this->createMock(\OCA\ChoreStrike\Service\CycleService::class),
-			new CalendarService(),
 			$taskCategories,
 		);
 
-		// The REAL TemplateService loads the file-based catalog.
+		// The REAL TemplateService loads the file-based catalog (the fixture
+		// test below); a template only fills the form (CS-PLAN-091 WP-B6).
 		$this->templateService = new TemplateService($l10n, $taskCategories);
 
 		$this->service = new TaskCreationService(
@@ -116,11 +113,10 @@ class TaskCreationServiceTest extends TestCase {
 			$this->roomTaskMapper,
 			$this->taskAssigneeMapper,
 			$this->houseMapper,
-			$this->houseUserMapper,
 			$this->roomService,
 			$this->taskService,
-			$this->templateService,
-			$this->taskAccessPolicy,
+			new \OCA\ChoreStrike\Service\SubTaskWriter($this->checklistItemMapper, $l10n),
+			$this->sleepService,
 			$this->authorization,
 			new CalendarService(),
 			$this->cycleService,
@@ -176,8 +172,11 @@ class TaskCreationServiceTest extends TestCase {
 		$member->setNextcloudUserId('member-user');
 		$this->memberUnderLock = $member;
 
-		$this->houseUserMapper->method('findByHouseAndUser')->willReturnCallback(function () {
-			return $this->memberUnderLock;
+		// The under-lock membership check is the one of AuthorizationService.
+		$this->authorization->method('assertMembersUnderLock')->willReturnCallback(function (int $houseId, array $userIds): void {
+			if ($this->memberUnderLock === null && $userIds !== []) {
+				throw new \InvalidArgumentException('User is not a member of this house: ' . $userIds[0]);
+			}
 		});
 
 		$this->taskMapper->method('create')->willReturnCallback(function (...$args) {
@@ -205,10 +204,6 @@ class TaskCreationServiceTest extends TestCase {
 			$roomTask->setRoomId($args[0]);
 			$roomTask->setTaskId($args[1]);
 			return $roomTask;
-		});
-
-		$this->roomTaskMapper->method('exists')->willReturnCallback(function () {
-			return $this->mountExists;
 		});
 
 		$this->taskAssigneeMapper->method('addAssignee')->willReturnCallback(function (...$args) {
@@ -499,84 +494,66 @@ class TaskCreationServiceTest extends TestCase {
 	}
 
 	/**
-	 * Create_MountExisting_ReusesDefinitionWithoutInsert
-	 *
-	 * The mount variant re-reads the visible definition and materializes
-	 * only the room task — the definition insert never runs.
+	 * The mount variant is gone (CS-PLAN-091 WP-B6, FEAT-UX-043): every room
+	 * task gets a definition of its own, so a body naming an existing one
+	 * is refused before anything is written.
 	 */
-	public function testCreate_MountExisting_ReusesDefinitionWithoutInsert(): void {
-		$actor = $this->createHouseUser('creator', 'owner');
-		$existing = new Task();
-		$existing->setId(42);
-		$existing->setName('Vacuum the floor');
-		$existing->setFlexDays(0);
-		$existing->setVisibilityType(Task::VISIBILITY_PUBLIC);
-
-		$this->stubAggregateHappyPath();
-		$this->willPersistTask($existing);
-		$this->taskAccessPolicy->method('assertCanViewTask')->with($existing, $actor);
-
-		$result = $this->service->create(10, $actor, [
-			'roomId' => 5,
-			'taskId' => 42,
-		]);
-
-		$this->assertSame([], $this->definitionInserts, 'the definition is reused, never re-inserted');
-		$this->assertCount(1, $this->roomTaskInserts);
-		$this->assertSame(42, $result['task']->getId());
-		$this->assertSame(7, $result['roomTask']->getId());
-	}
-
-	/**
-	 * Create_MountDuplicateUnderLock_ThrowsWithNoInsert
-	 *
-	 * The duplicate guard is rechecked under the house lock: two concurrent
-	 * mounts of the same definition cannot both pass — the loser gets 400
-	 * and no second row.
-	 */
-	public function testCreate_MountDuplicateUnderLock_ThrowsWithNoInsert(): void {
-		$existing = new Task();
-		$existing->setId(42);
-		$existing->setFlexDays(0);
-		$existing->setVisibilityType(Task::VISIBILITY_PUBLIC);
-
-		$this->stubAggregateHappyPath();
-		$this->willPersistTask($existing);
-		$this->mountExists = true;
-
+	public function testCreate_MountVariantIsGone(): void {
 		$this->roomTaskMapper->expects($this->never())->method('create');
 
 		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('Task 42 already exists in room 5');
+		$this->expectExceptionMessage('Unknown field: taskId');
+
+		$this->service->create(10, $this->createHouseUser(), ['roomId' => 5, 'taskId' => 42]);
+	}
+
+	/** The one form's create writes the sub-tasks with the definition, in their order. */
+	public function testCreate_WithSubTasks_WritesThemInOrder(): void {
+		$this->stubAggregateHappyPath();
+		$created = [];
+		$this->checklistItemMapper->method('create')->willReturnCallback(function (int $taskId, string $label, int $order) use (&$created) {
+			$created[] = [$taskId, $label, $order];
+			return new \OCA\ChoreStrike\Db\TaskChecklistItem();
+		});
 
 		$this->service->create(10, $this->createHouseUser(), [
 			'roomId' => 5,
-			'taskId' => 42,
+			'task' => $this->validTaskPayload(),
+			'checklistItems' => [['label' => ' Carpet '], ['label' => 'Under the sofa']],
+		]);
+
+		$this->assertSame([[42, 'Carpet', 0], [42, 'Under the sofa', 1]], $created);
+	}
+
+	/** A new task has no sub-task to keep: an entry with an id is refused and nothing stays. */
+	public function testCreate_SubTaskWithAnId_IsRefused(): void {
+		$this->stubAggregateHappyPath();
+		$this->checklistItemMapper->expects($this->never())->method('create');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('A new task has no sub-tasks to keep');
+
+		$this->service->create(10, $this->createHouseUser(), [
+			'roomId' => 5,
+			'task' => $this->validTaskPayload(),
+			'checklistItems' => [['id' => 3, 'label' => 'Carpet']],
 		]);
 	}
 
-	/**
-	 * Create_MountInvisibleDefinition_ThrowsNotFound
-	 *
-	 * An invisible (private/admin-only) definition id is the 404
-	 * anti-enumeration denial (ADR-010).
-	 */
-	public function testCreate_MountInvisibleDefinition_ThrowsNotFound(): void {
-		$existing = new Task();
-		$existing->setId(42);
-
-		$this->taskAccessPolicy->method('assertCanViewTask')
-			->willThrowException(new NotFoundException('Task not found'));
-		$this->taskMapper->method('find')->willReturn($existing);
-
-		$this->roomTaskMapper->expects($this->never())->method('create');
-
-		$this->expectException(NotFoundException::class);
+	/** The bonus switch and the sleep switch of the form reach the new task. */
+	public function testCreate_BonusAndAsleep(): void {
+		$this->stubAggregateHappyPath();
+		$this->sleepService->expects($this->once())->method('applyUnderLock')
+			->with($this->isInstanceOf(House::class), $this->isInstanceOf(RoomTask::class), $this->isInstanceOf(Task::class), true, '2099-04-01');
 
 		$this->service->create(10, $this->createHouseUser(), [
 			'roomId' => 5,
-			'taskId' => 42,
+			'task' => $this->validTaskPayload(['isVoluntary' => true]),
+			'sleeping' => true,
+			'wakeOn' => '2099-04-01',
 		]);
+
+		$this->assertTrue($this->definitionArg($this->definitionInserts[0], 'isVoluntary'));
 	}
 
 	/**
@@ -712,6 +689,18 @@ class TaskCreationServiceTest extends TestCase {
 				['instructions' => str_repeat('x', 2001)],
 				'Instructions must not exceed 2000 characters',
 			],
+			'a name beyond its column (D-091-111)' => [
+				['name' => str_repeat('x', 256)],
+				'Task name must be at most 255 characters',
+			],
+			'a description beyond the length cap (D-091-111)' => [
+				['description' => str_repeat('x', 2001)],
+				'Description must not exceed 2000 characters',
+			],
+			'a description that is no text is never coerced' => [
+				['description' => ['Wipe']],
+				'Invalid value type for field: description',
+			],
 			'energyCost above the limit' => [
 				['energyCost' => 21],
 				'Energy cost must be between 1 and 20',
@@ -782,63 +771,6 @@ class TaskCreationServiceTest extends TestCase {
 	}
 
 	/**
-	 * CreateFromTemplate_OutOfRangeOverride_FailsValidation
-	 *
-	 * The template path no longer bypasses validation (§1.3): a whitelisted
-	 * override outside the closed constraint set rejects the whole aggregate
-	 * with 400 before any persistence.
-	 */
-	public function testCreateFromTemplate_OutOfRangeOverride_FailsValidation(): void {
-		$this->stubAggregateHappyPath();
-
-		try {
-			$this->service->createFromTemplate(
-				10,
-				$this->createHouseUser(),
-				5,
-				$this->firstCatalogTemplateId(),
-				TemplateService::LEVEL_PUTZTEUFEL,
-				['energyCost' => 21],
-				'member-user',
-			);
-			$this->fail('Expected ValidationException');
-		} catch (ValidationException $e) {
-			$this->assertSame(['Energy cost must be between 1 and 20'], $e->getErrors());
-		}
-
-		$this->assertSame([], $this->definitionInserts, 'no definition write on template validation failure');
-		$this->assertSame([], $this->roomTaskInserts);
-	}
-
-	/**
-	 * CreateFromTemplate_MaterializesAndReturnsAggregateShape
-	 *
-	 * The template path runs the same atomic body and returns the unified
-	 * response shape (D1); the scalar assignee normalizes to a one-element
-	 * set.
-	 */
-	public function testCreateFromTemplate_MaterializesAndReturnsAggregateShape(): void {
-		$this->stubAggregateHappyPath();
-
-		$templateId = $this->firstCatalogTemplateId();
-		$result = $this->service->createFromTemplate(
-			10,
-			$this->createHouseUser('creator', 'owner'),
-			5,
-			$templateId,
-			TemplateService::LEVEL_PUTZTEUFEL,
-			[],
-			'member-user',
-		);
-
-		$this->assertArrayHasKey('task', $result);
-		$this->assertArrayHasKey('roomTask', $result);
-		$this->assertArrayHasKey('assignees', $result);
-		$this->assertCount(1, $this->definitionInserts, 'the template materializes through the definition insert');
-		$this->assertSame('member-user', $this->assigneeInserts[0][1], 'the scalar assignee becomes the one-element set');
-	}
-
-	/**
 	 * Catalog_Fixture_EveryTemplateTimesLevelPassesClosedSet
 	 *
 	 * Risk mitigation (§7): the validation tightening must not reject
@@ -871,14 +803,5 @@ class TaskCreationServiceTest extends TestCase {
 		}
 
 		$this->assertGreaterThan(0, $checked);
-	}
-
-	/**
-	 * First template id from the real catalog (fixture-independent tests).
-	 */
-	private function firstCatalogTemplateId(): string {
-		$templates = $this->templateService->getCatalog()['templates'];
-		$this->assertNotEmpty($templates, 'The catalog fixture must not be empty');
-		return (string)$templates[0]['id'];
 	}
 }

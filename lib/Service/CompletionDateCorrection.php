@@ -45,7 +45,7 @@ class CompletionDateCorrection {
 	 */
 	public function apply(CompletedTask $completion, string $dateKey, \DateTimeZone $timeZone, \DateTime $now): string {
 		$previousDay = $this->workDay($completion, $timeZone);
-		if (!$this->calendar->isDayKey($dateKey)) {
+		if (!$this->calendar->isRealDay($dateKey)) {
 			throw new \InvalidArgumentException($this->l10n->t('A valid date (Y-m-d) is required'));
 		}
 		if ($dateKey > $this->calendar->dayKey($now, $timeZone)) {

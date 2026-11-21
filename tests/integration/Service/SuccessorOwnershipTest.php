@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\WalletService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
@@ -28,6 +29,8 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * assignment and on the same daily read the My Day view renders.
  */
 class SuccessorOwnershipTest extends IntegrationTestCase {
+	use TaskEditing;
+
 	private const OWNER = 'so_owner';
 	private const KID = 'so_kid';
 	private const OTHER_KID = 'so_other_kid';
@@ -62,7 +65,7 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 	public function testReassignment_MovesOpenAndFollowingCyclesToNewAssignee(): void {
 		$f = $this->fixture((new \DateTime())->format('Y-m-d') . ' 00:00:00');
 		$actor = $this->houseUserMapper->findByHouseAndUser($f['houseId'], self::OWNER);
-		\OC::$server->get(RoomTaskService::class)->setAssignees($f['roomTaskId'], [self::OTHER_KID], $f['houseId'], $actor);
+		$this->assignTo($f['houseId'], $actor, $f['roomTaskId'], [self::OTHER_KID]);
 
 		self::assertFalse($this->visibleTo($f, self::KID, new \DateTime()), 'the former assignee no longer sees the task');
 		self::assertTrue($this->visibleTo($f, self::OTHER_KID, new \DateTime()));

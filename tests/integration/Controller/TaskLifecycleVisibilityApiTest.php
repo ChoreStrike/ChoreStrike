@@ -51,7 +51,7 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 		parent::setUp();
 
 		// Controllers resolve the shared instance house, so the fixtures run
-		// against it (ChecklistApiTest / BulkAssignIntegrationTest pattern).
+		// against it (ChecklistApiTest pattern).
 		$this->actingAs('lcv_owner');
 		$houseService = \OC::$server->get(HouseService::class);
 		$this->houseId = $houseService->getOrCreateHouse($houseService->getInstanceId())->getId();

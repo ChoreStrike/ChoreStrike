@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\RoomTaskController;
+use OCA\ChoreStrike\Controller\RoomTaskEditController;
 use OCA\ChoreStrike\Controller\TaskController;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 
 /**
  * Task Authorization Integration Tests (CS-PLAN-061 §4, step 1).
@@ -19,8 +21,8 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  *   leaks or 500s
  * - the 403/404 standard: foreign/nonexistent ids → 404 anti-enumeration,
  *   role denials → 403 (decision D3, D5)
- * - actor matrix: owner/member complete; children execute (complete,
- *   reactivate) but cannot manage (delete, assign)
+ * - actor matrix: owner/member complete; children execute (complete)
+ *   but cannot manage (delete, create, save the form)
  * - invite-only membership: a non-member gets 403 on every house read
  *
  * Full rewrite of the previously fully-skipped suite (the old scenarios
@@ -29,6 +31,8 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  * AuthorizationIntegrationTest / TaskMapperHouseScopeTest.
  */
 class TaskAuthorizationTest extends IntegrationTestCase {
+	use TaskEditing;
+
 	private int $houseId;
 	private int $floorId;
 	private int $roomId;
@@ -116,9 +120,9 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 	public function testUserCannotCreateRoomTaskInForeignRoom(): void {
 		// CS-PLAN-063: creation runs through the atomic aggregate; the
 		// request-style controller build carries the new payload shape.
-		$controller = $this->getBulkController('ta_member', [
+		$controller = $this->getFormController('ta_member', [
 			'roomId' => $this->foreignRoomId,
-			'taskId' => $this->foreignTaskId,
+			'task' => ['name' => 'Smuggled'],
 		]);
 
 		$response = $controller->create();
@@ -193,10 +197,9 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 		// Children keep the execution surface (decision D5): the OWNER
 		// assigns the task to the child, the child completes it.
 		$this->actingAs('ta_owner');
-		$roomTaskService = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class);
 		$owner = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)
 			->findByNextcloudUserId($this->houseId, 'ta_owner');
-		$roomTaskService->setAssignees($this->roomTaskId, ['ta_child'], $this->houseId, $owner);
+		$this->assignTo($this->houseId, $owner, $this->roomTaskId, ['ta_child']);
 
 		$controller = $this->getController(RoomTaskController::class, 'ta_child');
 		$response = $this->completeViaController($controller, $this->roomTaskId);
@@ -219,9 +222,9 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 	public function testChildCannotCreateRoomTask(): void {
 		// CS-PLAN-063: creation runs through the atomic aggregate; children
 		// are denied by the actor policy (403) before any mapper call.
-		$controller = $this->getBulkController('ta_child', [
+		$controller = $this->getFormController('ta_child', [
 			'roomId' => $this->roomId,
-			'taskId' => $this->taskId,
+			'task' => ['name' => 'Dishes again'],
 		]);
 
 		$response = $controller->create();
@@ -231,30 +234,16 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 	}
 
 	public function testChildCannotAssignTasks(): void {
-		$controller = $this->getController(RoomTaskController::class, 'ta_child');
-
-		$response = $controller->setAssignees($this->roomTaskId, ['ta_member']);
+		// Assignees change in the one form only (CS-PLAN-091 WP-B6), which
+		// children do not save.
+		$response = $this->getEditController('ta_child', $this->roomTaskId, ['assigneeUserIds' => ['ta_member']])
+			->update($this->roomTaskId);
 
 		self::assertSame(403, $response->getStatus());
 		$data = $response->getData();
 		self::assertSame('FORBIDDEN', $data['error']['code']);
-	}
-
-	public function testChildCannotBulkAssignTasks(): void {
-		$bulkController = $this->getBulkController('ta_child', ['roomTaskIds' => [$this->roomTaskId], 'userId' => 'ta_child']);
-		$response = $bulkController->bulkAssign();
-
-		self::assertSame(403, $response->getStatus());
-	}
-
-	public function testMemberCanBulkAssignWithinHouse(): void {
-		$bulkController = $this->getBulkController('ta_owner', ['roomTaskIds' => [$this->roomTaskId], 'userId' => 'ta_other_member']);
-		$response = $bulkController->bulkAssign();
-
-		self::assertSame(200, $response->getStatus());
-		$assignees = \OC::$server->get(\OCA\ChoreStrike\Db\TaskAssigneeMapper::class)
-			->findUserIdsByRoomTask($this->roomTaskId);
-		self::assertSame(['ta_other_member'], $assignees);
+		self::assertSame(['ta_member'], \OC::$server->get(\OCA\ChoreStrike\Db\TaskAssigneeMapper::class)
+			->findUserIdsByRoomTask($this->roomTaskId), 'the assignees stay');
 	}
 
 	public function testOwnerCanDeleteCompletedTask(): void {
@@ -279,24 +268,14 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 
 	// ========== Residual surface visibility (CS-PLAN-061 review fixes) ==========
 
-	public function testAssigneesReadOfInvisibleTask_Returns404(): void {
-		// The assignee list of an invisible task is a 404 ” reading it
-		// would leak the assignment graph of a private task.
-		$controller = $this->getController(RoomTaskController::class, 'ta_child');
-
-		$response = $controller->assignees($this->privateRoomTaskId);
+	public function testFormSaveOfInvisibleTask_Returns404(): void {
+		// A member who may not see a private task cannot save its form —
+		// and learns nothing about it: the same 404 as an unknown id.
+		$response = $this->getEditController('ta_member', $this->privateRoomTaskId, ['task' => ['name' => 'Peeked']])
+			->update($this->privateRoomTaskId);
 
 		self::assertSame(404, $response->getStatus());
 		self::assertSame('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
-	}
-
-	public function testAssigneesReadOfVisibleTask_ReturnsAssignees(): void {
-		$controller = $this->getController(RoomTaskController::class, 'ta_owner');
-
-		$response = $controller->assignees($this->privateRoomTaskId);
-
-		self::assertSame(200, $response->getStatus());
-		self::assertSame(['ta_owner'], $response->getData()['data']);
 	}
 
 	public function testRoomStats_ExcludeInvisibleTasks(): void {
@@ -332,11 +311,9 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 		$qb->executeStatement();
 	}
 
-	private function getBulkController(string $userId, array $params): RoomTaskController {
+	private function getFormController(string $userId, array $params): RoomTaskController {
 		$request = $this->createMock(\OCP\IRequest::class);
-		$request->method('getParam')->willReturnCallback(
-			static fn (string $key, mixed $default = null) => $params[$key] ?? $default
-		);
+		$request->method('getParams')->willReturn([...$params, '_route' => 'chorestrike.room_task.create']);
 		// Identity mock: IL10N is not resolvable from the root container.
 		$l10n = $this->createMock(\OCP\IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -351,6 +328,34 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 			\OC::$server->get(\OCA\ChoreStrike\Service\AuthorizationService::class),
 			$l10n,
 			\OC::$server->get(\OCA\ChoreStrike\Service\CalendarService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\AppLogger::class),
+		);
+	}
+
+	/**
+	 * The one form's save (CS-PLAN-091 WP-B6) for a user, with the room
+	 * task's current version and a fresh command id.
+	 *
+	 * @param array<string, mixed> $fields
+	 */
+	private function getEditController(string $userId, int $roomTaskId, array $fields): RoomTaskEditController {
+		$version = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($roomTaskId)->getCycleVersion();
+		$request = $this->createMock(\OCP\IRequest::class);
+		$request->method('getParams')->willReturn([
+			'id' => (string)$roomTaskId, '_route' => 'chorestrike.room_task_edit.update',
+			'commandId' => $this->formCommandId(), 'expectedVersion' => $version, ...$fields,
+		]);
+		$l10n = $this->createMock(\OCP\IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		$this->actingAs($userId);
+		return new RoomTaskEditController(
+			$request,
+			\OC::$server->get(\OCA\ChoreStrike\Service\HouseService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\AuthorizationService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskEditService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\CalendarService::class),
+			$l10n,
 			\OC::$server->get(\OCA\ChoreStrike\Service\AppLogger::class),
 		);
 	}

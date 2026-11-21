@@ -19,7 +19,7 @@
 							<span class="activity-actor">{{ item.displayName }}</span>
 							<span class="activity-task">{{ eventText(item) }}</span>
 							<span v-if="item.type === 'postponed'" class="activity-count">
-								{{ t('chorestrike', '{count} of 3', { count: item.postponeCount }) }}
+								{{ t('chorestrike', '{count} of {limit}', { count: item.postponeCount, limit: item.postponeLimit }) }}
 							</span>
 						</li>
 						<li
@@ -36,7 +36,7 @@
 								:data-testid="`activity-row-${item.id}`"
 								@click="openId = openId === item.id ? null : item.id">
 								<span class="activity-time">{{ timeOf(item.completedAt) }}</span>
-								<span class="activity-actor">{{ peopleOf(item) }}</span>
+								<span class="activity-actor">{{ entryPeople(item) }}</span>
 								<span class="activity-task">
 									<span v-if="item.undoneAt" class="activity-undone-mark" :title="t('chorestrike', 'Undone')">↩</span>
 									{{ item.taskTitle || t('chorestrike', 'Unknown task') }}
@@ -105,6 +105,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { addDaysToKey, dateKeyInZone, formatDayKey, formatLongDayKey, todayKeyInZone } from '../../utils/dateKeys.js'
 import { formatCoinMinor } from '../../utils/minorUnits.js'
+import { entryPeople } from '../../utils/taskDisplay.js'
 
 /**
  * The household's completions, one line each and grouped by day
@@ -177,6 +178,7 @@ export default {
 	},
 
 	methods: {
+		entryPeople,
 		t,
 
 		dayLabel(key, today, yesterday) {
@@ -208,19 +210,6 @@ export default {
 			return line.type
 				? ['e', line.type, line.at, line.roomTaskId ?? line.from, line.completionId ?? line.postponeCount ?? ''].join('-')
 				: `c-${line.id}`
-		},
-
-		/**
-		 * Whose work a line shows: who recorded it, or the people it
-		 * credits when it was recorded for others.
-		 * @param {object} item Completion.
-		 * @return {string}
-		 */
-		peopleOf(item) {
-			if (item.recordedForOthers) {
-				return (item.allocation ?? []).map((share) => share.displayName).join(', ')
-			}
-			return item.displayName || t('chorestrike', 'Unknown member')
 		},
 
 		/**

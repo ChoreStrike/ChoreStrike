@@ -22,14 +22,14 @@ use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\ChecklistService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\CycleAdvanceService;
+use OCA\ChoreStrike\Service\CycleProjection;
 use OCA\ChoreStrike\Service\CycleService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskCreationService;
-use OCA\ChoreStrike\Service\TaskService;
 use OCA\ChoreStrike\Service\WindowService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCA\ChoreStrike\Tests\Integration\Support\CycleFixtures;
+use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
@@ -41,19 +41,18 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  */
 class CycleTimelineTest extends IntegrationTestCase {
 	use CycleFixtures;
+	use TaskEditing;
 
 	protected const OWNER = 'ct_owner';
 	protected const HELPER = 'ct_helper';
 
 	private CompletionService $completionService;
 	private CycleService $cycleService;
-	private TaskService $taskService;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->completionService = \OC::$server->get(CompletionService::class);
 		$this->cycleService = \OC::$server->get(CycleService::class);
-		$this->taskService = \OC::$server->get(TaskService::class);
 		$this->initToday();
 	}
 
@@ -76,9 +75,10 @@ class CycleTimelineTest extends IntegrationTestCase {
 		return \OC::$server->get(CycleAdvanceService::class)->advanceHouse(\OC::$server->get(HouseMapper::class)->find($f['houseId']), $now ?? new \DateTime());
 	}
 
+	/** The definition part of the one form's save (CS-PLAN-091 WP-B6). */
 	private function edit(array $f, array $updates): void {
 		$this->actingAs(self::OWNER);
-		$this->taskService->updateTask($f['taskId'], $updates, $this->owner($f['houseId']));
+		$this->editDefinition($f['houseId'], $this->owner($f['houseId']), $f['taskId'], $updates);
 	}
 
 	/**
@@ -91,7 +91,7 @@ class CycleTimelineTest extends IntegrationTestCase {
 		$house = \OC::$server->get(HouseMapper::class)->find($f['houseId']);
 		$calendar = \OC::$server->get(CalendarService::class);
 		$zone = $calendar->getTimeZone($house);
-		$cycle = $this->cycleService->currentFor($roomTask, \OC::$server->get(TaskMapper::class)->find($f['taskId']), $zone, $now ?? new \DateTime());
+		$cycle = \OC::$server->get(CycleProjection::class)->currentFor($roomTask, \OC::$server->get(TaskMapper::class)->find($f['taskId']), $zone, $now ?? new \DateTime());
 		self::assertNotNull($cycle, $after . ': the room task has a current cycle');
 		self::assertEquals($calendar->dayStartInstant($cycle->endOn, $zone), $roomTask->getNextDue(), $after . ': next_due is the last day of the window');
 		self::assertEquals($calendar->dayStartInstant($cycle->plannedOn(), $zone), $roomTask->getIdealDueDate(), $after . ': ideal_due_date is the planned day');
@@ -286,7 +286,7 @@ class CycleTimelineTest extends IntegrationTestCase {
 		$this->assertProjectionMatchesWindow($f, 'creation');
 		self::assertSame($this->day(2), \OC::$server->get(RoomTaskMapper::class)->find($f['roomTaskId'])->getNextDue()->format('Y-m-d'));
 
-		\OC::$server->get(RoomTaskService::class)->setAssignees($f['roomTaskId'], ['ct_helper'], $houseId, $owner);
+		$this->assignTo($houseId, $owner, $f['roomTaskId'], ['ct_helper']);
 		$this->assertProjectionMatchesWindow($f, 'assignee change');
 
 		$this->edit($f, ['flexDays' => 3]);
@@ -295,7 +295,7 @@ class CycleTimelineTest extends IntegrationTestCase {
 		$this->edit($f, ['frequencyType' => 'daily', 'flexDays' => 0]);
 		$this->assertProjectionMatchesWindow($f, 'rule edit');
 
-		$this->setFirstDate($f['roomTaskId'], $this->today);
+		$this->saveForm($houseId, $owner, $f['roomTaskId'], ['firstDate' => $this->today]);
 		$this->assertProjectionMatchesWindow($f, 'first date edit');
 
 		$completionId = $this->complete($f, 'ct_helper');

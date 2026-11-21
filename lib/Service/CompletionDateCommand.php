@@ -12,7 +12,6 @@ use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\CompletionRevision;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
@@ -43,11 +42,9 @@ class CompletionDateCommand {
 		private CompletionDateCorrection $dateCorrection,
 		private CompletionPostCommitService $postCommit,
 		private CompletedTaskMapper $completedTaskMapper,
-		private WorkShareMapper $workShareMapper,
 		private HouseMapper $houseMapper,
 		private RoomReplayService $roomReplay,
 		private CycleService $cycles,
-		private TaskResponsibility $responsibility,
 		private CalendarService $calendar,
 		private IL10N $l10n,
 		private AppLogger $appLogger,
@@ -87,9 +84,9 @@ class CompletionDateCommand {
 		} catch (\Throwable $e) {
 			// A refused day is the caller's input, not a failure of the aggregate.
 			if (!$e instanceof \InvalidArgumentException) {
-				$this->appLogger->logException('CompletionService: date correction rolled back', $e, [
+				$this->appLogger->logException('CompletionDateCommand: date correction rolled back', $e, [
 					'event' => 'date_correction_rollback',
-					'service' => 'CompletionService',
+					'service' => 'CompletionDateCommand',
 					'houseId' => $houseId,
 					'completionId' => $completionId,
 					'userId' => $actor->getNextcloudUserId(),
@@ -104,14 +101,8 @@ class CompletionDateCommand {
 			$house, $actor->getNextcloudUserId(), $fresh, $freshRoomTask, $this->access->room($freshRoomTask->getRoomId()), $command['replay'], $task
 		);
 		$response['cycle'] = $this->readModel->cycleBlock($freshRoomTask, $house, $task);
-		if (!$command['replay']) {
-			$post = $this->postCommit->runForCorrection($houseId, $fresh->getRoomTaskId(), $actor->getNextcloudUserId());
-			$response['rewards']['weeklyGoal'] = $post['weeklyGoal'];
-			if ($post['degraded']) {
-				$response['rewards']['degraded'] = true;
-			}
-		}
-		return $response;
+		$post = $command['replay'] ? null : $this->postCommit->runForCorrection($houseId, $fresh->getRoomTaskId(), $actor->getNextcloudUserId());
+		return CompletionPostCommitService::merge($response, $post);
 	}
 
 	/**
@@ -129,14 +120,7 @@ class CompletionDateCommand {
 
 		// The memberships of the people credited and of the assignees the
 		// cycle counts for.
-		$walletIds = [];
-		foreach ($this->workShareMapper->findByCompletionAndRevision($completionId, $completion->getAllocationRevision()) as $share) {
-			if ($share->getWalletId() !== null) {
-				$walletIds[] = (int)$share->getWalletId();
-			}
-		}
-		$roomTaskId = (int)$target->roomTask->getId();
-		$members = $this->locks->membersOfWallets($houseId, $walletIds, $this->responsibility->membersOf($houseId, $roomTaskId));
+		['members' => $members] = $this->locks->latestAllocation($houseId, $completion, (int)$target->roomTask->getId());
 
 		$now = new \DateTime();
 		$task = $target->task;

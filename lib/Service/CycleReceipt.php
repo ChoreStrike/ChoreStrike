@@ -14,7 +14,8 @@ use OCP\IL10N;
  * The receipt a client sends with a command on a room task's cycle
  * (ADR-021 decisions 4, 6 and 7): its command id, the cycle key it showed
  * and the cycle version it showed. One boundary validation for the
- * complete, postpone and sleep commands.
+ * complete, postpone and sleep commands and the one form's save
+ * ({@see TaskEdit}).
  */
 final class CycleReceipt {
 	/** No `cycleKey` field at all: the command names the room task alone. */
@@ -39,12 +40,7 @@ final class CycleReceipt {
 	 * @throws \InvalidArgumentException with a translated message (400)
 	 */
 	public static function fromPayload(array $payload, IL10N $l10n, string $key, array $furtherFields = []): self {
-		$allowed = ['commandId', 'expectedVersion', ...($key === self::KEY_NONE ? [] : ['cycleKey']), ...$furtherFields];
-		foreach (array_keys($payload) as $field) {
-			if (!in_array($field, $allowed, true)) {
-				throw new \InvalidArgumentException($l10n->t('Unknown field: %1$s', [$field]));
-			}
-		}
+		CommandService::assertClosedBody($payload, ['commandId', 'expectedVersion', ...($key === self::KEY_NONE ? [] : ['cycleKey']), ...$furtherFields], $l10n);
 		$commandId = CommandService::requireCommandUuid($payload, $l10n);
 
 		$cycleKey = $payload['cycleKey'] ?? null;
@@ -52,11 +48,6 @@ final class CycleReceipt {
 			throw new \InvalidArgumentException($l10n->t('Invalid cycle key'));
 		}
 
-		// A whole number, also as the canonical decimal string of a form body.
-		$version = $payload['expectedVersion'] ?? null;
-		if ((!is_int($version) && !is_string($version)) || (int)$version < 0 || (string)(int)$version !== (string)$version) {
-			throw new \InvalidArgumentException($l10n->t('A valid expectedVersion is required'));
-		}
-		return new self(strtolower($commandId), $cycleKey, (int)$version);
+		return new self(strtolower($commandId), $cycleKey, CommandService::requireExpectedVersion($payload, $l10n));
 	}
 }

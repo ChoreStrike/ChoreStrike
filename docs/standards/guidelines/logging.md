@@ -34,7 +34,8 @@ event. Explicit replay/no-change outcomes are not new mutations.
 Membership, house settings, setup, floor/room structure, checklist definitions,
 planner availability, catalog and reward-request lifecycle use this contract.
 `CommandService` emits the shared `house.command.committed` event for reset,
-schedule application, occurrence agreements and pause commands. These events
+pause commands, the coin multipliers and the one form's save (`room_task.edit`,
+which carries a task's definition and its checklist definitions). These events
 identify the committed receipt, not its authored contents, and include self-service
 commands on those same surfaces without implying owner authority.
 

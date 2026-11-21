@@ -16,8 +16,8 @@ use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\CycleAdvanceService;
 use OCA\ChoreStrike\Service\RecurrenceCalculator;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
-use OCA\ChoreStrike\Service\TaskService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
@@ -27,15 +27,15 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * against the real database with the real services.
  */
 class EnergyEditTest extends IntegrationTestCase {
+	use TaskEditing;
+
 	private const OWNER = 'ee_owner';
 
 	private CompletionService $completionService;
-	private TaskService $taskService;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->completionService = \OC::$server->get(CompletionService::class);
-		$this->taskService = \OC::$server->get(TaskService::class);
 	}
 
 	/**
@@ -74,9 +74,10 @@ class EnergyEditTest extends IntegrationTestCase {
 		return \OC::$server->get(HouseUserMapper::class)->findByHouseAndUser($houseId, self::OWNER);
 	}
 
+	/** The definition part of the one form's save (CS-PLAN-091 WP-B6). */
 	private function edit(array $f, array $updates): void {
 		$this->actingAs(self::OWNER);
-		$this->taskService->updateTask($f['taskId'], $updates, $this->owner($f['houseId']));
+		$this->editDefinition($f['houseId'], $this->owner($f['houseId']), $f['taskId'], $updates);
 	}
 
 	private function complete(array $f): int {
@@ -153,8 +154,14 @@ class EnergyEditTest extends IntegrationTestCase {
 		$this->complete($f);
 		self::assertFalse($this->isActive($f['roomTaskId']), 'closing its one cycle ends the task');
 
-		// A later edit and a job pass find nothing to bring back.
-		$this->edit($f, ['energyCost' => 8]);
+		// A finished task takes no further save, and a job pass finds
+		// nothing to bring back.
+		try {
+			$this->saveForm($f['houseId'], $this->owner($f['houseId']), $f['roomTaskId'], ['task' => ['energyCost' => 8]]);
+			self::fail('a finished task cannot be edited');
+		} catch (ConflictException $e) {
+			self::assertSame(ConflictException::REASON_CONFLICT, $e->getReason());
+		}
 		\OC::$server->get(CycleAdvanceService::class)->advanceHouse(\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($f['houseId']), new \DateTime('+2 days'));
 		self::assertFalse($this->isActive($f['roomTaskId']));
 		self::assertNull($this->block($f['roomTaskId']), 'the task never comes back');

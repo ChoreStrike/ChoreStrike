@@ -140,8 +140,19 @@ export default {
 			}
 			if (this.previouslyFocused?.isConnected) {
 				this.previouslyFocused.focus()
-				this.previouslyFocused = null
 			}
+			this.previouslyFocused = null
+			// The opener can go with what the dialog did (a deleted row): once
+			// the page has settled, lost focus lands on the main region.
+			setTimeout(() => {
+				const main = document.querySelector('main')
+				if (main && openModals.length === 0 && [null, document.body].includes(document.activeElement)) {
+					if (!main.hasAttribute('tabindex')) {
+						main.setAttribute('tabindex', '-1')
+					}
+					main.focus({ preventScroll: true })
+				}
+			})
 		},
 
 		isTopMost() {

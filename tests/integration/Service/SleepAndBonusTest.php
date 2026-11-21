@@ -20,11 +20,11 @@ use OCA\ChoreStrike\Service\PostponeService;
 use OCA\ChoreStrike\Service\RhythmService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\SleepService;
-use OCA\ChoreStrike\Service\TaskService;
 use OCA\ChoreStrike\Service\WeeklyGoalService;
 use OCA\ChoreStrike\Service\WindowService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCA\ChoreStrike\Tests\Integration\Support\CycleFixtures;
+use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 
 /**
  * Sleeping and bonus tasks against the real database (CS-PLAN-091 WP-B4,
@@ -35,6 +35,7 @@ use OCA\ChoreStrike\Tests\Integration\Support\CycleFixtures;
  */
 class SleepAndBonusTest extends IntegrationTestCase {
 	use CycleFixtures;
+	use TaskEditing;
 
 	protected const OWNER = 'sab_owner';
 	protected const HELPER = 'sab_helper';
@@ -195,7 +196,7 @@ class SleepAndBonusTest extends IntegrationTestCase {
 			$house = \OC::$server->get(HouseMapper::class)->findForUpdate($f['houseId']);
 			$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->lockForUpdate($f['roomTaskId']);
 			$task = \OC::$server->get(\OCA\ChoreStrike\Db\TaskMapper::class)->find($f['taskId']);
-			\OC::$server->get(\OCA\ChoreStrike\Service\CycleService::class)->sleepUnderLock($house, $roomTask, $task, null, new \DateTimeZone('UTC'), $asleepAt);
+			\OC::$server->get(\OCA\ChoreStrike\Service\CycleSleep::class)->sleepUnderLock($house, $roomTask, $task, null, new \DateTimeZone('UTC'), $asleepAt);
 		});
 
 		// What had stopped being current before the sleep was missed; the days it slept were not.
@@ -328,7 +329,7 @@ class SleepAndBonusTest extends IntegrationTestCase {
 		$f = $this->fixture(['is_voluntary' => 1, 'scheduling_mode' => 'static', 'frequency_type' => 'daily'], $this->day(-10));
 		$this->actingAs(self::OWNER);
 
-		\OC::$server->get(TaskService::class)->updateTask($f['taskId'], ['isVoluntary' => false], $this->member($f['houseId'], self::OWNER));
+		$this->editDefinition($f['houseId'], $this->member($f['houseId'], self::OWNER), $f['taskId'], ['isVoluntary' => false]);
 
 		self::assertSame('d' . $this->today, $this->block($f)['cycleKey'], 'the first rule day from the edit day');
 		self::assertSame(0, $this->jobPass($f)['missed']);

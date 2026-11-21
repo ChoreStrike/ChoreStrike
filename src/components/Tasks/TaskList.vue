@@ -29,78 +29,36 @@
 			:message="t('chorestrike', 'No tasks yet')"
 			:hint="t('chorestrike', 'Add your first task to get started')" />
 
-		<div v-else class="task-list-body">
-			<TaskListBulkBar
-				v-if="userStore.canManageTasks && selectedRoomTaskIds.length > 0"
-				:selectedCount="selectedRoomTaskIds.length"
-				:members="houseMembers"
-				:assigning="bulkAssigning"
-				:clearSignal="bulkClearSignal"
-				@assign="handleBulkAssign"
-				@clear="clearSelection" />
-
-			<div class="task-items">
-				<template v-for="(item, index) in sortedTasks" :key="item.roomTask.id">
-					<h3 v-if="headingAt(index)" class="task-section-heading" data-testid="task-section-heading">
-						{{ headingAt(index) }}
-					</h3>
-					<TaskListItem
-						:item="item"
-						:selected="isSelected(item.roomTask.id)"
-						:expanded="isExpanded(item.roomTask.id)"
-						:assigneeDraft="assigneeDraft[item.roomTask.id] || []"
-						:assigneeRefusal="assigneeRefusal[item.roomTask.id] || ''"
-						:compact="compact"
-						@complete="(...args) => $emit('complete', ...args)"
-						@edit="$emit('edit', $event)"
-						@delete="$emit('delete', $event)"
-						@toggleExpand="toggleExpand"
-						@toggleSelect="toggleSelected"
-						@claim="openClaimDialog"
-						@toggleAssignee="toggleAssignee" />
-				</template>
-			</div>
-
-			<OverdueClaimDialog
-				:visible="claimDialogVisible"
-				:assigneeName="claimAssigneeName"
-				@confirm="confirmClaim"
-				@cancel="claimDialogVisible = false" />
+		<div v-else class="task-items">
+			<template v-for="(item, index) in sortedTasks" :key="item.roomTask.id">
+				<h3 v-if="headingAt(index)" class="task-section-heading" data-testid="task-section-heading">
+					{{ headingAt(index) }}
+				</h3>
+				<TaskRow :item="item" variant="list" @complete="(row, split) => $emit('complete', row.roomTask.id, split)" />
+			</template>
 		</div>
 	</div>
 </template>
 
 <script>
-import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import EmptyState from '../Common/EmptyState.vue'
-import OverdueClaimDialog from './OverdueClaimDialog.vue'
-import TaskListBulkBar from './TaskListBulkBar.vue'
-import TaskListItem from './TaskListItem.vue'
-import { useChecklistStore } from '../../store/checklist.js'
-import { useRoomTasksStore } from '../../store/roomTasks.js'
-import { useUserStore } from '../../store/user.js'
-import { refusalReason, showErrorWithReference } from '../../utils/errorToast.js'
-import { logger } from '../../utils/logger.js'
-import { compareTaskItems, isOverdue } from '../../utils/taskDisplay.js'
+import TaskRow from './TaskRow.vue'
+import { compareTaskItems } from '../../utils/taskDisplay.js'
 
 /**
- * TaskList orchestrator (CS-PLAN-067 §3.4): sorting, the bulk-assign state
- * machine, the optimistic assignee drafts (CS-PLAN-065 §3.5), the claim
- * dialog and the lazy expansion (assignee draft seeding, member pre-fetch
- * and checklist loading). Row presentation lives in TaskListItem, the
- * bulk bar in TaskListBulkBar, expanded details in TaskListDetails, and
- * the shared display helpers in utils/taskDisplay.js.
+ * A list of task rows (CS-PLAN-067 §3.4, CS-PLAN-091 WP-B6): sorted, with
+ * a heading where the section of a row changes. Each row is the one task
+ * row; it opens in place and edits through the one form. Assignees change
+ * in the form only, so the list keeps no drafts, selection or claim.
  */
 export default {
 	name: 'TaskList',
 
 	components: {
 		EmptyState,
-		TaskListItem,
-		TaskListBulkBar,
-		OverdueClaimDialog,
+		TaskRow,
 	},
 
 	props: {
@@ -110,12 +68,6 @@ export default {
 		},
 
 		loading: {
-			type: Boolean,
-			default: false,
-		},
-
-		/** Dense rows for long lists (CS-PLAN-084 WP-D). */
-		compact: {
 			type: Boolean,
 			default: false,
 		},
@@ -133,22 +85,10 @@ export default {
 		},
 	},
 
-	emits: ['complete', 'edit', 'delete'],
+	emits: ['complete'],
 
-	setup(props, { emit }) {
-		const checklistStore = useChecklistStore()
-		const userStore = useUserStore()
-		const roomTasksStore = useRoomTasksStore()
-		const expandedTaskId = ref(null)
-		// Local draft of assignee user IDs per expanded room task (optimistic)
-		const assigneeDraft = ref({})
-		// The server's reason per room task when it refused the last toggle
-		const assigneeRefusal = ref({})
-
-		const sortedTasks = computed(() => {
-			const tasks = props.roomTasks || []
-			return [...tasks].sort(props.compare)
-		})
+	setup(props) {
+		const sortedTasks = computed(() => [...(props.roomTasks || [])].sort(props.compare))
 
 		// One label per row and pass; the template asks for each heading twice.
 		const sectionLabels = computed(() => (props.sectionLabel ? sortedTasks.value.map(props.sectionLabel) : []))
@@ -161,216 +101,7 @@ export default {
 			return index === 0 || labels[index] !== labels[index - 1] ? labels[index] : ''
 		}
 
-		const toggleExpand = async (item) => {
-			if (expandedTaskId.value === item.roomTask.id) {
-				expandedTaskId.value = null
-			} else {
-				expandedTaskId.value = item.roomTask.id
-				// Seed the assignee draft from the current room task assignees
-				assigneeDraft.value = {
-					...assigneeDraft.value,
-					[item.roomTask.id]: [...(item.roomTask.assignees || [])],
-				}
-				// Lazy-load house members for the assignee picker
-				if ((userStore.houseUsers || []).length === 0) {
-					try {
-						await userStore.fetchHouseUsers()
-					} catch {
-						// non-fatal: picker will show an empty hint
-					}
-				}
-				// Load checklist data
-				await checklistStore.fetchTaskItems(item.task.id)
-				await checklistStore.fetchRoomTaskProgress(item.roomTask.id)
-			}
-		}
-
-		const isExpanded = (roomTaskId) => {
-			return expandedTaskId.value === roomTaskId
-		}
-
-		const houseMembers = computed(() => userStore.houseUsers || [])
-
-		const toggleAssignee = async (roomTaskId, userId) => {
-			const current = new Set(assigneeDraft.value[roomTaskId] || [])
-			if (current.has(userId)) {
-				current.delete(userId)
-			} else {
-				current.add(userId)
-			}
-			const next = [...current]
-			assigneeDraft.value = { ...assigneeDraft.value, [roomTaskId]: next }
-			assigneeRefusal.value = { ...assigneeRefusal.value, [roomTaskId]: '' }
-			try {
-				await roomTasksStore.setAssignees(roomTaskId, next)
-			} catch (error) {
-				// Revert the draft on failure so the UI matches the server state
-				const previous = next.includes(userId)
-					? next.filter((id) => id !== userId)
-					: [...next, userId]
-				assigneeDraft.value = { ...assigneeDraft.value, [roomTaskId]: previous }
-				const reason = refusalReason(error)
-				if (reason) {
-					assigneeRefusal.value = { ...assigneeRefusal.value, [roomTaskId]: reason }
-				} else {
-					showErrorWithReference(t('chorestrike', 'Failed to update task'), error)
-				}
-			}
-		}
-
-		// --- Overdue claim dialog (CS-PLAN-060 §3.4) ---
-
-		const claimDialogVisible = ref(false)
-		const claimAssigneeId = ref('')
-		const claimRoomTaskId = ref(null)
-
-		// Resolved reactively so a dialog opened before the member list
-		// loaded picks up the display name once the read lands.
-		const claimAssigneeName = computed(() => {
-			const member = (userStore.houseUsers || []).find((u) => u.nextcloudUserId === claimAssigneeId.value)
-			return member?.displayName || claimAssigneeId.value || t('chorestrike', 'another member')
-		})
-
-		const currentUserId = computed(() => userStore.currentUser?.nextcloudUserId || userStore.userId)
-
-		const canClaimFromItem = (item) => {
-			if (!item.roomTask.isActive) {
-				return false
-			}
-			if (!isOverdue(item.roomTask)) {
-				return false
-			}
-			if ((item.task.visibilityType || 'public') !== 'public') {
-				return false
-			}
-			const assignees = item.roomTask.assignees || []
-			if (assignees.length === 0) {
-				return false
-			}
-			return !assignees.includes(currentUserId.value)
-		}
-
-		const openClaimDialog = (item) => {
-			if (!canClaimFromItem(item)) {
-				return
-			}
-			claimRoomTaskId.value = item.roomTask.id
-			claimAssigneeId.value = (item.roomTask.assignees || [])[0] || ''
-			claimDialogVisible.value = true
-		}
-
-		// The confirmed claim IS the reviewed allocation: the claimer did the
-		// whole overdue work, so it completes as sole participant without a
-		// second participation dialog (CS-PLAN-084 WP-G, RF-080-14 path).
-		const confirmClaim = async () => {
-			claimDialogVisible.value = false
-			if (!claimRoomTaskId.value) {
-				return
-			}
-			if (!currentUserId.value) {
-				// Unresolved identity: the participation dialog's safe path decides.
-				emit('complete', claimRoomTaskId.value)
-				return
-			}
-			emit('complete', claimRoomTaskId.value, {
-				participants: [{ userId: currentUserId.value, sharePct: 100 }],
-				allocationReviewed: true,
-			})
-		}
-
-		// --- Bulk assignment selection (CS-PLAN-042, UX-008) ---
-
-		const selectedRoomTaskIds = ref([])
-		const bulkAssigning = ref(false)
-		// Bump signal: resets the bulk bar's local target draft when the
-		// selection clears (the bar owns only that input's state).
-		const bulkClearSignal = ref(0)
-
-		const isSelected = (roomTaskId) => selectedRoomTaskIds.value.includes(roomTaskId)
-
-		const toggleSelected = async (roomTaskId) => {
-			if (isSelected(roomTaskId)) {
-				selectedRoomTaskIds.value = selectedRoomTaskIds.value.filter((id) => id !== roomTaskId)
-			} else {
-				selectedRoomTaskIds.value = [...selectedRoomTaskIds.value, roomTaskId]
-				// Lazy-load house members for the target dropdown
-				if ((userStore.houseUsers || []).length === 0) {
-					try {
-						await userStore.fetchHouseUsers()
-					} catch {
-						// non-fatal: dropdown will show an empty list
-					}
-				}
-			}
-		}
-
-		const clearSelection = () => {
-			selectedRoomTaskIds.value = []
-			bulkClearSignal.value++
-		}
-
-		/**
-		 * One bulk call for the whole selection (CR-SVC-61). The server skips
-		 * foreign/missing ids per item; the diff between requested and
-		 * returned ids drives the partial-success toast.
-		 *
-		 * @param {string} targetUserId The picked target member's user ID.
-		 */
-		const handleBulkAssign = async (targetUserId) => {
-			const requested = [...selectedRoomTaskIds.value]
-			if (!targetUserId || requested.length === 0) {
-				return
-			}
-
-			bulkAssigning.value = true
-			try {
-				const assigned = await roomTasksStore.bulkAssignTasks(requested, targetUserId)
-				const assignedIds = new Set((assigned || []).map((rt) => rt.id))
-				const skippedCount = requested.length - assignedIds.size
-
-				if (skippedCount === 0) {
-					showSuccess(t('chorestrike', '{count} task(s) assigned', { count: requested.length }))
-				} else if (assignedIds.size > 0) {
-					showWarning(t('chorestrike', '{assigned} task(s) assigned, {skipped} skipped', {
-						assigned: assignedIds.size,
-						skipped: skippedCount,
-					}))
-				} else {
-					showError(t('chorestrike', 'No tasks were assigned'))
-				}
-				clearSelection()
-			} catch (error) {
-				showError(t('chorestrike', 'Failed to assign tasks'))
-				logger.error('Bulk assign failed', error, { component: 'TaskList', action: 'handleBulkAssign' })
-			} finally {
-				bulkAssigning.value = false
-			}
-		}
-
-		return {
-			sortedTasks,
-			headingAt,
-			expandedTaskId,
-			toggleExpand,
-			isExpanded,
-			houseMembers,
-			assigneeDraft,
-			assigneeRefusal,
-			toggleAssignee,
-			selectedRoomTaskIds,
-			bulkAssigning,
-			bulkClearSignal,
-			isSelected,
-			toggleSelected,
-			clearSelection,
-			handleBulkAssign,
-			openClaimDialog,
-			confirmClaim,
-			claimDialogVisible,
-			claimAssigneeName,
-			userStore,
-			t,
-		}
+		return { sortedTasks, headingAt, t }
 	},
 }
 </script>
@@ -378,12 +109,6 @@ export default {
 <style scoped>
 .task-list {
 	width: 100%;
-}
-
-.task-list-body {
-	display: flex;
-	flex-direction: column;
-	gap: 0.75rem;
 }
 
 .task-items {

@@ -128,8 +128,10 @@ of the coin factor; a completion takes the percent of its work day and keeps
 it. `DELETE` cancels a period that has not ended; its `commandId` is a query
 parameter (`?commandId=<uuid>`). An ended period answers `409 CONFLICT`, an
 unknown one `404`, and cancelling a cancelled period again changes nothing.
-Both are receipt-protected and answer `{ "bonusPeriod": … }` — `POST` with the
-new period, `DELETE` with the period the house shows now (or `null`).
+Both are receipt-protected and answer `{ "bonusPeriod": … }`: the period the
+house shows now — the running one, else the next planned one, or `null` — the
+same value as `GET /house` carries (RF-091-10). A period started for a later
+day while another one runs therefore answers with the running one.
 
 #### PUT /house
 Update house name and (owner only) timezone and ranking flag.
@@ -250,7 +252,7 @@ A `label` of `null` keeps the translated name of a built-in key.
   language, so no second "Other" or "Kitchen" appears beside it.
 - Stored task rows are never rewritten. A task whose key is no longer listed
   counts as `other` in the client's lists and filters. A task write
-  (`PUT /tasks/{id}`, `POST /room-tasks`) accepts only a listed key and
+  (`POST /room-tasks`, `PUT /room-tasks/{id}`) accepts only a listed key and
   answers `400` with "Unknown task category" otherwise. A new task without a
   category gets `other`, and a template keeps its key while it is listed.
 - Response: the saved list with the next revision. Failure envelopes:
@@ -329,7 +331,7 @@ happened besides completions in the same period (`events`):
   ],
   "total": 1,
   "events": [
-    { "type": "postponed", "at": "2026-08-21T09:00:00+00:00", "houseUserId": 9, "displayName": "Kid", "roomTaskId": 14, "taskTitle": "Tidy room", "postponeCount": 2 },
+    { "type": "postponed", "at": "2026-08-21T09:00:00+00:00", "houseUserId": 9, "displayName": "Kid", "roomTaskId": 14, "taskTitle": "Tidy room", "postponeCount": 2, "postponeLimit": 3 },
     { "type": "date_changed", "at": "2026-08-20T15:40:00+00:00", "houseUserId": 7, "displayName": "Alice", "roomTaskId": 12, "taskTitle": "Vacuum living room", "completionId": 41 },
     { "type": "absence", "at": "2026-08-20T17:05:00+00:00", "houseUserId": 9, "displayName": "Kid", "scope": "personal", "subjectUserId": "kid", "subjectDisplayName": "Kid", "from": "2026-08-24", "to": "2026-08-28" }
   ]
@@ -357,7 +359,7 @@ happened besides completions in the same period (`events`):
   cannot see. Visibility is decided per room task (ADR-010: a private task by
   its creator and that room task's assignees).
 - `events` — newest first, at most `limit`, of the same `days`: `postponed`
-  (`postponeCount` of three), `date_changed` and `deleted` (with their
+  (`postponeCount` of `postponeLimit`), `date_changed` and `deleted` (with their
   `completionId`), `absence` and `absence_removed` (`from`/`to` house-local
   days, `scope` `personal` or `house`, the subject when it is a person and
   still a member). An absence shows once it was acknowledged; a request that
@@ -400,7 +402,7 @@ repeated effects, a changed payload under the same UUID conflicts.
 > the multipliers reads 100 and 1, which is what it was paid. A change of people is
 > priced with these frozen values, an undo reverses the amounts its shares recorded.
 > `recordedBy` of a recorder who left the house is `{ "userId": null, "displayName":
-> "Removed member" }`. When the recorder and everyone credited have left, the
+> "Former member" }`. When the recorder and everyone credited have left, the
 > entry no longer tells whether it was recorded for others (both read as a
 > former member), so `recordedBy` is `null`.
 
@@ -409,7 +411,7 @@ The viewer-safe read model of one completion: frozen work facts
 (`completedAt`, `workDate`, `workZone`, `occurrenceDue`, `totalEnergy`,
 `rateMinor`), the currently selected `allocation` with the audit `history`
 (append-only revisions with the actions `complete`, `attribution`, `date` and
-`undo`; a departed-not-erased actor renders as the localized 'Removed member'
+`undo`; a departed-not-erased actor renders as the localized 'Former member'
 placeholder), `recordedBy` (`{ userId, displayName }` when the recorder is not
 among the people credited, else `null`) and the viewer-scoped `canCorrect`
 (delete, re-date) and `canAttribute` (the people).
@@ -423,7 +425,7 @@ among the people credited, else `null`) and the viewer-scoped `canCorrect`
   ],
   "history": [
     { "revision": 0, "action": "complete", "actor": { "userId": "alice", "displayName": "Alice" }, "reasonCode": null },
-    { "revision": 1, "action": "attribution", "actor": null, "actorDisplayName": "Removed member", "reasonCode": "wrong_split" }
+    { "revision": 1, "action": "attribution", "actor": null, "actorDisplayName": "Former member", "reasonCode": "wrong_split" }
   ],
   "recordedBy": null,
   "canCorrect": true,
@@ -656,123 +658,199 @@ List all tasks visible to the current user (role-based visibility filtering appl
 > Tasks).
 
 > **Catalog templates:** the DB-backed `is_template` / `GET /tasks/templates`
-> system was removed (CS-PLAN-027 D7). Task templates now come from the
-> [setup catalog](#setup-wizard) (`GET /setup/catalog`) and are materialized
-> per room via `POST /room-tasks/from-template`. See
+> system was removed (CS-PLAN-027 D7). Task templates come from the
+> [setup catalog](#setup-wizard) (`GET /setup/catalog`): the one form fills a
+> template into its fields and creates the task through `POST /room-tasks`
+> (CS-PLAN-091 WP-B6 retired `POST /room-tasks/from-template`). See
 > [house-setup-and-templates.md](../concepts/house-setup-and-templates.md).
 
-#### POST /tasks (pruned, CS-PLAN-063)
+#### POST /tasks · PUT /tasks/{id} (pruned)
 
-The definition-only create endpoint was pruned in CS-PLAN-063 (CR-WF-03): its
-last consumer moved to the atomic creation aggregate. Creation runs
-exclusively through `POST /room-tasks` (custom definition or `taskId` mount)
-and `POST /room-tasks/from-template`. Re-adding it requires a consumer and a
-new expose decision (CS-PLAN-055 route-consumer rule; guarded by
-`RouteMatrixTest`).
+The definition-only create was pruned in CS-PLAN-063 (CR-WF-03) and the
+definition-only update in CS-PLAN-091 WP-B6: a task is created with
+`POST /room-tasks` and edited with `PUT /room-tasks/{id}`, each one atomic
+save of the whole form. Both routes answer `404`. Re-adding one requires a
+consumer and a new expose decision (CS-PLAN-055 route-consumer rule; guarded
+by `RouteMatrixTest`). The closed constraint set of a definition is documented
+with the create below.
 
-#### PUT /tasks/{id}
-Update task. Value validation is service-owned (`TaskService::validateTaskData`,
-CS-PLAN-063 §3.1) — the controller only shapes the envelope and maps the
-owner gate. A 400 carries the localized `details[]` error list.
+### Room Tasks
 
-**Request body shape (CS-PLAN-066 D6 / BUG-API-001):** the edited definition
-fields travel as the TOP-LEVEL JSON body — the client calls
-`api.put('/tasks/{id}', updates)` with e.g. `{ "name": "…", "energyCost": 3 }`.
-The controller reads its closed payload from the request parameters minus the
-route internals (`id`, `_route`); a dispatcher-resolved `array $updates`
-argument can never bind from that shape and would 500 on every real HTTP call
-(the SchedulingController `memberUpdatesPayload` fix pattern, RF-065-05).
+#### POST /room-tasks (creation aggregate, CS-PLAN-063, CS-PLAN-091 WP-B6)
+The one form's create (FEAT-UX-040): a visible, valid room task — or nothing
+at all. One request commits the whole aggregate (definition, sub-tasks, room
+task, initial assignees, the first window and an optional sleep) in one
+service-owned transaction (`TaskCreationService`); any failure rolls back
+everything (no orphan definitions). Closed body; an unknown field is a
+`400 VALIDATION_ERROR`:
 
-> **`taskTier` (retired, CS-PLAN-070 WP4):** the Coin-era bronze/silver/gold
-> tier and its multiplier authority were removed with the frozen-rate wallet
-> cutover. The field is no longer accepted by `PUT /tasks/{id}` — a stale
-> client sending it gets the generic whitelist rejection (`400 VALIDATION_ERROR`,
-> `Unknown or immutable field`).
+```json
+{
+  "roomId": 12,
+  "task": { "name": "Wipe the counters", "energyCost": 2, "frequencyType": "weekly",
+            "frequencyValue": 1, "flexDays": 1 },
+  "assigneeUserIds": ["mom"],
+  "checklistItems": [{ "label": "Clear the counter" }, { "label": "Wipe it" }],
+  "firstDate": "2026-11-20",
+  "sleeping": false
+}
+```
 
-> **Edits of the rule, flex or energy (BUG-UX-014, ADR-021 §1):** open work is
-> not frozen. A changed rule, `flexDays` or `energyCost` applies to the current
-> cycle of every room the definition is mounted in at once: its window, its
-> `cycle.expectedVersion` and the `nextDue` projection follow in the same
-> transaction. A client refreshes its rows after the update; a completion with
-> the older version answers `409 STALE_TARGET`. Completed work keeps its
-> `totalEnergy`. A rule that becomes fixed, or a fixed rule whose days change,
-> counts its days from the day of the edit (D-091-28).
+- `roomId` and `task` are required. `task` is the definition in the closed
+  constraint set below; absent fields take their defaults. A definition with
+  `isVoluntary` is a bonus task and has no window.
+- `checklistItems` are the sub-tasks in their order (at most 50, a label of at
+  most 255 characters). A new task has none to keep, so an entry with an `id`
+  is a `400`.
+- `sleeping: true` creates the task asleep, with an optional `wakeOn` as in
+  `PUT /room-tasks/{id}/sleep`; a `wakeOn` without it is a `400`.
+- `firstDate` (ADR-021, D-091-19; a real house-local `Y-m-d` calendar day at
+  most 366 days from today, D-091-45; a translated `400 VALIDATION_ERROR`
+  otherwise) is the centre of the first window and defaults to tomorrow; for a
+  fixed rule it is also the day its rule days are counted from. It replaced
+  `nextDue`, which is no longer read.
 
-> **Closed constraint set (CS-PLAN-063 §3.1):** every accepted update field
-> is range/type-checked — `energyCost` ∈ [1, 20], `schedulingMode` ∈ `dynamic|static`, parseable
-> `fixedScheduleTime` / `activeFrom` / `activeUntil`, `fixedScheduleDays` as a
-> weekday list over `monday`…`sunday` (canonical JSON persisted),
-> `flexDays` ∈ [0, cap], `instructions`/`tips` ≤ 2000 chars, and strict types
-> (non-strings/floats are rejected with 400, never coerced). Empty strings
-> clear a date field. `estimatedMinutes` stays accepted and stored, but no
-> client shows it and it feeds no calculation; energy is the only effort
-> measure (FEAT-UX-046).
+The response is the unified aggregate shape. The room task carries the
+projection: `nextDue` is the start of the last day of the first window,
+`idealDueDate` the start of its planned day, `anchorOn` the first date.
+
+```json
+{ "task": {…}, "roomTask": {…}, "assignees": ["mom", "dad"] }
+```
+
+Gate order: children → `403`; cross-house room → `404` (anti-enumeration);
+`admin-only` creation by a non-owner → `403`; `private` creation stamps the
+creator as `ownerUserId`. Inside the transaction the house row is locked first
+(documented order house → room_task → dependents) and every assignee
+membership is revalidated under the lock (a removed member → `400` and zero
+writes). The mount variant (`{ roomId, taskId }`) and
+`POST /room-tasks/from-template` went with CS-PLAN-091 WP-B6: the form fills a
+catalog template into its fields and creates through this body.
+
+> **Canonical `assignees` (CS-PLAN-066 D1):** every public `assignees` field —
+> read (`GET /room-tasks`), the create and edit aggregates and the enriched
+> execution rows below — is a unique, deterministically ordered Nextcloud
+> **user-ID string array** (ordered by `room_task_id, user_id`).
+
+> **Closed constraint set (CS-PLAN-063 §3.1):** the definition fields are
+> `name`, `description`, `energyCost`, `priority`, `frequencyType`,
+> `frequencyValue`, `estimatedMinutes`, `category`, `scopeType`,
+> `recurrenceMode`, `activeFrom`, `activeUntil`, `isVoluntary`,
+> `schedulingMode`, `fixedScheduleTime`, `fixedScheduleDays`, `fixedMonthDay`
+> (1–31, a fixed monthly rule), `flexDays`, `instructions`, `tips` and
+> `visibilityType`. Any other field — the retired `taskTier` (CS-PLAN-070 WP4)
+> included — answers `400 VALIDATION_ERROR` (`Unknown or immutable field`).
+> Value validation is service-owned (`TaskService::validateTaskData`); a `400`
+> carries the localized `details[]` error list. Every value is
+> range/type-checked — `name` ≤ 255 characters, `description` a string of
+> ≤ 2000 characters (D-091-111), `energyCost` ∈ [1, 20], `schedulingMode` ∈
+> `dynamic|static`, parseable `fixedScheduleTime` / `activeFrom` /
+> `activeUntil`, `fixedScheduleDays` as a weekday list over `monday`…`sunday`
+> (canonical JSON persisted), `flexDays` ∈ [0, cap], `instructions`/`tips` ≤
+> 2000 chars, and strict types (non-strings/floats are rejected with 400, never
+> coerced). Empty strings clear a date field, and an empty `description`,
+> `instructions` or `tips` is stored as no text. `estimatedMinutes` stays accepted
+> and stored, but no client shows it and it feeds no calculation; energy is
+> the only effort measure (FEAT-UX-046).
 >
 > **Flex cap (FEAT-UX-039, CS-PLAN-088 D-088-12):** `flexDays` may be at most
 > half the recurrence period, rounded up: period = `frequencyValue` × unit
 > days (daily 1, weekly 7, monthly 30; `custom` one week); a fixed weekly rule
 > on several weekdays uses the smallest gap between them (Mon+Thu → 3 → cap 2);
 > a one-time task keeps 7; 366 is the sanity bound. Examples: every 10 days → 5,
-> every 2 weeks → 7, every 6 months → 90, daily → 1. An update re-checks the cap
+> every 2 weeks → 7, every 6 months → 90, daily → 1. An edit re-checks the cap
 > against the merged definition only when `flexDays` or a rule input
 > (`frequencyType`, `frequencyValue`, `recurrenceMode`, `schedulingMode`,
 > `fixedScheduleDays`) changes, so a stored value above the cap stays valid on
 > unrelated edits. A changed `flexDays` widens or narrows the current window at
 > once (ADR-021 §1); closed cycles keep the window they recorded.
 
-### Room Tasks
-
-#### POST /room-tasks (creation aggregate, CS-PLAN-063)
-Create a visible, valid room task — or nothing at all. Exactly one request
-commits the whole aggregate (task definition, room-task materialization,
-initial assignee rows) in one service-owned transaction
-(`TaskCreationService`); any failure rolls back everything (no orphan
-definitions).
-
-Two mutually exclusive payload variants:
-- **custom:** `{ roomId, task: {definition…}, assigneeUserIds?, firstDate? }`
-  with an inline definition (`name`, `description`, `energyCost`, `priority`,
-  `frequencyType`, `frequencyValue`, `estimatedMinutes`, `category`,
-  `recurrenceMode`, `activeFrom`, `activeUntil`, `schedulingMode`,
-  `fixedScheduleTime`, `fixedScheduleDays`, `fixedMonthDay` (1–31, a fixed
-  monthly rule), `flexDays`, `instructions`, `visibilityType` — the same
-  closed constraint set as `PUT /tasks/{id}`)
-- **mount:** `{ roomId, taskId, assigneeUserIds?, firstDate? }` — reuses an
-  existing, actor-visible definition (duplicate mount → 400)
-
-`firstDate` (ADR-021, D-091-19; a real house-local `Y-m-d` calendar day at most
-366 days from today, D-091-45; a translated `400 VALIDATION_ERROR` otherwise) is
-the centre of the first window and defaults to
-tomorrow; for a fixed rule it is also the day its rule days are counted from.
-It replaced `nextDue`, which is no longer read. The returned room task carries
-the projection: `nextDue` is the start of the last day of that window,
-`idealDueDate` the start of its planned day. A definition with `isVoluntary`
-is a bonus task and has no window. The response is the unified aggregate
-shape:
+#### PUT /room-tasks/{id} (edit aggregate, ADR-021, CS-PLAN-091 WP-B6)
+One save of the one form is one atomic write (BUG-UX-011, FEAT-UX-040): the
+definition, its sub-tasks, the room, the assignees, the first date and the
+sleep switch change together or not at all. The body is the top-level JSON
+object (the BUG-API-001 pattern: the controller reads the request parameters
+without the route's `id`). Closed body:
 
 ```json
-{ "task": {…}, "roomTask": {…}, "assignees": ["mom", "dad"] }
+{
+  "commandId": "<uuid>",
+  "expectedVersion": 4,
+  "task": { "name": "Wipe the counters", "flexDays": 2 },
+  "roomId": 12,
+  "assigneeUserIds": ["mom"],
+  "checklistItems": [{ "id": 31, "label": "Clear the counter" }, { "label": "Wipe it" }],
+  "firstDate": "2026-11-20",
+  "sleeping": false,
+  "scope": "thisRoom"
+}
 ```
 
-> **Canonical `assignees` (CS-PLAN-066 D1):** every public `assignees` field —
-> read (`GET /room-tasks`), create aggregate, single `PUT …/assignees`, bulk
-> assign and the enriched execution rows below — is a unique, deterministically
-> ordered Nextcloud **user-ID string array** (ordered by `room_task_id, user_id`).
-> The bulk-assign response embeds each returned success's persisted set, so
-> clients reconcile exactly the server result, never the requested set.
+`expectedVersion` comes from the row's `cycle` block. Every other field is
+optional and an absent one stays as it is; `task` follows the closed
+constraint set above. `checklistItems` replaces the list: an entry with the
+`id` of one of the task's sub-tasks keeps it (relabelled, in the new order),
+an entry without one adds a sub-task, and a sub-task the list leaves out goes
+— its ticks stay as facts and no longer count. An `id` that is not one of the
+task's sub-tasks is a `400`.
 
-#### PUT /room-tasks/{id} (edit aggregate, ADR-021, planned: CS-PLAN-091 WP-B6)
-One form save is one atomic write (not delivered yet). Body: `{ commandId, expectedVersion,
-task: {definition…}, roomId?, assigneeUserIds, firstDate?, sleeping?, wakeOn?,
-scope }`. Adults and the owner only (`403` for children). `roomId` moves the
-room task under the room-task lock; its completions, closed cycles and journal
-rows stay with their original room. `firstDate` is accepted only before the
-first completion (`409 CONFLICT` afterwards). `scope` is `thisRoom` or
-`allRooms` when the definition is mounted in several rooms: `thisRoom` splits
-off a copy of the definition for this room task, `allRooms` edits the shared
-one. The form's read-only next window comes from the response's `cycle` block.
-`PUT /tasks/{id}` and `PUT /room-tasks/{id}/assignees` lose their form client
-and go once no client is left.
+- **Who:** adults and the owner who may see the task. A child is refused with
+  `403`; a task the member cannot see, a foreign or a deleted room task answer
+  `404`. Admin-only visibility is set and unset by the owner only (`403`). A
+  task that becomes private is claimed by the member who saves it; an assignee
+  who edits a private task leaves its owner as it is, and only that owner
+  changes its visibility (`403` for an assignee, D-091-109). A save never takes
+  the member's own sight of the task: leaving the assignees of a private task
+  that is not one's own is a `403` and writes nothing (D-091-108).
+- **Shared definitions (FEAT-UX-043):** a save that changes the definition's
+  values or its sub-tasks while several rooms share the definition needs a
+  `scope`. `allRooms` edits the shared definition; `thisRoom` splits off a copy
+  that only this room task uses from now on — the ticks of its current cycle
+  follow their sub-tasks, the other rooms keep the definition as it was.
+  Without a scope the save answers `409 SCOPE_REQUIRED` and writes nothing;
+  the client asks and sends it again. A save that changes neither needs no
+  scope. A member who may not see every room task of the definition (a private
+  task, ADR-010) is never asked: the save splits off for this room whatever
+  the scope says, and the others stay untouched (D-091-110).
+- **Move:** a different `roomId` moves the room task to another room of the
+  house (a foreign room → `404`, a room that already holds the definition →
+  `409 CONFLICT`). Its completions and closed cycles belong to the room task
+  and move with it; the room journal keeps every entry in the room where it
+  happened.
+- **First date:** `firstDate` (same range as the create) moves the first
+  window only until the first completion; a different date afterwards answers
+  `409 CONFLICT`. From then on the date correction of the latest entry moves
+  the window (D-091-19). A bonus task has no window and ignores it.
+- **Assignees:** the list replaces the old set; every member is checked under
+  the house lock (a member who left → `400`, nothing written). A changed set
+  bumps `cycle.expectedVersion`. Capacity never refuses an assignment
+  (ADR-022): a child's day limit only trims what is offered, never what the
+  child owes.
+- **Sleep:** `sleeping` and `wakeOn` as in `PUT /room-tasks/{id}/sleep`. A save
+  that wakes the task wakes it first, so a first date of the same save holds;
+  an unchanged sleep state is never checked again.
+- **Receipt:** a version that moved on answers `409 STALE_TARGET`, an inactive
+  task `409 CONFLICT`. A repeated `commandId` with the same body replays
+  (`replay: true`); with another body it is a `409 CONFLICT`. Execution and
+  replay decide with the member as they are now: whoever left the house, lost
+  sight of the task or became a child gets the refusal, never the stored
+  answer. A committed save writes one audit event.
+
+The answer is `{ task, roomTask, assignees, checklistItems, cycle, replay }`:
+the definition the room task uses now (the copy after a split), the room task
+with its `assignees` and `cycle`, the sub-tasks in their order, and the fresh
+`cycle` block the form shows its read-only next window from. A task is
+deleted from the form with [`DELETE /room-tasks/{id}`](#delete-room-tasksid)
+(D-091-86).
+
+> **Edits of the rule, flex or energy (BUG-UX-014, ADR-021 §1):** open work is
+> not frozen. A changed rule, `flexDays` or `energyCost` applies to the current
+> cycle of every room the edited definition is mounted in at once: its window,
+> its `cycle.expectedVersion` and the `nextDue` projection follow in the same
+> transaction. A client refreshes its rows after the save; a completion with
+> the older version answers `409 STALE_TARGET`. Completed work keeps its
+> `totalEnergy`. A rule that becomes fixed, or a fixed rule whose days change,
+> counts its days from the day of the edit (D-091-28).
 
 #### POST /room-tasks/{id}/postpone (ADR-021 §6, CS-PLAN-091 WP-B3)
 Closed body `{ "commandId": "<uuid>", "cycleKey": "c88", "expectedVersion": 4 }`.
@@ -832,7 +910,7 @@ execution-row consumer (no client-side assignee re-fetch):
     "assignees": ["dad"],
     "cycle": { "cycleKey": "d2026-11-16", "expectedVersion": 1, "windowStartOn": "2026-11-16",
                "windowEndOn": "2026-11-16", "centreOn": "2026-11-16", "state": "overdue",
-               "postponeCount": 0, "canPostpone": false },
+               "postponeCount": 0, "postponeLimit": 3, "canPostpone": false },
     "checklistItemCount": 0
   }
 ]
@@ -846,40 +924,6 @@ These endpoints are the authoritative count projections for the task
 counters (`totalOverdueTasks` / `totalDueTodayTasks` read the complete
 endpoint results — a scoped room load or the child-limited daily list can
 never masquerade as a count source, CS-PLAN-066 D2).
-
-Gate order: children → `403`; cross-house room → `404` (anti-enumeration);
-invisible definition → `404`; `admin-only` creation by a non-owner → `403`;
-`private` creation stamps the creator as `ownerUserId`. Inside the
-transaction the house row is locked first (documented order house →
-room_task → dependents), every assignee membership is revalidated under the
-lock (a removed member → 400 and zero writes), and the mount-duplicate guard
-is re-checked under the lock.
-
-#### POST /room-tasks/from-template
-Create a room task from a catalog template (per-room picker). The `roomId` is
-resolved server-side and validated against the caller's house; an
-`assigneeUserId` (if set) is checked for membership. Materialized templates
-run through the same validation authority, atomic body, and gates as the
-custom path (a whitelisted override outside the closed set rejects with 400
-before any write).
-
-**Request:**
-```json
-{
-  "roomId": 12,
-  "templateId": "kitchen_counters",
-  "level": "putzteufel",
-  "overrides": { "name": "My counters", "estimatedMinutes": 8 },
-  "assigneeUserId": "alice"
-}
-```
-
-> `level` is optional (default `putzteufel`). `overrides` is optional and
-> restricted to `name`, `frequencyType`, `frequencyValue`, `estimatedMinutes`,
-> `energyCost`, `priority`.
-
-**Response:** the unified aggregate shape `{task, roomTask, assignees}`
-(CS-PLAN-063 D1).
 
 #### GET /room-tasks
 List room-task assignments (CS-PLAN-067 D1 selector contract).
@@ -904,7 +948,7 @@ the task's one current cycle, derived on read:
 ```json
 { "cycleKey": "c88", "expectedVersion": 4, "windowStartOn": "2026-11-21",
   "windowEndOn": "2026-11-23", "centreOn": "2026-11-22", "state": "open",
-  "postponeCount": 0, "canPostpone": true }
+  "postponeCount": 0, "postponeLimit": 3, "canPostpone": true }
 ```
 
 - `cycleKey` is `d<Y-m-d>` for a cycle that hangs on a day (the first date, a
@@ -920,7 +964,8 @@ the task's one current cycle, derived on read:
   asleep wins over bonus; both are completed with the version and without a
   `cycleKey`. A task without a cycle (a one-time task that is done, an inactive
   one) carries `cycle: null`.
-- `canPostpone` is the precondition of the postpone command; `postponeCount` says how often the cycle was moved (at most three times).
+- `canPostpone` is the precondition of the postpone command; `postponeCount`
+  says how often the cycle was moved, at most `postponeLimit` times.
 
 **`status` (CS-PLAN-084 D-084-08)** derives from it: `overdue` for an `overdue`
 cycle, `due_today` for an `open` one — also when the planned day has passed
@@ -945,6 +990,7 @@ handover.
     "taskId": 1,
     "nextDue": "2026-02-25T10:00:00Z",
     "lastCompleted": "2026-02-18T10:00:00Z",
+    "anchorOn": "2026-02-11",
     "isActive": true,
     "status": "due_today",
     "assignees": ["mom"],
@@ -957,16 +1003,14 @@ handover.
 > (CS-PLAN-060 WP1 D2): the `chorestrike_task_assignees` join table keyed by
 > Nextcloud user IDs. The legacy `room_tasks.assigned_to_user_id` scalar
 > column and its payload key were folded out — reads never merge legacy and
-> canonical state. Initial assignment uses the atomic `POST /room-tasks`
-> body's `assigneeUserIds` array, including for a single assignee.
+> canonical state. Assignment travels in the form's `assigneeUserIds` array
+> — `POST /room-tasks` and `PUT /room-tasks/{id}` — also for a single
+> assignee.
 > See `architecture.md` (`chorestrike_room_tasks`). The standalone
 > `POST /room-tasks/{id}/assign` / `…/unassign` and single-assignee
-> `POST|DELETE …/assignees` variants were pruned in CS-PLAN-055 — assignment
-> goes through `PUT …/assignees` or `POST /room-tasks/bulk-assign`.
-
-Mounting an existing definition uses `{ "roomId": 1, "taskId": 1,
-"assigneeUserIds": [] }` on the same atomic `POST /room-tasks` contract
-documented above. There is no snake_case multi-room create body.
+> `POST|DELETE …/assignees` variants were pruned in CS-PLAN-055, and
+> `GET|PUT /room-tasks/{id}/assignees` and `POST /room-tasks/bulk-assign` in
+> CS-PLAN-091 WP-B6 (D-091-87).
 
 #### Who a row belongs to and who is credited
 
@@ -986,14 +1030,6 @@ The next window is never edited directly: the first date sets it until the
 first completion, afterwards the work itself does. Retained `last_done`
 journal events keep replaying in the room journal.
 
-#### GET /room-tasks/{id}/assignees · PUT /room-tasks/{id}/assignees
-Read / replace the multi-assignee set for a room task. Assignee mutations
-are validated for house membership server-side. Capacity never refuses an
-assignment (ADR-022): a child's day limit only trims what is offered, never
-what the child owes. The change bumps `cycle.expectedVersion`. (Since CS-PLAN-067 §3.4 the
-GET route has no frontend consumer — list rows already carry their canonical
-`assignees` arrays — but it stays available for API consumers.)
-
 #### POST /room-tasks/{id}/undo — removed in WP3
 
 > **WP3 targeted correction (CS-PLAN-074 WP3, [ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)):**
@@ -1012,7 +1048,9 @@ GET route has no frontend consumer — list rows already carry their canonical
   notification claim, and dispatched notifications survive an undo.
 
 #### DELETE /room-tasks/{id}
-Remove task from room.
+Remove the task from its room (a tombstone, CS-PLAN-084 D-084-07): it leaves
+every list, and the work done on it stays in the history. The client deletes
+from the one form after a confirmation (D-091-86).
 
 > **Lifecycle authorization (CS-PLAN-056, CR-053-06; unified in ADR-010 /
 > CS-PLAN-061):** the lifecycle mutations —
@@ -1026,14 +1064,17 @@ Remove task from room.
 > inactive room task and the coded conflicts of its receipt (below).
 
 > **Full route list:** the canonical, complete route table is
-> [`appinfo/routes.php`](../../appinfo/routes.php) (70 routes spanning `house`,
+> [`appinfo/routes.php`](../../appinfo/routes.php) (96 routes spanning `house`,
 > `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,
 > `checklist`, `minigame`, `setup`, and `test`). The task-sync ×6 and
 > reward-config ×2 HTTP surfaces were pruned in CS-PLAN-055 together with
 > 31 further no-consumer/test-only routes (disposition list + guard in
 > `RouteMatrixTest`); CS-PLAN-063 pruned `POST /tasks` and CS-PLAN-064 pruned
 > `PUT /tasks/{id}/uncomplete` + `POST /room-tasks/{id}/reactivate` while
-> adding the undo aggregate. Re-adding a route requires a consumer.
+> adding the undo aggregate. CS-PLAN-091 WP-B6 pruned `PUT /tasks/{id}`,
+> `POST /room-tasks/from-template`, `POST /room-tasks/bulk-assign`,
+> `GET|PUT /room-tasks/{id}/assignees` and the four checklist-item writes for
+> the one form's two aggregates. Re-adding a route requires a consumer.
 > This document covers the core CRUD + completion
 > flows; the `RouteMatrixTest` contract test guards route↔controller drift.
 
@@ -1276,16 +1317,12 @@ authorization live in `ChecklistService` (CR-053-01); the guard enforces
 **house linkage** (room task → room → floor → house) plus the
 **task-visibility matrix** (public → any member; private → task owner;
 admin-only → house owner) on every endpoint. Denials return
-`404 RESOURCE_NOT_FOUND` (anti-enumeration, same contract as the task
-update gate).
+`404 RESOURCE_NOT_FOUND` (anti-enumeration, the ADR-010 contract of the edit
+aggregate).
 
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /checklists/task/{taskId}` | List a task's checklist items |
-| `POST /checklists/task/{taskId}` | Add an item (`label`, optional `sortOrder` — appends when absent) |
-| `PUT /checklists/item/{itemId}` | Relabel an item |
-| `DELETE /checklists/item/{itemId}` | Delete an item |
-| `POST /checklists/reorder` | Reorder items (`itemOrders`: item id → order map) |
 | `GET /checklists/progress/{roomTaskId}?cycleKey=` | The ticks and stats of the current cycle |
 | `POST /checklists/toggle/{roomTaskId}/{itemId}` | Toggle a sub-task of the current cycle (auto-creates the progress row — the pruned explicit `initialize`/`complete` pair is not needed) |
 
@@ -1294,10 +1331,9 @@ update gate).
   endpoint (no 403 that would confirm existence).
 - Checklist items of private/admin-only tasks follow the visibility matrix:
   invisible to non-entitled members → `404`.
-- Item mutations resolve item → task: a foreign item id is rejected with
-  `404`; `reorder` requires all item ids to belong to **one** accessible
-  task (`400 VALIDATION_ERROR` otherwise) and the payload must map integer
-  item ids to integer orders (`400`).
+- The sub-tasks themselves are written by the one form (`checklistItems` of
+  `POST /room-tasks` and `PUT /room-tasks/{id}`); the add, relabel, delete and
+  reorder routes went with CS-PLAN-091 WP-B6.
 - `toggle` verifies the item belongs to the room task's task checklist
   (`404` otherwise) — progress rows of an unrelated task cannot be flipped.
 

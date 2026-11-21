@@ -188,6 +188,24 @@ class TaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Insert an independent copy of a definition (CS-PLAN-091 WP-B6): every
+	 * column but the id, with a fresh creation time. A room task that leaves
+	 * a definition shared by several rooms takes such a copy.
+	 */
+	public function insertCopy(Task $source): Task {
+		$copy = new Task();
+		foreach (array_keys($source->getFieldTypes()) as $field) {
+			if ($field === 'id' || $field === 'createdAt') {
+				continue;
+			}
+			$accessor = ucfirst($field);
+			$copy->{'set' . $accessor}($source->{'get' . $accessor}());
+		}
+		$copy->setCreatedAt(new \DateTime());
+		return $this->insert($copy);
+	}
+
+	/**
 	 * Find tasks visible to a viewer based on the visibility matrix.
 	 *
 	 * Visibility rules (D2, CS-PLAN-061 §3.2):

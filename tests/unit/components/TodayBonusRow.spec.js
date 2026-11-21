@@ -4,7 +4,7 @@
  */
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { confirmHold, tapHold } from '../helpers/hold.js'
 import TodayBonusRow from '../../../src/components/Today/TodayBonusRow.vue'
 
@@ -124,5 +124,37 @@ describe('TodayBonusRow', () => {
 
 		expect(wrapper.find('[data-testid="today-bonus-complete-40"]').exists()).toBe(false)
 		expect(wrapper.find('[data-testid="today-bonus-counted-40"]').exists()).toBe(false)
+	})
+
+	// RF-091-09: the check is named, the other button says what it is for,
+	// and focus stays on the row when the hold turns into the check.
+	describe('accessibility (RF-091-09)', () => {
+		it('names the check and the button for someone else', () => {
+			const wrapper = mountRow({ creditedToday: ['mom'] })
+			const check = wrapper.get('[data-testid="today-bonus-counted-40"]')
+
+			expect(check.attributes('role')).toBe('img')
+			expect(check.attributes('aria-label')).toBe('Counted today for Mom')
+			expect(wrapper.get('[data-testid="today-bonus-other-40"]').attributes('aria-label')).toBe('Someone else did “Empty the dishwasher”')
+		})
+
+		it('moves focus to the check when the hold turns into it, and takes it from nowhere else', async () => {
+			const outside = document.createElement('button')
+			document.body.appendChild(outside)
+			const wrapper = mount(TodayBonusRow, { props: { item: row() }, attachTo: document.body })
+
+			await wrapper.setProps({ item: row({ creditedToday: ['mom'] }) })
+			await flushPromises()
+			expect(document.activeElement?.dataset.testid).toBe('today-bonus-counted-40')
+
+			await wrapper.setProps({ item: row() })
+			outside.focus()
+			await wrapper.setProps({ item: row({ creditedToday: ['mom'] }) })
+			await flushPromises()
+			expect(document.activeElement).toBe(outside)
+
+			wrapper.unmount()
+			outside.remove()
+		})
 	})
 })

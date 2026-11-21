@@ -14,11 +14,13 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\CycleReceipt;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\PostponeService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\SleepService;
+use OCA\ChoreStrike\Service\SleepSwitch;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
@@ -42,6 +44,7 @@ class RoomTaskCycleController extends Controller {
 		private SleepService $sleepService,
 		private ActivityService $activityService,
 		private RoomTaskReadService $roomTaskReadService,
+		private CalendarService $calendar,
 		private IL10N $l,
 		AppLogger $appLogger,
 	) {
@@ -61,7 +64,7 @@ class RoomTaskCycleController extends Controller {
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			$receipt = CycleReceipt::fromPayload($this->body(), $this->l, CycleReceipt::KEY_REQUIRED);
-			return $this->cycleResponse((int)$house->getId(), $this->postponeService->postpone(
+			return $this->cycleResponse($this->postponeService->postpone(
 				(int)$house->getId(), $houseUser, $id, $receipt->commandId, $receipt->cycleKey, $receipt->expectedVersion
 			));
 		} catch (NotFoundException $e) {
@@ -95,17 +98,10 @@ class RoomTaskCycleController extends Controller {
 
 			$payload = $this->body();
 			$receipt = CycleReceipt::fromPayload($payload, $this->l, CycleReceipt::KEY_NONE, ['sleeping', 'wakeOn']);
-			$sleeping = $payload['sleeping'] ?? null;
-			$wakeOn = $payload['wakeOn'] ?? null;
-			if (!is_bool($sleeping)) {
-				throw new \InvalidArgumentException($this->l->t('sleeping must be a boolean'));
-			}
-			if ($wakeOn !== null && !is_string($wakeOn)) {
-				throw new \InvalidArgumentException($this->l->t('A valid date (Y-m-d) is required'));
-			}
+			$switch = SleepSwitch::fromPayload($payload, $this->calendar, $this->l, true);
 
-			return $this->cycleResponse((int)$house->getId(), $this->sleepService->setSleeping(
-				(int)$house->getId(), $houseUser, $id, $receipt->commandId, $receipt->expectedVersion, $sleeping, $wakeOn
+			return $this->cycleResponse($this->sleepService->setSleeping(
+				(int)$house->getId(), $houseUser, $id, $receipt->commandId, $receipt->expectedVersion, (bool)$switch->sleeping, $switch->wakeOn
 			));
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -133,13 +129,11 @@ class RoomTaskCycleController extends Controller {
 	 * What a cycle command answers: the room task with the status of its
 	 * fresh `cycle` block.
 	 *
-	 * @param array{roomTask: \OCA\ChoreStrike\Db\RoomTask, cycle: ?array<string, mixed>, replay: bool} $result
+	 * @param array{roomTask: \OCA\ChoreStrike\Db\RoomTask, cycle: ?array<string, mixed>, timeZone: \DateTimeZone, replay: bool} $result
 	 */
-	private function cycleResponse(int $houseId, array $result): JSONResponse {
+	private function cycleResponse(array $result): JSONResponse {
 		return new JSONResponse(['success' => true, 'data' => [
-			'roomTask' => $this->roomTaskReadService->roomTaskPayload(
-				$result['roomTask'], $this->roomTaskReadService->timeZoneForHouse($houseId), $result['cycle']
-			),
+			'roomTask' => $this->roomTaskReadService->roomTaskPayload($result['roomTask'], $result['timeZone'], $result['cycle']),
 			'cycle' => $result['cycle'],
 			'replay' => $result['replay'],
 		]]);

@@ -51,12 +51,7 @@
 				</div>
 				<!-- A group's rows render when it opens (one open group at a time). -->
 				<div v-if="group.key === openKey" :id="`task-group-rows-${group.key}`" class="group-rows">
-					<TaskList
-						:roomTasks="group.items"
-						:compact="true"
-						@complete="(...args) => $emit('complete', ...args)"
-						@edit="$emit('edit', $event)"
-						@delete="$emit('delete', $event)" />
+					<TaskList :roomTasks="group.items" @complete="(...args) => $emit('complete', ...args)" />
 				</div>
 			</div>
 		</section>
@@ -105,7 +100,7 @@ export default {
 		},
 	},
 
-	emits: ['toggle', 'add', 'complete', 'edit', 'delete'],
+	emits: ['toggle', 'add', 'complete'],
 
 	setup() {
 		return { houseStore: useHouseStore() }

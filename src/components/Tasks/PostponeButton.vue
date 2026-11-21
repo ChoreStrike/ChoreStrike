@@ -4,17 +4,23 @@
 -->
 
 <template>
-	<button
-		v-if="cycle && cycle.cycleKey"
-		type="button"
-		class="postpone-button"
-		data-testid="postpone-button"
-		:disabled="!cycle.canPostpone || taskCycleStore.isPostponing(roomTaskId)"
-		:title="reason"
-		@click="postpone">
-		<span>{{ t('chorestrike', 'Postpone') }}</span>
-		<span v-if="cycle.canPostpone" class="postpone-left" data-testid="postpone-left">{{ leftLabel }}</span>
-	</button>
+	<span v-if="cycle && cycle.cycleKey" class="postpone">
+		<button
+			type="button"
+			class="postpone-button"
+			data-testid="postpone-button"
+			:aria-disabled="off ? 'true' : 'false'"
+			:aria-describedby="reason ? reasonId : undefined"
+			@click="postpone">
+			<span>{{ t('chorestrike', 'Postpone') }}</span>
+			<span v-if="cycle.canPostpone" class="postpone-left" data-testid="postpone-left">{{ leftLabel }}</span>
+		</button>
+		<!-- The reason stays readable without a pointer (RF-091-09). -->
+		<span v-if="reason"
+			:id="reasonId"
+			class="postpone-reason"
+			data-testid="postpone-reason">{{ reason }}</span>
+	</span>
 </template>
 
 <script setup>
@@ -25,9 +31,10 @@ import { showPostponeError } from '../../utils/errorToast.js'
 
 /**
  * Postpone the current window of a task (CS-PLAN-091 WP-B3): every member
- * may, up to three times per cycle, each press by half the flex days. The
- * row's `cycle` block says whether it is possible; a task without flex
- * days and a red task cannot be postponed, and the button says why.
+ * may, up to the limit the server names per cycle, each press by half the
+ * flex days. The row's `cycle` block says whether it is possible; a task
+ * without flex days and a red task cannot be postponed, and the button
+ * says why next to it.
  */
 const props = defineProps({
 	roomTaskId: { type: Number, required: true },
@@ -37,29 +44,34 @@ const props = defineProps({
 	flexDays: { type: Number, default: 0 },
 })
 
-/** A cycle is postponed at most this often (ADR-021 decision 6). */
-const MAX_POSTPONEMENTS = 3
-
 const taskCycleStore = useTaskCycleStore()
+const reasonId = `postpone-reason-${props.roomTaskId}`
 
 const leftLabel = computed(() => t('chorestrike', '{count}× left', {
-	count: MAX_POSTPONEMENTS - (props.cycle?.postponeCount ?? 0),
+	count: Math.max(0, (props.cycle?.postponeLimit ?? 0) - (props.cycle?.postponeCount ?? 0)),
 }))
+
+// Off, never `disabled`: a disabled button drops the keyboard focus of
+// the press that turned it off, and hides its reason from a focus.
+const off = computed(() => !props.cycle?.canPostpone || taskCycleStore.isPostponing(props.roomTaskId))
 
 /** Why the button is off; empty while it can be pressed. */
 const reason = computed(() => {
-	if (props.cycle?.canPostpone) {
+	if (!props.cycle || props.cycle.canPostpone) {
 		return ''
 	}
-	if (props.cycle?.state === 'overdue') {
+	if (props.cycle.state === 'overdue') {
 		return t('chorestrike', 'An overdue task cannot be postponed')
 	}
 	return props.flexDays > 0
-		? t('chorestrike', 'This task was already postponed three times')
+		? t('chorestrike', 'This task was already postponed {count} times', { count: props.cycle.postponeLimit ?? props.cycle.postponeCount })
 		: t('chorestrike', 'A task without flex days cannot be postponed')
 })
 
 async function postpone() {
+	if (off.value) {
+		return
+	}
 	try {
 		await taskCycleStore.postpone(props.roomTaskId)
 	} catch (error) {
@@ -70,6 +82,13 @@ async function postpone() {
 </script>
 
 <style scoped>
+.postpone {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.4rem;
+}
+
 .postpone-button {
 	display: inline-flex;
 	align-items: center;
@@ -83,7 +102,7 @@ async function postpone() {
 	cursor: pointer;
 }
 
-.postpone-button:disabled {
+.postpone-button[aria-disabled='true'] {
 	opacity: 0.6;
 	cursor: not-allowed;
 }
@@ -93,7 +112,8 @@ async function postpone() {
 	outline-offset: 2px;
 }
 
-.postpone-left {
+.postpone-left,
+.postpone-reason {
 	font-size: 0.8rem;
 	color: var(--color-text-maxcontrast);
 }

@@ -14,7 +14,7 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Migration\Version1036Date20261117000000;
 use OCA\ChoreStrike\Service\CurrentCycle;
-use OCA\ChoreStrike\Service\CycleService;
+use OCA\ChoreStrike\Service\CycleProjection;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\WindowService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
@@ -238,7 +238,7 @@ class CycleCutoverStepTest extends IntegrationTestCase {
 	/** The derived window of a room task, read at the instant of the update unless another is given. */
 	private function firstCycle(int $roomTaskId, string $at = self::UPDATE_AT): ?CurrentCycle {
 		$roomTask = \OC::$server->get(RoomTaskMapper::class)->find($roomTaskId);
-		return \OC::$server->get(CycleService::class)->currentFor(
+		return \OC::$server->get(CycleProjection::class)->currentFor(
 			$roomTask,
 			\OC::$server->get(TaskMapper::class)->find($roomTask->getTaskId()),
 			new \DateTimeZone('UTC'),

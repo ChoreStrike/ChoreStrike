@@ -12,9 +12,9 @@ namespace OCA\ChoreStrike\Tests\Integration\Db;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
-use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskCreationService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
@@ -24,13 +24,13 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * and the legacy `room_tasks.assigned_to_user_id` column no longer exists.
  */
 class AssigneeRepresentationTest extends IntegrationTestCase {
-	private RoomTaskService $roomTaskService;
+	use TaskEditing;
+
 	private TaskCreationService $taskCreationService;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->roomTaskService = \OC::$server->get(RoomTaskService::class);
 		$this->taskCreationService = \OC::$server->get(TaskCreationService::class);
 		$this->taskAssigneeMapper = \OC::$server->get(TaskAssigneeMapper::class);
 	}
@@ -55,13 +55,13 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 		$this->addHouseMember($houseId, 'asg_member', 'Member', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
-		$taskId = $this->createTask($houseId, 'Dishes');
 
 		$aggregate = $this->taskCreationService->create($houseId, $this->actor($houseId, 'asg_owner'), [
 			'roomId' => $roomId,
-			'taskId' => $taskId,
+			'task' => ['name' => 'Dishes'],
 			'assigneeUserIds' => ['asg_member'],
 		]);
+		$this->registerCreatedTask((int)$aggregate['task']->getId());
 		$roomTask = $aggregate['roomTask'];
 
 		self::assertSame(
@@ -84,20 +84,21 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 		$this->addHouseMember($houseId, 'asg_member2', 'Member 2', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
-		$taskId = $this->createTask($houseId, 'Trash');
 
 		$this->actingAs('asg_owner2');
 		$aggregate = $this->taskCreationService->create($houseId, $this->actor($houseId, 'asg_owner2'), [
 			'roomId' => $roomId,
-			'taskId' => $taskId,
+			'task' => ['name' => 'Trash'],
 		]);
+		$this->registerCreatedTask((int)$aggregate['task']->getId());
 		$roomTask = $aggregate['roomTask'];
 		$owner = $this->actor($houseId, 'asg_owner2');
 
-		$this->roomTaskService->setAssignees($roomTask->getId(), ['asg_member2'], $houseId, $owner);
+		// Assignees change through the one form's save (CS-PLAN-091 WP-B6).
+		$this->assignTo($houseId, $owner, (int)$roomTask->getId(), ['asg_member2']);
 		self::assertSame(['asg_member2'], $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId()));
 
-		$this->roomTaskService->setAssignees($roomTask->getId(), [], $houseId, $owner);
+		$this->assignTo($houseId, $owner, (int)$roomTask->getId(), []);
 		self::assertSame([], $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId()), 'unassign must clear the join rows');
 	}
 

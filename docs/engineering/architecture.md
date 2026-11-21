@@ -45,7 +45,8 @@ ChoreStrike/
 │   │                           #   Minigame, User, Game, Page, Test, Pause,
 │   │                           #   Preference, ArcadeSettings and TaskCategory —
 │   │                           #   the last two owner-only, CS-PLAN-090 —, Completion,
-│   │                           #   RoomTaskCycle (postpone, history, sleep) and
+│   │                           #   RoomTaskCycle (postpone, history, sleep), RoomTaskEdit
+│   │                           #   (the one form's save, CS-PLAN-091 WP-B6) and
 │   │                           #   CoinMultiplier (owner-only, CS-PLAN-091 WP-B5)) +
 │   │                           #   ControllerLoggingTrait +
 │   │                           #   ControllerErrorFormatter (sanitized error messages)
@@ -101,7 +102,7 @@ ChoreStrike/
 │   ├── App.vue                 # Root component
 │   ├── router.js               # Route definitions (lazy-loaded)
 │   ├── components/
-│   │   ├── Today/              # TodayStatusLine, TodayTaskRow (CS-PLAN-090 WP-B),
+│   │   ├── Today/              # TodayStatusLine (CS-PLAN-090 WP-B),
 │   │   │                       #   TodayBonusSection and TodayBonusRow (the bonus tasks),
 │   │   │                       #   BonusDaysBanner (a running bonus period; CS-PLAN-091)
 │   │   ├── Absence/            # AbsenceRangeForm, AbsenceOwnerPanel (CS-PLAN-090 WP-A)
@@ -115,12 +116,18 @@ ChoreStrike/
 │   │   │                       #   CorrectionReview (CS-PLAN-090 WP-E)
 │   │   ├── Setup/              # SetupWizard, SetupWizardEntry (the way in, on Today
 │   │   │                       #   and under Floors & Rooms in Settings)
-│   │   ├── Tasks/              # TaskList, TaskListItem, TaskListDetails, TaskListBulkBar,
-│   │   │                       #   TaskEditForm, AssigneeChips, TaskChecklist, RoomPicker,
-│   │   │                       #   TaskTemplatePicker, TaskEnergyField, TaskMeta, OverdueClaimDialog,
-│   │   │                       #   TaskGroupList, TaskPager, TaskCreateDialog, CalendarControls,
+│   │   ├── Tasks/              # The one row: TaskRow (Today and the task list) with
+│   │   │                       #   TaskRowDetails (opened in place); the one form: TaskForm
+│   │   │                       #   with TaskRhythmField, TaskWindowNote, SubTaskEditor,
+│   │   │                       #   TaskFormMore, TaskTemplateFill, TaskScopeDialog
+│   │   │                       #   (CS-PLAN-091 WP-B6); TaskList, AssigneeChips,
+│   │   │                       #   TaskChecklist (ticks only), RoomPicker (the form's room
+│   │   │                       #   and the list's floor/room quick filter), TaskFilterBar
+│   │   │                       #   with TaskPeopleFilter, TaskEnergyField,
+│   │   │                       #   TaskMeta, TaskGroupList, TaskPager, CalendarControls,
 │   │   │                       #   CompletionPicker (a short tap on Done), PostponeButton,
-│   │   │                       #   TaskHistory (CS-PLAN-091 WP-B2/WP-B3), SleepControl (WP-B4)
+│   │   │                       #   TaskHistory (CS-PLAN-091 WP-B2/WP-B3), SleepControl (waking
+│   │   │                       #   a sleeping task from its row, WP-B4)
 │   │   ├── Minigames/          # ArcadeCatalog, GameShell (+Header, Overlay, Dpad), GameLeaderboard,
 │   │   │                       #   ArcadeGateSetting (owner switch), ArcadeThresholdSettings and
 │   │   │                       #   ArcadeResetList (owner thresholds and reset), gameRegistry,
@@ -142,12 +149,14 @@ ChoreStrike/
 │   │                           #   useStoreReset (central identity reset, WP6/WP8),
 │   │                           #   useTaskCompletion (the one completion call of every task
 │   │                           #   surface: a hold, or the split of a row's picker),
+│   │                           #   useTaskFormState (the state of the one form),
 │   │                           #   useColorScheme (the viewer's colour scheme on <body>)
 │   ├── constants/              # Shared constants (taskVisibility, titles, scheduling)
 │   ├── services/               # Shared API client (api.js — single URL prefix,
 │   │                           #   envelope unwrap, ApiError normalization)
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, taskCycle, tasks,
-│   │                           #   game, user, scheduling, checklist, minigame, titles,
+│   │                           #   taskForm (the form's two saves), game, user, scheduling,
+│   │                           #   checklist, minigame, titles,
 │   │                           #   ranking, setup, preferences, pauses, rewards)
 │   │                           #   + userAutoInit bootstrap plugin
 │   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css,
@@ -164,7 +173,8 @@ ChoreStrike/
 │                               #   taskFilters (the groups and filters of the task list),
 │                               #   taskCategories (category names and options),
 │                               #   colorSchemes (the scheme list and its initial state),
-│                               #   commandId (the command UUID of every receipt)
+│                               #   commandId (the command UUID of every receipt),
+│                               #   taskFormModel (the one form's rhythm and fields)
 ├── l10n/                       # Translations
 │   ├── templates/
 │   │   └── chorestrike.pot     # Translation template
@@ -325,7 +335,7 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `is_voluntary` (boolean) — a bonus task: no window, no cycle (ADR-021 §8)
 - Index `idx_tasks_visibility` on `(visibility_type, owner_user_id)`
 
-> **Visibility matrix:** `public` = visible to all house members; `private` = visible only to `owner_user_id`; `admin-only` = visible only to house owners. Enforced in `TaskMapper::findVisibleByHouse()`, `TaskController::index()`/`show()`/`complete()`, and on mutation in `TaskService::deleteTask()`/`updateTask()` (service-side matrix, CS-PLAN-031 CR-SVC-17) with controller gates in `TaskController::delete()`/`update()` (anti-enumeration 404s).
+> **Visibility matrix:** `public` = visible to all house members; `private` = visible only to `owner_user_id`; `admin-only` = visible only to house owners. Enforced on reads in `TaskMapper::findVisibleByHouse()` and per room task in `RoomTaskAccess` (ADR-010), and on mutation in `TaskService::prepareUpdate()` under `RoomTaskEditService` (the one form's save, CS-PLAN-091 WP-B6) and in `TaskCreationService`; a denial of visibility is the anti-enumeration 404.
 
 #### `chorestrike_room_tasks` (task instances scheduled into a room)
 - `id` (bigint, PK)
@@ -435,13 +445,10 @@ CREATE INDEX idx_tasks_visibility ON chorestrike_tasks(visibility_type, owner_us
 ### Bulk Endpoints
 
 Batch operations are single-call endpoints backed by set-based service
-writes, not frontend loops. `POST /api/v1/room-tasks/bulk-assign`
-(CS-PLAN-042 / CR-SVC-61) takes `{ roomTaskIds: number[], userId: string }`,
-pre-validates all ids against the caller's house in one query
-(`findByIdsScopedToHouse`) and skips foreign/missing ids per item while a
-non-member target user fails the whole request up front (400). The response
-carries only the successfully assigned room tasks; the TaskList selection
-bar derives its partial-success toast from the diff.
+writes, not frontend loops. The one bulk mutation,
+`POST /api/v1/room-tasks/bulk-assign` (CS-PLAN-042 / CR-SVC-61), went with
+CS-PLAN-091 WP-B6 (D-091-87): assignment travels in the one form's save. The
+batched reads (the house-wide `GET /room-tasks`) follow the same rule.
 
 ### Single-Surface Rule (structure editing)
 
@@ -664,25 +671,26 @@ does not mark that result as ready.
 > `useRoomsStore`); `useRoomsStore` has no `overdueRooms` getter. Canonical
 > definition: [`src/store/rooms.js`](../../src/store/rooms.js).
 
-#### `useTasksStore` (catalog tasks only)
+#### `useTasksStore` (the definitions of the visible tasks)
 ```javascript
 {
   state: {
-    tasks: [],
-    templates: []
+    tasks: []
   },
   actions: {
     fetchTasks(),
-    createTask(),
-    updateTask(),
-    deleteTask()
+    upsertTask()   // the definition a create, a save or a completion answered
   },
   getters: {
     activeTasks(),
-    tasksByCategory()
+    getTaskById()
   }
 }
 ```
+
+Definitions are written only through the one form: `useTaskFormStore`
+(`create()`, `save()`) sends the two aggregates and hands their answers to the
+room-task, definition and checklist stores.
 
 #### `useGameStore`
 ```javascript
@@ -883,7 +891,7 @@ job runs.
      (or `PARAM_STR_ARRAY` for string ids).
    - **Missing ids are tolerated**: absent map key = skip. Consumers must not
      assume every requested id resolves (skip-on-missing semantics, e.g.
-     `RoomService::getRoomWithTasks`, `bulkAssignTasks`' foreign-id skip).
+     `RoomService::getRoomWithTasks`).
    - Callers look up with `$map[$id] ?? $default` — never re-fetch per row.
 
 2. **Grouped aggregate (single GROUP BY → PHP map)** — replace per-user
@@ -952,8 +960,7 @@ UPDATE/DELETE per row:
 **What stays per-row on purpose:** medal existence checks + inserts (unique-
 constraint race handling in `MedalService::awardMedalIfNew`), per-award
 notifications, per-item error isolation (e.g. the freeze write in
-`StreakFreezeService::process`, the per-item `assignToUser` writes in
-`bulkAssignTasks` — the API promises item-granular skip behavior), and
+`StreakFreezeService::process`), and
 genuine single-entity lookups.
 
 ### Service Idiom: Config Value Registry (CS-PLAN-049)
@@ -1061,20 +1068,24 @@ retired, their tables stay as history.
   D-091-43), `closeUnderLock` / `reopenUnderLock` (the `done` row of a
   completion and its removal by an undo, which records a fixed cycle that does
   not become current again as missed), `startUnderLock` (the first date),
-  `ruleChangedUnderLock` (the anchor policy of a rule edit, D-091-44: a fixed
-  rule whose days change is anchored on the centre of the replaced rule's
-  current cycle, so parity and the monthly day stay) and `changedUnderLock`,
-  which every window-changing command ends with: it bumps
-  `cycle_version`, ends a task that has no cycle left and projects `next_due`
-  (last day of the window) and `ideal_due_date` (planned day).
+  and `ruleChangedUnderLock` (the anchor policy of a rule edit, D-091-44: a
+  fixed rule whose days change is anchored on the centre of the replaced
+  rule's current cycle, so parity and the monthly day stay). Three
+  collaborators carry the rest (RF-091-10): **`CycleProjection`** reads the
+  current cycle (`currentFor`) and owns `changedUnderLock`, which every
+  window-changing command ends with — it bumps `cycle_version`, ends a task
+  that has no cycle left and projects `next_due` (last day of the window) and
+  `ideal_due_date` (planned day) — plus the house re-projection;
+  **`CycleMisses`** records the fixed cycles that stopped being current;
+  **`CycleSleep`** puts a task to sleep and wakes it.
   `postponeUnderLock` moves the current window by half the flex days, at most
   three times, and stores the postponement for that cycle key only, so the
   next cycle starts fresh (ADR-021 decision 6); the row's `canPostpone` and the
   command decide through `WindowService::postponeRefusal()`, and a command's
   receipt is compared with the current cycle in `assertTarget()`.
-  `sleepUnderLock` / `wakeUnderLock` put a task to sleep (the fixed cycles it
-  had already missed are recorded first, a repeated call only moves the wake
-  date) and wake it on a fresh anchor (`WindowService::wakeAnchor()`: the wake
+  `CycleSleep::sleepUnderLock` / `wakeUnderLock` put a task to sleep (the
+  fixed cycles it had already missed are recorded first, a repeated call only
+  moves the wake date) and wake it on a fresh anchor (`WindowService::wakeAnchor()`: the wake
   day, or a fixed rule's next rule day, so parity and the month day stay;
   ADR-021 decision 7). `redatedUnderLock` is the cycle seam of a date
   correction: the completion side has already saved the entry and moved the
@@ -1092,20 +1103,38 @@ retired, their tables stay as history.
   overdue cycle until it is done. A sleeping task whose `wake_on` has come
   wakes on that date, also when the job runs later. `CycleService` stays the
   only writer of cycle rows.
+- **`RoomTaskCommand`** — the skeleton of a receipt-protected command on one
+  room task (RF-091-10): the house lock, the receipt, the guard that decides
+  with the member as they are now (on execution and on replay), the shared
+  start of every aggregate (`lockTarget`: lock the room task, refuse a deleted
+  or inactive one, compare the version) and the answer read fresh with its
+  `cycle` block. Postpone, sleep and the form's save run through it; the save
+  is an audited command.
 - **`PostponeService`** — the postpone command: the receipt
-  (`room_task.postpone`), the house-first lock order and the access gate (every
-  member who may see the task, children included). The recent activity reads
-  postponements from these receipts.
-- **`SleepService`** — the sleep command (`room_task.sleep`): the receipt, the
-  lock order and the access gate (adults and the owner who may see the task,
-  checked before the lock and again on execution and replay); `CycleService`
-  owns the rule.
+  (`room_task.postpone`) and the access gate (every member who may see the
+  task, children included). The recent activity reads postponements from
+  these receipts.
+- **`SleepService`** — the sleep command (`room_task.sleep`): adults and the
+  owner who may see the task; `CycleSleep` owns the rule, and the form's save
+  reuses `applyUnderLock`.
+- **`RoomTaskEditService`** — the one form's save (`room_task.edit`,
+  CS-PLAN-091 WP-B6): under one lock the definition (in place, or split off as
+  a copy for *this room*, FEAT-UX-043), its sub-tasks (`SubTaskWriter`), the
+  move, the assignees, then exactly one window change — the first date, the
+  rule, the assignees or a plain update — and the sleep switch (a wake comes
+  before the window change, going to sleep after it). Before any write it
+  refuses a save that would take the member's own sight of the task, and a
+  member who may not see every room task of a shared definition splits
+  silently (ADR-010, D-091-108, D-091-110). The creation side is
+  `TaskCreationService`; both read the body through `TaskFormPayload`,
+  `SubTaskList` and `SleepSwitch`, and store definition values through the one
+  normalizer of `TaskService`.
 - **`RoomTaskAccess`** — the one resolution of a room task for a member who
   acts on it or reads its history: scoped to the house, not deleted, visible
   under the ADR-010 matrix, otherwise the same `404`; and the acting
   membership read fresh.
 - **`CycleReceipt`** — the boundary validation of the receipt a cycle command
-  sends (complete, postpone, sleep): the closed body, the command id, the cycle
+  sends (complete, postpone, sleep, the form's save): the closed body, the command id, the cycle
   key the command requires or allows, and `expectedVersion` as a whole number
   or its canonical decimal string (D-091-75).
 - **`TaskResponsibility`** — who a room task counts for: its assignees who
@@ -1415,6 +1444,25 @@ and the split left for collaborators), `CycleService` 416 → 511 (sleeping,
 waking and the bonus seam), the stores grew with the bonus rows, the bonus days
 and the coin factor; `CompletionController`, `WindowService` and
 `ActivityService` crossed the guideline and got rows.
+Re-measured in full on 2026-11-19 after CS-PLAN-091 WP-B6 with RF-091-09 and
+RF-091-10: the one form and the one row replaced `TaskEditForm.vue`,
+`TaskListItem.vue`, `TodayTaskRow.vue`, the details view and the bulk bar;
+`CycleService` 511 → 316 (projection, misses and sleep left for
+collaborators), `RoomTaskController` 915 → 639 and `RoomTaskService` 716 → 451
+(the assignee, bulk and template routes went), `TaskList.vue`,
+`TaskChecklist.vue`, `TaskCreationService`, `ChecklistService`,
+`ChecklistController`, `CompletionController` and `ActivityService` fell below
+the guideline; `TaskForm.vue` and `TaskMapper` crossed it and got rows.
+The operator's GUI review of WP-B6 (2026-11-21) re-measured what it touched:
+`TaskFilterBar.vue` 347 → 321 (person, floor and room left its panel for the
+people filter and the room picker). The interim Full review of the same day
+re-measured the files its fixes touched: `TaskService` 525 → 556 (the one value
+normalizer of create and edit, the length limits, the owner rule of a private
+task), `RoomTaskMapper` 508 → 544 (the set lock of a shared definition),
+`RoomTaskReadService` 567 → 577 (the one cycle-block read), `HouseSetupService`
+499 → 513 with its seeding extracted from `applySetup`, `RoomTaskService`
+451 → 424 and `RoomTaskController` 639 → 630 (dead code), `TaskForm.vue`
+310 → 315.
 
 Dispositions: **accepted** (cohesive unit or static/data surface — splitting
 would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
@@ -1424,27 +1472,22 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 
 | File | Lines | Cohesive responsibility | Disposition |
 |------|-------|--------------------------|-------------|
-| `Controller/RoomTaskController.php` | 915 | Room-task route surface (selector modes, lifecycle, stats, range, the bonus rows, the cycle receipt of the completion); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
+| `Controller/RoomTaskController.php` | 630 | Room-task route surface (selector modes, creation, lifecycle, stats, range, the bonus rows, the cycle receipt of the completion); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
 | `Controller/SchedulingController.php` | 301 | Scheduling route surface (own preferences, member availability); thin methods | accepted (endpoint breadth, no logic depth) |
 | `Controller/UserController.php` | 367 | Member/profile route surface; thin methods (persistence delegated to HouseService, RF-058-04) | accepted (endpoint breadth) |
 | `Controller/HouseController.php` | 425 | House route surface (read, settings, the catalog and arcade gates, stats, activity, health, reset); every stored house payload adds the app-config arcade flag, the task categories and the bonus period; thin methods | accepted (endpoint breadth) |
-| `Controller/CompletionController.php` | 308 | Completion route surface (read, undo, attribution, date correction) with the closed-body validation of the corrections; thin methods | accepted (endpoint breadth); its receipt validation joins `CycleReceipt` with RF-091-10 |
 | `Controller/RoomController.php` | 338 | Room route surface incl. the WP3 journal/manual-delta/reset seam; thin methods | accepted (endpoint breadth) |
-| `Controller/ChecklistController.php` | 301 | Checklist route surface incl. the per-cycle progress/toggle endpoints; thin methods | accepted (endpoint breadth) |
-| `Service/CompletionService.php` | 676 | The three WP3 ledger aggregates — completion, undo, attribution — with the WP5 transactional takeover queue and the frozen coin multipliers; the date correction, the correction skeleton, the locks, the evidence, the recognition tail, the read model and the split are collaborators (RF-091-07) | **named** (CS-PLAN-067 §3.5 / ADR-014: one visible ordered aggregate per command; further splitting would hide the lock/order contract) |
-| `Service/RoomTaskService.php` | 716 | Room-task mutations, bulk-assign partial-success semantics, room stats, calendar-range projection of the cycles | **remainder** (CR-SVC-15: range/stats projection extraction candidate) |
-| `Service/RoomTaskReadService.php` | 556 | Batched read/enrichment cluster (house/room/scope/daily/due/bonus + timezone); WP8 product; batched cycle blocks and the status derived from them | accepted (read-surface breadth, one owner per D1) |
-| `Service/TaskCreationService.php` | 425 | WP4 atomic creation aggregate (custom/mount/template, one transaction; the first date starts the first window, ADR-021) | accepted (transaction aggregate) |
-| `Service/HouseSetupService.php` | 500 | WP3 first-run setup transaction aggregate (first-run gate, structure, invites; first windows of the seeded tasks, ADR-021) | accepted (transaction aggregate) |
-| `Service/TaskService.php` | 585 | Task-definition CRUD + validation set (a rule, flex or energy edit moves the current cycle of every mounted room task) | **remainder** (CR-SVC-15: `createTask` 24 positional params → param object) |
+| `Service/CompletionService.php` | 647 | The three WP3 ledger aggregates — completion, undo, attribution — with the WP5 transactional takeover queue and the frozen coin multipliers; the date correction, the correction skeleton, the locks, the evidence, the recognition tail, the read model and the split are collaborators (RF-091-07) | **named** (CS-PLAN-067 §3.5 / ADR-014: one visible ordered aggregate per command; further splitting would hide the lock/order contract) |
+| `Service/RoomTaskService.php` | 424 | Room-task ownership checks, deletion, room stats, calendar-range projection of the cycles | **remainder** (CR-SVC-15: range/stats projection extraction candidate) |
+| `Service/RoomTaskReadService.php` | 577 | Batched read/enrichment cluster (house/room/scope/daily/due/bonus + timezone); WP8 product; batched cycle blocks and the status derived from them | accepted (read-surface breadth, one owner per D1) |
+| `Service/HouseSetupService.php` | 513 | WP3 first-run setup transaction aggregate (first-run gate, structure, a definition per room and template, invites; first windows of the seeded tasks, ADR-021) | accepted (transaction aggregate) |
+| `Service/TaskService.php` | 556 | The definition's validation set and its one update path: prepared, applied under lock, the changed fields, and the revision of every mounted room task (a rule, flex or energy edit moves its current cycle) | accepted (one validation authority; the former `createTask` candidate of CR-SVC-15 left with CS-PLAN-063) |
 | `Service/HouseService.php` | 679 | House aggregate: membership, stats, timezone revision passes, ranking flag and consent-only reset, membership-keyed preference/digest cleanup | accepted (cohesive aggregate) |
-| `Service/ChecklistService.php` | 413 | Checklist domain: definition items, per-cycle ticks and toggles, the sub-tasks a completion marks done (ADR-021 §3, §4) | accepted (cohesive checklist domain) |
 | `Service/SchedulingService.php` | 320 | Scheduling preferences/availability domain surface | accepted (cohesive domain) |
 | `Service/TemplateService.php` | 314 | Task catalog templates + level presets | accepted (catalog surface) |
 | `Service/RewardConfigService.php` | — | Static reward configuration registry — the WP4 retirement of the weekly-goal/threshold override keys dropped it BELOW the guideline (164 non-blank lines); entry retired | removed from the inventory (2026-09-27) |
-| `Service/CycleService.php` | 511 | Writers of the derived windows: completion target check with the misses the job had not reached, closing and reopening a cycle, postponement, sleeping and waking, the bonus seam, the cycle seam of a date correction, first date, the anchor policy of rule edits and the `next_due` projection after every window change (ADR-021) | accepted (the one writer of cycle rows; every method runs under the caller's lock order); the sleep and wake rules are the extraction candidate (RF-091-10) |
-| `Service/WindowService.php` | 335 | The single recurrence authority: the current cycle per mode, flex and postponement, the missed fixed cycles, the calendar range, the row's `cycle` block, the postponability rule and the wake anchor (ADR-021) | accepted (pure derivation; one read path for every consumer) |
-| `Service/ActivityService.php` | 302 | The batched household feed and the history of one task: frozen facts, selected allocation, who recorded it, the viewer-scoped correction rights | accepted (one read model); its allocation projection joins `CompletionReadModel` with RF-091-10 |
+| `Service/CycleService.php` | 316 | Writers of the derived windows: completion target check, closing and reopening a cycle, postponement, the bonus seam, the cycle seam of a date correction, first date and the anchor policy of rule edits (ADR-021); projection, misses and sleep are `CycleProjection`, `CycleMisses` and `CycleSleep` (RF-091-10) | accepted (the writer of cycle rows; every method runs under the caller's lock order) |
+| `Service/WindowService.php` | 336 | The single recurrence authority: the current cycle per mode, flex and postponement, the missed fixed cycles, the calendar range, the row's `cycle` block, the postponability rule and the wake anchor (ADR-021) | accepted (pure derivation; one read path for every consumer) |
 | `Service/RecognitionFactsService.php` | 307 | The one reader of what the recognitions count: stored occurrences before the cutover, closed and open cycles after it, absences neutral on read (ADR-021 §5, §12) | accepted (cohesive read model; splitting the two sources would hide the no-double-count rule) |
 | `Service/RecurrenceCalculator.php` | 317 | Pure calendar math: interval steps, fixed weekdays and month days with clamping, day-key helpers; the enumeration of stored revisions goes with CS-PLAN-091 WP-B7 | accepted (pure functions, data-driven) |
 | `Service/MedalService.php` | 335 | Retained rhythm/weekly recognition, correction reconciliation and in-app weekly receipt; WP5 removes external award bells | accepted (cohesive recognition domain, one award writer) |
@@ -1455,10 +1498,11 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `Service/RewardRequestService.php` | 974 | WP7 C4 request lifecycle: one ordered lock/authorization/receipt/effect/queue sequence per command, the role/departure/erasure hooks and the viewer-safe serialization |
 | `Service/RewardService.php` | 409 | WP7 catalog owner: item CRUD with strict terms, the household-gate command and the scope matrix |
 | `Service/PauseService.php` | 758 | Revisioned pause lifecycle with the ADR-020 deletion, viewer projection, departure and WP5 transactional decision queue writes | accepted (one ordered lock/revision/queue sequence per command) |
-| `Db/RoomTask.php` | 410 | Central entity: domain accessors, the stored inputs of the derived window, JSON serialization (legacy recurrence engine removed by CS-PLAN-072 WP1; its ideal-date helpers go with CS-PLAN-091 WP-B7) | accepted (entity surface; data-driven) |
-| `Db/RoomTaskMapper.php` | 508 | SQL primitives for the central instance table (house/room/scope/daily/locks) | accepted (SQL primitive collection) |
+| `Db/RoomTask.php` | 413 | Central entity: domain accessors, the stored inputs of the derived window, JSON serialization (legacy recurrence engine removed by CS-PLAN-072 WP1; its ideal-date helpers go with CS-PLAN-091 WP-B7) | accepted (entity surface; data-driven) |
+| `Db/RoomTaskMapper.php` | 544 | SQL primitives for the central instance table (house/room/scope/daily/locks) | accepted (SQL primitive collection) |
 | `Db/CompletedTaskMapper.php` | 716 | Ledger SQL: stats aggregates, occurrence lookups of old rows, cycle anchors, the neighbours and the history of one room task, weekly windows, completion revisions, the erasure of a wallet from the frozen coin factors | accepted (SQL primitive collection) |
 | `Db/OccurrenceMapper.php` | 333 | SQL primitives for the stored occurrences (lookups by key, task, revision and house; half-open day bounds, RF-090-57); its writer primitives go with CS-PLAN-091 WP-B7 | accepted (SQL primitive collection) |
+| `Db/TaskMapper.php` | 306 | SQL primitives for the definitions: visibility-scoped reads, the named-argument insert and the copy a split takes (CS-PLAN-091 WP-B6) | accepted (SQL primitive collection) |
 | `Service/FloorService.php` | 330 | Floor domain: structure mutations and their ordering | accepted (cohesive domain) |
 
 #### Frontend (`src/`)
@@ -1469,12 +1513,8 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Insights/RankingPanel.vue` | 540 | The consent-filtered ranking with its medals as a section of Insights (the Leaderboard page it was, CS-PLAN-090 WP-E), with a loading and an error state of its own | accepted (presentational; CSS dominant) |
 | `components/Setup/SetupWizard.vue` | 872 | WP3 setup journey step machine | accepted (cohesive step machine; step extraction only with a reviewed UI contract) |
 | `views/TodayView.vue` | 567 | The landing page (CS-PLAN-090 WP-B): composes status line, the bonus-days banner, overdue block, due and possible rows and the bonus section (CS-PLAN-091 WP-B4/WP-B5; its length is the GUI review's of WP-B6, D-091-74); the rows, the status line, the section rules (`utils/todaySections.js`) and the completion flow (`useTaskCompletion`) are extracted units (was 1,084) | accepted (composition root; template and CSS dominant) |
-| `components/Tasks/TaskEditForm.vue` | 978 | Unified create/edit form contract (UX-001): field validation surface, with the interim bonus switch (D-091-74) | accepted (one form contract; field breadth); CS-PLAN-091 WP-B6 rebuilds it |
-| `components/Tasks/TaskChecklist.vue` | 538 | Checklist surface: lazy discovery, toggles, sub-tasks | accepted (cohesive checklist domain) |
-| `components/Tasks/TaskListItem.vue` | 441 | WP8 row unit: status/content/controls/a11y incl. scoped CSS; a short tap on Done opens its completion picker | **remainder** (CS-PLAN-091 WP-B6 replaces it with the one inline row) |
-| `components/Today/TodayTaskRow.vue` | 312 | One row of Today with its execute-only checklist and the completion picker of a short tap | **remainder** (CS-PLAN-091 WP-B6 replaces it with the one inline row) |
-| `components/Insights/ActivityFeed.vue` | 393 | The household's completions by day with the events between them (postponements, date changes, deletions, absences) and the correction actions the server grants | accepted (one list surface; template and CSS dominant) |
-| `components/Tasks/TaskList.vue` | 427 | WP8 orchestrator: sorting, bulk selection, expansion (was ~1,160) | accepted (orchestrator, extracted units carry the rest) |
+| `components/Tasks/TaskForm.vue` | 315 | The one form for a new and an existing task (CS-PLAN-091 WP-B6): the fields' composition, the save with the scope question, the delete with its confirmation; the state is `useTaskFormState`, the model `utils/taskFormModel.js`, the field groups are components | accepted (one form contract; template dominant) |
+| `components/Insights/ActivityFeed.vue` | 383 | The household's completions by day with the events between them (postponements, date changes, deletions, absences) and the correction actions the server grants | accepted (one list surface; template and CSS dominant) |
 | `components/Common/ParticipationDialog.vue` | 325 | The actual-work split form: the picker of a short tap (the household, who a hold would credit ticked, equal shares, the people a bonus task already paid today disabled) and the attribution-correction mode, validation surface | accepted (one form contract across both flows) |
 | `components/Scheduling/AvailabilityEditModal.vue` | 474 | Owner availability grid editor | accepted (grid editor surface) |
 | `components/Scheduling/ScheduleCalendar.vue` | 399 | Week grid + capacity/overcapacity display | accepted (presentational grid) |
@@ -1482,31 +1522,30 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Profile/TitlePicker.vue` | — | Title pack/tier picker — retired with the CS-PLAN-070 WP4 single-series cutover | removed from the inventory (2026-09-27; archived under the gitignored `archive/`) |
 | `components/Minigames/SnakeGame.vue`, `SnakeLeaderboard.vue` | — | Single-game Snake and its board — replaced by the shared game shell (CS-PLAN-086 WP-A) | removed from the inventory (2026-10-17; archived under the gitignored `archive/`) |
 | `components/Minigames/GameShell.vue` | 579 | Shared frame of every arcade game: loop, shell-bound input (directions, taps, a paddle's held keys and pointer), responsive canvas or a game's DOM board, overlays, live region with a game's own end copy, result save, the event effects (sounds through `useGameEffects`, the board's `effectsLayer`, the overlay's Sound/Effects switches; WP-G); the score header lives in `GameShellHeader.vue` | accepted (one frame for all games; ~45 lines scoped CSS) |
-| `views/TaskManager.vue` | 569 | The one task list (CS-PLAN-090 WP-C): composes filter bar, stats bar, grouping switch, the list by due date or the grouped list, and the dialogs; the grouping and filter rules (`utils/taskGrouping.js`, `utils/taskFilters.js`), the grouped list, the pager and the create dialog are extracted units | accepted (composition root) |
+| `views/TaskManager.vue` | 494 | The one task list (CS-PLAN-090 WP-C): composes filter bar, stats bar, grouping switch, the list by due date or the grouped list, and the one form for a new task; the grouping and filter rules (`utils/taskGrouping.js`, `utils/taskFilters.js`), the grouped list and the pager are extracted units | accepted (composition root) |
 | `views/CalendarView.vue` | — | Calendar composition; its header controls moved to `Tasks/CalendarControls.vue` (CS-PLAN-090 WP-D), which took it BELOW the guideline (244 non-blank lines); entry retired | removed from the inventory (2026-11-15) |
 | `views/AbsenceView.vue` | 352 | The Absence page (CS-PLAN-090 WP-A): every absence with its delete action; the range form and the owner panel are `Absence/AbsenceRangeForm.vue` and `Absence/AbsenceOwnerPanel.vue` | accepted (composition root; template and CSS dominant) |
 | `views/Rewards.vue` | 510 | The reward catalog (CS-PLAN-070 WP8): both gates, the list and the request dialog with its frozen terms; the wallet banner is `Rewards/RewardWalletBanner.vue` (CS-PLAN-090) | accepted (one page contract; template and CSS dominant) |
 | `components/Rewards/RewardCatalogEditor.vue` | 624 | Owner catalog editor in Settings (CS-PLAN-070 WP8): strict terms, archive, 409 draft retention | accepted (one form contract) |
 | `components/Rewards/RewardRequestList.vue` | 499 | The own requests and, for owners, the decision queue (CS-PLAN-070 WP8) | accepted (one list surface; template and CSS dominant) |
 | `components/Rewards/RewardRequestDetails.vue` | 691 | One request with its lifecycle actions and corrections (CS-PLAN-070 WP8) | accepted (one detail surface; template and CSS dominant) |
-| `components/Tasks/TaskFilterBar.vue` | 347 | The filters of the task list: scope buttons and the collapsible panel (CS-PLAN-084 WP-D) | accepted (one form surface) |
+| `components/Tasks/TaskFilterBar.vue` | 321 | The filters of the task list: scope buttons with the people filter, the floor/room quick filter and the collapsible panel of detail filters (CS-PLAN-084 WP-D, CS-PLAN-091 WP-B6) | accepted (one form surface) |
 | `components/Settings/NotificationPreferences.vue` | 323 | The personal notification and feedback settings (digests and their time, quiet hours, sound, animation, catalog and arcade visibility) | accepted (one form contract) |
 | `services/api.js` | 312 | The shared API client: one URL prefix, envelope unwrap, ApiError normalization and the named endpoint helpers | accepted (one client surface) |
 | `store/rewards.js` | 572 | Catalog and request state with the WP8 command receipts | accepted (cohesive store) |
 | `store/user.js` | 359 | The current user, the house members with their coin factor and the own wallet | accepted (cohesive store) |
 | `views/InsightsView.vue` | 496 | Insights composition root (CS-PLAN-090 WP-E: key figures, fairness bars, the ranking section and the activity list; the correction review is `Insights/CorrectionReview.vue`) + the WP3 §3.6 history-correction session (feed action, reused dialog, 409 draft retention) | accepted (composition root) |
-| `store/roomTasks.js` | 1228 | Canonical instance store: projections (the bonus rows included), generations, reconciliation (CS-PLAN-066 D3 one-owner rule); WP1 receipt contract + pending-command cache; WP3 completion correction actions | accepted (D3: splitting would duplicate cache/reconciliation ownership) |
+| `store/roomTasks.js` | 1107 | Canonical instance store: projections (the bonus rows included), generations, reconciliation (CS-PLAN-066 D3 one-owner rule); WP1 receipt contract + pending-command cache; WP3 completion correction actions | accepted (D3: splitting would duplicate cache/reconciliation ownership) |
 | `store/scheduling.js` | 378 | Scheduling state: preferences, capacity/overcapacity getters | accepted (cohesive store) |
-| `store/house.js` | 448 | House state: the house payload with its gates and bonus period, insights, the activity feed, the reset and bonus-days receipts | accepted (cohesive store) |
+| `store/house.js` | 449 | House state: the house payload with its gates and bonus period, insights, the activity feed, the reset and bonus-days receipts | accepted (cohesive store) |
 | `store/rooms.js` | 340 | Floor/room state (WP3 journal receipt flows) | accepted (cohesive store) |
 | `utils/icons.js` | 580 | Static icon registry | accepted (static data table — not split to meet a physical target) |
 
 Maintenance rule: a file newly crossing the guideline must either be
 extracted along a cohesive seam in the change that grows it, or receive an
-individual entry here in the same change. The **remainder** rows of
-`RoomTaskService` and `TaskService` are owned by CR-SVC-15, those of
-`TaskListItem.vue` and `TodayTaskRow.vue` by CS-PLAN-091 WP-B6; no other open
-decomposition debt is implied by this inventory.
+individual entry here in the same change. The **remainder** row of
+`RoomTaskService` is owned by CR-SVC-15; no other open decomposition debt is
+implied by this inventory.
 
 ### Frontend
 - Lazy loading routes

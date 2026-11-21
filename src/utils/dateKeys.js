@@ -117,6 +117,22 @@ export function formatDayKey(dateKey) {
 }
 
 /**
+ * Short display label of a day of a history: the year joins it when the
+ * day lies in another year than today (RF-091-09).
+ *
+ * @param {string} dateKey House-local `YYYY-MM-DD` key.
+ * @param {string} todayKey Today's house-local key.
+ * @return {string} The label, or `'—'` without a key.
+ */
+export function formatPastDayKey(dateKey, todayKey) {
+	if (!dateKey || dateKey.slice(0, 4) === (todayKey ?? '').slice(0, 4)) {
+		return formatDayKey(dateKey)
+	}
+	const [year, month, day] = dateKey.split('-').map(Number)
+	return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+/**
  * Full display label of a `YYYY-MM-DD` key ("Tuesday, 10 November" in the
  * browser's locale), read as a civil date like `formatDayKey`.
  *

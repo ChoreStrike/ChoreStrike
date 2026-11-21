@@ -20,7 +20,13 @@
 				@tap="picking = true"
 				@confirm="emit('complete', item)" />
 			<!-- Only once whom a hold credits is known and counted: never while the viewer is still unknown. -->
-			<span v-else-if="holders.length > 0" class="counted-check" :data-testid="`today-bonus-counted-${id}`">
+			<span v-else-if="holders.length > 0"
+				ref="countedCheck"
+				class="counted-check"
+				tabindex="-1"
+				role="img"
+				:aria-label="countedLabel"
+				:data-testid="`today-bonus-counted-${id}`">
 				<Icon name="CheckCircle" :size="22" />
 			</span>
 
@@ -42,6 +48,7 @@
 				v-if="!canHold && someoneLeft"
 				type="button"
 				class="bonus-other"
+				:aria-label="t('chorestrike', 'Someone else did “{name}”', { name: item.task.name })"
 				:data-testid="`today-bonus-other-${id}`"
 				@click="picking = true">
 				{{ t('chorestrike', 'Someone else') }}
@@ -63,7 +70,7 @@
 
 <script setup>
 import { translate as t } from '@nextcloud/l10n'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import HoldButton from '../Common/HoldButton.vue'
 import Icon from '../Common/Icon.vue'
 import CompletionPicker from '../Tasks/CompletionPicker.vue'
@@ -71,7 +78,7 @@ import TaskMeta from '../Tasks/TaskMeta.vue'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useUserStore } from '../../store/user.js'
-import { assignmentLabel, locationLabel, taskEnergy } from '../../utils/taskDisplay.js'
+import { assignmentLabel, locationLabel, memberNames, taskEnergy } from '../../utils/taskDisplay.js'
 
 /**
  * One bonus task on Today (CS-PLAN-091 WP-B4, ADR-021 decision 8): never
@@ -95,6 +102,7 @@ const roomsStore = useRoomsStore()
 const userStore = useUserStore()
 
 const picking = ref(false)
+const countedCheck = ref(null)
 
 const id = computed(() => props.item.roomTask.id)
 const credited = computed(() => props.item.creditedToday ?? [])
@@ -118,10 +126,15 @@ const countedLabel = computed(() => {
 	if (credited.value.length === 0) {
 		return ''
 	}
-	const names = credited.value.map((userId) => (userStore.houseUsers ?? [])
-		.find((member) => member.nextcloudUserId === userId)?.displayName ?? userId)
-	return t('chorestrike', 'Counted today for {names}', { names: names.join(', ') })
+	return t('chorestrike', 'Counted today for {names}', { names: memberNames(credited.value, userStore.houseUsers) })
 })
+
+// When the hold turns into the check, focus stays on the row (RF-091-09).
+watch(canHold, (now, before) => {
+	if (before && !now && document.activeElement === document.body) {
+		countedCheck.value?.focus()
+	}
+}, { flush: 'post' })
 
 function completeAs(split) {
 	picking.value = false

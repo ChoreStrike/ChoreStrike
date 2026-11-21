@@ -16,6 +16,7 @@ import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useSchedulingStore } from '../store/scheduling.js'
 import { useSetupStore } from '../store/setup.js'
 import { useTaskCycleStore } from '../store/taskCycle.js'
+import { useTaskFormStore } from '../store/taskForm.js'
 import { useTasksStore } from '../store/tasks.js'
 import { useTitlesStore } from '../store/titles.js'
 import { useUserStore } from '../store/user.js'
@@ -29,7 +30,7 @@ import { useUserStore } from '../store/user.js'
  * mechanism per store.
  *
  * Explicit enumeration (no wildcard iteration over the Pinia registry):
- * the enumeration test pins exactly the sixteen house-scoped stores, so
+ * the enumeration test pins exactly the house-scoped stores, so
  * an added store without a reset can never silently keep foreign data.
  * The composable lives outside `src/store/` so the store dependency
  * graph (CS-PLAN-067 §3.1 D3 pin) stays a DAG — no store imports it.
@@ -45,6 +46,7 @@ export function resetIdentityStores() {
 	useRoomTasksStore().reset()
 	useTasksStore().reset()
 	useTaskCycleStore().reset()
+	useTaskFormStore().reset()
 	useChecklistStore().reset()
 	useSchedulingStore().reset()
 	useSetupStore().reset()

@@ -9,7 +9,6 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskService;
-use OCP\IL10N;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -30,16 +29,12 @@ class TaskControllerIntegrationTest extends TestCase {
 		$this->taskService = $this->createMock(TaskService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
-		// Identity mock: message assertions match the wrapped source text.
-		$l10n = $this->createMock(IL10N::class);
-		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$this->controller = new TaskController(
 			$this->request,
 			$this->taskService,
 			$this->houseService,
 			$this->authService,
-			$l10n,
 			$this->createMock(AppLogger::class)
 		);
 	}
@@ -70,49 +65,8 @@ class TaskControllerIntegrationTest extends TestCase {
 
 	// CS-PLAN-063: the former POST /tasks create tests were pruned with the
 	// endpoint — creation runs through the atomic aggregate on
-	// POST /room-tasks (TaskCreationAggregateTest covers the real-DB path).
-
-	/**
-	 * Update_ValidData_ReturnsUpdatedTask
-	 */
-	public function testUpdate_ValidData_ReturnsUpdatedTask(): void {
-		$taskId = 1;
-		$updates = [
-			'name' => 'Deep vacuum',
-			'energyCost' => 3,
-		];
-		$updatedTask = $this->createMockTask($taskId, 'Deep vacuum');
-		$updatedTask->setDescription('Vacuum all floors in the room');
-		$updatedTask->setEnergyCost(3);
-		$updatedTask->setPriority(2);
-
-		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
-		$houseUser->setNextcloudUserId('owner-user');
-		$houseUser->setRole('owner');
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('assertHouseMember')->willReturn($houseUser);
-		$this->taskService->method('getVisibleTask')->willReturn($this->createMockTask($taskId, 'Vacuum'));
-		$this->taskService->method('validateTaskData')->willReturn([]);
-		// CS-PLAN-061: updateTask receives the HouseUser actor.
-		$this->taskService->method('updateTask')
-			->with($taskId, $updates, $this->identicalTo($houseUser))
-			->willReturn($updatedTask);
-
-		// BUG-API-001 (D6): the endpoint reads its closed payload from the
-		// request parameters (top-level body keys over the route internals).
-		$this->request->method('getParams')->willReturn(array_merge(
-			['id' => (string)$taskId, '_route' => 'chorestrike.tasks.update'],
-			$updates
-		));
-		$response = $this->controller->update($taskId);
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertEquals('Deep vacuum', $data['data']['name']);
-	}
+	// POST /room-tasks (TaskCreationAggregateTest covers the real-DB path);
+	// CS-PLAN-091 WP-B6 pruned PUT /tasks/{id} for the one form's save.
 
 	private function createMockHouse(): \OCA\ChoreStrike\Db\House {
 		$house = new \OCA\ChoreStrike\Db\House();

@@ -24,6 +24,13 @@
 				@click="setScope('all')">
 				{{ t('chorestrike', 'Everyone') }}
 			</button>
+			<TaskPeopleFilter :scope="modelValue.scope"
+				:people="modelValue.people"
+				:unassigned="modelValue.unassigned"
+				:members="members"
+				:actorId="actorId"
+				:disabled="membersDisabled"
+				@change="update" />
 			<button type="button"
 				class="filters-toggle"
 				aria-controls="task-filter-panel"
@@ -37,53 +44,13 @@
 		<p v-if="modelValue.scope === 'mine'" class="scope-hint">
 			{{ t('chorestrike', 'Your tasks and unassigned tasks') }}
 		</p>
+		<!-- The quick filter: a floor or one of its rooms. -->
+		<RoomPicker class="room-quick-filter"
+			filter
+			:modelValue="modelValue.room ? Number(modelValue.room) : null"
+			:floorId="modelValue.floor ? Number(modelValue.floor) : null"
+			@select="update({ floor: $event.floorId === null ? '' : String($event.floorId), room: $event.roomId === null ? '' : String($event.roomId) })" />
 		<div v-show="open" id="task-filter-panel" class="filters-section">
-			<div class="filter-group">
-				<label for="task-person-filter">{{ t('chorestrike', 'Person') }}</label>
-				<select id="task-person-filter"
-					:value="modelValue.person"
-					:disabled="membersDisabled"
-					class="filter-select"
-					data-testid="person-filter"
-					@change="update({ person: $event.target.value, scope: 'all' })">
-					<option value="">
-						{{ t('chorestrike', 'Everyone') }}
-					</option>
-					<option v-for="member in members" :key="member.nextcloudUserId" :value="member.nextcloudUserId">
-						{{ member.displayName || member.nextcloudUserId }}
-					</option>
-				</select>
-			</div>
-			<div class="filter-group">
-				<label for="task-floor-filter">{{ t('chorestrike', 'Floor') }}</label>
-				<select id="task-floor-filter"
-					:value="modelValue.floor"
-					class="filter-select"
-					data-testid="floor-filter"
-					@change="update({ floor: $event.target.value, room: '' })">
-					<option value="">
-						{{ t('chorestrike', 'All floors') }}
-					</option>
-					<option v-for="floor in floors" :key="floor.id" :value="String(floor.id)">
-						{{ floor.name }}
-					</option>
-				</select>
-			</div>
-			<div class="filter-group">
-				<label for="task-room-filter">{{ t('chorestrike', 'Room') }}</label>
-				<select id="task-room-filter"
-					:value="modelValue.room"
-					class="filter-select"
-					data-testid="room-filter"
-					@change="update({ room: $event.target.value })">
-					<option value="">
-						{{ t('chorestrike', 'All rooms') }}
-					</option>
-					<option v-for="room in floorRooms" :key="room.id" :value="String(room.id)">
-						{{ room.name }}
-					</option>
-				</select>
-			</div>
 			<div v-for="select in optionSelects" :key="select.key" class="filter-group">
 				<label :for="`task-${select.key}-filter`">{{ select.label }}</label>
 				<select :id="`task-${select.key}-filter`"
@@ -117,11 +84,13 @@
 import { translate as t } from '@nextcloud/l10n'
 import ExpandChevron from '../Common/ExpandChevron.vue'
 import Icon from '../Common/Icon.vue'
+import RoomPicker from './RoomPicker.vue'
+import TaskPeopleFilter from './TaskPeopleFilter.vue'
 import { ENERGY_LISTED_MAX, ENERGY_LONGER } from '../../constants/scheduling.js'
 import { longerTaskLabel } from '../../utils/taskDisplay.js'
 
 // Panel values that count as "no filter" for the active-filter badge.
-const PANEL_DEFAULTS = { person: '', floor: '', room: '', status: 'all', priority: 'all', difficulty: 'all', visibility: 'all', category: 'all' }
+const PANEL_DEFAULTS = { status: 'all', priority: 'all', difficulty: 'all', visibility: 'all', category: 'all' }
 
 /**
  * Whether the viewport is phone-sized; the filter panel starts collapsed
@@ -135,43 +104,41 @@ function isPhoneViewport() {
 }
 
 /**
- * TaskManager filter surface (CS-PLAN-084 WP-D, RF-080-16): always-visible
- * scope buttons plus a collapsible panel for person/floor/room/status/
- * priority/difficulty/visibility/search. Stateless apart from the panel
- * toggle — the filter object is a v-model owned by the view.
+ * TaskManager filter surface (CS-PLAN-084 WP-D, RF-080-16; quick filters
+ * from the GUI review of CS-PLAN-091 WP-B6): the scope buttons with the
+ * people they stand for, the floor or room, and a collapsible panel for
+ * the detail filters (status, priority, energy, visibility, category,
+ * search). Stateless apart from the panel toggle — the filter object is a
+ * v-model owned by the view.
  */
 export default {
 	name: 'TaskFilterBar',
 
-	components: { ExpandChevron, Icon },
+	components: { ExpandChevron, Icon, RoomPicker, TaskPeopleFilter },
 
 	props: {
-		/** Filter values: { scope, person, floor, room, status, priority, difficulty, visibility, search }. */
+		/** Filter values: { scope, people, unassigned, floor, room, status, priority, difficulty, visibility, category, search }. */
 		modelValue: {
 			type: Object,
 			required: true,
 		},
 
-		/** Household members for the person filter. */
+		/** Household members for the people filter. */
 		members: {
 			type: Array,
 			default: () => [],
 		},
 
-		/** Disables the person filter while member names are unavailable. */
+		/** Disables the people filter while member names are unavailable. */
 		membersDisabled: {
 			type: Boolean,
 			default: false,
 		},
 
-		floors: {
-			type: Array,
-			default: () => [],
-		},
-
-		rooms: {
-			type: Array,
-			default: () => [],
+		/** The viewer, whose tasks *My tasks* shows. */
+		actorId: {
+			type: String,
+			default: null,
 		},
 
 		/** The household's categories as `{ value, label }` (CS-PLAN-090 WP-I). */
@@ -188,10 +155,6 @@ export default {
 	},
 
 	computed: {
-		floorRooms() {
-			return this.rooms.filter((room) => !this.modelValue.floor || String(room.floorId) === this.modelValue.floor)
-		},
-
 		activeCount() {
 			const changed = Object.keys(PANEL_DEFAULTS).filter((key) => (this.modelValue[key] ?? PANEL_DEFAULTS[key]) !== PANEL_DEFAULTS[key]).length
 			return changed + (this.modelValue.search.trim() ? 1 : 0)
@@ -257,7 +220,7 @@ export default {
 		},
 
 		setScope(scope) {
-			this.update({ scope, person: '' })
+			this.update({ scope, people: [], unassigned: true })
 		},
 	},
 }
@@ -281,7 +244,8 @@ export default {
 	margin-block-end: 0.5rem;
 }
 
-.scope-filters button {
+/* The people filter's buttons are part of the row. */
+.scope-filters :deep(button) {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.5rem;
@@ -294,7 +258,7 @@ export default {
 	cursor: pointer;
 }
 
-.scope-filters button[aria-pressed='true'] {
+.scope-filters :deep(button[aria-pressed='true']) {
 	background: var(--color-primary-element);
 	color: var(--color-primary-element-text);
 	border-color: var(--color-primary-element);
@@ -305,15 +269,25 @@ export default {
 	margin-inline-start: auto;
 }
 
-.scope-filters button:focus-visible,
+.scope-filters :deep(button:focus-visible),
 .filter-select:focus-visible {
 	outline: 2px solid var(--color-main-text);
 	outline-offset: 2px;
 }
 
+.scope-filters :deep(button:disabled) {
+	opacity: 0.6;
+	cursor: default;
+}
+
 .scope-hint {
-	margin-block: 0 1rem;
+	margin-block: 0 0.5rem;
 	color: var(--color-text-maxcontrast);
+}
+
+.room-quick-filter {
+	max-inline-size: 24rem;
+	margin-block-end: 1rem;
 }
 
 .filter-group {

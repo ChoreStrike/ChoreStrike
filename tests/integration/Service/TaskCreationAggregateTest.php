@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Tests\Integration\Service;
 use OCA\ChoreStrike\Controller\RoomTaskController;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\ValidationException;
@@ -21,7 +22,6 @@ use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskCreationService;
-use OCA\ChoreStrike\Service\TemplateService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IRequest;
@@ -29,9 +29,11 @@ use OCP\IRequest;
 /**
  * Real-DB integration tests for the atomic creation aggregate
  * (CS-PLAN-063 §3.3, CR-WF-03): the definition insert, room-task
- * materialization, and initial assignee rows commit or roll back together,
- * both create paths share one validation authority, and the response
- * carries the unified aggregate shape.
+ * materialization, initial assignee rows, sub-tasks and an optional sleep
+ * commit or roll back together, the one form's create (CS-PLAN-091 WP-B6)
+ * shares the one validation authority, and the response carries the
+ * unified aggregate shape. Every room task gets a definition of its own: a
+ * template only fills the form, and the mount variant is gone.
  */
 class TaskCreationAggregateTest extends IntegrationTestCase {
 	private TaskCreationService $service;
@@ -122,91 +124,82 @@ class TaskCreationAggregateTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * TemplateCreate_SharesTheAggregateBody_AndResponseShape
+	 * FormCreate_WritesSubTasksBonusAndSleep: the further fields of the one
+	 * form land with the definition in the same aggregate.
 	 */
-	public function testTemplateCreate_SharesTheAggregateBody_AndResponseShape(): void {
+	public function testFormCreate_WritesSubTasksBonusAndSleep(): void {
 		$houseId = $this->createHouse('agg_owner2', 'Aggregate House 2');
-		$this->addHouseMember($houseId, 'agg_member2', 'Member', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor');
 		$roomId = $this->createRoom($houseId, $floorId, 'Bathroom');
+		$wakeOn = (new \DateTime('today', new \DateTimeZone('UTC')))->modify('+60 days')->format('Y-m-d');
 
-		$templateId = \OC::$server->get(TemplateService::class)->getCatalog()['templates'][0]['id'];
+		$aggregate = $this->service->create($houseId, $this->actor($houseId, 'agg_owner2'), [
+			'roomId' => $roomId,
+			'task' => $this->validTaskPayload(['isVoluntary' => true]),
+			'checklistItems' => [['label' => 'Mirror'], ['label' => 'Sink']],
+			'sleeping' => true,
+			'wakeOn' => $wakeOn,
+		]);
+		$this->registerCreatedTask((int)$aggregate['task']->getId());
 
-		$aggregate = $this->service->createFromTemplate(
-			$houseId,
-			$this->actor($houseId, 'agg_owner2'),
-			$roomId,
-			$templateId,
-			TemplateService::LEVEL_PUTZTEUFEL,
-			[],
-			'agg_member2',
-		);
-
-		self::assertArrayHasKey('task', $aggregate);
-		self::assertArrayHasKey('roomTask', $aggregate);
-		self::assertArrayHasKey('assignees', $aggregate);
-
+		$task = \OC::$server->get(TaskMapper::class)->find($aggregate['task']->getId());
+		self::assertTrue($task->getIsVoluntary(), 'the bonus switch reaches the definition');
+		self::assertSame(['Mirror', 'Sink'], array_map(
+			static fn ($item): string => $item->getLabel(),
+			\OC::$server->get(TaskChecklistItemMapper::class)->findByTaskId((int)$task->getId())
+		));
 		$roomTask = \OC::$server->get(RoomTaskMapper::class)->find($aggregate['roomTask']->getId());
-		self::assertSame($roomId, $roomTask->getRoomId());
-		self::assertSame(
-			['agg_member2'],
-			\OC::$server->get(TaskAssigneeMapper::class)->findUserIdsByRoomTask($roomTask->getId())
-		);
-
-		// The materialized definition round-trips with the catalog payload.
-		$taskRow = \OC::$server->get(TaskMapper::class)->find($aggregate['task']->getId());
-		self::assertSame('dynamic', $taskRow->getSchedulingMode());
-		self::assertSame('room', $taskRow->getScopeType());
+		self::assertNotNull($roomTask->getSleepingSince(), 'the new task sleeps');
+		self::assertSame($wakeOn, $roomTask->getWakeOn()?->format('Y-m-d'));
 	}
 
 	/**
-	 * MountExisting_ReusesTheDefinition_NoSecondDefinitionRow
+	 * A wake date the task cannot take rolls the whole create back.
 	 */
-	public function testMountExisting_ReusesTheDefinition_NoSecondDefinitionRow(): void {
+	public function testFormCreate_UnusableWakeDate_WritesNothing(): void {
+		$houseId = $this->createHouse('agg_owner9', 'Aggregate House 9');
+		$roomId = $this->createRoom($houseId, $this->createFloor($houseId, 'Ground Floor'), 'Hall');
+		$roomTasksBefore = $this->countRows('chorestrike_room_tasks', 'room_id', $roomId);
+
+		try {
+			$this->service->create($houseId, $this->actor($houseId, 'agg_owner9'), [
+				'roomId' => $roomId,
+				'task' => $this->validTaskPayload(['name' => 'Asleep yesterday']),
+				'checklistItems' => [['label' => 'Never written']],
+				'sleeping' => true,
+				'wakeOn' => (new \DateTime('today', new \DateTimeZone('UTC')))->format('Y-m-d'),
+			]);
+			self::fail('a wake date of today must be refused');
+		} catch (\InvalidArgumentException $e) {
+			self::assertStringContainsString('wake date', $e->getMessage());
+		}
+
+		self::assertSame($roomTasksBefore, $this->countRows('chorestrike_room_tasks', 'room_id', $roomId));
+		self::assertSame(0, $this->countRowsByJoin('chorestrike_tasks', 'name', 'Asleep yesterday'), 'no definition survives');
+		self::assertSame(0, $this->countRowsByJoin('chorestrike_chk_items', 'label', 'Never written'), 'no sub-task survives');
+	}
+
+	/**
+	 * MountVariant_IsGone: a body naming an existing definition is refused
+	 * before anything is written (FEAT-UX-043, D-091-88).
+	 */
+	public function testMountVariant_IsRefused_NoSecondRoomTask(): void {
 		$houseId = $this->createHouse('agg_owner3', 'Aggregate House 3');
 		$floorId = $this->createFloor($houseId, 'Ground Floor');
 		$roomId = $this->createRoom($houseId, $floorId, 'Garage');
 		$taskId = $this->createTask($houseId, 'Mount Source');
 
-		$nameCountBefore = $this->countRowsByJoin('chorestrike_tasks', 'name', 'Mount Source');
-
-		$aggregate = $this->service->create($houseId, $this->actor($houseId, 'agg_owner3'), [
-			'roomId' => $roomId,
-			'taskId' => $taskId,
-		]);
-
-		self::assertSame($taskId, $aggregate['task']->getId(), 'the existing definition is reused');
-		self::assertSame($taskId, $aggregate['roomTask']->getTaskId());
-		self::assertSame(
-			$nameCountBefore,
-			$this->countRowsByJoin('chorestrike_tasks', 'name', 'Mount Source'),
-			'no second definition row may be inserted'
-		);
-		self::assertSame(1, $this->countRows('chorestrike_room_tasks', 'task_id', $taskId));
-	}
-
-	/**
-	 * DuplicateMount_IsRejected400_WithNoSecondRow
-	 */
-	public function testDuplicateMount_IsRejected400_WithNoSecondRow(): void {
-		$houseId = $this->createHouse('agg_owner4', 'Aggregate House 4');
-		$floorId = $this->createFloor($houseId, 'Ground Floor');
-		$roomId = $this->createRoom($houseId, $floorId, 'Cellar');
-		$taskId = $this->createTask($houseId, 'Duplicate Mount');
-		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId);
-
 		try {
-			$this->service->create($houseId, $this->actor($houseId, 'agg_owner4'), [
+			$this->service->create($houseId, $this->actor($houseId, 'agg_owner3'), [
 				'roomId' => $roomId,
 				'taskId' => $taskId,
 			]);
-			self::fail('A duplicate mount must be rejected');
+			self::fail('the mount variant must be refused');
 		} catch (\InvalidArgumentException $e) {
-			self::assertStringContainsString('already exists in room', $e->getMessage());
+			self::assertSame('Unknown field: taskId', $e->getMessage());
 		}
 
-		self::assertSame(1, $this->countRows('chorestrike_room_tasks', 'task_id', $taskId), 'no second room-task row');
-		self::assertGreaterThan(0, $roomTaskId);
+		self::assertSame(0, $this->countRows('chorestrike_room_tasks', 'task_id', $taskId));
 	}
 
 	/**
@@ -243,7 +236,7 @@ class TaskCreationAggregateTest extends IntegrationTestCase {
 	 * VisibilityCreationMatrix: private stamps the creator, admin-only is
 	 * owner-gated (member 403 / owner 200), public is the default — at the
 	 * controller boundary with the real service + DB stack
-	 * (BulkAssignIntegrationTest::buildController precedent).
+	 * (controller-boundary precedent of ChecklistApiTest).
 	 */
 	public function testVisibilityCreationMatrix_PrivateAdminPublic(): void {
 		$houseId = $this->createHouse('agg_owner6', 'Aggregate House 6');
@@ -357,7 +350,7 @@ class TaskCreationAggregateTest extends IntegrationTestCase {
 
 	/**
 	 * Controller_Level_AggregateShape: the endpoint serializes the unified
-	 * aggregate shape through the real services (mount variant). The
+	 * aggregate shape through the real services (the form's body). The
 	 * controller resolves the shared instance house, so the fixture seeds
 	 * floor/room + membership there and cleans up after itself.
 	 */
@@ -367,14 +360,13 @@ class TaskCreationAggregateTest extends IntegrationTestCase {
 		$this->addHouseMember($instanceHouseId, 'agg_owner8', 'Controller Owner', 'owner');
 		$floorId = $this->createFloor($instanceHouseId, 'Controller Floor');
 		$roomId = $this->createRoom($instanceHouseId, $floorId, 'Laundry');
-		$taskId = $this->createTask($instanceHouseId, 'Controller Mount');
 
 		try {
 			$this->actingAs('agg_owner8');
 			$request = $this->createMock(IRequest::class);
-			$request->method('getParam')->willReturnCallback(
-				static fn (string $key) => ['roomId' => $roomId, 'taskId' => $taskId][$key] ?? null
-			);
+			$request->method('getParams')->willReturn([
+				'roomId' => $roomId, 'task' => ['name' => 'Controller Laundry'], '_route' => 'chorestrike.room_task.create',
+			]);
 			$l10n = $this->createMock(\OCP\IL10N::class);
 			$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
@@ -399,8 +391,9 @@ class TaskCreationAggregateTest extends IntegrationTestCase {
 			self::assertArrayHasKey('task', $data['data']);
 			self::assertArrayHasKey('roomTask', $data['data']);
 			self::assertArrayHasKey('assignees', $data['data']);
-			self::assertSame($taskId, $data['data']['task']['id']);
-			self::assertSame($taskId, $data['data']['roomTask']['taskId']);
+			$this->registerCreatedTask((int)$data['data']['task']['id']);
+			self::assertSame('Controller Laundry', $data['data']['task']['name']);
+			self::assertSame($data['data']['task']['id'], $data['data']['roomTask']['taskId']);
 		} finally {
 			// Remove only the fixture's own rows and membership.
 			$qb = $this->db->getQueryBuilder();

@@ -266,6 +266,32 @@ class CalendarServiceTest extends TestCase {
 		self::assertFalse($this->service->isDayKey('2026-9-14'));
 	}
 
+	/** @return array<string, array{mixed, bool}> */
+	public static function realDays(): array {
+		return [
+			'a day' => ['2026-09-14', true],
+			'a leap day' => ['2028-02-29', true],
+			'no leap day' => ['2027-02-29', false],
+			'the 31st of a short month' => ['2026-04-31', false],
+			'month 13' => ['2026-13-01', false],
+			'day zero' => ['2026-09-00', false],
+			'an instant' => ['2026-09-14T00:00:00Z', false],
+			'empty' => ['', false],
+			'not a string' => [20260914, false],
+			'null' => [null, false],
+		];
+	}
+
+	/**
+	 * The one check of every command that takes a house-local day
+	 * (CS-PLAN-091 RF-091-10): a day key of a day that exists.
+	 *
+	 * @dataProvider realDays
+	 */
+	public function testIsRealDay(mixed $value, bool $expected): void {
+		self::assertSame($expected, $this->service->isRealDay($value));
+	}
+
 	public function testDayStartInstant_UTC_IsLabelMidnight(): void {
 		$instant = $this->service->dayStartInstant('2030-05-10', new \DateTimeZone('UTC'));
 		self::assertSame('2030-05-10 00:00:00', $instant->format('Y-m-d H:i:s'));

@@ -8,16 +8,13 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Exception\ValidationException;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
 
 /**
@@ -25,30 +22,30 @@ use OCP\IL10N;
  */
 class TaskService {
 	/**
-	 * Fields a client is allowed to change through updateTask.
-	 *
-	 * Defense against mass-assignment: only these keys are honoured; any
-	 * other key throws {@see \InvalidArgumentException} (→ 400). Derived from
-	 * the controller-level whitelist + the TaskEditForm field set. Note that
-	 * `ownerUserId` is whitelisted for transfer, but *who* may change it is
-	 * still governed by the controller authorization (CS-PLAN-005) — the
-	 * whitelist is defense-in-depth, not an authorization bypass.
+	 * The definition fields of the one form (CS-PLAN-091 WP-B6), the closed
+	 * set of its two writes: the creation aggregate and the edit aggregate.
+	 * Any other key is refused (mass-assignment defense, → 400). The owner
+	 * of a private task is never sent: {@see prepareUpdate()} claims it.
 	 */
-	private const MUTABLE_FIELDS = [
+	public const FORM_FIELDS = [
 		'name', 'description', 'energyCost', 'priority',
-		'frequencyType', 'frequencyValue', 'estimatedMinutes',
-		'category', 'scopeType', 'scopeLabel', 'recurrenceMode',
-		'activeFrom', 'activeUntil', 'isVoluntary',
+		'frequencyType', 'frequencyValue', 'estimatedMinutes', 'category',
+		'scopeType', 'recurrenceMode', 'activeFrom', 'activeUntil', 'isVoluntary',
 		'schedulingMode', 'fixedScheduleTime', 'fixedScheduleDays', 'fixedMonthDay',
-		'instructions', 'tips', 'estimatedMinutesMin', 'estimatedMinutesMax',
-		'visibilityType', 'ownerUserId', 'flexDays',
+		'flexDays', 'instructions', 'tips', 'visibilityType',
 	];
 
 	/** Fields whose value is a date and must be parsed from string input. */
 	private const DATE_FIELDS = ['activeFrom', 'activeUntil', 'fixedScheduleTime'];
 
-	/** Hard length cap for free-text instruction/tip fields (CS-PLAN-063 §3.1). */
+	/** Optional household text: an empty value is no text, stored as null. */
+	private const OPTIONAL_TEXT_FIELDS = ['description', 'instructions', 'tips'];
+
+	/** Hard length cap for the free-text description, instruction and tip fields (CS-PLAN-063 §3.1, D-091-111). */
 	public const MAX_TEXT_LENGTH = 2000;
+
+	/** The name fits its column (D-091-111). */
+	public const MAX_NAME_LENGTH = 255;
 
 	/** Lower flex-window bound; the upper bound is the rule's cap ({@see FlexDaysPolicy}, FEAT-UX-039). */
 	public const FLEX_DAYS_MIN = 0;
@@ -58,39 +55,15 @@ class TaskService {
 		'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
 	];
 
-	private TaskMapper $taskMapper;
-	private HouseMapper $houseMapper;
-	private RoomTaskMapper $roomTaskMapper;
-	private IL10N $l10n;
-	private AuthorizationService $authorization;
-	private TaskAccessPolicy $taskAccessPolicy;
-	private TransactionExecutor $transactions;
-	private CycleService $cycleService;
-	private CalendarService $calendarService;
-	private TaskCategoryService $categories;
-
 	public function __construct(
-		TaskMapper $taskMapper,
-		HouseMapper $houseMapper,
-		RoomTaskMapper $roomTaskMapper,
-		IL10N $l10n,
-		AuthorizationService $authorization,
-		TaskAccessPolicy $taskAccessPolicy,
-		TransactionExecutor $transactions,
-		CycleService $cycleService,
-		CalendarService $calendarService,
-		TaskCategoryService $categories,
+		private TaskMapper $taskMapper,
+		private RoomTaskMapper $roomTaskMapper,
+		private IL10N $l10n,
+		private AuthorizationService $authorization,
+		private TaskAccessPolicy $taskAccessPolicy,
+		private CycleService $cycleService,
+		private TaskCategoryService $categories,
 	) {
-		$this->categories = $categories;
-		$this->taskMapper = $taskMapper;
-		$this->houseMapper = $houseMapper;
-		$this->roomTaskMapper = $roomTaskMapper;
-		$this->l10n = $l10n;
-		$this->authorization = $authorization;
-		$this->taskAccessPolicy = $taskAccessPolicy;
-		$this->transactions = $transactions;
-		$this->cycleService = $cycleService;
-		$this->calendarService = $calendarService;
 	}
 
 	/**
@@ -105,167 +78,150 @@ class TaskService {
 	}
 
 	/**
-	 * Get task by ID
+	 * The gate of a definition edit (CS-PLAN-091 WP-B6): visibility, role,
+	 * the closed field set and its values — everything decided before a
+	 * lock. The one form's save ({@see RoomTaskEditService}) runs it and
+	 * then writes under its own house-first lock.
 	 *
-	 * @param int $taskId The task ID
-	 * @throws NotFoundException if not found
-	 */
-	public function getTask(int $taskId): Task {
-		try {
-			return $this->taskMapper->find($taskId);
-		} catch (DoesNotExistException $e) {
-			throw new NotFoundException($this->l10n->t('Task not found'));
-		}
-	}
-
-	/**
-	 * Assert the task is visible to the actor and return it (CS-PLAN-061
-	 * §3.2) — the shared gate for controller preambles (defense in depth).
+	 * A caller that cannot see the task gets the 404 anti-enumeration
+	 * denial (ADR-010); a child gets 403 (CS-PLAN-061 D5); admin-only
+	 * visibility is set and unset by the owner only (RF-058-03). A task that
+	 * becomes private, or a private task without an owner, is claimed by
+	 * the actor so it never ends up invisible to everybody; an edit of a
+	 * private task by one of its assignees leaves its owner as it is.
 	 *
-	 * @throws NotFoundException if the task does not exist or is invisible to the actor
+	 * @param array<string, mixed> $updates Definition fields of the form ({@see FORM_FIELDS})
+	 * @return array<string, mixed> The accepted updates, an ownership claim included
+	 * @throws NotFoundException if the task is invisible to the actor
+	 * @throws ForbiddenException if the actor is a child, or a member touches admin-only visibility
+	 * @throws ValidationException on an unknown field or a value outside the constraint set (400)
 	 */
-	public function getVisibleTask(int $taskId, HouseUser $actor): Task {
-		$task = $this->getTask($taskId);
+	public function prepareUpdate(Task $task, array $updates, HouseUser $actor): array {
 		if (!$this->taskAccessPolicy->canViewTask($task, $actor)) {
 			throw new NotFoundException($this->l10n->t('Task not found'));
 		}
-		return $task;
-	}
-
-	/**
-	 * Update task.
-	 *
-	 * Applies only the whitelisted {@see MUTABLE_FIELDS} from `$updates`;
-	 * any key not on the whitelist is rejected with
-	 * {@see \InvalidArgumentException} (translated to 400 by the controller)
-	 * to prevent mass-assignment of internal columns.
-	 *
-	 * Enforces the ONE visibility matrix via {@see TaskAccessPolicy}
-	 * (CS-PLAN-061 §3.2, D2): a caller that cannot even see the task is
-	 * denied with the app NotFoundException (404 anti-enumeration, decision
-	 * D3). A changed `ownerUserId` target is validated as a house member via
-	 * {@see AuthorizationService::assertUserInHouse} (closes the unvalidated
-	 * transfer, §3.4).
-	 *
-	 * CS-PLAN-071 WP0: the write runs in one house-first transaction — the
-	 * actor's house row lock first, then the task-definition row lock —
-	 * and applies the validated updates to the FRESH locked entity
-	 * (CR-SVC-53 pattern), so a concurrent definition edit can no longer
-	 * be clobbered.
-	 *
-	 * Callers MUST supply the acting house user; the parameter is
-	 * non-nullable so the policy can never be silently bypassed. The
-	 * production path (TaskController::update) always supplies it.
-	 *
-	 * @param int $taskId The task ID
-	 * @param array $updates The updates to apply (only whitelisted keys)
-	 * @param HouseUser $actor The acting user's house membership
-	 * @return Task The updated task
-	 * @throws \InvalidArgumentException if an update key is not whitelisted
-	 * @throws NotFoundException if the task does not exist or is invisible to the actor
-	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the actor is a child or the ownerUserId target is not a member
-	 */
-	public function updateTask(int $taskId, array $updates, HouseUser $actor): Task {
-		$task = $this->getTask($taskId);
-
-		// One visibility matrix everywhere (D2/D3): non-viewers get the 404
-		// anti-enumeration denial, same as task#get and the definition list.
-		if (!$this->taskAccessPolicy->canViewTask($task, $actor)) {
-			throw new NotFoundException($this->l10n->t('Task not found'));
-		}
-
-		// Actor policy (D5): children execute tasks, they do not edit them.
 		$this->authorization->assertCanManageTasks($actor);
 
-		$isOwner = $actor->isOwner();
-
-		// Admin-only visibility is owner-only (ADR-010 matrix, RF-058-03):
-		// setting AND unsetting is a role denial (403) for non-owners. The
-		// controller gate is defense in depth; this service-side mirror
-		// (creation already gates in TaskCreationService) closes the
-		// direct-caller bypass, taskTier-style.
-		if (array_key_exists('visibilityType', $updates)) {
-			$newVisibility = $updates['visibilityType'];
-			$isAdminOnly = static fn ($v): bool => $v === Task::VISIBILITY_ADMIN_ONLY;
-			if ($isAdminOnly($newVisibility) && !$isOwner) {
-				throw new ForbiddenException($this->l10n->t('Only house owners can set admin-only visibility'));
-			}
-			if ($isAdminOnly($task->getVisibilityType()) && !$isAdminOnly($newVisibility) && !$isOwner) {
-				throw new ForbiddenException($this->l10n->t('Only house owners can change admin-only task visibility'));
+		foreach (array_keys($updates) as $field) {
+			if (!in_array($field, self::FORM_FIELDS, true)) {
+				throw new ValidationException($this->l10n->t('Unknown or immutable field: %1$s', [$field]));
 			}
 		}
+		$this->assertVisibilityRight($task, $updates, $actor);
 
-		// Validate an ownership transfer target: the new owner must be a
-		// member of the actor's house (CS-PLAN-061 §3.4).
-		if (isset($updates['ownerUserId'])
-			&& $updates['ownerUserId'] !== $task->getOwnerUserId()
-			&& is_string($updates['ownerUserId'])
-			&& $updates['ownerUserId'] !== ''
-			&& $updates['ownerUserId'] !== null
-		) {
-			$this->authorization->assertUserInHouse($actor->getHouseId(), $updates['ownerUserId']);
-		}
-
-		// Whitelist first (mass-assignment defense, unchanged semantics):
-		// an unknown or immutable key is rejected before any value check.
-		foreach ($updates as $field => $value) {
-			if (!in_array($field, self::MUTABLE_FIELDS, true)) {
-				throw new \InvalidArgumentException($this->l10n->t('Unknown or immutable field: %1$s', [$field]));
-			}
-		}
-
-		// Validate the whitelisted values through the one closed constraint
-		// set (CS-PLAN-063 §3.1): validation is service-owned, the controller
-		// no longer pre-checks. Updates are partial, so the name is only
-		// validated when present. A malformed value → ValidationException (400).
-		$whitelisted = array_intersect_key($updates, array_flip(self::MUTABLE_FIELDS));
-		$errors = $this->validateTaskData($whitelisted, requireName: false);
+		$errors = $this->validateTaskData($updates, requireName: false);
 		if ($errors !== []) {
 			throw new ValidationException($errors[0], $errors);
 		}
 
-		// CS-PLAN-071 WP0: apply the validated updates under the locks —
-		// house row first, then the task-definition row — on the FRESH
-		// entity.
-		//
-		// ADR-021 decision 1: open work is not frozen. When a rule-relevant
-		// definition input changed, every mounted room task's current cycle
-		// follows in the SAME house-first transaction; completed work keeps
-		// what it recorded.
-		return $this->transactions->run(function () use ($taskId, $updates, $actor): Task {
-			$this->houseMapper->findForUpdate($actor->getHouseId());
-			$task = $this->taskMapper->lockForUpdate($taskId);
-			$before = clone $task;
-			$this->applyUpdates($task, array_intersect_key($updates, array_flip(self::MUTABLE_FIELDS)));
-			$this->assertFlexWithinCap($before, $task);
-			$updated = $this->taskMapper->update($task);
+		$visibility = $updates['visibilityType'] ?? $task->getVisibilityType();
+		$becomesPrivate = $visibility === Task::VISIBILITY_PRIVATE
+			&& ($task->getVisibilityType() !== Task::VISIBILITY_PRIVATE || $task->getOwnerUserId() === null);
+		if ($becomesPrivate) {
+			$updates['ownerUserId'] = $actor->getNextcloudUserId();
+		}
+		return $updates;
+	}
 
-			if ($this->ruleRelevantInputsChanged($before, $updated)) {
-				$this->reviseMountedRoomTasksUnderLock($taskId, $before, $updated, $actor);
+	/**
+	 * Who may change the visibility. A private task's is its owner's alone
+	 * (D-091-109): an assignee can neither open it to the house nor claim
+	 * it by a round trip through public; a private task without an owner
+	 * keeps the claim rule of {@see prepareUpdate()}. Admin-only visibility
+	 * is owner-only (ADR-010 matrix, RF-058-03): setting AND unsetting it is
+	 * a role denial (403) for anyone else. The unchanged value the form
+	 * sends is no change.
+	 *
+	 * @throws ForbiddenException
+	 */
+	private function assertVisibilityRight(Task $task, array $updates, HouseUser $actor): void {
+		if (!array_key_exists('visibilityType', $updates) || $updates['visibilityType'] === $task->getVisibilityType()) {
+			return;
+		}
+		if ($task->getVisibilityType() === Task::VISIBILITY_PRIVATE && $task->getOwnerUserId() !== null
+			&& $task->getOwnerUserId() !== $actor->getNextcloudUserId()) {
+			throw new ForbiddenException($this->l10n->t('Only the owner of a private task can change its visibility'));
+		}
+		if ($actor->isOwner()) {
+			return;
+		}
+		if ($updates['visibilityType'] === Task::VISIBILITY_ADMIN_ONLY) {
+			throw new ForbiddenException($this->l10n->t('Only house owners can set admin-only visibility'));
+		}
+		if ($task->getVisibilityType() === Task::VISIBILITY_ADMIN_ONLY) {
+			throw new ForbiddenException($this->l10n->t('Only house owners can change admin-only task visibility'));
+		}
+	}
+
+	/**
+	 * Apply prepared updates UNDER LOCK to a definition row the caller
+	 * locked (house first, then the definition): the flex cap of the merged
+	 * rule (FEAT-UX-039) and the write. `$before` is the definition the
+	 * values replace — the row itself, or the shared definition a split
+	 * copied (CS-PLAN-091 WP-B6).
+	 *
+	 * @param array<string, mixed> $updates From {@see prepareUpdate()}
+	 * @throws ValidationException when a changed rule input breaks the flex cap
+	 */
+	public function applyUnderLock(Task $target, Task $before, array $updates): Task {
+		$this->applyUpdates($target, $updates);
+		$this->assertFlexWithinCap($before, $target);
+		return $this->taskMapper->update($target);
+	}
+
+	/**
+	 * The prepared updates that would change the definition: the form
+	 * sends every field, and a save that changes none of them leaves a
+	 * definition several rooms share as it is. An empty optional text and
+	 * no text are the same (a stored empty string included).
+	 *
+	 * @param array<string, mixed> $updates From {@see prepareUpdate()}
+	 * @return array<string, mixed>
+	 */
+	public function changedFields(Task $task, array $updates): array {
+		$probe = clone $task;
+		$this->applyUpdates($probe, $updates);
+		$value = static function (Task $entity, string $field): mixed {
+			$stored = $entity->{'get' . ucfirst($field)}();
+			if (in_array($field, self::OPTIONAL_TEXT_FIELDS, true) && $stored === '') {
+				return null;
 			}
-
-			return $updated;
-		});
+			return $stored instanceof \DateTimeInterface ? $stored->format('Y-m-d H:i:s') : $stored;
+		};
+		return array_filter(
+			$updates,
+			static fn (string $field): bool => $value($task, $field) !== $value($probe, $field),
+			ARRAY_FILTER_USE_KEY,
+		);
 	}
 
 	/**
 	 * Move every mounted room task's current cycle after a rule-relevant
-	 * edit: the changed rule, flex or energy shows at once, the cycle
-	 * version bumps and `next_due` follows. The anchor policy of a rule
-	 * change (D-091-28) belongs to {@see CycleService::ruleChangedUnderLock()}.
+	 * edit UNDER LOCK (ADR-021 decision 1): the changed rule, flex or energy
+	 * shows at once, the cycle version bumps and `next_due` follows. The
+	 * anchor policy of a rule change (D-091-28) belongs to
+	 * {@see CycleService::ruleChangedUnderLock()}.
+	 *
+	 * @param int[] $exceptRoomTaskIds Room tasks the caller moves itself
+	 * @param \OCA\ChoreStrike\Db\RoomTask[]|null $mounted The definition's room tasks when the caller read them under the same lock
 	 */
-	private function reviseMountedRoomTasksUnderLock(int $taskId, Task $before, Task $updated, HouseUser $actor): void {
-		$mounted = $this->roomTaskMapper->findByTaskIdScopedToHouse($taskId, (int)$actor->getHouseId());
+	public function reviseMountedUnderLock(Task $before, Task $updated, int $houseId, \DateTimeZone $timeZone, \DateTime $now, array $exceptRoomTaskIds = [], ?array $mounted = null): void {
+		if (!self::ruleRelevantInputsChanged($before, $updated)) {
+			return;
+		}
+		$mounted = array_values(array_filter(
+			$mounted ?? $this->roomTaskMapper->findByTaskIdScopedToHouse((int)$updated->getId(), $houseId),
+			static fn ($roomTask): bool => !in_array((int)$roomTask->getId(), $exceptRoomTaskIds, true),
+		));
 		if ($mounted === []) {
 			return;
 		}
-		$timeZone = $this->calendarService->getTimeZone($this->houseMapper->find((int)$actor->getHouseId()));
-		$now = new \DateTime();
-		// One read of the completion inputs for every mounted room task; the
-		// house lock this edit holds keeps completions out meanwhile.
-		$histories = $this->cycleService->historiesFor(array_map(static fn ($roomTask): int => (int)$roomTask->getId(), $mounted));
-		foreach ($mounted as $roomTask) {
-			$lockedRoomTask = $this->roomTaskMapper->lockForUpdate($roomTask->getId());
+		// One lock statement and one read of the completion inputs for every
+		// mounted room task; the house lock the edit holds keeps completions
+		// out meanwhile.
+		$ids = array_map(static fn ($roomTask): int => (int)$roomTask->getId(), $mounted);
+		$histories = $this->cycleService->historiesFor($ids);
+		foreach ($this->roomTaskMapper->lockForUpdateByIds($ids) as $lockedRoomTask) {
 			if ($lockedRoomTask->getDeletedAt() !== null) {
 				continue;
 			}
@@ -280,7 +236,7 @@ class TaskService {
 	 * descriptive edits (name, description, priority, tips) never force a
 	 * revision.
 	 */
-	private function ruleRelevantInputsChanged(Task $before, Task $after): bool {
+	public static function ruleRelevantInputsChanged(Task $before, Task $after): bool {
 		return self::flexCapInputsChanged($before, $after)
 			|| $before->getEnergyCost() !== $after->getEnergyCost()
 			|| $before->getFixedScheduleTime()?->format('H:i') !== $after->getFixedScheduleTime()?->format('H:i')
@@ -333,29 +289,35 @@ class TaskService {
 		foreach ($updates as $field => $value) {
 			// Task extends Nextcloud's Entity, whose accessors are magic
 			// (@method/__call), so method_exists() returns false for them and
-			// cannot be used as a gate. The MUTABLE_FIELDS whitelist above is
+			// cannot be used as a gate. The FORM_FIELDS whitelist above is
 			// the authoritative guard; the Entity setter applies the value.
 			$method = 'set' . ucfirst($field);
-
-			if (in_array($field, self::DATE_FIELDS, true)) {
-				// An empty string clears the field (client blanks); a filled
-				// string parses (validation already guaranteed parseability).
-				$value = ($value === '') ? null : (is_string($value) ? new \DateTime($value) : $value);
-			}
-
-			// fixedScheduleDays accepts the PHP weekday-list form from
-			// clients and persists its canonical JSON encoding.
-			if ($field === 'fixedScheduleDays' && is_array($value)) {
-				$value = json_encode(array_values($value));
-			}
-
-			$task->$method($value);
+			$task->$method(self::storedValue($field, $value));
 		}
 	}
 
 	/**
+	 * A definition value as it is stored, for creation and edit alike
+	 * (D-091-100): a date field parsed, where an empty string clears it
+	 * (validation guaranteed parseability); an empty optional text as no
+	 * text; the weekday list of a fixed rule in its canonical JSON.
+	 */
+	public static function storedValue(string $field, mixed $value): mixed {
+		if (in_array($field, self::DATE_FIELDS, true)) {
+			return $value === '' ? null : (is_string($value) ? new \DateTime($value) : $value);
+		}
+		if (in_array($field, self::OPTIONAL_TEXT_FIELDS, true)) {
+			return $value === '' ? null : $value;
+		}
+		if ($field === 'fixedScheduleDays') {
+			return $value === '' ? null : (is_array($value) ? json_encode(array_values($value)) : $value);
+		}
+		return $value;
+	}
+
+	/**
 	 * Validate task data — the single creation/update constraint authority
-	 * (CS-PLAN-063 §3.1). Invoked by services (TaskService::updateTask,
+	 * (CS-PLAN-063 §3.1). Invoked by services ({@see prepareUpdate()},
 	 * TaskCreationService), never by controllers.
 	 *
 	 * The constraint set is closed: every accepted field is range/type
@@ -382,6 +344,8 @@ class TaskService {
 		} elseif ($requireName || $hasName) {
 			if (!is_string($name) || trim($name) === '') {
 				$errors[] = $this->l10n->t('Task name is required');
+			} elseif (mb_strlen($name) > self::MAX_NAME_LENGTH) {
+				$errors[] = $this->l10n->t('Task name must be at most %1$d characters', [self::MAX_NAME_LENGTH]);
 			}
 		}
 
@@ -591,7 +555,7 @@ class TaskService {
 			}
 		}
 
-		foreach (['instructions' => 'Instructions', 'tips' => 'Tips'] as $field => $label) {
+		foreach (['description' => 'Description', 'instructions' => 'Instructions', 'tips' => 'Tips'] as $field => $label) {
 			$value = $taskData[$field] ?? null;
 			if ($value === null) {
 				continue;

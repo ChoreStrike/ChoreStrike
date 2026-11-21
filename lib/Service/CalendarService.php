@@ -123,6 +123,19 @@ class CalendarService {
 	}
 
 	/**
+	 * Whether the value is a day key of a day that exists (`2026-02-30`
+	 * does not) — the one check of every command that takes a house-local
+	 * day: a first date, a wake date, bonus days, a date correction.
+	 */
+	public function isRealDay(mixed $value): bool {
+		if (!is_string($value) || !$this->isDayKey($value)) {
+			return false;
+		}
+		$day = \DateTime::createFromFormat('!Y-m-d', $value, new \DateTimeZone('UTC'));
+		return $day !== false && $day->format('Y-m-d') === $value;
+	}
+
+	/**
 	 * The UTC-normalized instant of house-local midnight for a `Y-m-d` day
 	 * key — the write-side inverse of {@see dayKey()}.
 	 *

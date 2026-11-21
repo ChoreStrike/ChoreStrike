@@ -93,7 +93,10 @@ class RoomTaskReadService {
 		$tz ??= $this->timeZoneForHouse($houseId);
 		$today = WindowService::todayKey($now, $tz);
 		$tasksById ??= $this->tasksByIdForRoomTasks($roomTasks);
-		$histories = $this->windows->historiesFor(array_map(static fn (RoomTask $roomTask): int => (int)$roomTask->getId(), $roomTasks));
+		// Only a room task with cycles reads its completions (RF-091-10).
+		$withCycles = array_filter($roomTasks, static fn (RoomTask $roomTask): bool => $roomTask->getIsActive()
+			&& isset($tasksById[$roomTask->getTaskId()]) && CycleProjection::hasCycles($roomTask, $tasksById[$roomTask->getTaskId()]));
+		$histories = $this->windows->historiesFor(array_map(static fn (RoomTask $roomTask): int => (int)$roomTask->getId(), array_values($withCycles)));
 
 		$facts = [];
 		foreach ($roomTasks as $roomTask) {
@@ -173,8 +176,19 @@ class RoomTaskReadService {
 	 * @return array<string, mixed>
 	 */
 	public function selectedRoomTaskPayload(int $houseId, RoomTask $roomTask, \DateTimeZone $tz): array {
-		$block = $this->cycleFacts($houseId, [$roomTask])[(int)$roomTask->getId()]['block'] ?? null;
-		return $this->roomTaskPayload($roomTask, $tz, $block);
+		return $this->roomTaskPayload($roomTask, $tz, $this->cycleBlockOf($houseId, $roomTask));
+	}
+
+	/**
+	 * The `cycle` block of one room task as the list reads show it: its
+	 * next command target after a write.
+	 *
+	 * @param Task|null $task The definition when the caller already read it
+	 * @return array<string, mixed>|null
+	 */
+	public function cycleBlockOf(int $houseId, RoomTask $roomTask, ?Task $task = null, ?\DateTimeZone $tz = null): ?array {
+		$tasks = $task === null ? null : [(int)$task->getId() => $task];
+		return $this->cycleFacts($houseId, [$roomTask], $tasks, null, $tz)[(int)$roomTask->getId()]['block'] ?? null;
 	}
 
 	/**
@@ -465,11 +479,19 @@ class RoomTaskReadService {
 	public function getBonusTaskRows(int $houseId, HouseUser $viewer, ?\DateTimeInterface $now = null): array {
 		$now ??= new \DateTime();
 		$tz = $this->timeZoneForHouse($houseId);
-		$rows = $this->withAssignees($this->rowsInState($houseId, $viewer, null, WindowService::STATE_BONUS, $now, $tz));
+		// An awake bonus task has no cycle: only those rows get a block (RF-091-10).
+		$visible = $this->visibleRoomTasks($this->roomTaskMapper->findByHouse($houseId, true), $viewer);
+		$bonus = array_values(array_filter(
+			$visible->roomTasks,
+			static fn (RoomTask $roomTask): bool => isset($visible->tasksById[$roomTask->getTaskId()])
+				&& CycleProjection::isAwakeBonus($roomTask, $visible->tasksById[$roomTask->getTaskId()]),
+		));
+		$rows = $this->withCycleBlocks($this->rowsOf(new RoomTaskList($bonus, $visible->tasksById)), $houseId, $now, $tz);
+		$assignees = $this->taskAssigneeMapper->findUserIdsByRoomTasks(array_map(static fn (array $row): int => (int)$row['roomTask']->getId(), $rows));
 		if ($viewer->isChild()) {
-			$rows = array_values(array_filter($rows, static fn (array $row): bool => $row['assignees'] === []
-				|| in_array($viewer->getNextcloudUserId(), $row['assignees'], true)));
+			$rows = array_values(array_filter($rows, static fn (array $row): bool => self::isChildEligible($row, $viewer, $assignees)));
 		}
+		$rows = $this->withAssignees($rows, $assignees);
 		$credited = $this->creditPolicy->bonusCreditedOn(
 			$houseId, array_map(static fn (array $row): int => (int)$row['roomTask']->getId(), $rows), WindowService::todayKey($now, $tz)
 		);

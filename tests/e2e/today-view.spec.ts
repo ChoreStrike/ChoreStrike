@@ -199,15 +199,13 @@ test.describe('Release: Today view', () => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			await openToday(page)
-			// A bonus task of mom's, energy 1. The creation form takes the
-			// flag with the one form of WP-B6; until then it is an edit.
+			// A bonus task of mom's, energy 1, created as one (CS-PLAN-091 WP-B6).
 			const created = await page.request.post(`${API}/room-tasks`, {
-				data: { roomId: kitchen.id, assigneeUserIds: ['mom'], task: { name: 'Water the plants', energyCost: 1, frequencyType: 'daily', frequencyValue: 1 } },
+				data: { roomId: kitchen.id, assigneeUserIds: ['mom'], task: { name: 'Water the plants', energyCost: 1, frequencyType: 'daily', frequencyValue: 1, isVoluntary: true } },
 			})
 			expect(created.status(), await created.text()).toBe(200)
 			const { roomTask, task } = (await created.json()).data
-			const flagged = await page.request.put(`${API}/tasks/${task.id}`, { data: { isVoluntary: true } })
-			expect(flagged.status(), await flagged.text()).toBe(200)
+			expect(task.isVoluntary).toBe(true)
 
 			// The owner's two multipliers: mom at × 2, bonus days from today.
 			await openSettings(page, 'rewards')

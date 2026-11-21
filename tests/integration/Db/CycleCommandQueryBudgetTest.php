@@ -17,11 +17,13 @@ use OCA\ChoreStrike\Service\PauseService;
 use OCA\ChoreStrike\Service\PostponeService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\SleepService;
+use OCA\ChoreStrike\Service\TaskEdit;
 use OCA\ChoreStrike\Service\WindowService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCA\ChoreStrike\Tests\Integration\Support\CycleFixtures;
 use OCA\ChoreStrike\Tests\Integration\Support\QueryBudgets;
 use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
+use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 
 /**
  * Request budgets of what members do with a cycle besides completing it
@@ -29,7 +31,8 @@ use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
  * command, the date correction, the recent activity with its events, and
  * a completion that marks sub-tasks; and of WP-B4/WP-B5 (D-091-80): the
  * bonus rows of Today, the sleep command, the completion of a bonus and of
- * a sleeping task, and the bonus period of the house payload. Measured with the executed-query
+ * a sleeping task, and the bonus period of the house payload; and of WP-B6:
+ * the one form's save, in place and as a split. Measured with the executed-query
  * counter against every supported database; the literals are frozen like
  * those of {@see WorkflowQueryBudgetTest}, so a regression cannot
  * re-baseline itself, and every budget also asserts the result.
@@ -37,6 +40,7 @@ use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
 class CycleCommandQueryBudgetTest extends IntegrationTestCase {
 	use CycleFixtures;
 	use QueryBudgets;
+	use TaskEditing;
 
 	protected const OWNER = 'ccq_owner';
 	protected const HELPER = 'ccq_helper';
@@ -76,6 +80,19 @@ class CycleCommandQueryBudgetTest extends IntegrationTestCase {
 	// A sleeping task's completion: the ledger aggregate with the wake
 	// inside the target resolution.
 	private const ASLEEP_COMPLETE_BUDGET = 88;
+	// CS-PLAN-091 WP-B6. The one form's save in place: guard and aggregate
+	// under the house lock, the receipt, the definition with the rooms that
+	// share it, the rule change of the current cycle, the assignees and
+	// the fresh row with its sub-tasks. One read of the completion inputs
+	// and one of the sub-tasks per save (interim Full review of WP-B6).
+	private const EDIT_BUDGET = 28;
+	// A save that splits a shared definition: the copy, its sub-tasks and
+	// the ticks of the current cycle that follow them.
+	private const SPLIT_BUDGET = 29;
+	// What every further room adds to a save for all rooms: the write of
+	// its room task. The lock of the mounted set and the read of its
+	// completion inputs are one statement each.
+	private const WRITES_PER_MOUNTED_ROOM = 1;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -263,6 +280,79 @@ class CycleCommandQueryBudgetTest extends IntegrationTestCase {
 
 		self::assertSame($this->today, $period?->getStartsOn()->format('Y-m-d'));
 		self::assertSame(1, $count, implode("\n", $statements));
+	}
+
+	public function testFormSave_DefinitionAndAssignees_WithinBudget(): void {
+		$f = $this->fixture(['frequency_type' => 'weekly', 'flex_days' => 1]);
+		$edit = $this->formEdit($f['roomTaskId'], [
+			'task' => ['energyCost' => 3, 'flexDays' => 2],
+			'assigneeUserIds' => [self::OWNER, self::HELPER],
+		]);
+
+		$counter = $this->measuredSave($f, $edit);
+
+		self::assertSame(3, (int)$this->rows('chorestrike_tasks', 'id', $f['taskId'])[0]['energy_cost']);
+		self::assertCount(2, $this->rows('chorestrike_task_assignees', 'room_task_id', $f['roomTaskId']));
+		// Locks: the house, the room task and the definition. Generated ids:
+		// the two assignee rows and the receipt.
+		$this->assertPortableWriteBudget($counter, self::EDIT_BUDGET, 3, 3);
+	}
+
+	public function testFormSave_SplitOfASharedDefinition_WithinBudget(): void {
+		$f = $this->fixture();
+		$floorId = (int)$this->rows('chorestrike_rooms', 'id', $f['roomId'])[0]['floor_id'];
+		$this->assignTaskToRoom($f['taskId'], $this->createRoom($f['houseId'], $floorId, 'Second kitchen'), self::OWNER);
+		$plates = $this->createChecklistItem($f['taskId'], 'Plates', 0);
+		$pots = $this->createChecklistItem($f['taskId'], 'Pots', 1);
+		\OC::$server->get(\OCA\ChoreStrike\Service\ChecklistService::class)
+			->toggleItem($f['roomTaskId'], $this->block($f)['cycleKey'], $plates, null, $f['houseId'], $this->member($f['houseId'], self::OWNER));
+		$edit = $this->formEdit($f['roomTaskId'], [
+			'task' => ['name' => 'Wash up'],
+			'checklistItems' => [['id' => $plates, 'label' => 'Plates'], ['id' => $pots, 'label' => 'Pans']],
+			'scope' => TaskEdit::SCOPE_THIS_ROOM,
+		]);
+
+		$counter = $this->measuredSave($f, $edit);
+
+		$copyId = (int)$this->rows('chorestrike_room_tasks', 'id', $f['roomTaskId'])[0]['task_id'];
+		$this->registerCreatedTask($copyId);
+		self::assertNotSame($f['taskId'], $copyId, 'the save split off a copy');
+		// Locks: the house, the room task and the definition. Generated ids:
+		// the copy, its two sub-tasks and the receipt.
+		$this->assertPortableWriteBudget($counter, self::SPLIT_BUDGET, 3, 4);
+	}
+
+	public function testFormSave_ForAllRooms_LocksAndReadsTheMountedSetOnce_3vs12Rooms(): void {
+		$save = function (int $others): QueryCounter {
+			$f = $this->fixture(['frequency_type' => 'weekly']);
+			$floorId = (int)$this->rows('chorestrike_rooms', 'id', $f['roomId'])[0]['floor_id'];
+			for ($i = 0; $i < $others; $i++) {
+				$this->assignTaskToRoom($f['taskId'], $this->createRoom($f['houseId'], $floorId, 'Room ' . $i), self::OWNER);
+			}
+			$counter = $this->measuredSave($f, $this->formEdit($f['roomTaskId'], ['task' => ['flexDays' => 1], 'scope' => TaskEdit::SCOPE_ALL_ROOMS]));
+			$windows = array_unique(array_column($this->rows('chorestrike_room_tasks', 'task_id', $f['taskId']), 'cycle_version'));
+			self::assertCount(1, $windows, 'every room followed the changed rule');
+			return $counter;
+		};
+
+		$small = $save(3);
+		$big = $save(12);
+
+		self::assertSame($small->countLockSelects(), $big->countLockSelects(), 'one lock statement for the mounted set');
+		self::assertSame(9 * self::WRITES_PER_MOUNTED_ROOM, $big->count() - $small->count(), implode("\n", $big->sqlStatements()));
+	}
+
+	private function measuredSave(array $f, TaskEdit $edit): QueryCounter {
+		$service = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskEditService::class);
+		$owner = $this->member($f['houseId'], self::OWNER);
+		$counter = QueryCounter::attach($this->db);
+		try {
+			$counter->mark();
+			$service->edit($f['houseId'], $owner, $f['roomTaskId'], $edit);
+			return $counter;
+		} finally {
+			$counter->detach();
+		}
 	}
 
 	private function measuredCompletion(array $f): QueryCounter {

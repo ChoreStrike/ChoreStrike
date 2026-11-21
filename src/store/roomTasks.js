@@ -151,6 +151,29 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		isBonusTask: (state) => (roomTaskId) => state.bonusTasks.some((item) => item.roomTask?.id === roomTaskId),
 
 		/**
+		 * The shown target of a room task from any cached slice: the row's
+		 * `cycle` block with the cycle key and the cycle version — the
+		 * receipt of every command on the task (RF-091-09). A bonus task and
+		 * a sleeping one have no cycle to name; their version alone is the
+		 * receipt (completing a sleeping task wakes it, ADR-021 decision 7).
+		 * Null when no such block is cached — a task that is done or shown
+		 * from stale state (the caller surfaces a reload hint).
+		 *
+		 * @param {object} state Pinia state
+		 * @return {function(number): ?object} `{ cycleKey?, expectedVersion, state }`
+		 */
+		completionTargetOf: (state) => (roomTaskId) => {
+			for (const slice of [state.dailyTasks, state.bonusTasks, state.dueTodayTasks, state.overdueTasks, state.roomTasks]) {
+				const row = slice.find((item) => (item.roomTask?.id ?? item.id) === roomTaskId)
+				const cycle = row?.cycle ?? row?.roomTask?.cycle
+				if (Number.isInteger(cycle?.expectedVersion) && (cycle.cycleKey || ['bonus', 'asleep'].includes(cycle.state))) {
+					return cycle
+				}
+			}
+			return null
+		},
+
+		/**
 		 * Finished room tasks: the on-demand inactive read plus rows of the
 		 * active set that became inactive since (newer local truth first).
 		 * @param {object} state Pinia state
@@ -284,86 +307,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Create a room task — the one atomic aggregate request (CS-PLAN-063
-		 * §3.5, CR-WF-03): definition, room-task materialization, and initial
-		 * assignees commit or roll back together on the backend, so there is
-		 * no partial-success reporting anymore. The aggregate response
-		 * `{task, roomTask, assignees}` updates both stores and is returned
-		 * to the caller.
-		 * @param {object} payload { roomId, task|taskId, assigneeUserIds?, firstDate? }
-		 * @return {Promise<object>} The creation aggregate
-		 */
-		async createTaskAggregate(payload) {
-			this._beginRead()
-			this.error = null
-
-			try {
-				const aggregate = await api.post('/api/v1/room-tasks', payload)
-
-				// Canonical assignee shape (CS-PLAN-066 D1): the aggregate
-				// carries a Nextcloud user-ID array already.
-				const roomTask = {
-					...aggregate.roomTask,
-					assignees: aggregate.assignees || [],
-				}
-				this.roomTasks.push(roomTask)
-				this.onInstanceMutated()
-
-				const tasksStore = useTasksStore()
-				if (aggregate.task && !tasksStore.getTaskById(aggregate.task.id)) {
-					tasksStore.tasks.push(aggregate.task)
-				}
-
-				return aggregate
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to create task aggregate', error, { store: 'roomTasks', action: 'createTaskAggregate' })
-				throw error
-			} finally {
-				this._endRead()
-			}
-		},
-
-		/**
-		 * Create a room task from a catalog template (per-room picker).
-		 * The response is the aggregate shape `{task, roomTask, assignees}`
-		 * (CS-PLAN-063 D1); the materialized room task joins the store.
-		 * @param {object} payload { roomId, templateId, level?, overrides?, assigneeUserId? }
-		 * @return {Promise<object>} The creation aggregate
-		 */
-		async createFromTemplate(payload) {
-			this._beginRead()
-			this.error = null
-
-			try {
-				const aggregate = await api.post('/api/v1/room-tasks/from-template', payload)
-
-				// Canonical assignee shape (CS-PLAN-066 D1).
-				const roomTask = {
-					...aggregate.roomTask,
-					assignees: aggregate.assignees || [],
-				}
-				this.roomTasks.push(roomTask)
-				this.onInstanceMutated()
-
-				// Same aggregate-shape handling as createTaskAggregate (D1):
-				// cache the materialized definition for TaskList rendering.
-				const tasksStore = useTasksStore()
-				if (aggregate.task && !tasksStore.getTaskById(aggregate.task.id)) {
-					tasksStore.tasks.push(aggregate.task)
-				}
-
-				return aggregate
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to create room task from template', error, { store: 'roomTasks', action: 'createFromTemplate', templateId: payload?.templateId })
-				throw error
-			} finally {
-				this._endRead()
-			}
-		},
-
-		/**
 		 * Fetch the whole house's room tasks in ONE request (CS-PLAN-067
 		 * D1) — the batched read that replaces TaskManager's and
 		 * SchedulingView's per-room loops. A full-house result REPLACES the
@@ -435,43 +378,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Replace the full set of assignees for a room task (multi-assign)
-		 * @param {number} roomTaskId Room task identifier to update.
-		 * @param {Array<string>} userIds Nextcloud user IDs to assign.
-		 * @return {Promise<Array<string>>} The resulting assignee user IDs.
-		 */
-		async setAssignees(roomTaskId, userIds) {
-			this._beginRead()
-			this.error = null
-
-			try {
-				const data = await api.put(
-					`/api/v1/room-tasks/${roomTaskId}/assignees`,
-					{ userIds },
-				)
-
-				// Canonical user-ID array (CS-PLAN-066 D1): the response IS
-				// the persisted set — no client-side union.
-				const assigneeIds = data || []
-				const roomTaskIndex = this.roomTasks.findIndex((rt) => rt.id === roomTaskId)
-				if (roomTaskIndex >= 0) {
-					this.roomTasks[roomTaskIndex] = {
-						...this.roomTasks[roomTaskIndex],
-						assignees: assigneeIds,
-					}
-				}
-				this.onInstanceMutated()
-				return assigneeIds
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to set assignees', error, { store: 'roomTasks', action: 'setAssignees', roomTaskId })
-				throw error
-			} finally {
-				this._endRead()
-			}
-		},
-
-		/**
 		 * Complete the current cycle of a room task (ADR-021 decision 4):
 		 * one transactional aggregate carrying the receipt — `commandId`
 		 * (fresh client UUID per logical command) plus the `cycleKey` and
@@ -537,7 +443,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const target = this._completionTargetFor(roomTaskId)
+				const target = this.completionTargetOf(roomTaskId)
 				if (!target) {
 					const error = new Error('The task changed since it was displayed. Reload and try again.')
 					error.code = 'STALE_TARGET'
@@ -640,35 +546,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			} finally {
 				this._endRead()
 			}
-		},
-
-		/**
-		 * Resolve the shown target of a room task from any cached slice:
-		 * the row's `cycle` block with the cycle key and the cycle version.
-		 * A bonus task and a sleeping one have no cycle to name; their
-		 * version alone is the receipt (completing a sleeping task wakes
-		 * it, ADR-021 decision 7). Returns null when no such block is
-		 * cached — a task that is done or shown from stale state (the
-		 * caller surfaces a reload hint).
-		 * @param {number} roomTaskId Room task identifier.
-		 * @return {?object} `{ cycleKey?, expectedVersion, state }`
-		 */
-		_completionTargetFor(roomTaskId) {
-			const sources = [
-				this.dailyTasks,
-				this.bonusTasks,
-				this.dueTodayTasks,
-				this.overdueTasks,
-				this.roomTasks,
-			]
-			for (const slice of sources) {
-				const row = slice.find((item) => (item.roomTask?.id ?? item.id) === roomTaskId)
-				const cycle = row?.cycle ?? row?.roomTask?.cycle
-				if (Number.isInteger(cycle?.expectedVersion) && (cycle.cycleKey || ['bonus', 'asleep'].includes(cycle.state))) {
-					return cycle
-				}
-			}
-			return null
 		},
 
 		/**
@@ -865,15 +742,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			// CS-PLAN-066 §3.2: the returned definition belongs to the
 			// definitions store — merged by its separate ID, never left
 			// stale in useTasksStore.
-			if (data.task?.id) {
-				const tasksStore = useTasksStore()
-				const taskIndex = tasksStore.tasks.findIndex((t) => t.id === data.task.id)
-				if (taskIndex >= 0) {
-					tasksStore.tasks[taskIndex] = data.task
-				} else {
-					tasksStore.tasks.push(data.task)
-				}
-			}
+			useTasksStore().upsertTask(data.task)
 
 			if (data.room) {
 				useRoomsStore().reconcileRoom(data.room)
@@ -969,6 +838,35 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					}
 				}
 			}
+		},
+
+		/**
+		 * A room task the one form created (CS-PLAN-091 WP-B6): the
+		 * aggregate `{task, roomTask, assignees}` joins the instance set and
+		 * the definition cache, and every loaded projection reads again.
+		 * @param {object} aggregate The creation answer.
+		 */
+		addCreatedRoomTask(aggregate) {
+			// Canonical assignee shape (CS-PLAN-066 D1): a user-ID array.
+			this.roomTasks.push({ ...aggregate.roomTask, assignees: aggregate.assignees || [] })
+			useTasksStore().upsertTask(aggregate.task)
+			this.onInstanceMutated()
+		},
+
+		/**
+		 * A room task the one form saved: the fresh row (room, assignees,
+		 * cycle) replaces it in every slice, its definition lands in the
+		 * definition cache, and the loaded lists read again — a split or a
+		 * rule change moved what other rows show, a move changed the room.
+		 * @param {object} data The save answer `{task, roomTask, assignees, cycle}`.
+		 */
+		applySavedRoomTask(data) {
+			const roomTask = { ...data.roomTask, assignees: data.assignees ?? data.roomTask.assignees ?? [] }
+			this.replaceRoomTaskInState(roomTask.id, roomTask)
+			this._replaceCycleInState(roomTask.id, data.cycle)
+			useTasksStore().upsertTask(data.task)
+			// One refresh per save: a second call would stop at the in-flight guard.
+			this.onInstanceMutated({ rows: true })
 		},
 
 		/**
@@ -1070,8 +968,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * loaded derived projection that depends on instance state (counts,
 		 * daily list, range window). Loaded consumers are refreshed by the
 		 * coordinated owner; unloaded ones stay unloaded.
+		 * @param {object} [options] What else the one refresh rereads ({@link refreshDerivedProjections}).
 		 */
-		onInstanceMutated() {
+		onInstanceMutated(options = {}) {
 			if (this.houseLoaded) {
 				this.houseStale = true
 			}
@@ -1081,7 +980,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			if (this.overdueLoaded) {
 				this.overdueStale = true
 			}
-			this.refreshDerivedProjections()
+			this.refreshDerivedProjections(options)
 		},
 
 		/**
@@ -1156,50 +1055,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				return !failed
 			} finally {
 				this.countsRefreshing = false
-			}
-		},
-
-		/**
-		 * Bulk assign tasks to one house member in a single call
-		 * (CR-SVC-61). Foreign/missing ids are skipped server-side; the
-		 * response carries only the successfully assigned room tasks WITH
-		 * their canonical persisted assignee sets (CS-PLAN-066 D1) — the
-		 * client reconciles returned successes, never the requested set.
-		 * @param {Array<number>} roomTaskIds Room task identifiers to assign.
-		 * @param {string} userId User identifier receiving assignments.
-		 * @return {Promise<Array<object>>} The assigned room tasks (input order).
-		 */
-		async bulkAssignTasks(roomTaskIds, userId) {
-			if (!userId || userId.trim() === '') {
-				throw new Error('User ID is required')
-			}
-			if (!Array.isArray(roomTaskIds)) {
-				throw new Error('Room task IDs must be an array')
-			}
-
-			this._beginRead()
-			this.error = null
-
-			try {
-				const assigned = await api.post('/api/v1/room-tasks/bulk-assign', { roomTaskIds, userId })
-
-				// Merge the persisted assignment into the cached slices so
-				// assignee chips and counters update without a re-fetch.
-				for (const roomTask of assigned || []) {
-					this.replaceRoomTaskInState(roomTask.id, {
-						...roomTask,
-						assignees: roomTask.assignees || [],
-					})
-				}
-				this.onInstanceMutated()
-
-				return assigned || []
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to bulk assign tasks', error, { store: 'roomTasks', action: 'bulkAssignTasks', userId })
-				throw error
-			} finally {
-				this._endRead()
 			}
 		},
 

@@ -1,23 +1,23 @@
 /**
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
- *
- * RoomPicker component suite (CR-053-22, CS-PLAN-068 §3.6): the room is a
- * REQUIRED creation input — floor/room sync, locked preset mode and the
- * v-model round-trip are pinned here.
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals'
-import { mount, flushPromises } from '@vue/test-utils'
-import { logger } from '@/utils/logger.js'
-jest.mock('@/utils/logger.js', () => ({ logger: { error: jest.fn() } }))
+import { beforeEach, describe, expect, it, jest } from '@jest/globals'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-
 import RoomPicker from '../../../src/components/Tasks/RoomPicker.vue'
+import { useRoomsStore } from '../../../src/store/rooms.js'
+import { logger } from '../../../src/utils/logger.js'
+
+jest.mock('@nextcloud/l10n', () => ({ translate: jest.fn((app, text) => text) }))
+jest.mock('@/utils/logger', () => ({ logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() } }))
 
 const floors = [
 	{ id: 1, name: 'Ground Floor' },
 	{ id: 2, name: 'Upper Floor' },
+	// A floor without rooms is never offered.
+	{ id: 3, name: 'Attic' },
 ]
 const rooms = [
 	{ id: 11, name: 'Kitchen', floorId: 1 },
@@ -25,125 +25,236 @@ const rooms = [
 	{ id: 21, name: 'Bedroom', floorId: 2 },
 ]
 
-const mockRoomsStore = {
-	floors,
-	rooms,
-	roomsByFloor: {
-		1: [rooms[0], rooms[1]],
-		2: [rooms[2]],
-	},
-	getRoomById: (id) => rooms.find(room => room.id === id) || null,
-	getFloorById: (id) => floors.find(floor => floor.id === id) || null,
-	fetchFloorsWithRooms: jest.fn(),
-}
-
-jest.mock('../../../src/store/rooms.js', () => ({
-	useRoomsStore: jest.fn(() => mockRoomsStore),
-}))
-
+/**
+ * The one room choice (CS-PLAN-091 WP-B6, the operator's GUI review): one
+ * button that opens the floors in place; a floor opens its rooms, a room is
+ * the choice. As a filter a floor is a choice of its own.
+ */
 describe('RoomPicker', () => {
+	let pinia
+	let roomsStore
+
 	beforeEach(() => {
-		setActivePinia(createPinia())
-		mockRoomsStore.fetchFloorsWithRooms.mockClear()
-		mockRoomsStore.floors = floors
-		mockRoomsStore.rooms = rooms
-		mockRoomsStore.roomsByFloor = { 1: [rooms[0], rooms[1]], 2: [rooms[2]] }
+		jest.clearAllMocks()
+		pinia = createPinia()
+		setActivePinia(pinia)
+		roomsStore = useRoomsStore()
+		roomsStore.floors = floors
+		roomsStore.rooms = rooms
+		jest.spyOn(roomsStore, 'fetchFloorsWithRooms').mockResolvedValue([])
 	})
 
-	it('renders floor and room selects with only floors that have rooms', () => {
-		const wrapper = mount(RoomPicker, { props: { modelValue: null } })
-		const floorOptions = wrapper.find('[data-testid="room-picker-floor"]').findAll('option')
-		expect(floorOptions.map(option => option.text())).toEqual(['Ground Floor', 'Upper Floor'])
-		// The room select starts with the disabled placeholder.
-		expect(wrapper.find('[data-testid="room-picker-room"]').findAll('option')[0].attributes('disabled')).toBeDefined()
+	const mountPicker = (props = {}) => mount(RoomPicker, { props, global: { plugins: [pinia] }, attachTo: document.body })
+	const toggle = (wrapper) => wrapper.get('[data-testid="room-picker-toggle"]')
+	// The icon mock renders its name: the label is the text beside it.
+	const label = (wrapper) => wrapper.get('.picker-label').text()
+	const floor = (wrapper, id) => wrapper.get(`[data-testid="room-picker-floor-${id}"]`)
+	const room = (wrapper, id) => wrapper.find(`[data-testid="room-picker-room-${id}"]`)
+	const offeredRooms = (wrapper) => wrapper.findAll('[data-testid^="room-picker-room-"]').map((button) => button.text())
+	const open = async (props = {}) => {
+		const wrapper = mountPicker(props)
+		await toggle(wrapper).trigger('click')
+		return wrapper
+	}
+
+	describe('in the form', () => {
+		it('is one closed button that asks for a room', () => {
+			const wrapper = mountPicker()
+
+			expect(label(wrapper)).toBe('Select a room')
+			expect(toggle(wrapper).attributes('aria-expanded')).toBe('false')
+			expect(wrapper.find('[data-testid^="room-picker-floor-"]').exists()).toBe(false)
+			expect(roomsStore.fetchFloorsWithRooms).not.toHaveBeenCalled()
+		})
+
+		it('names the chosen room with its floor', () => {
+			expect(label(mountPicker({ modelValue: 21 }))).toBe('Upper Floor · Bedroom')
+		})
+
+		it('opens the floors that have rooms, none of them open and no way to choose all', async () => {
+			const wrapper = await open()
+
+			expect(toggle(wrapper).attributes('aria-expanded')).toBe('true')
+			expect(wrapper.element.querySelector(`[id="${toggle(wrapper).attributes('aria-controls')}"]`)).not.toBeNull()
+			expect(wrapper.findAll('[data-testid^="room-picker-floor-"]').map((button) => button.text().replace('ChevronRight', '').trim())).toEqual(['Ground Floor', 'Upper Floor'])
+			expect(offeredRooms(wrapper)).toEqual([])
+			expect(wrapper.find('[data-testid="room-picker-all"]').exists()).toBe(false)
+			// A floor is no choice here: it carries no pressed state.
+			expect(floor(wrapper, 1).attributes('aria-pressed')).toBeUndefined()
+		})
+
+		it('opens on the floor of the chosen room, over the preferred floor', async () => {
+			const wrapper = await open({ modelValue: 21, initialFloorId: 1 })
+
+			expect(floor(wrapper, 2).attributes('aria-expanded')).toBe('true')
+			expect(offeredRooms(wrapper)).toEqual(['Bedroom'])
+			expect(room(wrapper, 21).attributes('aria-pressed')).toBe('true')
+		})
+
+		// FEAT-UX-038: the list's floor filter prefills without choosing a room.
+		it('opens on the preferred floor while no room is chosen', async () => {
+			const wrapper = await open({ initialFloorId: 2 })
+
+			expect(offeredRooms(wrapper)).toEqual(['Bedroom'])
+			expect(room(wrapper, 21).attributes('aria-pressed')).toBe('false')
+			expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+		})
+
+		it('opens the only floor of a house at once', async () => {
+			roomsStore.rooms = rooms.filter((entry) => entry.floorId === 1)
+			const wrapper = await open()
+
+			expect(offeredRooms(wrapper)).toEqual(['Kitchen', 'Hallway'])
+		})
+
+		it('lets a floor only open and close its rooms, one floor at a time', async () => {
+			const wrapper = await open()
+
+			await floor(wrapper, 1).trigger('click')
+			expect(floor(wrapper, 1).attributes('aria-expanded')).toBe('true')
+			expect(offeredRooms(wrapper)).toEqual(['Kitchen', 'Hallway'])
+
+			await floor(wrapper, 2).trigger('click')
+			expect(floor(wrapper, 1).attributes('aria-expanded')).toBe('false')
+			expect(offeredRooms(wrapper)).toEqual(['Bedroom'])
+
+			await floor(wrapper, 2).trigger('click')
+			expect(offeredRooms(wrapper)).toEqual([])
+			expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+			expect(wrapper.emitted('select')).toBeUndefined()
+		})
+
+		it('takes a room, closes and returns the focus to its button', async () => {
+			const wrapper = await open()
+			await floor(wrapper, 1).trigger('click')
+
+			await room(wrapper, 12).trigger('click')
+			await flushPromises()
+
+			expect(wrapper.emitted('update:modelValue')).toEqual([[12]])
+			expect(wrapper.emitted('select')).toEqual([[{ floorId: 1, roomId: 12 }]])
+			expect(toggle(wrapper).attributes('aria-expanded')).toBe('false')
+			expect(wrapper.find('[data-testid^="room-picker-floor-"]').exists()).toBe(false)
+			expect(document.activeElement).toBe(toggle(wrapper).element)
+			wrapper.unmount()
+		})
+
+		it('closes on a second press of its button', async () => {
+			const wrapper = await open()
+
+			await toggle(wrapper).trigger('click')
+
+			expect(wrapper.find('[data-testid^="room-picker-floor-"]').exists()).toBe(false)
+		})
+
+		it('reads the catalog only when the store holds none', async () => {
+			roomsStore.floors = []
+			roomsStore.rooms = []
+
+			const wrapper = await open()
+			await flushPromises()
+
+			expect(roomsStore.fetchFloorsWithRooms).toHaveBeenCalledTimes(1)
+			expect(wrapper.text()).toContain('No rooms yet')
+		})
+
+		it('logs an unavailable catalog and chooses nothing', async () => {
+			roomsStore.floors = []
+			roomsStore.rooms = []
+			const failure = new Error('offline')
+			roomsStore.fetchFloorsWithRooms.mockRejectedValueOnce(failure)
+
+			const wrapper = await open()
+			await flushPromises()
+
+			expect(logger.error).toHaveBeenCalledWith('Failed to load floors and rooms', failure, expect.objectContaining({ component: 'RoomPicker' }))
+			expect(wrapper.text()).toContain('No rooms yet')
+			expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+		})
 	})
 
-	it('defaults to the first floor with rooms and lists its rooms', async () => {
-		const wrapper = mount(RoomPicker, { props: { modelValue: null } })
-		await wrapper.vm.$nextTick()
-		const floorSelect = wrapper.find('[data-testid="room-picker-floor"]')
-		expect(Number(floorSelect.element.value)).toBe(1)
-		const roomTexts = wrapper.find('[data-testid="room-picker-room"]').findAll('option').map(option => option.text())
-		expect(roomTexts).toContain('Kitchen')
-		expect(roomTexts).toContain('Hallway')
-		expect(roomTexts).not.toContain('Bedroom')
-	})
+	describe('as the quick filter of the task list', () => {
+		const openFilter = (props = {}) => open({ filter: true, ...props })
 
-	it('emits the selected room through v-model', async () => {
-		const wrapper = mount(RoomPicker, { props: { modelValue: null } })
-		await wrapper.vm.$nextTick()
-		await wrapper.find('[data-testid="room-picker-room"]').setValue('11')
-		expect(wrapper.emitted('update:modelValue')[0]).toEqual([11])
-	})
+		it('leaves the read of the structure to the task list', async () => {
+			roomsStore.floors = []
+			roomsStore.rooms = []
 
-	it('derives the floor when the model value is set externally', async () => {
-		const wrapper = mount(RoomPicker, { props: { modelValue: 21 } })
-		await wrapper.vm.$nextTick()
-		expect(Number(wrapper.find('[data-testid="room-picker-floor"]').element.value)).toBe(2)
-	})
+			await openFilter()
+			await flushPromises()
 
-	it('resets an incompatible room when switching floors', async () => {
-		const wrapper = mount(RoomPicker, { props: { modelValue: null } })
-		await wrapper.vm.$nextTick()
-		await wrapper.find('[data-testid="room-picker-room"]').setValue('11')
-		await wrapper.find('[data-testid="room-picker-floor"]').setValue('2')
-		await wrapper.vm.$nextTick()
-		// The Kitchen (floor 1) cannot live on floor 2 — the room resets.
-		expect(wrapper.emitted('update:modelValue').at(-1)).toEqual([null])
-	})
+			expect(roomsStore.fetchFloorsWithRooms).not.toHaveBeenCalled()
+		})
 
-	// FEAT-UX-038: the Tasks tab filters prefill without locking the picker.
-	it('starts on the initial floor without a room when only a floor is given', async () => {
-		const wrapper = mount(RoomPicker, { props: { modelValue: null, initialFloorId: 2 } })
-		await wrapper.vm.$nextTick()
-		expect(Number(wrapper.find('[data-testid="room-picker-floor"]').element.value)).toBe(2)
-		// The disabled "Select a room" placeholder stays selected.
-		expect(wrapper.find('[data-testid="room-picker-room"]').element.selectedIndex).toBe(0)
-		expect(wrapper.emitted('update:modelValue')).toBeUndefined()
-	})
+		it('stands for all rooms until something is chosen', async () => {
+			const wrapper = await openFilter()
 
-	it('keeps an initial room selectable and its own floor over the initial floor', async () => {
-		const wrapper = mount(RoomPicker, { props: { modelValue: 21, initialFloorId: 1 } })
-		await wrapper.vm.$nextTick()
-		expect(wrapper.find('[data-testid="room-picker-locked"]').exists()).toBe(false)
-		expect(Number(wrapper.find('[data-testid="room-picker-floor"]').element.value)).toBe(2)
-		expect(Number(wrapper.find('[data-testid="room-picker-room"]').element.value)).toBe(21)
-	})
+			expect(label(wrapper)).toBe('All rooms')
+			expect(wrapper.get('[data-testid="room-picker-all"]').attributes('aria-pressed')).toBe('true')
+			// A floor opens its rooms and is a choice: one state each, never a pressed toggle that is also expanded.
+			expect(floor(wrapper, 1).attributes('aria-pressed')).toBeUndefined()
+			expect(floor(wrapper, 1).attributes('aria-current')).toBeUndefined()
+		})
 
-	it('falls back to the first floor for an initial floor without rooms', async () => {
-		const wrapper = mount(RoomPicker, { props: { modelValue: null, initialFloorId: 99 } })
-		await wrapper.vm.$nextTick()
-		expect(Number(wrapper.find('[data-testid="room-picker-floor"]').element.value)).toBe(1)
-	})
+		it('takes a floor as a choice of its own and keeps its rooms open', async () => {
+			const wrapper = await openFilter()
 
-	it('shows the read-only locked label in preset mode', () => {
-		const wrapper = mount(RoomPicker, { props: { modelValue: null, presetRoomId: 11 } })
-		expect(wrapper.find('[data-testid="room-picker-locked"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="room-picker-locked"]').text()).toContain('Kitchen')
-		expect(wrapper.find('[data-testid="room-picker-floor"]').exists()).toBe(false)
-		expect(wrapper.find('[data-testid="room-picker-room"]').exists()).toBe(false)
-	})
+			await floor(wrapper, 2).trigger('click')
 
-	it('fetches floors and rooms only when the stores are empty', async () => {
-		mockRoomsStore.floors = []
-		mockRoomsStore.rooms = []
-		mockRoomsStore.fetchFloorsWithRooms.mockResolvedValue(undefined)
-		mount(RoomPicker, { props: { modelValue: null } })
-		await Promise.resolve()
-		expect(mockRoomsStore.fetchFloorsWithRooms).toHaveBeenCalledTimes(1)
-	})
+			expect(wrapper.emitted('select')).toEqual([[{ floorId: 2, roomId: null }]])
+			expect(wrapper.emitted('update:modelValue')).toEqual([[null]])
+			expect(toggle(wrapper).attributes('aria-expanded')).toBe('true')
+			expect(offeredRooms(wrapper)).toEqual(['Bedroom'])
+		})
 
-	it('reports an unavailable room catalog without selecting a fictional room', async () => {
-		mockRoomsStore.floors = []
-		mockRoomsStore.rooms = []
-		mockRoomsStore.roomsByFloor = {}
-		const failure = new Error('offline')
-		mockRoomsStore.fetchFloorsWithRooms.mockRejectedValueOnce(failure)
-		const wrapper = mount(RoomPicker)
-		await flushPromises()
-		expect(wrapper.text()).toContain('No rooms in this floor yet')
-		expect(wrapper.emitted('update:modelValue')).toBeUndefined()
-		expect(logger.error).toHaveBeenCalledWith('Failed to load floors and rooms', failure, expect.any(Object))
-		wrapper.unmount()
+		it('names and marks the chosen floor, and a second press only closes its rooms', async () => {
+			const wrapper = await openFilter({ floorId: 2 })
+
+			expect(label(wrapper)).toBe('Upper Floor')
+			expect(floor(wrapper, 2).attributes('aria-current')).toBe('true')
+			expect(floor(wrapper, 2).attributes('aria-controls')).toBe(wrapper.get('.picker-rooms').attributes('id'))
+			expect(wrapper.get('[data-testid="room-picker-all"]').attributes('aria-pressed')).toBe('false')
+			expect(offeredRooms(wrapper)).toEqual(['Bedroom'])
+
+			await floor(wrapper, 2).trigger('click')
+
+			expect(offeredRooms(wrapper)).toEqual([])
+			expect(wrapper.emitted('select')).toBeUndefined()
+		})
+
+		it('takes a room of the chosen floor and closes', async () => {
+			const wrapper = await openFilter({ floorId: 1 })
+
+			await room(wrapper, 11).trigger('click')
+			await flushPromises()
+
+			expect(wrapper.emitted('select')).toEqual([[{ floorId: 1, roomId: 11 }]])
+			expect(toggle(wrapper).attributes('aria-expanded')).toBe('false')
+		})
+
+		it('marks the chosen room, not its floor, and goes back to the whole floor on its press', async () => {
+			const wrapper = await openFilter({ modelValue: 11, floorId: 1 })
+
+			expect(label(wrapper)).toBe('Ground Floor · Kitchen')
+			expect(room(wrapper, 11).attributes('aria-pressed')).toBe('true')
+			expect(floor(wrapper, 1).attributes('aria-current')).toBeUndefined()
+
+			await floor(wrapper, 1).trigger('click')
+
+			expect(wrapper.emitted('select')).toEqual([[{ floorId: 1, roomId: null }]])
+			// The rooms stay open to narrow again.
+			expect(offeredRooms(wrapper)).toEqual(['Kitchen', 'Hallway'])
+		})
+
+		it('clears the choice with All rooms and closes', async () => {
+			const wrapper = await openFilter({ modelValue: 11, floorId: 1 })
+
+			await wrapper.get('[data-testid="room-picker-all"]').trigger('click')
+			await flushPromises()
+
+			expect(wrapper.emitted('select')).toEqual([[{ floorId: null, roomId: null }]])
+			expect(wrapper.emitted('update:modelValue')).toEqual([[null]])
+			expect(toggle(wrapper).attributes('aria-expanded')).toBe('false')
+		})
 	})
 })

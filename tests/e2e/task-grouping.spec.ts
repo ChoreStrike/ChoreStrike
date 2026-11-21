@@ -67,16 +67,16 @@ test.describe('Task grouping', () => {
 	})
 
 	// Successor of "User can open add task modal" of the room page.
-	test('New in a room heading opens the template picker for that room', async ({ page }) => {
+	test('New in a room heading opens the one form with that room and its templates', async ({ page }) => {
 		const room = await openRoom(page)
 
 		await roomGroup(page, room).getByTestId('room-add-task-button').click()
-		await expect(page.getByTestId('add-task-picker')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('task-form')).toBeVisible({ timeout: 15000 })
 
-		// The custom form is one step behind, locked to the room.
-		await page.getByTestId('picker-tab-custom').click()
+		// The form starts in the room; a template only fills its fields (CS-PLAN-091 WP-B6).
 		await expect(page.getByTestId('task-name-input')).toBeVisible({ timeout: 15000 })
-		await expect(page.getByTestId('room-picker-locked')).toBeVisible()
+		await expect(page.getByTestId('task-form').getByTestId('room-picker-toggle')).toContainText(room.name)
+		await expect(page.getByTestId('task-template-open')).toBeVisible()
 	})
 
 	// D-090-12 (CS-PLAN-091): the date dialog is gone; the room heading

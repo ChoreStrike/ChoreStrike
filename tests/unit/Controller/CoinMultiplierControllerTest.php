@@ -129,8 +129,8 @@ class CoinMultiplierControllerTest extends TestCase {
 	}
 
 	public function testCancelPeriod_AnswersWhatTheHouseShowsNow(): void {
-		$this->multipliers->expects($this->once())->method('cancelPeriod')->with(3, 5, self::UUID)->willReturn($this->period());
-		$this->multipliers->expects($this->once())->method('runningOrNext')->willReturn(null);
+		// The service answers with the period the house shows now: none here.
+		$this->multipliers->expects($this->once())->method('cancelPeriod')->with(3, 5, self::UUID)->willReturn(null);
 
 		// The command id of a DELETE arrives as a query parameter.
 		$response = $this->controller(['id' => '5', 'commandId' => self::UUID])->cancelPeriod(5);

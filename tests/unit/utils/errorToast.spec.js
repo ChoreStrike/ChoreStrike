@@ -5,23 +5,12 @@
 
 import { describe, it, expect, beforeEach } from '@jest/globals'
 import { showError } from '@nextcloud/dialogs'
-import { errorReference, refusalReason, showCompletionError, showErrorWithReference, showHistoryError, showPostponeError, showServerRefusal } from '@/utils/errorToast.js'
+import { errorReference, showCompletionError, showErrorWithReference, showPostponeError, showRefusal } from '@/utils/errorToast.js'
 import { ApiError } from '@/services/api.js'
 
 describe('errorToast (CS-PLAN-084 WP-F)', () => {
 	beforeEach(() => {
 		showError.mockClear()
-	})
-
-	it.each(['CONFLICT', 'STALE_TARGET', 'VALIDATION_ERROR'])('reads the reason of a coded refusal: %s', (code) => {
-		expect(refusalReason({ code, message: 'Over the limit' })).toBe('Over the limit')
-	})
-
-	it('finds no reason in anything else', () => {
-		expect(refusalReason({ code: 'INTERNAL_ERROR', message: 'Boom' })).toBe('')
-		expect(refusalReason({ code: 'CONFLICT' })).toBe('')
-		expect(refusalReason(new Error('Network'))).toBe('')
-		expect(refusalReason(undefined)).toBe('')
 	})
 
 	it('prefers the stable API code', () => {
@@ -76,10 +65,12 @@ describe('errorToast (CS-PLAN-084 WP-F)', () => {
 		expect(showError).toHaveBeenCalledWith('This task was already completed. Reload to see what is next.')
 	})
 
-	it('shows the referenced failure for any other completion error', () => {
-		showCompletionError(new ApiError('Conflict', 409, {}, 'CONFLICT'))
+	it('shows the server\'s reason of a refused completion and the referenced failure for anything else', () => {
+		showCompletionError(new ApiError('This task was <b>deleted</b>', 409, {}, 'CONFLICT'))
+		showCompletionError(new ApiError('Boom', 500, {}, 'COMPLETE_TASK_ERROR'))
 
-		expect(showError).toHaveBeenCalledWith('Could not complete the task (CONFLICT)')
+		expect(showError).toHaveBeenNthCalledWith(1, 'This task was <b>deleted</b>', { isHTML: false })
+		expect(showError).toHaveBeenNthCalledWith(2, 'Could not complete the task (COMPLETE_TASK_ERROR)')
 	})
 
 	it.each([
@@ -98,18 +89,6 @@ describe('errorToast (CS-PLAN-084 WP-F)', () => {
 		expect(showError).toHaveBeenCalledWith('Could not postpone the task (POSTPONE_TASK_ERROR)')
 	})
 
-	it.each(['VALIDATION_ERROR', 'FORBIDDEN', 'CONFLICT'])('shows the reason of a refused date change as plain text: %s', (code) => {
-		showHistoryError(Object.assign(new Error('The date <b>cannot</b> be in the future'), { status: 400, code }))
-
-		expect(showError).toHaveBeenCalledWith('The date <b>cannot</b> be in the future', { isHTML: false })
-	})
-
-	it('shows the referenced failure for any other date change error', () => {
-		showHistoryError(new ApiError('Boom', 500, {}, 'COMPLETION_DATE_ERROR'))
-
-		expect(showError).toHaveBeenCalledWith('Could not change the date (COMPLETION_DATE_ERROR)')
-	})
-
 	it('says that a bonus task already counted for the person today (ADR-021 decision 8)', () => {
 		showCompletionError(new ApiError('This bonus task was already counted for this person today', 409, {}, 'BONUS_ALREADY_TODAY'))
 
@@ -122,17 +101,37 @@ describe('errorToast (CS-PLAN-084 WP-F)', () => {
 		expect(showError).toHaveBeenCalledWith('This task has ended. Wake it up to close it.')
 	})
 
-	it.each(['VALIDATION_ERROR', 'FORBIDDEN', 'CONFLICT'])('shows the server\'s reason of a refused command as plain text: %s', (code) => {
-		showServerRefusal(Object.assign(new Error('Bonus days are <b>already</b> planned for this time'), { status: 409, code }), 'Could not start the bonus days')
+	describe('showRefusal (RF-091-09)', () => {
+		it.each(['VALIDATION_ERROR', 'FORBIDDEN', 'CONFLICT', 'RESOURCE_NOT_FOUND', 'SCOPE_REQUIRED'])('shows the server\'s reason of a refused command as plain text: %s', (code) => {
+			showRefusal(Object.assign(new Error('Bonus days are <b>already</b> planned for this time'), { status: 409, code }), 'Could not start the bonus days')
 
-		expect(showError).toHaveBeenCalledWith('Bonus days are <b>already</b> planned for this time', { isHTML: false })
-	})
+			expect(showError).toHaveBeenCalledWith('Bonus days are <b>already</b> planned for this time', { isHTML: false })
+		})
 
-	it('asks to reload after a stale target and references anything unexpected', () => {
-		showServerRefusal(Object.assign(new Error('stale'), { status: 409, code: 'STALE_TARGET' }), 'Could not put the task to sleep')
-		showServerRefusal(new ApiError('Boom', 500, {}, 'SLEEP_TASK_ERROR'), 'Could not put the task to sleep')
+		it('prefers the message the caller names for a code', () => {
+			showRefusal(Object.assign(new Error('server text'), { status: 409, code: 'CONFLICT' }), 'Could not save the task', {
+				CONFLICT: 'Someone else changed it',
+			})
 
-		expect(showError).toHaveBeenNthCalledWith(1, 'The task changed since it was displayed. Reload and try again.')
-		expect(showError).toHaveBeenNthCalledWith(2, 'Could not put the task to sleep (SLEEP_TASK_ERROR)')
+			expect(showError).toHaveBeenCalledWith('Someone else changed it')
+		})
+
+		it('asks to reload after a stale target and references anything unexpected', () => {
+			showRefusal(Object.assign(new Error('stale'), { status: 409, code: 'STALE_TARGET' }), 'Could not put the task to sleep')
+			showRefusal(new ApiError('Boom', 500, {}, 'SLEEP_TASK_ERROR'), 'Could not put the task to sleep')
+
+			expect(showError).toHaveBeenNthCalledWith(1, 'The task changed since it was displayed. Reload and try again.')
+			expect(showError).toHaveBeenNthCalledWith(2, 'Could not put the task to sleep (SLEEP_TASK_ERROR)')
+		})
+
+		it('references a coded refusal without a reason and an error without a code', () => {
+			showRefusal(Object.assign(new Error(''), { status: 400, code: 'VALIDATION_ERROR' }), 'Could not change the date')
+			showRefusal(new Error('Network'), 'Could not change the date')
+			showRefusal(undefined, 'Could not change the date')
+
+			expect(showError).toHaveBeenNthCalledWith(1, 'Could not change the date (VALIDATION_ERROR)')
+			expect(showError).toHaveBeenNthCalledWith(2, 'Could not change the date')
+			expect(showError).toHaveBeenNthCalledWith(3, 'Could not change the date')
+		})
 	})
 })

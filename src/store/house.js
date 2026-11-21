@@ -277,7 +277,7 @@ export const useHouseStore = defineStore('house', {
 		 * `startsOn`, on which everyone's coins count × 1.5.
 		 * @param {string} startsOn First day (`YYYY-MM-DD`), today or later.
 		 * @param {number} days One to three.
-		 * @return {Promise<object>} The period.
+		 * @return {Promise<?object>} The period the house shows now.
 		 */
 		async startBonusPeriod(startsOn, days) {
 			// The same period again after an uncertain failure replays its
@@ -301,9 +301,10 @@ export const useHouseStore = defineStore('house', {
 				logger.error('Failed to start bonus days', error, { store: 'house', action: 'startBonusPeriod' })
 				throw error
 			}
-			// The house shows the running period, else the next one: read which.
-			await this.fetchHouse()
-			return data.bonusPeriod
+			// The answer is the period the house shows now (RF-091-10), as the cancel's is.
+			this.houseRequestSeq++
+			this.house = { ...this.house, bonusPeriod: data.bonusPeriod ?? null }
+			return data.bonusPeriod ?? null
 		},
 
 		/**

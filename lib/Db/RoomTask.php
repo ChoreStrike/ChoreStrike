@@ -197,6 +197,9 @@ class RoomTask extends Entity implements JsonSerializable {
 			'originalAssignee' => $this->originalAssignee,
 			'claimedAt' => $this->claimedAt?->format('c'),
 			'idealDueDate' => $this->idealDueDate?->format('c'),
+			// The house-local day the window hangs on until the first
+			// completion: the one form's first date (D-091-19).
+			'anchorOn' => $this->anchorOn?->format('Y-m-d'),
 			'createdAt' => $this->createdAt?->format('c'),
 			'status' => $this->getStatus($timeZone),
 			'daysUntilDue' => $this->getDaysUntilDue($timeZone),

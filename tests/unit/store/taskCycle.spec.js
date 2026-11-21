@@ -38,7 +38,7 @@ describe('taskCycle store', () => {
 		jest.clearAllMocks()
 		setActivePinia(createPinia())
 		mockRoomTasksStore = {
-			_completionTargetFor: jest.fn(() => ({ cycleKey: 'c88', expectedVersion: 4, state: 'open' })),
+			completionTargetOf: jest.fn(() => ({ cycleKey: 'c88', expectedVersion: 4, state: 'open' })),
 			reconcileCompletionPayload: jest.fn(),
 			refreshDerivedProjections: jest.fn(),
 			undoRoomTaskCompletion: jest.fn().mockResolvedValue({}),
@@ -60,7 +60,7 @@ describe('taskCycle store', () => {
 				expectedVersion: 4,
 			})
 			expect(mockRoomTasksStore.reconcileCompletionPayload).toHaveBeenCalledWith(7, answer)
-			expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalledWith()
+			expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalledWith({})
 			expect(store.isPostponing(7)).toBe(false)
 		})
 
@@ -80,7 +80,7 @@ describe('taskCycle store', () => {
 		})
 
 		it.each([[null], [{ state: 'bonus', expectedVersion: 2 }]])('sends nothing without a cycle to postpone: %j', async (target) => {
-			mockRoomTasksStore._completionTargetFor.mockReturnValue(target)
+			mockRoomTasksStore.completionTargetOf.mockReturnValue(target)
 
 			await expect(store.postpone(7)).rejects.toMatchObject({ code: 'STALE_TARGET' })
 
@@ -224,7 +224,7 @@ describe('taskCycle store', () => {
 		})
 
 		it('wakes a sleeping task with the version of its block and sends no wake date', async () => {
-			mockRoomTasksStore._completionTargetFor.mockReturnValue({ state: 'asleep', expectedVersion: 9, wakeOn: '2026-12-01' })
+			mockRoomTasksStore.completionTargetOf.mockReturnValue({ state: 'asleep', expectedVersion: 9, wakeOn: '2026-12-01' })
 			api.put.mockResolvedValue({ cycle: { cycleKey: 'd2026-11-18', expectedVersion: 10 } })
 
 			await store.setSleeping(7, false, '2026-12-24')
@@ -237,7 +237,7 @@ describe('taskCycle store', () => {
 		})
 
 		it('refuses a task whose row is stale without a request', async () => {
-			mockRoomTasksStore._completionTargetFor.mockReturnValue(null)
+			mockRoomTasksStore.completionTargetOf.mockReturnValue(null)
 
 			await expect(store.setSleeping(7, true)).rejects.toMatchObject({ code: 'STALE_TARGET' })
 			expect(api.put).not.toHaveBeenCalled()

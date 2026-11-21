@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { chooseFormRoom, openFormMore } from './fixtures/task-form.ts'
 
 /**
  * E2E test: the task list's address contract (`/tasks?…`).
@@ -23,15 +24,14 @@ test.describe('Task list deep links', () => {
 			await page.getByTestId('add-task-button').click()
 			await expect(page.getByTestId('task-name-input')).toBeVisible({ timeout: 15000 })
 			await page.getByTestId('task-name-input').fill(name)
+			// Visibility sits folded under "More" (D-091-85).
+			await openFormMore(page)
 			await page.getByTestId('task-visibility-select').selectOption(visibility)
 
-			const roomSelect = page.getByTestId('room-picker-room')
-			const roomOption = await roomSelect.locator('option').nth(1).getAttribute('value')
-			if (!roomOption) {
+			if (!await chooseFormRoom(page)) {
 				await page.getByTestId('modal').getByTestId('modal-close').click()
 				return false
 			}
-			await roomSelect.selectOption(roomOption)
 
 			const createResponse = page.waitForResponse(
 				(response) => response.request().method() === 'POST' && response.url().includes('/api/v1/room-tasks'),

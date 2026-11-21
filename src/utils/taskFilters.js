@@ -27,7 +27,7 @@ const PRIORITIES = { urgent: 3, normal: 2, low: 1 }
  * @return {object} Filter values for TaskFilterBar.
  */
 export function filtersFromQuery(query = {}) {
-	const filters = { scope: 'mine', person: '', floor: '', room: '', status: 'all', priority: 'all', difficulty: 'all', visibility: 'all', category: 'all', search: '' }
+	const filters = { scope: 'mine', people: [], unassigned: true, floor: '', room: '', status: 'all', priority: 'all', difficulty: 'all', visibility: 'all', category: 'all', search: '' }
 	// A key shape only: the list arrives with the house, after this preset.
 	if (typeof query.category === 'string' && /^[a-z0-9]{1,50}$/.test(query.category)) {
 		filters.category = query.category
@@ -59,14 +59,55 @@ export function pageFromQuery(value) {
 }
 
 /**
- * Whether a row passes the scope, person, floor and room filters.
+ * What a scope ticks in the people filter: the three presets, or the
+ * custom choice the filters hold.
+ * @param {{scope: string, people?: string[], unassigned?: boolean, actorId?: ?string}} filters Scope and custom choice, with the viewer.
+ * @param {string[]} memberIds The household's members.
+ * @return {{people: string[], unassigned: boolean}}
+ */
+export function peopleOfScope(filters, memberIds) {
+	if (filters.scope === 'custom') {
+		return { people: filters.people ?? [], unassigned: filters.unassigned === true }
+	}
+	if (filters.scope === 'all') {
+		return { people: memberIds, unassigned: true }
+	}
+	return { people: filters.scope === 'mine' && filters.actorId ? [filters.actorId] : [], unassigned: true }
+}
+
+/**
+ * The filter values of a people choice: a preset where it is one, so the
+ * scope buttons and the ticks always say the same.
+ * @param {string[]} people The ticked members.
+ * @param {boolean} unassigned Whether unassigned work is ticked.
+ * @param {string[]} memberIds The household's members.
+ * @param {?string} actorId The viewer.
+ * @return {{scope: string, people: string[], unassigned: boolean}}
+ */
+export function scopeOfPeople(people, unassigned, memberIds, actorId) {
+	const preset = { people: [], unassigned: true }
+	if (unassigned && memberIds.length > 0 && memberIds.every((id) => people.includes(id))) {
+		return { scope: 'all', ...preset }
+	}
+	if (unassigned && people.length === 0) {
+		return { scope: 'unassigned', ...preset }
+	}
+	if (unassigned && people.length === 1 && people[0] === actorId) {
+		return { scope: 'mine', ...preset }
+	}
+	return { scope: 'custom', people: [...people], unassigned }
+}
+
+/**
+ * Whether a row passes the scope (with a custom choice of people), floor
+ * and room filters.
  * @param {object} roomTask Room task payload.
  * @param {object} filters Filter values.
  * @param {{rooms: object[], actorId: ?string}} context Rooms of the house and the viewer.
  * @return {boolean}
  */
 function matchesScope(roomTask, filters, { rooms, actorId }) {
-	const { scope, person, floor, room } = filters
+	const { scope, floor, room } = filters
 	const assignees = roomTask.assignees ?? []
 	// Unknown user (identity not resolved yet): show assigned rows rather
 	// than an empty list, as Today does.
@@ -76,7 +117,7 @@ function matchesScope(roomTask, filters, { rooms, actorId }) {
 	if (scope === 'unassigned' && assignees.length > 0) {
 		return false
 	}
-	if (person && !assignees.includes(person)) {
+	if (scope === 'custom' && !(assignees.length === 0 ? filters.unassigned === true : assignees.some((id) => (filters.people ?? []).includes(id)))) {
 		return false
 	}
 	if (floor && !rooms.some((entry) => entry.id === roomTask.roomId && String(entry.floorId) === floor)) {

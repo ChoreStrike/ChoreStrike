@@ -58,6 +58,17 @@ describe('Tasks Store', () => {
 			expect(task.name).toBe('Dust Living Room')
 		})
 
+		it('getTaskById follows the list without searching it per call, and knows no stranger', () => {
+			expect(store.tasksById).toBe(store.tasksById)
+			expect(store.getTaskById(99)).toBeUndefined()
+
+			store.upsertTask({ id: 99, name: 'New' })
+			store.upsertTask({ id: 2, name: 'Renamed' })
+
+			expect(store.getTaskById(99).name).toBe('New')
+			expect(store.getTaskById(2).name).toBe('Renamed')
+		})
+
 	})
 
 	describe('Actions', () => {

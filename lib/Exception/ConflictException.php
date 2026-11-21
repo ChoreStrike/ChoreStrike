@@ -28,6 +28,8 @@ class ConflictException extends \Exception {
 	public const REASON_BONUS_ALREADY_TODAY = 'BONUS_ALREADY_TODAY';
 	/** A sleeping task whose bounded rule ended while it slept: waking closes it, nothing is left to complete. */
 	public const REASON_TASK_ENDED = 'TASK_ENDED';
+	/** An edit of a definition that several rooms share names no scope: this room or all rooms. */
+	public const REASON_SCOPE_REQUIRED = 'SCOPE_REQUIRED';
 
 	public function __construct(
 		string $message = '',

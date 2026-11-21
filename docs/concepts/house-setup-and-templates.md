@@ -96,8 +96,10 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
 - **`HouseSetupService`** — validates the wizard payload (house name,
   1–6 floors, 1–12 rooms/floor, valid room types, assignees must be members)
   and creates floors → rooms (with `room_type`) → tasks (one Task per
-  template, memoized so a shared template is created once) → `RoomTask` links
-  with per-room assignees, all in a single DB transaction. Auto-creates the
+  template and room, D-091-88: a template is materialized once, but every room
+  gets a definition of its own, so an edit in one room never changes another
+  room's task) → `RoomTask` links with per-room assignees, all in a single DB
+  transaction. Auto-creates the
   toggleable `household` and per-floor `hallway` rooms. Bulk materialization
   never swallows failures (BUG-TEMPLATE-001): every skipped template is logged
   with its id and reported in the result.
@@ -117,10 +119,11 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
   pre-check of its own — the gate lives inside the service transaction
   (single gate owner); it only maps `ConflictException` to the unchanged
   `409 HOUSE_ALREADY_SET_UP` envelope.
-- **Per-room picker** — `POST /api/v1/room-tasks/from-template`
-  `{ roomId, templateId, level?, overrides?, assigneeUserId? }`. The `roomId` is
-  resolved server-side and validated against the caller’s house; `assigneeUserId`
-  is checked for membership.
+- **Templates after setup** (CS-PLAN-091 WP-B6, FEAT-UX-043) — there is no
+  template endpoint of its own any more: the one task form reads
+  `GET /api/v1/setup/catalog`, fills a template into its fields and saves
+  through the ordinary creation aggregate `POST /api/v1/room-tasks`. Whatever
+  is saved is a task of its own; `POST /room-tasks/from-template` is pruned.
 
 ## 6. Frontend
 
@@ -151,12 +154,15 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
   `tests/e2e/setup-wizard-journey.spec.ts` — bootstrap → owner → wizard
   through the UI → persisted structure → invite → invited member view, plus
   a raced-409/invalid-assignee zero-write proof (serial DB pool).
-- **Per-room template picker** (`src/components/Tasks/TaskTemplatePicker.vue`):
-  the room add-task flow defaults to the picker (templates filtered by the
-  room’s type + house-wide), with a level toggle, an „Anpassen" override form,
-  and a switch to the custom-task form (which reuses the unified
-  `TaskEditForm` with the room preset+locked — see
-  [`task-model-and-sync.md`](task-model-and-sync.md) §Creation Model).
+- **From template in the one form** (`src/components/Tasks/TaskTemplateFill.vue`,
+  CS-PLAN-091 WP-B6): *From template* in `TaskForm` lists the catalog
+  templates of a room type — the chosen room's type first, any other type
+  selectable, the household's templates under every type — with their rhythm
+  and energy at the setup wizard's default level. A choice only fills the
+  form's name, rhythm, energy, priority, category, description and
+  instructions; everything stays editable and the save is the ordinary
+  create (see [`task-model-and-sync.md`](task-model-and-sync.md) §Creation
+  Model).
 - **Essential onboarding help (WP8, CS-PLAN-079)**: the wizard's invite
   step carries the contextual "Accounts and roles" explanation (shared
   help modal) — every person, including a child, needs their own existing
@@ -169,9 +175,9 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
 - Wizard `apply` and `catalog` require house membership (`ensureHouseMember`,
   designated bootstrap endpoints, ADR-010); `apply` is additionally
   owner-gated in `HouseSetupService` (`requireHouseOwner`, WP2 §3.4).
-- The from-template endpoint validates room ownership server-side and rejects a
-  cross-house `roomId` before creating any task, and rejects a non-member
-  assignee.
+- A task filled from a template is created through `POST /room-tasks`, which
+  validates room ownership server-side (a cross-house `roomId` → `404` before
+  any write) and rejects a non-member assignee.
 - **Member management** (CS-PLAN-038): invite/role-change/remove are
   owner-gated (`requireHouseOwner`) in the backend; the Settings Members
   section mirrors the gate via `userStore.isHouseOwner`. The wizard invite step
@@ -194,6 +200,8 @@ mechanism (`/api/v1/tasks/templates`, `createDefaultTemplates`). Both were
 the `is_template` column/entity field, the `TaskMapper::findTemplates`/
 `createFromTemplate`, the `TaskService` template methods, the
 `TaskController` template endpoints, and the `TemplateController` (archived).
-Their room-type filtering is generalized and relocated into `SetupController`
-catalog + the from-template endpoint. The misnamed `TemplateSelector.vue` (a
-recurrence-preset picker) was renamed `RecurrencePresetSelector.vue`.
+Their room-type filtering is generalized and relocated into the
+`SetupController` catalog. The misnamed `TemplateSelector.vue` (a
+recurrence-preset picker) was renamed `RecurrencePresetSelector.vue`; it went
+with the one form's rhythm field (CS-PLAN-091 WP-B6), as did the per-room
+picker and its from-template endpoint.

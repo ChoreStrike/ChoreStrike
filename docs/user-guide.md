@@ -49,10 +49,9 @@ floors yet; you can also start it with **Set up your home**, there or under
 **Start empty** skips the wizard; you can then create floors, rooms and tasks
 yourself.
 
-**When was it last done?** In **Tasks**, open a task's details, choose *Date* and fill in
-*Last done on*. The room then shows that day as "Last cleaned", and a task that repeats after
-completion is next due one interval later. It earns nothing and counts as no
-completion. A newer entry corrects an older one; children cannot set it.
+**When is it first due?** Each task the wizard creates is first due tomorrow.
+To change that, open the task in **Tasks** with its arrow, choose **Edit** and
+set its **First date**; that works until the task is done for the first time.
 
 **Invitations.** You invite people by the email address of their existing
 account on your Nextcloud — ChoreStrike sends no email; the person is part of
@@ -85,13 +84,32 @@ about you.
 **Tasks** is the one list of everything. Its switch groups it *By due date*, *By room* or
 *By person*. By room, each floor is a heading and each room a row with its open and overdue
 tasks, how clean it is and when it was last cleaned; a tap opens the room, and **New** in
-that row adds a task to it, starting with suggestions that fit the room.
+that row adds a task to it.
+
+**Creating and editing a task.** **New Task** in **Tasks**, or **New** in a room's row,
+opens the task form; **Edit** in an opened task opens the same form. It asks for the name,
+the room (one button: a floor opens its rooms), who does it, the energy, how often it repeats — after completion, on fixed days or
+once — with its flex days, and its sub-tasks. **From template** fills it with a suggestion
+for the room; you can change everything before saving. **More** holds the description,
+instructions, priority, category and visibility. Until a task is done for the first time,
+its **First date** decides when it is first due; after that the form shows the next window,
+which follows from the last completion. A **Bonus task** is voluntary, always available and
+never overdue. **Sleeping** rests a task, for example over the winter, until it is woken: by
+its wake date, by **Wake up** in the opened task or by completing it.
+When several rooms share a task, saving asks whether the change is for this room only or for
+all of them. **Delete task** removes it after asking; what was done stays in the history.
+Children do not create or edit tasks.
 
 **Categories.** Each task has a category, chosen in the task form. Owners keep the list
 under **Settings → Household → Task categories**: add, rename, reorder and delete
 categories. *Other* always stays last and collects every task without a fitting category;
 a task whose category was deleted counts as *Other* until someone gives it a new one. In
 **Tasks**, the filters include **Category**.
+
+**Finding tasks.** **My tasks**, **Unassigned** and **Everyone** choose whose tasks the list
+shows; **People** next to them ticks any members you like, with **All** and **None**. The
+button below takes a floor or one of its rooms. **Filters** holds the rest: status,
+priority, energy, visibility, category and the search.
 
 Every task shows the same facts on *Today* and in **Tasks**: below its
 name stand the floor and room, then its energy, how often it repeats and who
@@ -111,7 +129,8 @@ yourself. The steps of the task are there too: tick the ones that are done and
 close the dialog to keep the task open, or press **Done** to complete it with
 all of them.
 
-**Postpone.** In **Tasks**, open a task with its arrow. **Postpone** moves its
+**Postpone.** Open a task with its arrow — on *Today* or in **Tasks**; it opens
+in place with everything else about it. **Postpone** moves its
 due window by half its flex days, up to three times; the button shows how
 often that is still possible. A postponed task still counts as on time. A task
 without flex days and a task that is already overdue cannot be postponed.
@@ -128,8 +147,9 @@ people of an entry (**Correct split** in **Insights**).
 between them, every postponement, changed date, deleted entry and absence.
 Nobody has to ask first: everyone can see what happened.
 
-**Checklists.** If a task has steps, **Checklist (2/5)** opens them; tick each
-step as you go. Owners edit the steps in the task.
+**Sub-tasks.** If a task has sub-tasks, open it with its arrow and tick each
+one as you go; the task stays open until it is done. Adults and owners edit the
+sub-tasks in the task form.
 
 ## Planning the week
 

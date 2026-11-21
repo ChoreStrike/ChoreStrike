@@ -37,20 +37,41 @@ function declarationsForSelector(css, selector) {
 }
 
 describe('BUG-UI-001 — Dark-Mode-safe colors in overdue/priority styles', () => {
-	describe('TaskListItem.vue (row styles since CS-PLAN-067 §3.4)', () => {
-		const css = readComponent('components/Tasks/TaskListItem.vue')
+	// CS-PLAN-091 WP-B6: the one task row; it shows no priority badge (D-091-85).
+	describe('TaskRow.vue (the one task row)', () => {
+		const css = readComponent('components/Tasks/TaskRow.vue')
 
-		it('uses a theme variable for the overdue task background', () => {
-			const block = declarationsForSelector(css, '.task-item.overdue')
-			expect(block).toMatch(/background:\s*var\(--color-error/)
-			expect(block).not.toMatch(/background:\s*#fdf2f2\b/)
+		// Every row is a card of its own (the operator's GUI review of WP-B6).
+		it('frames every row as a card with theme variables only', () => {
+			const card = declarationsForSelector(css, '.task-row-group')
+			expect(card).toMatch(/border:\s*1px solid var\(--color-border\)/)
+			expect(card).toMatch(/background:\s*var\(--color-main-background\)/)
+			expect(card).not.toMatch(/#[0-9a-f]{3,6}\b/i)
+			// The frame is the card's: the row inside draws no line of its own.
+			expect(declarationsForSelector(css, '.task-row')).not.toMatch(/border/)
 		})
 
-		it('uses theme variables for the priority badge backgrounds', () => {
-			for (const level of ['low', 'medium', 'high']) {
-				const block = declarationsForSelector(css, `.priority-badge.${level}`)
-				expect(block).toMatch(/background:\s*var\(--color-(success|warning|error)-hover/)
-			}
+		it('marks an overdue card with theme variables only', () => {
+			const block = declarationsForSelector(css, '.task-row-group.overdue')
+			expect(block).toMatch(/border-color:\s*var\(--color-element-error\)/)
+			expect(block).not.toMatch(/#[0-9a-f]{3,6}\b/i)
+		})
+
+		it('marks an opened card with theme variables only', () => {
+			const block = declarationsForSelector(css, '.task-row-group.open')
+			expect(block).toMatch(/border-color:\s*var\(--color-primary-element-light-hover\)/)
+			expect(block).toMatch(/background:\s*var\(--color-primary-element-light\)/)
+			expect(block).not.toMatch(/#[0-9a-f]{3,6}\b/i)
+		})
+
+		it('uses theme variables for the overdue badge and the overdue due text', () => {
+			expect(declarationsForSelector(css, '.overdue-badge')).toMatch(/background:\s*var\(--color-main-background\)/)
+			expect(declarationsForSelector(css, '.overdue-badge')).toMatch(/color:\s*var\(--color-error-text\)/)
+			expect(declarationsForSelector(css, '.task-due.overdue')).toMatch(/color:\s*var\(--color-error-text\)/)
+		})
+
+		it('shows no priority badge', () => {
+			expect(css).not.toContain('priority-badge')
 		})
 	})
 })

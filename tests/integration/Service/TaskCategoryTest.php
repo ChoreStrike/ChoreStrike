@@ -13,8 +13,8 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ValidationException;
 use OCA\ChoreStrike\Service\TaskCategoryService;
-use OCA\ChoreStrike\Service\TaskService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IAppConfig;
 
@@ -24,6 +24,8 @@ use OCP\IAppConfig;
  * deleted key leaves the stored task row alone while no write can use it.
  */
 class TaskCategoryTest extends IntegrationTestCase {
+	use TaskEditing;
+
 	private const OWNER = 'tc_owner';
 
 	protected function setUp(): void {
@@ -75,16 +77,15 @@ class TaskCategoryTest extends IntegrationTestCase {
 
 		$this->actingAs(self::OWNER);
 		$owner = \OC::$server->get(HouseUserMapper::class)->findByHouseAndUser($houseId, self::OWNER);
-		$tasks = \OC::$server->get(TaskService::class);
 		try {
-			$tasks->updateTask($taskId, ['category' => 'cleaning'], $owner);
+			$this->editDefinition($houseId, $owner, $taskId, ['category' => 'cleaning']);
 			self::fail('a deleted key cannot be written');
 		} catch (ValidationException $e) {
 			self::assertContains('Unknown task category', $e->getErrors());
 		}
 		self::assertSame('cleaning', $this->storedCategory($taskId));
 
-		$tasks->updateTask($taskId, ['category' => $garden], $owner);
+		$this->editDefinition($houseId, $owner, $taskId, ['category' => $garden]);
 		self::assertSame($garden, $this->storedCategory($taskId));
 	}
 

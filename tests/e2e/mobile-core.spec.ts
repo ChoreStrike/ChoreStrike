@@ -90,6 +90,14 @@ async function openHouseholdTasks(page: Page): Promise<void> {
 	await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
 }
 
+/** Open a task row in place with a tap (CS-PLAN-091 WP-B6) and return its details. */
+async function tapOpenRow(row: Locator): Promise<Locator> {
+	await row.getByTestId('task-expand').tap()
+	const details = row.locator('xpath=..').getByTestId('task-row-details')
+	await expect(details).toBeVisible({ timeout: 15000 })
+	return details
+}
+
 test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 	test.use({ databaseProfile: 'family' })
 
@@ -102,11 +110,15 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			const done = page.getByTestId(`today-complete-button-${roomTaskId}`)
 			const box = await done.boundingBox()
 			expect(box!.height).toBeGreaterThanOrEqual(44)
-			// CS-PLAN-087 RF-087-08: the task text keeps a full-width line on the
-			// phone instead of shrinking beside the Done and Checklist buttons.
+			// CS-PLAN-087 RF-087-08: the task text never shrinks to a sliver. The
+			// one row (CS-PLAN-091 WP-B6) holds only Done and the arrow beside it,
+			// and the text fills everything between the two (a gap of 12 px each).
 			const row = page.getByTestId('today-task-item').filter({ has: done })
-			const rowBox = await row.boundingBox()
-			expect((await row.locator('.task-info').boundingBox())!.width).toBeGreaterThan(rowBox!.width * 0.7)
+			const infoBox = (await row.locator('.task-info').boundingBox())!
+			const expandBox = (await row.getByTestId('task-expand').boundingBox())!
+			expect(infoBox.x - (box!.x + box!.width)).toBeLessThanOrEqual(16)
+			expect(expandBox.x - (infoBox.x + infoBox.width)).toBeLessThanOrEqual(16)
+			expect(infoBox.width).toBeGreaterThan(expandBox.width * 3)
 			const completions: string[] = []
 			page.on('request', (request) => {
 				if (request.method() === 'POST' && request.url().endsWith('/complete')) {
@@ -137,7 +149,9 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 		}
 	})
 
-	test('claim confirm: an owner takes over overdue work in one confirmation and the next cycle stays with the assignee', async ({ browser, seededData }, testInfo) => {
+	// CS-PLAN-091 WP-B6: the claim dialog went; the picker of a short tap
+	// records the overdue work of someone else as the owner's own.
+	test('claim confirm: an owner takes over overdue work in the picker and the next cycle stays with the assignee', async ({ browser, seededData }, testInfo) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await phone(browser, 'mom', testInfo)
 		try {
@@ -148,20 +162,24 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			await openHouseholdTasks(page)
 			const row = page.getByTestId('task-item').filter({ hasText: name })
 			await expect(row.getByTestId('task-assignees')).toContainText('Dad', { timeout: 15000 })
-			await row.getByTestId('claim-overdue-button').tap()
-			const dialog = page.getByTestId('overdue-claim-dialog')
-			await expect(dialog).toContainText('Dad')
-			await expectWithinViewport(page, dialog.getByTestId('confirm-claim-button'))
+			await row.getByTestId('complete-task-button').tap()
+			const dialog = page.getByTestId('participation-dialog')
+			await expect(dialog.getByTestId('participant-active-dad')).toBeChecked()
+			await dialog.getByTestId('participant-active-dad').uncheck()
+			await dialog.getByTestId('participant-active-mom').check()
+			await dialog.getByTestId('participant-share-mom').fill('100')
+			await expectWithinViewport(page, dialog.getByTestId('participation-confirm'))
 			const completion = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
-			await dialog.getByTestId('confirm-claim-button').tap()
-			expect((await completion).status()).toBe(200)
-			await expect(page.getByTestId('participation-dialog')).toHaveCount(0)
+			await dialog.getByTestId('participation-confirm').tap()
+			const recorded = await completion
+			expect(recorded.status()).toBe(200)
+			expect(((await recorded.json()).data.rewards.participants as Array<{ userId: string }>).map((share) => share.userId)).toEqual(['mom'])
+			await expect(dialog).toHaveCount(0)
 			await expect(page.getByTestId(`undo-snackbar-entry-${roomTaskId}`)).toBeVisible()
 
 			const claimed = await listRow(page, roomTaskId)
 			expect(claimed).toMatchObject({ wasClaimed: true, claimedByUser: 'mom', originalAssignee: 'dad', assignees: ['dad'] })
 			expect(claimed?.status).not.toBe('overdue')
-			await expect(row.getByTestId('claim-overdue-button')).toHaveCount(0)
 			await expectNoHorizontalOverflow(page)
 		} finally {
 			await context.close()
@@ -232,8 +250,8 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 
 			await openHouseholdTasks(kid.page)
 			const row = kid.page.getByTestId('task-item').filter({ hasText: name })
-			await row.getByRole('button', { name: 'Show details' }).tap()
-			const postpone = row.getByTestId('postpone-button')
+			let details = await tapOpenRow(row)
+			const postpone = details.getByTestId('postpone-button')
 			await expect(postpone).toContainText('3× left')
 			await expectWithinViewport(kid.page, postpone)
 			const postponed = kid.page.waitForResponse((response) => response.url().endsWith(`/room-tasks/${roomTaskId}/postpone`))
@@ -241,7 +259,7 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			expect((await postponed).status()).toBe(200)
 			await expect(postpone).toContainText('2× left')
 			expect((await listRow(kid.page, roomTaskId))?.cycle).toMatchObject({ centreOn: day(1), state: 'open' })
-			await expect(row.getByTestId('task-history-empty')).toBeVisible()
+			await expect(details.getByTestId('task-history-empty')).toBeVisible()
 
 			// The child does it and finds the entry in the history.
 			const completed = kid.page.waitForResponse((response) => response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
@@ -250,8 +268,8 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			await openHouseholdTasks(kid.page)
 			await kid.page.reload()
 			await expect(kid.page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
-			await row.getByRole('button', { name: 'Show details' }).tap()
-			const entry = row.getByTestId('task-history-entry')
+			details = await tapOpenRow(row)
+			const entry = details.getByTestId('task-history-entry')
 			await expect(entry).toHaveCount(1)
 
 			// It was done yesterday: the next window moves with the corrected day.
@@ -268,7 +286,7 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			const undone = kid.page.waitForResponse((response) => /\/completions\/\d+\/undo$/.test(response.url()))
 			await kid.page.getByTestId('confirm-dialog-confirm').tap()
 			expect((await (await undone).json()).data.undone).toBe(true)
-			await expect(row.getByTestId('task-history-empty')).toBeVisible()
+			await expect(details.getByTestId('task-history-empty')).toBeVisible()
 			expect((await listRow(kid.page, roomTaskId))?.cycle).toMatchObject({ state: 'open' })
 
 			// The owner sees all of it in the recent activity.
@@ -299,12 +317,19 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 
 			await openHouseholdTasks(owner.page)
 			const row = owner.page.getByTestId('task-item').filter({ hasText: name })
-			await row.getByRole('button', { name: 'Show details', exact: true }).tap()
+			// The members change in the one form (CS-PLAN-091 WP-B6), saved at once.
+			const details = await tapOpenRow(row)
+			await details.getByTestId('task-edit-button').tap()
+			const form = owner.page.getByTestId('task-form')
+			await expect(form).toBeVisible({ timeout: 15000 })
 			for (const userId of ['teen', 'kid']) {
-				const saved = owner.page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith(`/room-tasks/${roomTaskId}/assignees`))
-				await row.getByTestId(`assignee-chip-${userId}`).tap()
-				expect((await saved).status()).toBe(200)
+				await form.getByTestId(`assignee-chip-${userId}`).tap()
 			}
+			await expectWithinViewport(owner.page, form.getByTestId('save-task-button'))
+			const saved = owner.page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith(`/room-tasks/${roomTaskId}`))
+			await form.getByTestId('save-task-button').tap()
+			expect((await saved).status()).toBe(200)
+			await expect(form).toHaveCount(0)
 			expect((await listRow(owner.page, roomTaskId))?.assignees).toEqual(['teen'])
 
 			await openMyDay(former.page)

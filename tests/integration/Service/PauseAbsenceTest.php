@@ -24,6 +24,7 @@ use OCA\ChoreStrike\Service\RecognitionFactsService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\WindowService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
@@ -46,6 +47,8 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * @covers \OCA\ChoreStrike\Service\RecognitionFactsService
  */
 class PauseAbsenceTest extends IntegrationTestCase {
+	use TaskEditing;
+
 	private PauseService $pauseService;
 	private HouseUserMapper $houseUserMapper;
 	private string $todayKey;
@@ -238,8 +241,7 @@ class PauseAbsenceTest extends IntegrationTestCase {
 	 */
 	public function testSharedTask_IsNeutralForTheAbsentMemberOnly(): void {
 		$actor = $this->houseUserMapper->findByNextcloudUserId($this->houseId, 'pa_owner');
-		\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class)
-			->setAssignees($this->roomTaskId, ['pa_mom', 'pa_owner'], $this->houseId, $actor);
+		$this->assignTo($this->houseId, $actor, $this->roomTaskId, ['pa_mom', 'pa_owner']);
 
 		$this->selfAbsence('pa_mom');
 

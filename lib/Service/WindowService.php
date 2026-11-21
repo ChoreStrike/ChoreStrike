@@ -142,7 +142,7 @@ class WindowService {
 			if ($centre === null) {
 				break;
 			}
-			$next = $this->window($rule->fixed ? CurrentCycle::keyOn($centre) : 'p' . $centre, $centre, $rule->flexDays, $roomTask);
+			$next = $this->window($rule->fixed ? CurrentCycle::keyOn($centre) : CurrentCycle::keyProjected($centre), $centre, $rule->flexDays, $roomTask);
 			if ($next->startOn > $throughKey) {
 				break;
 			}
@@ -182,6 +182,7 @@ class WindowService {
 			'centreOn' => $cycle->plannedOn(),
 			'state' => $state,
 			'postponeCount' => $cycle->postponeCount,
+			'postponeLimit' => self::MAX_POSTPONEMENTS,
 			'canPostpone' => self::postponeRefusal($task, $cycle, $todayKey) === null,
 		];
 	}

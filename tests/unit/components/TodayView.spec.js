@@ -136,6 +136,13 @@ jest.mock('@/components/Setup/SetupWizard.vue', () => ({
 	isWizardDismissedForHouse: () => false,
 }))
 
+// The history of an opened row is covered by TaskHistory.spec.js.
+jest.mock('@/components/Tasks/TaskHistory.vue', () => ({
+	name: 'TaskHistory',
+	props: ['roomTaskId'],
+	template: '<div class="task-history-stub" />',
+}))
+
 describe('TodayView', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
@@ -497,10 +504,19 @@ describe('TodayView', () => {
 		expect(wrapper.find('[data-testid="today-section-open-window"]').exists()).toBe(false)
 	})
 
-	it('renders the short plain instructions of a row (CS-PLAN-066 §3.5)', async () => {
-		const wrapper = await mountView()
+	/** Open a row in place (CS-PLAN-091 WP-B6). */
+	const openRow = async (wrapper, roomTaskId) => {
+		await wrapper.get(`[aria-controls="task-row-details-${roomTaskId}"]`).trigger('click')
+		await flushAsync()
+	}
 
-		expect(wrapper.text()).toContain('Rinse first, then load the dishwasher.')
+	it('shows the plain instructions of a row once it is opened (CS-PLAN-066 §3.5, WP-B6)', async () => {
+		const wrapper = await mountView()
+		expect(wrapper.text()).not.toContain('Rinse first, then load the dishwasher.')
+
+		await openRow(wrapper, 11)
+
+		expect(wrapper.get('.task-text').text()).toBe('Rinse first, then load the dishwasher.')
 		// Plain escaped text — no v-html surface.
 		expect(wrapper.html()).not.toContain('v-html')
 	})
@@ -788,23 +804,33 @@ describe('TodayView', () => {
 	})
 
 	it('appends the API code to the completion failure toast (CS-PLAN-084 WP-F)', async () => {
-		mockRoomTasksStore.completeRoomTask.mockRejectedValue(Object.assign(new Error('Conflict'), { status: 409, code: 'CONFLICT' }))
+		mockRoomTasksStore.completeRoomTask.mockRejectedValue(Object.assign(new Error('Boom'), { status: 500, code: 'COMPLETE_TASK_ERROR' }))
 		const { showError } = jest.requireMock('@nextcloud/dialogs')
 		const wrapper = await mountView()
 
 		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
 
-		expect(showError).toHaveBeenCalledWith('Could not complete the task (CONFLICT)')
+		expect(showError).toHaveBeenCalledWith('Could not complete the task (COMPLETE_TASK_ERROR)')
 	})
 
-	it('expands the execute-only checklist and toggles an item (CS-PLAN-066 §3.5)', async () => {
+	it('shows the server\'s reason of a refused completion as plain text (RF-091-09)', async () => {
+		mockRoomTasksStore.completeRoomTask.mockRejectedValue(Object.assign(new Error('This task was deleted'), { status: 409, code: 'CONFLICT' }))
+		const { showError } = jest.requireMock('@nextcloud/dialogs')
+		const wrapper = await mountView()
+
+		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
+
+		expect(showError).toHaveBeenCalledWith('This task was deleted', { isHTML: false })
+	})
+
+	it('shows the execute-only checklist of an opened row and toggles an item (CS-PLAN-066 §3.5)', async () => {
 		mockChecklistStore.items[1] = [{ id: 77, label: 'Rinse plates', sortOrder: 1 }]
 		mockChecklistStore.progress[11] = []
+		mockChecklistStore.fetchTaskItems.mockResolvedValue(mockChecklistStore.items[1])
 		const wrapper = await mountView()
 		await wrapper.vm.$nextTick()
 
-		await wrapper.find('[data-testid="today-checklist-toggle-11"]').trigger('click')
-		await flushAsync()
+		await openRow(wrapper, 11)
 
 		expect(mockChecklistStore.fetchTaskItems).toHaveBeenCalledWith(1)
 		expect(mockChecklistStore.fetchRoomTaskProgress).toHaveBeenCalledWith(11)
@@ -816,26 +842,23 @@ describe('TodayView', () => {
 		expect(mockChecklistStore.toggleItem).toHaveBeenCalledWith(11, 77)
 	})
 
-	// BUG-UX-003 (CS-PLAN-088 D-088-19): the rows carry the item count, so
-	// a checklist-less row never offers a toggle — no click needed to learn
-	// that, and no per-row request.
-	it('offers the checklist toggle only for rows with checklist items', async () => {
+	// BUG-UX-003 (CS-PLAN-088 D-088-19): no per-row request until a row opens.
+	it('reads no sub-tasks before a row is opened', async () => {
 		const wrapper = await mountView()
 		await wrapper.vm.$nextTick()
 
-		expect(wrapper.find('[data-testid="today-checklist-toggle-11"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="today-checklist-toggle-12"]').exists()).toBe(false)
-		expect(wrapper.find('[data-testid="today-checklist-toggle-13"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="task-checklist"]').exists()).toBe(false)
 		expect(mockChecklistStore.fetchTaskItems).not.toHaveBeenCalled()
+		expect(mockChecklistStore.fetchRoomTaskProgress).not.toHaveBeenCalled()
 	})
 
-	it('collapses again when the items were deleted since the row was read', async () => {
+	it('shows no checklist when the items were deleted since the row was read', async () => {
 		const wrapper = await mountView()
 		await wrapper.vm.$nextTick()
 
-		await wrapper.find('[data-testid="today-checklist-toggle-11"]').trigger('click')
-		await flushAsync()
+		await openRow(wrapper, 11)
 
+		expect(wrapper.find('[data-testid="task-row-details"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="task-checklist"]').exists()).toBe(false)
 	})
 

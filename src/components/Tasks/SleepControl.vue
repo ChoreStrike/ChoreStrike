@@ -4,104 +4,62 @@
 -->
 
 <template>
-	<div v-if="cycle" class="sleep-control" data-testid="sleep-control">
-		<template v-if="asleep">
-			<span class="sleep-state" data-testid="sleep-state">{{ stateLabel }}</span>
-			<button
-				type="button"
-				class="sleep-button"
-				data-testid="sleep-wake"
-				:disabled="busy"
-				@click="apply(false)">
-				{{ t('chorestrike', 'Wake up') }}
-			</button>
-		</template>
-		<button
-			v-else-if="!asking"
+	<div v-if="asleep || woke" class="sleep-control" data-testid="sleep-control">
+		<!-- Says the state, and keeps the focus when the button goes (RF-091-09). -->
+		<span ref="state"
+			class="sleep-state"
+			role="status"
+			tabindex="-1"
+			data-testid="sleep-state">{{ asleep ? asleepLabel(cycle) : t('chorestrike', 'Awake again') }}</span>
+		<button v-if="asleep"
 			type="button"
 			class="sleep-button"
-			data-testid="sleep-open"
-			@click="asking = true">
-			{{ t('chorestrike', 'Put to sleep') }}
+			data-testid="sleep-wake"
+			:disabled="busy"
+			@click="wake">
+			{{ t('chorestrike', 'Wake up') }}
 		</button>
-		<form v-else
-			class="sleep-form"
-			data-testid="sleep-form"
-			@submit.prevent="apply(true)">
-			<label :for="inputId">{{ t('chorestrike', 'Wake up on (optional)') }}</label>
-			<input
-				:id="inputId"
-				v-model="wakeOn"
-				type="date"
-				class="sleep-date"
-				:min="tomorrow"
-				data-testid="sleep-wake-on">
-			<button
-				type="submit"
-				class="sleep-button"
-				data-testid="sleep-confirm"
-				:disabled="busy">
-				{{ t('chorestrike', 'Put to sleep') }}
-			</button>
-			<button type="button"
-				class="sleep-button"
-				data-testid="sleep-cancel"
-				@click="asking = false">
-				{{ t('chorestrike', 'Cancel') }}
-			</button>
-			<p class="sleep-hint">
-				{{ t('chorestrike', 'A sleeping task is not due and never overdue. Completing it wakes it up.') }}
-			</p>
-		</form>
 	</div>
 </template>
 
 <script setup>
 import { translate as t } from '@nextcloud/l10n'
-import { computed, ref } from 'vue'
-import { useHouseStore } from '../../store/house.js'
+import { computed, nextTick, ref } from 'vue'
 import { useTaskCycleStore } from '../../store/taskCycle.js'
-import { addDaysToKey, formatDayKey, todayKeyInZone } from '../../utils/dateKeys.js'
-import { showServerRefusal } from '../../utils/errorToast.js'
+import { showRefusal } from '../../utils/errorToast.js'
+import { asleepLabel } from '../../utils/taskDisplay.js'
 
 /**
- * Put a task to sleep, optionally until a wake date, or wake it
- * (CS-PLAN-091 WP-B4, ADR-021 decision 7): for adults and the owner; the
- * caller shows it to them only and the server decides. A sleeping task has
- * no window; it wakes with a fresh one on its wake date, by this control
- * or by a completion.
+ * Wake a sleeping task from its opened row (CS-PLAN-091 WP-B4, ADR-021
+ * decision 7): for adults and the owner; the caller shows it to them only
+ * and the server decides. A task is put to sleep in the one form (the
+ * operator's GUI review of WP-B6); it also wakes on its wake date and by a
+ * completion.
  */
 const props = defineProps({
 	roomTaskId: { type: Number, required: true },
-	/** The row's `cycle` block; a task without one (done, inactive) cannot sleep. */
+	/** The row's `cycle` block. */
 	cycle: { type: Object, default: null },
 })
 
 const taskCycleStore = useTaskCycleStore()
-const houseStore = useHouseStore()
 
-const asking = ref(false)
 const busy = ref(false)
-const wakeOn = ref('')
+const woke = ref(false)
+const state = ref(null)
 
-const inputId = computed(() => `sleep-wake-on-${props.roomTaskId}`)
 const asleep = computed(() => props.cycle?.state === 'asleep')
-const tomorrow = computed(() => addDaysToKey(todayKeyInZone(houseStore.timezone), 1))
-const stateLabel = computed(() => (props.cycle?.wakeOn
-	? t('chorestrike', 'Asleep until {date}', { date: formatDayKey(props.cycle.wakeOn) })
-	: t('chorestrike', 'Asleep')))
 
-async function apply(sleeping) {
+async function wake() {
 	busy.value = true
 	try {
-		await taskCycleStore.setSleeping(props.roomTaskId, sleeping, sleeping ? wakeOn.value || null : null)
-		asking.value = false
-		wakeOn.value = ''
+		await taskCycleStore.setSleeping(props.roomTaskId, false, null)
+		woke.value = true
+		await nextTick()
+		state.value?.focus()
 	} catch (error) {
 		// The store logged it; the toast says which rule applied.
-		showServerRefusal(error, sleeping
-			? t('chorestrike', 'Could not put the task to sleep')
-			: t('chorestrike', 'Could not wake the task up'))
+		showRefusal(error, t('chorestrike', 'Could not wake the task up'))
 	} finally {
 		busy.value = false
 	}
@@ -109,8 +67,7 @@ async function apply(sleeping) {
 </script>
 
 <style scoped>
-.sleep-control,
-.sleep-form {
+.sleep-control {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -139,19 +96,8 @@ async function apply(sleeping) {
 }
 
 .sleep-button:focus-visible,
-.sleep-date:focus-visible {
+.sleep-state:focus-visible {
 	outline: 2px solid var(--color-main-text);
 	outline-offset: 2px;
-}
-
-.sleep-date {
-	min-height: 44px;
-}
-
-.sleep-hint {
-	flex-basis: 100%;
-	margin: 0;
-	font-size: 0.85rem;
-	color: var(--color-text-maxcontrast);
 }
 </style>

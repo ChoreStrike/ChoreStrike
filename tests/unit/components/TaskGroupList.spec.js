@@ -23,8 +23,8 @@ jest.mock('../../../src/store/house.js', () => ({
 
 jest.mock('../../../src/components/Tasks/TaskList.vue', () => ({
 	name: 'TaskList',
-	props: ['roomTasks', 'compact'],
-	emits: ['complete', 'edit', 'delete'],
+	props: ['roomTasks'],
+	emits: ['complete'],
 	template: '<div class="task-list-stub" />',
 }))
 
@@ -82,12 +82,11 @@ describe('TaskGroupList (CS-PLAN-090 WP-C)', () => {
 		const lists = open.findAllComponents({ name: 'TaskList' })
 		expect(lists).toHaveLength(1)
 		expect(lists[0].props('roomTasks')).toEqual(roomSections[0].groups[0].items)
-		expect(lists[0].props('compact')).toBe(true)
 		expect(group(open, 10).get('[data-testid="task-group-toggle"]').attributes('aria-expanded')).toBe('true')
 		expect(group(open, 11).get('[data-testid="task-group-toggle"]').attributes('aria-expanded')).toBe('false')
 	})
 
-	it('reports a toggle and passes the row events on', async () => {
+	it('reports a toggle and passes a completion on', async () => {
 		const wrapper = mountList({ openKey: 10 })
 
 		await group(wrapper, 11).get('[data-testid="task-group-toggle"]').trigger('click')
@@ -96,11 +95,10 @@ describe('TaskGroupList (CS-PLAN-090 WP-C)', () => {
 		const list = wrapper.findComponent({ name: 'TaskList' })
 		const claim = { participants: [{ userId: 'mom', sharePct: 100 }] }
 		list.vm.$emit('complete', 1, claim)
-		list.vm.$emit('edit', { id: 1 })
-		list.vm.$emit('delete', 1)
 		expect(wrapper.emitted('complete')).toEqual([[1, claim]])
-		expect(wrapper.emitted('edit')).toEqual([[{ id: 1 }]])
-		expect(wrapper.emitted('delete')).toEqual([[1]])
+		// A row edits and deletes in the one form itself (CS-PLAN-091 WP-B6).
+		expect(wrapper.emitted('edit')).toBeUndefined()
+		expect(wrapper.emitted('delete')).toBeUndefined()
 	})
 
 	it('offers *New* in a room heading to those who may add tasks, and names the room', async () => {

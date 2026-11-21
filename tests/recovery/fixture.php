@@ -9,6 +9,7 @@ declare(strict_types=1);
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\ChecklistService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -16,7 +17,9 @@ use OCA\ChoreStrike\Service\PauseService;
 use OCA\ChoreStrike\Service\PreferenceService;
 use OCA\ChoreStrike\Service\RewardRequestService;
 use OCA\ChoreStrike\Service\RewardService;
+use OCA\ChoreStrike\Service\RoomTaskEditService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
+use OCA\ChoreStrike\Service\TaskEdit;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\IConfig;
 use OCP\IDBConnection;
@@ -81,11 +84,15 @@ function receipt(int $houseId, int $roomTaskId): array {
 function seedWork(int $houseId, array $roomTask): int {
 	$actor = owner($houseId);
 	$id = (int)$roomTask['id'];
-	$checklists = \OC::$server->get(ChecklistService::class);
-	$item = $checklists->addTaskItem((int)$roomTask['taskId'], 'Synthetic recovery checklist', null, $houseId, $actor);
-	$checklists->addTaskItem((int)$roomTask['taskId'], 'Synthetic recovery checklist, left open', null, $houseId, $actor);
+	// The sub-tasks are saved with the one form (CS-PLAN-091 WP-B6).
+	$edit = TaskEdit::fromPayload([
+		'commandId' => uuid(),
+		'expectedVersion' => receipt($houseId, $id)['expectedVersion'],
+		'checklistItems' => [['label' => 'Synthetic recovery checklist'], ['label' => 'Synthetic recovery checklist, left open']],
+	], \OC::$server->get(CalendarService::class), \OC::$server->getL10N('chorestrike'));
+	$item = \OC::$server->get(RoomTaskEditService::class)->edit($houseId, $actor, $id, $edit)['checklistItems'][0];
 	$cycle = receipt($houseId, $id);
-	$checklists->toggleItem($id, $cycle['cycleKey'], (int)$item->getId(), 0, $houseId, $actor);
+	\OC::$server->get(ChecklistService::class)->toggleItem($id, $cycle['cycleKey'], (int)$item->getId(), 0, $houseId, $actor);
 	$service = \OC::$server->get(CompletionService::class);
 	$result = $service->complete($houseId, 'mom', $id, uuid(), $cycle['cycleKey'], $cycle['expectedVersion']);
 	$completionId = (int)$result['completionId'];

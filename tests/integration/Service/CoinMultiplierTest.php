@@ -194,8 +194,8 @@ class CoinMultiplierTest extends IntegrationTestCase {
 		self::assertSame(150, $result['rewards']['completion']['bonusPercent']);
 
 		// Cancelling the running period keeps what its days paid.
-		$cancelled = $this->multipliers->cancelPeriod($f['houseId'], (int)$period->getId(), $this->newCommandId());
-		self::assertNotNull($cancelled->getCancelledAt());
+		$shown = $this->multipliers->cancelPeriod($f['houseId'], (int)$period->getId(), $this->newCommandId());
+		self::assertNull($shown, 'the cancel answers with the period the house shows now: none');
 		self::assertNull($this->multipliers->runningOrNext($house));
 		self::assertSame(3060, $this->bookedMinor($f['houseId'], self::KID));
 		// Cancelling it again changes nothing.

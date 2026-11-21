@@ -17,7 +17,6 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\WalletMapper;
 use OCA\ChoreStrike\Db\WorkShare;
 use OCA\ChoreStrike\Db\WorkShareMapper;
@@ -38,8 +37,6 @@ class CompletionReadModel {
 		private CompletionRevisionMapper $revisionMapper,
 		private HouseUserMapper $houseUserMapper,
 		private WalletMapper $walletMapper,
-		private TaskAssigneeMapper $taskAssigneeMapper,
-		private TaskAccessPolicy $taskAccessPolicy,
 		private CompletionAuthority $authority,
 		private WalletService $walletService,
 		private RoomTaskReadService $roomTaskReads,
@@ -72,10 +69,7 @@ class CompletionReadModel {
 	 */
 	public function show(int $houseId, HouseUser $viewer, int $completionId): array {
 		[$completion, $roomTask] = $this->access->target($completionId, $houseId);
-		$task = $this->access->task($roomTask->getTaskId());
-		$this->taskAccessPolicy->assertCanView(
-			$task, $viewer, $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId())
-		);
+		$task = $this->access->visibleTask($roomTask, $viewer);
 
 		$membersById = [];
 		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
@@ -93,7 +87,7 @@ class CompletionReadModel {
 				'action' => $revision->getAction(),
 				'allocationRevision' => $revision->getAllocationRevision(),
 				'actor' => $actor?->getNextcloudUserId(),
-				'actorDisplayName' => $actor?->getDisplayName() ?? $this->l10n->t('Removed member'),
+				'actorDisplayName' => $actor?->getDisplayName() ?? $this->l10n->t('Former member'),
 				'reasonCode' => $revision->getReasonCode(),
 				'createdAt' => $revision->getCreatedAt()?->format('c'),
 			];
@@ -126,7 +120,7 @@ class CompletionReadModel {
 			'allocation' => $allocation,
 			'recordedBy' => self::recordedForOthers($completion->getUserId(), $recorder, array_column($allocation, 'userId')) ? [
 				'userId' => $recorder?->getNextcloudUserId(),
-				'displayName' => $recorder?->getDisplayName() ?? $this->l10n->t('Removed member'),
+				'displayName' => $recorder?->getDisplayName() ?? $this->l10n->t('Former member'),
 			] : null,
 			'history' => $history,
 			'canCorrect' => $this->authority->canCorrect($viewer, $completion, $latestValidId),
@@ -205,9 +199,7 @@ class CompletionReadModel {
 	 * @param Task|null $task The definition when the caller already read it
 	 */
 	public function cycleBlock(RoomTask $roomTask, House $house, ?Task $task = null): ?array {
-		return $this->roomTaskReads->cycleFacts(
-			(int)$house->getId(), [$roomTask], $task === null ? null : [(int)$task->getId() => $task], null, $this->calendar->getTimeZone($house)
-		)[(int)$roomTask->getId()]['block'] ?? null;
+		return $this->roomTaskReads->cycleBlockOf((int)$house->getId(), $roomTask, $task, $this->calendar->getTimeZone($house));
 	}
 
 	/**
@@ -227,14 +219,25 @@ class CompletionReadModel {
 			}
 		}
 		return array_map(function (WorkShare $share) use ($completion, $membersByWallet, $withFactors): array {
-			$member = $membersByWallet[(int)($share->getWalletId() ?? 0)] ?? null;
-			return [
-				'userId' => $member?->getNextcloudUserId(),
-				'displayName' => $member?->getDisplayName() ?? $this->l10n->t('Removed member'),
-				'sharePct' => $share->getSharePct(),
-				'energyMinor' => $share->getEnergyMinor(),
-				'coinMinor' => $share->getCoinMinor(),
-			] + ($withFactors ? ['coinFactor' => $share->getWalletId() !== null ? $completion->coinFactorOf((int)$share->getWalletId()) : 1] : []);
+			$row = self::shareRow($share, $membersByWallet[(int)($share->getWalletId() ?? 0)] ?? null, $this->l10n);
+			return $row + ($withFactors ? ['coinFactor' => $share->getWalletId() !== null ? $completion->coinFactorOf((int)$share->getWalletId()) : 1] : []);
 		}, $this->workShareMapper->findByCompletionAndRevision((int)$completion->getId(), $completion->getAllocationRevision()));
+	}
+
+	/**
+	 * One share of an allocation as every read shows it (RF-091-10): the
+	 * person — one who left as the one localized placeholder —, the share
+	 * and what it paid, frozen at completion.
+	 *
+	 * @return array{userId: ?string, displayName: string, sharePct: int, energyMinor: int, coinMinor: int}
+	 */
+	public static function shareRow(WorkShare $share, ?HouseUser $member, IL10N $l10n): array {
+		return [
+			'userId' => $member?->getNextcloudUserId(),
+			'displayName' => $member?->getDisplayName() ?? $l10n->t('Former member'),
+			'sharePct' => $share->getSharePct(),
+			'energyMinor' => $share->getEnergyMinor(),
+			'coinMinor' => $share->getCoinMinor(),
+		];
 	}
 }

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals'
-import { filtersFromQuery, filterTaskItems, pageFromQuery } from '../../../src/utils/taskFilters.js'
+import { filtersFromQuery, filterTaskItems, pageFromQuery, peopleOfScope, scopeOfPeople } from '../../../src/utils/taskFilters.js'
 
 jest.mock('@nextcloud/l10n', () => ({ translate: (app, text) => text }))
 
@@ -41,6 +41,11 @@ describe('taskFilters', () => {
 			expect(filtersFromQuery()).toMatchObject({ scope: 'mine', status: 'all', visibility: 'all' })
 		})
 
+		it('starts without a custom choice of people, and without the old person filter', () => {
+			expect(filtersFromQuery()).toMatchObject({ people: [], unassigned: true, floor: '', room: '' })
+			expect(filtersFromQuery()).not.toHaveProperty('person')
+		})
+
 		it('starts a grouped list with everyone\'s tasks unless the link names a scope (D-090-41)', () => {
 			expect(filtersFromQuery({ group: 'room' }).scope).toBe('all')
 			expect(filtersFromQuery({ group: 'person' }).scope).toBe('all')
@@ -64,6 +69,69 @@ describe('taskFilters', () => {
 		})
 	})
 
+	describe('peopleOfScope', () => {
+		const memberIds = ['mom', 'teen', 'kid']
+
+		it('ticks what each scope button stands for', () => {
+			expect(peopleOfScope({ scope: 'mine', actorId: 'mom' }, memberIds)).toEqual({ people: ['mom'], unassigned: true })
+			expect(peopleOfScope({ scope: 'unassigned', actorId: 'mom' }, memberIds)).toEqual({ people: [], unassigned: true })
+			expect(peopleOfScope({ scope: 'all', actorId: 'mom' }, memberIds)).toEqual({ people: memberIds, unassigned: true })
+		})
+
+		it('ticks nobody under "mine" while the viewer is unknown', () => {
+			expect(peopleOfScope({ scope: 'mine', actorId: null }, memberIds)).toEqual({ people: [], unassigned: true })
+			expect(peopleOfScope({ scope: 'mine' }, memberIds)).toEqual({ people: [], unassigned: true })
+		})
+
+		it('ignores a left-over custom choice under a preset', () => {
+			expect(peopleOfScope({ scope: 'unassigned', people: ['teen'], unassigned: false }, memberIds)).toEqual({ people: [], unassigned: true })
+		})
+
+		it('ticks the custom choice as it is held', () => {
+			expect(peopleOfScope({ scope: 'custom', people: ['teen'], unassigned: false }, memberIds)).toEqual({ people: ['teen'], unassigned: false })
+			expect(peopleOfScope({ scope: 'custom', people: ['teen'], unassigned: true }, memberIds)).toEqual({ people: ['teen'], unassigned: true })
+			expect(peopleOfScope({ scope: 'custom' }, memberIds)).toEqual({ people: [], unassigned: false })
+		})
+	})
+
+	describe('scopeOfPeople', () => {
+		const memberIds = ['mom', 'teen', 'kid']
+		const preset = (scope) => ({ scope, people: [], unassigned: true })
+
+		it('names the preset a choice is', () => {
+			expect(scopeOfPeople(['kid', 'mom', 'teen'], true, memberIds, 'mom')).toEqual(preset('all'))
+			expect(scopeOfPeople([], true, memberIds, 'mom')).toEqual(preset('unassigned'))
+			expect(scopeOfPeople(['mom'], true, memberIds, 'mom')).toEqual(preset('mine'))
+		})
+
+		it('keeps any other choice as a custom one, with a copy of the people', () => {
+			const people = ['teen']
+			const custom = scopeOfPeople(people, true, memberIds, 'mom')
+			expect(custom).toEqual({ scope: 'custom', people: ['teen'], unassigned: true })
+			expect(custom.people).not.toBe(people)
+
+			expect(scopeOfPeople(['mom', 'teen'], true, memberIds, 'mom').scope).toBe('custom')
+			expect(scopeOfPeople(['mom'], true, memberIds, null).scope).toBe('custom')
+		})
+
+		it('is never a preset without unassigned work: every preset shows it', () => {
+			expect(scopeOfPeople(memberIds, false, memberIds, 'mom')).toEqual({ scope: 'custom', people: memberIds, unassigned: false })
+			expect(scopeOfPeople(['mom'], false, memberIds, 'mom')).toEqual({ scope: 'custom', people: ['mom'], unassigned: false })
+			expect(scopeOfPeople([], false, memberIds, 'mom')).toEqual({ scope: 'custom', people: [], unassigned: false })
+		})
+
+		it('does not take an empty member list for everyone', () => {
+			expect(scopeOfPeople([], true, [], 'mom')).toEqual(preset('unassigned'))
+		})
+
+		it('round-trips every preset through its ticks', () => {
+			for (const scope of ['mine', 'unassigned', 'all']) {
+				const ticks = peopleOfScope({ scope, actorId: 'mom' }, memberIds)
+				expect(scopeOfPeople(ticks.people, ticks.unassigned, memberIds, 'mom').scope).toBe(scope)
+			}
+		})
+	})
+
 	it('reads the page and falls back to the first', () => {
 		expect(pageFromQuery('3')).toBe(3)
 		expect(pageFromQuery('0')).toBe(1)
@@ -84,9 +152,31 @@ describe('taskFilters', () => {
 			expect(filtered(rows, { scope: 'unassigned' })).toEqual([3])
 		})
 
-		it('narrows by person, floor and room', () => {
-			expect(filtered(rows, { person: 'teen' })).toEqual([2])
+		it('narrows by a custom choice of people, with or without unassigned work', () => {
+			const custom = (people, unassigned) => filtered(rows, { scope: 'custom', people, unassigned })
+
+			expect(custom(['teen'], false)).toEqual([2])
+			expect(custom(['teen'], true)).toEqual([2, 3])
+			expect(custom(['mom', 'teen'], false)).toEqual([1, 2])
+			expect(custom([], false)).toEqual([])
+			// A row counts for a ticked person also when it has others.
+			expect(filtered([row(4, { assignees: ['mom', 'teen'] })], { scope: 'custom', people: ['teen'], unassigned: false })).toEqual([4])
+			// A custom choice without its lists ticks nobody.
+			expect(filtered(rows, { scope: 'custom', people: undefined, unassigned: undefined })).toEqual([])
+		})
+
+		it('keeps a custom choice apart from the viewer: nobody is added', () => {
+			expect(filtered(rows, { scope: 'custom', people: ['teen'], unassigned: false }, { actorId: undefined })).toEqual([2])
+		})
+
+		it('ignores the people of a custom choice under a preset', () => {
+			expect(filtered(rows, { scope: 'all', people: ['teen'], unassigned: false })).toEqual([1, 2, 3])
+			expect(filtered(rows, { scope: 'mine', people: ['teen'], unassigned: false })).toEqual([1, 3])
+		})
+
+		it('narrows by floor and room, also together with a choice of people', () => {
 			expect(filtered(rows, { floor: '2' })).toEqual([2])
+			expect(filtered(rows, { floor: '1', scope: 'custom', people: ['mom', 'teen'], unassigned: false })).toEqual([1])
 			expect(filtered(rows, { floor: '1', room: '10' })).toEqual([1, 3])
 			expect(filtered(rows, { floor: '1', room: '20' })).toEqual([])
 		})

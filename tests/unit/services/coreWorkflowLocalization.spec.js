@@ -22,23 +22,29 @@ const CORE_SURFACES = [
 	// CS-PLAN-090 WP-B: Today's status line, rows and setup entry hold
 	// what the view and the Dashboard said before.
 	'src/components/Today/TodayStatusLine.vue',
-	'src/components/Today/TodayTaskRow.vue',
 	'src/components/Setup/SetupWizardEntry.vue',
 	'src/views/TaskManager.vue',
 	// CS-PLAN-090 WP-C: the room page went into the grouped task list.
 	'src/components/Tasks/TaskGroupList.vue',
-	'src/components/Tasks/TaskCreateDialog.vue',
 	'src/components/Tasks/TaskPager.vue',
 	'src/components/Minigames/ArcadeCatalog.vue',
 	'src/components/Tasks/TaskList.vue',
 	// CS-PLAN-067 §3.4: the TaskList decomposition moved the row-surface
 	// t() calls into these units — coverage must follow moved calls.
-	'src/components/Tasks/TaskListItem.vue',
-	'src/components/Tasks/TaskListBulkBar.vue',
-	'src/components/Tasks/TaskListDetails.vue',
 	'src/utils/taskDisplay.js',
-	'src/components/Tasks/TaskEditForm.vue',
 	'src/components/Tasks/TaskChecklist.vue',
+	// CS-PLAN-091 WP-B6: the one task row and the one form replaced the
+	// list and Today rows, the details, the create dialog and the edit form.
+	'src/components/Tasks/TaskRow.vue',
+	'src/components/Tasks/TaskRowDetails.vue',
+	'src/components/Tasks/TaskForm.vue',
+	'src/components/Tasks/TaskFormMore.vue',
+	'src/components/Tasks/TaskRhythmField.vue',
+	'src/components/Tasks/TaskWindowNote.vue',
+	'src/components/Tasks/SubTaskEditor.vue',
+	'src/components/Tasks/TaskTemplateFill.vue',
+	'src/components/Tasks/TaskScopeDialog.vue',
+	'src/utils/taskFormModel.js',
 	'src/components/Setup/SetupWizard.vue',
 	'src/components/Members/MemberList.vue',
 	'src/components/Common/UndoSnackbar.vue',
@@ -120,7 +126,9 @@ describe('WP7 core workflow localization (CS-PLAN-066 D7)', () => {
 		expect(de['Overdue · {count}']).toBe('Überfällig · {count}')
 		expect(en['Some views could not be refreshed']).toBe('Some views could not be refreshed')
 		expect(de['Some views could not be refreshed']).toBe('Einige Ansichten konnten nicht aktualisiert werden')
-		expect(de['Checklist ({done}/{total})']).toBe('Checkliste ({done}/{total})')
+		// CS-PLAN-091 WP-B6: the one row and the one form.
+		expect(de['Mark “{name}” as done']).toBe('„{name}“ als erledigt markieren')
+		expect(de['Delete this task?']).toBe('Diese Aufgabe löschen?')
 		expect(de['Could not complete the task']).toBeTruthy()
 		expect(de['Overdue']).toBeTruthy()
 	})

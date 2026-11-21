@@ -38,8 +38,7 @@
 				:modelValue="filters"
 				:members="userStore.houseUsers"
 				:membersDisabled="membersLoading || membersError"
-				:floors="roomsStore.floors"
-				:rooms="roomsStore.rooms"
+				:actorId="userStore.currentUser?.nextcloudUserId ?? null"
 				:categories="categoryChoices"
 				@update:modelValue="setFilters" />
 
@@ -74,12 +73,9 @@
 				v-if="group === 'due' || loading || finishedLoading"
 				:roomTasks="pagedTasks"
 				:loading="loading || finishedLoading"
-				:compact="true"
 				:compare="dueOrder"
 				:sectionLabel="dueSectionLabel"
-				@complete="handleCompleteTask"
-				@edit="handleEditTask"
-				@delete="handleDeleteTask" />
+				@complete="handleCompleteTask" />
 			<TaskGroupList
 				v-else
 				:sections="sections"
@@ -87,9 +83,7 @@
 				:canAdd="canManageTasks"
 				@toggle="toggleGroup"
 				@add="addTask = { room: $event }"
-				@complete="handleCompleteTask"
-				@edit="handleEditTask"
-				@delete="handleDeleteTask" />
+				@complete="handleCompleteTask" />
 
 			<TaskPager v-if="group === 'due' && pageCount > 1"
 				:page="currentPage"
@@ -97,43 +91,21 @@
 				@go="goToPage" />
 		</template>
 
-		<TaskCreateDialog
-			v-if="addTask"
-			:room="addTask.room"
-			:prefill="newTaskPrefill"
+		<!-- The one form (CS-PLAN-091 WP-B6): a new task, in a room's heading with that room. -->
+		<TaskForm v-if="addTask"
+			:prefill="addTask.room ? { roomId: addTask.room.id, floorId: addTask.room.floorId, assigneeIds: [] } : newTaskPrefill"
 			@close="addTask = null" />
-
-		<Modal v-if="showEditTaskModal"
-			persistent
-			:aria-label="t('chorestrike', 'Edit Task')"
-			@close="showEditTaskModal = false">
-			<TaskEditForm
-				:task="editingTask"
-				@submit="handleUpdateTask"
-				@cancel="showEditTaskModal = false" />
-		</Modal>
-
-		<ConfirmDialog
-			v-if="taskToDelete !== null"
-			:title="t('chorestrike', 'Are you sure you want to delete this task?')"
-			:loading="deleting"
-			@confirm="confirmDeleteTask"
-			@cancel="taskToDelete = null" />
 	</div>
 </template>
 
 <script>
-import { showError } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
 import { useRoute, useRouter } from 'vue-router'
-import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 import Icon from '../components/Common/Icon.vue'
-import Modal from '../components/Common/Modal.vue'
 import SegmentedSwitch from '../components/Common/SegmentedSwitch.vue'
-import TaskCreateDialog from '../components/Tasks/TaskCreateDialog.vue'
-import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
 import TaskFilterBar from '../components/Tasks/TaskFilterBar.vue'
+import TaskForm from '../components/Tasks/TaskForm.vue'
 import TaskGroupList from '../components/Tasks/TaskGroupList.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
 import TaskPager from '../components/Tasks/TaskPager.vue'
@@ -164,10 +136,7 @@ export default {
 		TaskGroupList,
 		SegmentedSwitch,
 		TaskFilterBar,
-		TaskCreateDialog,
-		TaskEditForm,
-		Modal,
-		ConfirmDialog,
+		TaskForm,
 		ErrorState,
 	},
 
@@ -201,13 +170,8 @@ export default {
 			openGroup: openGroupFromQuery(this.route?.query),
 			// D-084-07: the on-demand finished-task read behind "Completed".
 			finishedLoading: false,
-			// The create dialog: `{ room }`, a room when opened from its heading.
+			// The form of a new task: `{ room }`, a room when opened from its heading.
 			addTask: null,
-			// The row whose due date and "Last done" are edited.
-			showEditTaskModal: false,
-			editingTask: null,
-			taskToDelete: null,
-			deleting: false,
 		}
 	},
 
@@ -298,17 +262,18 @@ export default {
 		},
 
 		/**
-		 * FEAT-UX-038: the active floor/room/person filters prefill a new
-		 * task; the "mine"/"unassigned" scopes preselect nobody (D-088-13).
+		 * FEAT-UX-038: the active floor/room filter and a custom choice of
+		 * people prefill a new task; the scope presets preselect nobody
+		 * (D-088-13).
 		 * @return {{roomId: ?number, floorId: ?number, assigneeIds: string[]}}
 		 */
 		newTaskPrefill() {
-			const { floor, room, person } = this.filters
-			const isMember = this.userStore.houseUsers.some((member) => member.nextcloudUserId === person)
+			const { floor, room, scope, people } = this.filters
+			const members = this.userStore.houseUsers.map((member) => member.nextcloudUserId)
 			return {
 				roomId: room ? Number(room) : null,
 				floorId: floor ? Number(floor) : null,
-				assigneeIds: person && isMember ? [person] : [],
+				assigneeIds: scope === 'custom' ? people.filter((id) => members.includes(id)) : [],
 			}
 		},
 
@@ -489,56 +454,10 @@ export default {
 		/**
 		 * Complete a row through the shared flow (`useTaskCompletion`).
 		 * @param {number} roomTaskId The row's room task.
-		 * @param {?object} split The split of the row's picker or of a confirmed overdue claim.
+		 * @param {?object} split The split of the row's picker.
 		 */
 		async handleCompleteTask(roomTaskId, split = null) {
 			await this.requestCompletion(roomTaskId, split)
-		},
-
-		handleEditTask(roomTask) {
-			this.editingTask = this.tasksStore.getTaskById(roomTask.taskId) || null
-			this.showEditTaskModal = true
-		},
-
-		handleDeleteTask(roomTaskId) {
-			this.taskToDelete = roomTaskId
-		},
-
-		async confirmDeleteTask() {
-			const roomTaskId = this.taskToDelete
-			if (roomTaskId === null) {
-				return
-			}
-			this.deleting = true
-			try {
-				await this.roomTasksStore.deleteRoomTask(roomTaskId)
-				this.taskToDelete = null
-			} catch (error) {
-				showError(t('chorestrike', 'Failed to delete task'))
-				logger.error('Failed to delete task', error, { view: 'TaskManager', action: 'confirmDeleteTask', roomTaskId })
-			} finally {
-				this.deleting = false
-			}
-		},
-
-		handleUpdateTask(taskData) {
-			if (!this.editingTask) {
-				return
-			}
-			this.tasksStore.updateTask(this.editingTask.id, taskData)
-				.then(() => {
-					this.showEditTaskModal = false
-					this.editingTask = null
-					// A saved definition changes open cycles too (energy,
-					// flex days): without their rows, completing conflicts.
-					this.roomTasksStore.refreshDerivedProjections({ rows: true })
-				})
-				.catch((error) => {
-					// Recoverable failure (CS-PLAN-066 §3.5): the modal stays
-					// open with the input intact and a visible error toast.
-					showError(t('chorestrike', 'Could not save the task'))
-					logger.error('Failed to update task', error, { view: 'TaskManager', action: 'handleUpdateTask', taskId: this.editingTask?.id })
-				})
 		},
 	},
 }

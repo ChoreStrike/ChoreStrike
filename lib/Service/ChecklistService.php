@@ -19,7 +19,6 @@ use OCA\ChoreStrike\Db\TaskChecklistItem;
 use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
-use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Exception\StaleTargetException;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -38,9 +37,9 @@ use OCP\IL10N;
  * §3.2 D2). Denials surface as NotFoundException (404, anti-enumeration —
  * TaskController precedent).
  *
- * Definition mutations (item add/update/delete/reorder) are owner-only in
- * the service (decision D4); progress read/toggle stays on the visibility
- * matrix (execution surface).
+ * The sub-tasks themselves are written by the one form's two aggregates
+ * ({@see SubTaskWriter}, CS-PLAN-091 WP-B6); this service reads them and
+ * owns the ticks of the current cycle (execution surface).
  */
 class ChecklistService {
 	private TaskChecklistItemMapper $checklistItemMapper;
@@ -50,11 +49,10 @@ class ChecklistService {
 	private HouseMapper $houseMapper;
 	private TransactionExecutor $transactions;
 	private RoomTaskService $roomTaskService;
-	private CycleService $cycleService;
+	private CycleProjection $cycleProjection;
 	private CalendarService $calendarService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
-	private AuthorizationService $authorization;
 	private TaskAccessPolicy $taskAccessPolicy;
 
 	public function __construct(
@@ -65,11 +63,10 @@ class ChecklistService {
 		HouseMapper $houseMapper,
 		TransactionExecutor $transactions,
 		RoomTaskService $roomTaskService,
-		CycleService $cycleService,
+		CycleProjection $cycleProjection,
 		CalendarService $calendarService,
 		IL10N $l10n,
 		AppLogger $appLogger,
-		AuthorizationService $authorization,
 		TaskAccessPolicy $taskAccessPolicy,
 	) {
 		$this->checklistItemMapper = $checklistItemMapper;
@@ -79,11 +76,10 @@ class ChecklistService {
 		$this->houseMapper = $houseMapper;
 		$this->transactions = $transactions;
 		$this->roomTaskService = $roomTaskService;
-		$this->cycleService = $cycleService;
+		$this->cycleProjection = $cycleProjection;
 		$this->calendarService = $calendarService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
-		$this->authorization = $authorization;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 	}
 
@@ -127,23 +123,6 @@ class ChecklistService {
 	}
 
 	/**
-	 * Definition mutations are owner-only in the service (CS-PLAN-061 §3.4,
-	 * decision D4) — matches the frontend gating and CS-PLAN-058 WP2 text.
-	 *
-	 * @throws ForbiddenException if the viewer is not a house owner
-	 */
-	private function assertDefinitionManager(HouseUser $viewer): void {
-		if (!$viewer->isOwner()) {
-			$this->appLogger->warning('Checklist definition mutation denied for non-owner', [
-				'service' => 'ChecklistService',
-				'action' => 'assertDefinitionManager',
-				'userId' => $viewer->getNextcloudUserId(),
-			]);
-			throw new ForbiddenException($this->l10n->t('Only house owners may edit checklists'));
-		}
-	}
-
-	/**
 	 * Resolve a room task in the caller's house (ownership chain + task
 	 * guard) and return it with its definition.
 	 *
@@ -168,146 +147,6 @@ class ChecklistService {
 	}
 
 	/**
-	 * Add a checklist item to a task (appends when no sortOrder is given).
-	 * Owner-only (decision D4).
-	 */
-	public function addTaskItem(int $taskId, string $label, ?int $sortOrder, int $houseId, HouseUser $viewer): TaskChecklistItem {
-		$this->assertTaskAccessible($taskId, $houseId, $viewer);
-		$this->assertDefinitionManager($viewer);
-
-		$actorId = 0;
-		$item = $this->transactions->run(function () use ($taskId, $label, $sortOrder, $houseId, &$actorId): TaskChecklistItem {
-			// FIRST lock of the documented order: the house row.
-			$this->houseMapper->findForUpdate($houseId);
-			$actor = $this->authorization->requireHouseOwner($houseId);
-			$actorId = (int)$actor->getId();
-			$this->assertTaskAccessible($taskId, $houseId, $actor);
-
-			$sortOrder ??= count($this->checklistItemMapper->findByTaskId($taskId));
-			return $this->checklistItemMapper->create($taskId, $label, $sortOrder);
-		});
-		$this->appLogger->audit('Checklist item added', [
-			'event' => 'house.checklist.item_added', 'service' => 'ChecklistService',
-			'houseId' => $houseId, 'actorId' => $actorId, 'taskId' => $taskId,
-			'itemId' => (int)$item->getId(), 'outcome' => 'created',
-		]);
-		return $item;
-	}
-
-	/**
-	 * Relabel a checklist item; a foreign item id is rejected with 404.
-	 * Owner-only (decision D4). Runs under the house row lock (CS-PLAN-071).
-	 */
-	public function updateTaskItem(int $itemId, string $label, int $houseId, HouseUser $viewer): TaskChecklistItem {
-		$item = $this->findItemWithGuard($itemId, $houseId, $viewer);
-		$this->assertDefinitionManager($viewer);
-
-		$actorId = 0;
-		$updated = $this->transactions->run(function () use ($itemId, $label, $houseId, &$actorId): TaskChecklistItem {
-			$this->houseMapper->findForUpdate($houseId);
-			$actor = $this->authorization->requireHouseOwner($houseId);
-			$actorId = (int)$actor->getId();
-			$fresh = $this->checklistItemMapper->find($itemId);
-			$this->assertTaskAccessible($fresh->getTaskId(), $houseId, $actor);
-			return $this->checklistItemMapper->updateLabel($itemId, $label);
-		});
-		$this->appLogger->audit('Checklist item update completed', [
-			'event' => 'house.checklist.item_updated', 'service' => 'ChecklistService',
-			'houseId' => $houseId, 'actorId' => $actorId,
-			'itemId' => $itemId, 'outcome' => 'completed',
-		]);
-		return $updated;
-	}
-
-	/**
-	 * Delete a checklist item; a foreign item id is rejected with 404.
-	 * Owner-only (decision D4). Runs under the house row lock (CS-PLAN-071).
-	 */
-	public function deleteTaskItem(int $itemId, int $houseId, HouseUser $viewer): void {
-		$item = $this->findItemWithGuard($itemId, $houseId, $viewer);
-		$this->assertDefinitionManager($viewer);
-
-		$actorId = 0;
-		$this->transactions->run(function () use ($itemId, $houseId, &$actorId): void {
-			$this->houseMapper->findForUpdate($houseId);
-			$actor = $this->authorization->requireHouseOwner($houseId);
-			$actorId = (int)$actor->getId();
-			$fresh = $this->checklistItemMapper->find($itemId);
-			$this->assertTaskAccessible($fresh->getTaskId(), $houseId, $actor);
-			$this->checklistItemMapper->delete($fresh);
-		});
-
-		$this->appLogger->audit('Checklist item deleted', [
-			'event' => 'house.checklist.item_deleted',
-			'actorId' => $actorId,
-			'outcome' => 'deleted',
-			'service' => 'ChecklistService',
-			'action' => 'deleteTaskItem',
-			'taskId' => $item->getTaskId(),
-			'houseId' => $houseId,
-			'itemId' => $itemId,
-		]);
-	}
-
-	/**
-	 * Reorder checklist items. Owner-only (decision D4).
-	 *
-	 * The raw client map (item id => order) is validated before it reaches
-	 * the mapper: ids must resolve to items of exactly one task accessible
-	 * to the viewer, and orders must be integers. Foreign ids are rejected
-	 * with 404 instead of silently rewriting another task's items.
-	 *
-	 * @param array $itemOrders Map of itemId => sortOrder
-	 * @throws NotFoundException if an item does not exist or is foreign
-	 * @throws ForbiddenException if the viewer is not a house owner
-	 * @throws \InvalidArgumentException if the payload shape is invalid
-	 */
-	public function reorderTaskItems(array $itemOrders, int $houseId, HouseUser $viewer): void {
-		$sanitized = [];
-		foreach ($itemOrders as $itemId => $sortOrder) {
-			if (!is_numeric($itemId) || !is_int($sortOrder)) {
-				throw new \InvalidArgumentException($this->l10n->t('Item orders must map integer item ids to integer orders'));
-			}
-			$sanitized[(int)$itemId] = $sortOrder;
-		}
-
-		$items = $this->checklistItemMapper->findByIds(array_keys($sanitized));
-		if (count($items) !== count($sanitized)) {
-			throw new NotFoundException($this->l10n->t('Checklist item not found'));
-		}
-
-		$taskIds = array_unique(array_map(static fn (TaskChecklistItem $item): int => $item->getTaskId(), $items));
-		if (count($taskIds) !== 1) {
-			throw new \InvalidArgumentException($this->l10n->t('Checklist items must belong to a single task'));
-		}
-
-		$this->assertTaskAccessible($taskIds[0], $houseId, $viewer);
-		$this->assertDefinitionManager($viewer);
-
-		$actorId = 0;
-		$this->transactions->run(function () use ($sanitized, $houseId, &$actorId): void {
-			// FIRST lock of the documented order: the house row.
-			$this->houseMapper->findForUpdate($houseId);
-			$actor = $this->authorization->requireHouseOwner($houseId);
-			$actorId = (int)$actor->getId();
-			$freshItems = $this->checklistItemMapper->findByIds(array_keys($sanitized));
-			if (count($freshItems) !== count($sanitized)) {
-				throw new NotFoundException($this->l10n->t('Task not found'));
-			}
-			$freshTaskIds = array_unique(array_map(static fn (TaskChecklistItem $item): int => $item->getTaskId(), $freshItems));
-			foreach ($freshTaskIds as $taskId) {
-				$this->assertTaskAccessible($taskId, $houseId, $actor);
-			}
-			$this->checklistItemMapper->updateSortOrders($sanitized);
-		});
-		$this->appLogger->audit('Checklist reorder completed', [
-			'event' => 'house.checklist.reordered', 'service' => 'ChecklistService',
-			'houseId' => $houseId, 'actorId' => $actorId,
-			'taskId' => (int)$taskIds[0], 'outcome' => 'completed',
-		]);
-	}
-
-	/**
 	 * Get the sub-task ticks and stats of the CURRENT cycle of a room task
 	 * (ADR-021 decision 3). A GET causes no DB writes. Each row carries its
 	 * cycle key and progress revision. A key that is no longer current, or
@@ -318,17 +157,21 @@ class ChecklistService {
 	 */
 	public function getRoomTaskProgress(int $roomTaskId, ?string $cycleKey, int $houseId, HouseUser $viewer): array {
 		[$roomTask, $task] = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
-		$itemCount = count($this->checklistItemMapper->findByTaskId($roomTask->getTaskId()));
+		$itemIds = $this->itemIdsOf((int)$roomTask->getTaskId());
 
 		$cycle = $this->currentCycle($roomTask, $task, $this->houseMapper->find($houseId));
 		if ($cycle === null || ($cycleKey !== null && $cycleKey !== '' && $cycleKey !== $cycle->key)) {
-			return ['items' => [], 'stats' => $this->emptyStats($itemCount), 'cycle' => null];
+			return ['items' => [], 'stats' => $this->emptyStats(count($itemIds)), 'cycle' => null];
 		}
 
-		$rows = $this->progressMapper->findByCycle($roomTaskId, $cycle->key);
+		// Ticks of a sub-task the form removed stay as facts but count no more.
+		$rows = array_values(array_filter(
+			$this->progressMapper->findByCycle($roomTaskId, $cycle->key),
+			static fn ($row): bool => in_array($row->getChecklistItemId(), $itemIds, true),
+		));
 		return [
 			'items' => $rows,
-			'stats' => CycleProgressMapper::statsOf($rows, $itemCount),
+			'stats' => CycleProgressMapper::statsOf($rows, $itemIds),
 			'cycle' => ['cycleKey' => $cycle->key, 'windowStartOn' => $cycle->startOn, 'windowEndOn' => $cycle->endOn],
 		];
 	}
@@ -353,9 +196,9 @@ class ChecklistService {
 	public function toggleItem(int $roomTaskId, ?string $cycleKey, int $itemId, ?int $expectedRevision, int $houseId, HouseUser $viewer): array {
 		[$roomTask] = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
 		$this->assertItemBelongsToTask($itemId, $roomTask->getTaskId());
-		$itemCount = count($this->checklistItemMapper->findByTaskId($roomTask->getTaskId()));
+		$itemIds = $this->itemIdsOf((int)$roomTask->getTaskId());
 
-		return $this->transactions->run(function () use ($roomTask, $cycleKey, $itemId, $expectedRevision, $houseId, $viewer, $itemCount) {
+		return $this->transactions->run(function () use ($roomTask, $cycleKey, $itemId, $expectedRevision, $houseId, $viewer, $itemIds) {
 			// FIRST locks of the documented order: house → room_task. The
 			// definition is read under them: its rule decides the cycle.
 			$house = $this->houseMapper->findForUpdate($houseId);
@@ -380,7 +223,7 @@ class ChecklistService {
 			$others = array_filter($rows, static fn ($row): bool => $row->getChecklistItemId() !== $itemId);
 			return [
 				'progress' => $progress,
-				'stats' => CycleProgressMapper::statsOf([...$others, $progress], $itemCount),
+				'stats' => CycleProgressMapper::statsOf([...$others, $progress], $itemIds),
 				'cycle' => ['cycleKey' => $cycle->key, 'windowStartOn' => $cycle->startOn, 'windowEndOn' => $cycle->endOn],
 			];
 		});
@@ -392,18 +235,23 @@ class ChecklistService {
 	 * transaction. Ticks that were already set keep who set them.
 	 */
 	public function markCycleDoneUnderLock(int $roomTaskId, int $taskId, string $cycleKey, ?int $houseUserId): void {
-		$itemIds = array_map(
-			static fn (TaskChecklistItem $item): int => (int)$item->getId(),
-			$this->checklistItemMapper->findByTaskId($taskId)
-		);
+		$itemIds = $this->itemIdsOf($taskId);
 		if ($itemIds !== []) {
 			$this->progressMapper->checkAll($roomTaskId, $cycleKey, $itemIds, $houseUserId);
 		}
 	}
 
+	/** @return int[] The ids of a definition's sub-tasks */
+	private function itemIdsOf(int $taskId): array {
+		return array_map(
+			static fn (TaskChecklistItem $item): int => (int)$item->getId(),
+			$this->checklistItemMapper->findByTaskId($taskId)
+		);
+	}
+
 	/** The cycle ticks belong to: the current one of the room task (write-free). */
 	private function currentCycle(RoomTask $roomTask, Task $task, House $house): ?CurrentCycle {
-		return $this->cycleService->currentFor($roomTask, $task, $this->calendarService->getTimeZone($house), new \DateTime());
+		return $this->cycleProjection->currentFor($roomTask, $task, $this->calendarService->getTimeZone($house), new \DateTime());
 	}
 
 	/**
@@ -411,21 +259,6 @@ class ChecklistService {
 	 */
 	private function emptyStats(int $itemCount): array {
 		return ['total' => $itemCount, 'checked' => 0, 'unchecked' => $itemCount, 'percentage' => 0];
-	}
-
-	/**
-	 * Resolve an item and guard its task; foreign ids end as 404.
-	 */
-	private function findItemWithGuard(int $itemId, int $houseId, HouseUser $viewer): TaskChecklistItem {
-		try {
-			$item = $this->checklistItemMapper->find($itemId);
-		} catch (DoesNotExistException $e) {
-			throw new NotFoundException($this->l10n->t('Checklist item not found'));
-		}
-
-		$this->assertTaskAccessible($item->getTaskId(), $houseId, $viewer);
-
-		return $item;
 	}
 
 	/**

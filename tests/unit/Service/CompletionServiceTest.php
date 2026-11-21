@@ -196,6 +196,7 @@ class CompletionServiceTest extends TestCase {
 			static fn (\DateTimeInterface $at, \DateTimeZone $tz): string => \DateTime::createFromInterface($at)->setTimezone($tz)->format('Y-m-d')
 		);
 		$this->calendarService->method('isDayKey')->willReturn(true);
+		$this->calendarService->method('isRealDay')->willReturnCallback(static fn (mixed $value): bool => (new CalendarService())->isRealDay($value));
 
 		$this->actor = new HouseUser();
 		$this->actor->setId(7);
@@ -259,14 +260,14 @@ class CompletionServiceTest extends TestCase {
 			$this->taskAssigneeMapper, $this->taskAccessPolicy, $authority, $l10n
 		);
 		$creditPolicy = new CreditPolicy($this->taskAccessPolicy, $this->workShareMapper, $this->houseUserMapper, $l10n);
-		$locks = new CompletionLocks($this->houseUserMapper, $this->walletMapper, $this->walletService, $creditPolicy, $l10n);
+		$responsibility = new TaskResponsibility($this->taskAssigneeMapper, $this->houseUserMapper);
+		$locks = new CompletionLocks($this->houseUserMapper, $this->walletMapper, $this->walletService, $creditPolicy, $this->workShareMapper, $responsibility, $l10n);
 		$allocationService = new EffortAllocationService();
 		$evidence = new CompletionEvidence($this->workShareMapper, $this->completionRevisionMapper, $allocationService);
 		$recognition = new CompletionRecognition($this->houseUserMapper, $this->houseMapper, $this->rhythmService, null, $this->configService);
-		$responsibility = new TaskResponsibility($this->taskAssigneeMapper, $this->houseUserMapper);
 		$this->readModel = new CompletionReadModel(
 			$access, $this->completedTaskMapper, $this->workShareMapper, $this->completionRevisionMapper, $this->houseUserMapper,
-			$this->walletMapper, $this->taskAssigneeMapper, $this->taskAccessPolicy, $authority, $this->walletService,
+			$this->walletMapper, $authority, $this->walletService,
 			$this->roomTaskReads, $this->calendarService, $l10n
 		);
 		$this->service = new CompletionService(
@@ -276,7 +277,7 @@ class CompletionServiceTest extends TestCase {
 			$this->completedTaskMapper, $this->workShareMapper,
 			$this->createMock(\OCA\ChoreStrike\Db\DigestChangeMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Service\DigestScheduleService::class),
-			$this->walletService, $this->roomReplayService, $this->calendarService, $this->taskAccessPolicy, $this->cycleService,
+			$this->walletService, $this->roomReplayService, $this->calendarService, $this->cycleService,
 			$responsibility, $this->checklists, $l10n, $this->appLogger
 		);
 		$this->dateCommand = new CompletionDateCommand(
@@ -284,8 +285,8 @@ class CompletionServiceTest extends TestCase {
 			new CompletionDateCorrection(
 				$this->completedTaskMapper, new WindowService(new RecurrenceCalculator(), $this->completedTaskMapper), $this->calendarService, $l10n
 			),
-			$this->postCommitService, $this->completedTaskMapper, $this->workShareMapper, $this->houseMapper, $this->roomReplayService,
-			$this->cycleService, $responsibility, $this->calendarService, $l10n, $this->appLogger
+			$this->postCommitService, $this->completedTaskMapper, $this->houseMapper, $this->roomReplayService,
+			$this->cycleService, $this->calendarService, $l10n, $this->appLogger
 		);
 	}
 
@@ -383,7 +384,6 @@ class CompletionServiceTest extends TestCase {
 			['bookedMinor' => 0, 'reservedMinor' => 0, 'availableMinor' => 0, 'fundingHold' => false]
 		);
 		$this->cycleService->method('resolveTargetUnderLock')->willReturnCallback(fn (): ?CurrentCycle => $this->resolvedCycle());
-		$this->cycleService->method('currentFor')->willReturn(null);
 
 		$insertedIds = 99;
 		$this->completedTaskMapper->method('insert')->willReturnCallback(
@@ -544,10 +544,8 @@ class CompletionServiceTest extends TestCase {
 		$this->soloCompletionContext();
 		$bonus = $this->createMock(CycleService::class);
 		$bonus->method('resolveTargetUnderLock')->willReturn(null);
-		$bonus->method('currentFor')->willReturn(null);
 		$bonus->expects($this->never())->method('closeUnderLock');
 		// No cycle changed, so the version stays (D-091-84): only the last-completed mark moves.
-		$bonus->expects($this->never())->method('changedUnderLock');
 		$bonus->expects($this->once())->method('bonusDoneUnderLock')->with($this->roomTask, $this->isInstanceOf(\DateTime::class));
 		$this->checklists->expects($this->never())->method('markCycleDoneUnderLock');
 		$inserted = null;
@@ -729,7 +727,7 @@ class CompletionServiceTest extends TestCase {
 
 		$this->assertSame([150, 2], [$data['bonusPercent'], $data['allocation'][0]['coinFactor']]);
 		// One rule with the activity feed: a recorder who left still recorded it for others.
-		$this->assertSame(['userId' => null, 'displayName' => 'Removed member'], $data['recordedBy']);
+		$this->assertSame(['userId' => null, 'displayName' => 'Former member'], $data['recordedBy']);
 	}
 
 	public function testComplete_RefusedTarget_WritesNothing(): void {

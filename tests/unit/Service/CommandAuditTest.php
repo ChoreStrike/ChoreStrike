@@ -14,8 +14,14 @@ use OCP\IDBConnection;
 use PHPUnit\Framework\TestCase;
 
 class CommandAuditTest extends TestCase {
-	/** @dataProvider commandAuditProvider */
-	public function testCommandAudit_CommitReplayAndRollback_HasNoFalseSuccess(string $action, string $mode): void {
+	/**
+	 * An audited command writes the audit line on its first commit only;
+	 * a command that is not audited (postpone, sleep) never does. The one
+	 * form's save writes definitions and is audited.
+	 *
+	 * @dataProvider commandAuditProvider
+	 */
+	public function testCommandAudit_CommitReplayAndRollback_HasNoFalseSuccess(string $action, string $mode, bool $audited = true): void {
 		$db = $this->createMock(IDBConnection::class);
 		$houses = $this->createMock(HouseMapper::class);
 		$receipts = $this->createMock(CommandReceiptMapper::class);
@@ -37,7 +43,7 @@ class CommandAuditTest extends TestCase {
 			$receipt->setId(5);
 			return $receipt;
 		});
-		$logger->expects($mode === 'commit' ? $this->once() : $this->never())->method('audit')->with(
+		$logger->expects($mode === 'commit' && $audited ? $this->once() : $this->never())->method('audit')->with(
 			'House command committed',
 			$this->callback(static function (array $context) use (&$committed, $action): bool {
 				return $committed && $context === [
@@ -59,18 +65,20 @@ class CommandAuditTest extends TestCase {
 				throw new \RuntimeException('Synthetic failure');
 			}
 			return [];
-		});
+		}, null, $audited);
 		self::assertSame($mode === 'replay' ? 0 : 1, $executions);
 	}
 
 	public static function commandAuditProvider(): array {
 		$cases = [];
-		foreach (['house.reset', 'scheduling.apply', 'occurrence.amend', 'occurrence.catch-up', 'occurrence.restart',
-			'pause.request', 'pause.house', 'pause.approve', 'pause.reject', 'pause.recognize-illness', 'pause.shorten',
-			'pause.delete'] as $action) {
+		foreach (['house.reset', 'pause.request', 'pause.house', 'pause.approve', 'pause.reject', 'pause.recognize-illness',
+			'pause.shorten', 'pause.delete', 'house.coin-factor', 'house.bonus-period.start', 'house.bonus-period.cancel', 'room_task.edit'] as $action) {
 			foreach (['commit', 'replay', 'rollback'] as $mode) {
 				$cases[$action . ' ' . $mode] = [$action, $mode];
 			}
+		}
+		foreach (['room_task.sleep', 'room_task.postpone'] as $action) {
+			$cases[$action . ' not audited'] = [$action, 'commit', false];
 		}
 		return $cases;
 	}

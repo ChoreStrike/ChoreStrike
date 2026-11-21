@@ -61,6 +61,7 @@ class ActivityEventService {
 				'houseUserId' => $receipt->getActorHouseUserId(),
 				'roomTaskId' => (int)($refs['roomTaskId'] ?? 0),
 				'postponeCount' => (int)($refs['postponeCount'] ?? 0),
+				'postponeLimit' => WindowService::MAX_POSTPONEMENTS,
 			];
 		}
 		$kinds = [CompletionRevision::ACTION_DATE => self::TYPE_DATE_CHANGED, CompletionRevision::ACTION_UNDO => self::TYPE_DELETED];

@@ -3,133 +3,158 @@
  * @license MIT
  */
 
+import type { Browser, BrowserContext, Locator, Page } from '@playwright/test'
+
 import { expect, test } from '@playwright/test'
 import { createUserContext } from './fixtures/auth-contexts.ts'
+import { addSubTasks, chooseFormRoom, openEditForm, openNewTaskForm, openRowDetails } from './fixtures/task-form.ts'
 
 /**
- * E2E Tests for Task Checklist (Feature 3: Sub-Checklists)
+ * E2E tests for sub-tasks and the rhythm and template parts of the one form
+ * (CS-PLAN-091 WP-B6, FEAT-UX-040).
  *
- * CS-PLAN-050: the toggle test now creates its own sub-task through the
- * owner-gated editor (the seed ships no checklist items) and asserts the
- * durable outcome — checkbox state flips to checked and the completed item
- * title is struck through. The old conditional `if (count > 0)` toggle and
- * strikethrough tests (which could pass without testing anything, and
- * asserted line-through on the wrong element) were replaced by it.
+ * Sub-tasks are written in the form and ticked in the opened row. Each test
+ * creates its own task with its own sub-tasks through the creation
+ * aggregate (`checklistItems`) as the seeded owner `mom`, so no test
+ * depends on what the pool's other specs left behind.
  */
-test.describe('Task Checklist', () => {
-	test.beforeEach(async ({ page }) => {
+
+interface OwnerTask {
+	context: BrowserContext
+	page: Page
+	name: string
+	roomTaskId: number
+}
+
+/**
+ * Create a task with sub-tasks as `mom` and open the household task list on it.
+ *
+ * @param browser - The test's browser.
+ * @param labels - The sub-tasks of the new task, in order.
+ */
+async function ownerTaskWithSubTasks(browser: Browser, labels: string[]): Promise<OwnerTask> {
+	const { context, page } = await createUserContext(browser, 'mom')
+	const name = `Sub-task probe ${Date.now()}`
+	const floors = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
+	expect(floors.status()).toBe(200)
+	const roomId = ((await floors.json()).data as Array<{ rooms: Array<{ id: number }> }>).flatMap((floor) => floor.rooms)[0]?.id
+	expect(roomId, 'the seed provides a room').toBeTruthy()
+	const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+		data: { roomId, assigneeUserIds: ['mom'], checklistItems: labels.map((label) => ({ label })), task: { name, energyCost: 1, frequencyType: 'weekly', frequencyValue: 1 } },
+	})
+	expect(created.status(), await created.text()).toBe(200)
+	const roomTaskId = (await created.json()).data.roomTask.id as number
+
+	await page.goto('/apps/chorestrike/#/tasks?scope=all')
+	await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+	await page.getByTestId('search-input').fill(name)
+	return { context, page, name, roomTaskId }
+}
+
+/**
+ * The labels in the form's sub-task editor, in order.
+ *
+ * @param page - Page showing the form.
+ */
+async function editorLabels(page: Page): Promise<string[]> {
+	return page.getByTestId('task-subtasks').getByTestId('task-subtask-label')
+		.evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value))
+}
+
+/**
+ * The row of the probe task.
+ *
+ * @param owner - The probe task and its owner session.
+ */
+function rowOf(owner: OwnerTask): Locator {
+	return owner.page.getByTestId('task-item').filter({ hasText: owner.name })
+}
+
+test.describe('Task sub-tasks', () => {
+	test.beforeEach(() => {
 		test.setTimeout(60000)
-
-		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/#/today')
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
 	})
 
-	test('should display checklist when expanding a task', async ({ page }) => {
-		// Navigate to task manager
-		await page.getByTestId('nav-tasks').click()
-		await page.waitForSelector('[data-testid="task-manager-view"]')
-
-		// Find first active task (firefox under parallel load can take
-		// longer than the 5 s assertion default to render the list).
-		const taskItem = page.locator('.task-item').first()
-		await expect(taskItem).toBeVisible({ timeout: 20000 })
-
-		// Click expand button
-		await taskItem.locator('button[title="Show details"]').click()
-
-		// Checklist should be visible
-		await expect(page.locator('[data-testid="task-checklist"]')).toBeVisible()
-	})
-
-	test('should show progress bar in checklist', async ({ page }) => {
-		// Navigate to task manager
-		await page.getByTestId('nav-tasks').click()
-		await page.waitForSelector('[data-testid="task-manager-view"]')
-
-		// Expand first task
-		const taskItem = page.locator('.task-item').first()
-		await taskItem.locator('button[title="Show details"]').click()
-
-		// Progress bar should be visible
-		const progressBar = page.locator('.progress-bar-container')
-		await expect(progressBar).toBeVisible()
-	})
-
-	test('should toggle checklist item completion', async ({ browser }) => {
-		// The checklist editor (add-item form) is owner-gated, so the
-		// toggle test acts as the seeded owner `mom`.
-		const { context, page } = await createUserContext(browser, 'mom')
+	test('an opened row shows its sub-tasks with their progress', async ({ browser }) => {
+		const owner = await ownerTaskWithSubTasks(browser, ['Clear the shelf', 'Wipe the shelf'])
 		try {
-			await page.goto('/apps/chorestrike/#/today')
-			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
-			await page.getByTestId('nav-tasks').click()
-			await page.waitForSelector('[data-testid="task-manager-view"]')
-
-			// Expand the first task and add a sub-task through the editor
-			// (the seed ships no checklist items).
-			const taskItem = page.locator('.task-item').first()
-			await taskItem.locator('button[title="Show details"]').click()
-
-			const label = `E2E sub-task ${Date.now()}`
-			await page.locator('.add-item-trigger').click()
-			await page.getByTestId('checklist-new-item-input').fill(label)
-			await page.getByTestId('checklist-add-item-button').click()
-
-			const newItem = page.locator('.checklist-item', { hasText: label })
-			await expect(newItem).toBeVisible({ timeout: 15000 })
-
-			// Toggle the checkbox and verify the durable outcome: the
-			// checkbox flips to checked, the item is marked completed, and
-			// the title is struck through. The raw input is visually
-			// hidden behind the custom checkmark — click the label.
-			const checkbox = newItem.locator('input[type="checkbox"]')
-			await expect(checkbox).not.toBeChecked()
-			await newItem.locator('label.item-checkbox').click()
-			await expect(checkbox).toBeChecked({ timeout: 15000 })
-			await expect(newItem.locator('.item-content')).toHaveClass(/is-completed/)
-			await expect(newItem.locator('.item-title')).toHaveCSS('text-decoration', /line-through/)
+			const details = await openRowDetails(rowOf(owner))
+			const checklist = details.getByTestId('task-checklist')
+			await expect(checklist).toBeVisible()
+			await expect(checklist.locator('.checklist-item')).toHaveText(['Clear the shelf', 'Wipe the shelf'])
+			await expect(checklist.locator('.progress-badge')).toHaveText('0/2')
 		} finally {
-			await context.close()
+			await owner.context.close()
 		}
 	})
 
-	test('should collapse task details', async ({ page }) => {
-		// Navigate to task manager
-		await page.getByTestId('nav-tasks').click()
-		await page.waitForSelector('[data-testid="task-manager-view"]')
-
-		// Expand first task
-		const taskItem = page.locator('.task-item').first()
-		await taskItem.locator('button[title="Show details"]').click()
-
-		// Checklist should be visible
-		await expect(page.locator('[data-testid="task-checklist"]')).toBeVisible()
-
-		// Collapse task
-		await taskItem.locator('button[title="Show details"]').click()
-
-		// Checklist should be hidden (or removed from DOM)
-		await expect(page.locator('[data-testid="task-checklist"]')).not.toBeVisible()
+	test('ticking a sub-task marks it done and strikes it through', async ({ browser }) => {
+		const owner = await ownerTaskWithSubTasks(browser, ['Water the plants'])
+		try {
+			const details = await openRowDetails(rowOf(owner))
+			const item = details.locator('.checklist-item', { hasText: 'Water the plants' })
+			// The raw input is visually hidden behind the custom checkmark — click the label.
+			const checkbox = item.locator('input[type="checkbox"]')
+			await expect(checkbox).not.toBeChecked()
+			const toggled = owner.page.waitForResponse((response) => response.url().includes(`/checklists/toggle/${owner.roomTaskId}/`))
+			await item.locator('label.item-checkbox').click()
+			expect((await toggled).status()).toBe(200)
+			await expect(checkbox).toBeChecked({ timeout: 15000 })
+			await expect(item.locator('.item-checkbox')).toHaveClass(/is-completed/)
+			await expect(item.locator('.item-title')).toHaveCSS('text-decoration', /line-through/)
+			await expect(details.locator('.progress-badge')).toHaveText('1/1')
+		} finally {
+			await owner.context.close()
+		}
 	})
 
-	test('should show completion badge with correct count', async ({ page }) => {
-		// Navigate to task manager
-		await page.getByTestId('nav-tasks').click()
-		await page.waitForSelector('[data-testid="task-manager-view"]')
+	test('closing the row hides its sub-tasks', async ({ browser }) => {
+		const owner = await ownerTaskWithSubTasks(browser, ['Sort the mail'])
+		try {
+			const row = rowOf(owner)
+			const details = await openRowDetails(row)
+			await expect(details.getByTestId('task-checklist')).toBeVisible()
+			await expect(row.getByTestId('task-expand')).toHaveAttribute('aria-expanded', 'true')
 
-		// Expand first task
-		const taskItem = page.locator('.task-item').first()
-		await taskItem.locator('button[title="Show details"]').click()
+			await row.getByTestId('task-expand').click()
+			await expect(row.getByTestId('task-expand')).toHaveAttribute('aria-expanded', 'false')
+			await expect(details).toHaveCount(0)
+		} finally {
+			await owner.context.close()
+		}
+	})
 
-		// Progress badge should show format "X/Y"
-		const progressBadge = page.locator('.progress-badge')
-		await expect(progressBadge).toBeVisible()
+	test('the form adds, orders and removes sub-tasks in one save', async ({ browser }) => {
+		const owner = await ownerTaskWithSubTasks(browser, ['First', 'Second'])
+		try {
+			const { page } = owner
+			await openEditForm(page, rowOf(owner))
+			const list = page.getByTestId('task-subtasks')
+			await expect(list.getByTestId('task-subtask-label')).toHaveCount(2)
+			await addSubTasks(page, ['Third'])
+			// "Third" moves up before "Second", then "First" goes.
+			await list.getByTestId('task-subtask-up').nth(1).click()
+			await expect.poll(() => editorLabels(page)).toEqual(['First', 'Third', 'Second'])
+			await list.getByTestId('task-subtask-remove').first().click()
+			await expect.poll(() => editorLabels(page)).toEqual(['Third', 'Second'])
 
-		// Badge text should match pattern "number/number"
-		const badgeText = await progressBadge.textContent()
-		expect(badgeText).toMatch(/^\d+\/\d+$/)
+			const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
+				&& new URL(response.url()).pathname.endsWith(`/room-tasks/${owner.roomTaskId}`))
+			await page.getByTestId('save-task-button').click()
+			const response = await saved
+			expect(response.status(), await response.text()).toBe(200)
+			const sent = response.request().postDataJSON().checklistItems as Array<{ id?: number, label: string }>
+			expect(sent.map((entry) => entry.label)).toEqual(['Third', 'Second'])
+			expect(sent[0].id).toBeUndefined()
+			expect(sent[1].id).toEqual(expect.any(Number))
+			expect(((await response.json()).data.checklistItems as Array<{ label: string }>).map((item) => item.label)).toEqual(['Third', 'Second'])
+
+			await expect(page.getByTestId('task-form')).toHaveCount(0)
+			const details = rowOf(owner).locator('xpath=..').getByTestId('task-row-details')
+			await expect(details.locator('.checklist-item')).toHaveText(['Third', 'Second'])
+		} finally {
+			await owner.context.close()
+		}
 	})
 })
 
@@ -160,74 +185,80 @@ test.describe('Group Assignment', () => {
 })
 
 /**
- * E2E Tests for Dynamic/Static Scheduling (Feature 1)
+ * The rhythm of the one form (CS-PLAN-091 WP-B6): after completion, a fixed
+ * day, or once.
  */
-test.describe('Task Scheduling Modes', () => {
+test.describe('Task rhythm in the form', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
-
-		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/#/today')
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
+		await page.goto('/apps/chorestrike/#/tasks')
+		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
 	})
 
-	test('should show scheduling mode options in task edit form', async ({ page }) => {
-		// Navigate to task manager
-		await page.getByTestId('nav-tasks').click()
-		await page.waitForSelector('[data-testid="task-manager-view"]')
-
-		// Click add new task
-		await page.click('[data-testid="add-task-button"]')
-
-		// Modal should open
-		await expect(page.locator('[data-testid="modal"]')).toBeVisible()
-
-		// Scheduling mode options should be visible (CS-PLAN-044 vocabulary).
-		// Exact match: the form also renders a "Flexible scheduling window
-		// in days" hint that a substring locator would match twice.
-		await expect(page.getByText('Flexible', { exact: true })).toBeVisible()
-		await expect(page.getByText('Fixed schedule', { exact: true })).toBeVisible()
+	test('the form offers after completion, a fixed day and once', async ({ page }) => {
+		await openNewTaskForm(page)
+		await expect(page.getByTestId('task-rhythm-after')).toHaveText('After completion')
+		await expect(page.getByTestId('task-rhythm-fixed')).toHaveText('Fixed day')
+		await expect(page.getByTestId('task-rhythm-once')).toHaveText('Once')
+		// A new task repeats weekly after completion.
+		await expect(page.getByTestId('task-rhythm-after')).toHaveAttribute('aria-pressed', 'true')
+		await expect(page.getByTestId('task-frequency-unit')).toHaveValue('week')
 	})
 
-	test('should show time input for static scheduling', async ({ page }) => {
-		// Navigate to task manager
-		await page.getByTestId('nav-tasks').click()
-		await page.waitForSelector('[data-testid="task-manager-view"]')
+	test('a fixed day asks for weekdays, a monthly one for the day of the month, once for neither', async ({ page }) => {
+		await openNewTaskForm(page)
+		await page.getByTestId('task-name-input').fill('Rhythm probe')
+		await page.getByTestId('task-rhythm-fixed').click()
+		await expect(page.getByTestId('task-weekday-monday')).toBeVisible()
+		// Without a weekday the rhythm is incomplete and cannot be saved.
+		await expect(page.getByTestId('task-rhythm-problem')).toBeVisible()
+		await expect(page.getByTestId('save-task-button')).toBeDisabled()
+		await page.getByTestId('task-weekday-monday').click()
+		await expect(page.getByTestId('task-weekday-monday')).toHaveAttribute('aria-pressed', 'true')
+		await expect(page.getByTestId('task-rhythm-problem')).toHaveCount(0)
 
-		// Click add new task
-		await page.click('[data-testid="add-task-button"]')
+		await page.getByTestId('task-frequency-unit').selectOption('month')
+		await expect(page.getByTestId('task-weekday-monday')).toHaveCount(0)
+		await expect(page.getByTestId('task-month-day')).toBeVisible()
 
-		// Select static scheduling
-		await page.click('input[value="static"]')
-
-		// Time input should appear
-		await expect(page.locator('input[type="time"]')).toBeVisible()
+		await page.getByTestId('task-rhythm-once').click()
+		await expect(page.getByTestId('task-month-day')).toHaveCount(0)
+		await expect(page.getByTestId('task-frequency-value')).toHaveCount(0)
 	})
 })
 
 /**
- * E2E Tests for Template Selector (Feature 2)
+ * A catalog template only fills the one form (FEAT-UX-043, CS-PLAN-091 WP-B6).
  */
-test.describe('Template Selector', () => {
-	test.beforeEach(async ({ page }) => {
+test.describe('Template fill', () => {
+	test('a template fills the form, and the save creates a task of its own', async ({ browser }) => {
 		test.setTimeout(60000)
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			await page.goto('/apps/chorestrike/#/tasks')
+			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+			await openNewTaskForm(page)
 
-		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/#/today')
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
-	})
+			await page.getByTestId('task-template-open').click()
+			await page.getByTestId('task-template-room-type').selectOption('kitchen')
+			await page.getByTestId('task-template-kitchen_sink').click()
+			await expect(page.getByTestId('task-template-kitchen_sink')).toHaveCount(0)
+			await expect(page.getByTestId('task-name-input')).toHaveValue('Clean kitchen sink')
+			await expect(page.getByTestId('task-energy-select')).toHaveValue('2')
+			await expect(page.getByTestId('task-frequency-unit')).toHaveValue('week')
 
-	test('should show template selector when creating task', async ({ page }) => {
-		// Navigate to task manager
-		await page.getByTestId('nav-tasks').click()
-		await page.waitForSelector('[data-testid="task-manager-view"]')
-
-		// Click add new task
-		await page.click('[data-testid="add-task-button"]')
-
-		// Template selector section should be visible
-		await expect(page.locator('text=Start from Template')).toBeVisible()
+			const name = `Clean kitchen sink ${Date.now()}`
+			await page.getByTestId('task-name-input').fill(name)
+			await chooseFormRoom(page)
+			const created = page.waitForResponse((response) => response.request().method() === 'POST'
+				&& new URL(response.url()).pathname.endsWith('/api/v1/room-tasks'))
+			await page.getByTestId('save-task-button').click()
+			const response = await created
+			expect(response.status(), await response.text()).toBe(200)
+			expect((await response.json()).data.task).toMatchObject({ name, energyCost: 2, frequencyType: 'weekly', frequencyValue: 1 })
+			await expect(page.getByTestId('task-form')).toHaveCount(0)
+		} finally {
+			await context.close()
+		}
 	})
 })

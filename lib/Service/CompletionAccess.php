@@ -56,13 +56,41 @@ class CompletionAccess {
 	) {
 	}
 
-	/** @throws NotFoundException a foreign or missing room task */
+	/** @throws NotFoundException a foreign, missing or deleted room task */
 	public function roomTask(int $roomTaskId, int $houseId): RoomTask {
 		$roomTask = $this->roomTaskMapper->findByIdsScopedToHouse([$roomTaskId], $houseId)[0] ?? null;
-		if ($roomTask === null) {
+		// A deleted room task has no row to act on (as RoomTaskAccess decides).
+		if ($roomTask === null || $roomTask->getDeletedAt() !== null) {
 			throw new NotFoundException($this->l10n->t('Room task not found'));
 		}
 		return $roomTask;
+	}
+
+	/**
+	 * The membership of a user, read live. With `$actorId` it must still be
+	 * the membership a command started with: one that left and came back
+	 * is somebody else.
+	 *
+	 * @throws ForbiddenException with `$refusal`
+	 */
+	public function member(int $houseId, string $userId, ?int $actorId, string $refusal): HouseUser {
+		$member = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
+		if ($member === null || ($actorId !== null && (int)$member->getId() !== $actorId)) {
+			throw new ForbiddenException($refusal);
+		}
+		return $member;
+	}
+
+	/**
+	 * The definition of a room task the member may see (ADR-010).
+	 *
+	 * @param string[]|null $assigneeUserIds The room task's assignees, when the caller read them already
+	 * @throws NotFoundException
+	 */
+	public function visibleTask(RoomTask $roomTask, HouseUser $member, ?array $assigneeUserIds = null): Task {
+		$task = $this->task($roomTask->getTaskId());
+		$this->taskAccessPolicy->assertCanView($task, $member, $assigneeUserIds ?? $this->taskAssigneeMapper->findUserIdsByRoomTask((int)$roomTask->getId()));
+		return $task;
 	}
 
 	/**
@@ -114,12 +142,8 @@ class CompletionAccess {
 	 * @throws NotFoundException a task the actor may not see
 	 */
 	public function authorize(int $houseId, HouseUser $actor, CompletedTask $completion, RoomTask $roomTask, string $rights): Task {
-		$liveActor = $this->houseUserMapper->findByHouseAndUser($houseId, $actor->getNextcloudUserId());
-		if ($liveActor === null || (int)$liveActor->getId() !== (int)$actor->getId()) {
-			throw new ForbiddenException($this->l10n->t('Not a member of this house'));
-		}
-		$task = $this->task($roomTask->getTaskId());
-		$this->taskAccessPolicy->assertCanView($task, $liveActor, $this->taskAssigneeMapper->findUserIdsByRoomTask((int)$roomTask->getId()));
+		$liveActor = $this->member($houseId, $actor->getNextcloudUserId(), (int)$actor->getId(), $this->l10n->t('Not a member of this house'));
+		$task = $this->visibleTask($roomTask, $liveActor);
 		match ($rights) {
 			self::RIGHTS_ATTRIBUTE => $this->authority->assertCanAttribute($liveActor),
 			self::RIGHTS_LATEST => $this->authority->assertCanCorrect($liveActor, $completion),

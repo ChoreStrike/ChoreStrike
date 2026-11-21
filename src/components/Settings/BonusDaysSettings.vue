@@ -12,9 +12,14 @@
 			{{ t('chorestrike', 'On bonus days everyone’s coins count × 1.5, on top of the coin factor. Today shows them while they run.') }}
 		</p>
 
+		<!-- Announces the period when the controls swap (RF-091-09). -->
+		<p class="cs-visually-hidden" role="status">
+			{{ periodLabel }}
+		</p>
 		<div v-if="period" class="period" data-testid="bonus-days-period">
 			<span class="period-text">{{ periodLabel }}</span>
 			<button
+				ref="cancelButton"
 				type="button"
 				class="secondary-button"
 				data-testid="bonus-days-cancel"
@@ -30,6 +35,7 @@
 			<label class="field">
 				<span>{{ t('chorestrike', 'First day') }}</span>
 				<input
+					ref="startInput"
 					v-model="startsOn"
 					type="date"
 					class="field-input"
@@ -58,10 +64,10 @@
 
 <script setup>
 import { translate as t } from '@nextcloud/l10n'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useHouseStore } from '../../store/house.js'
 import { formatDayKey, todayKeyInZone } from '../../utils/dateKeys.js'
-import { showServerRefusal } from '../../utils/errorToast.js'
+import { showRefusal } from '../../utils/errorToast.js'
 import { daysLabel } from '../../utils/taskDisplay.js'
 
 /**
@@ -78,6 +84,9 @@ const today = computed(() => todayKeyInZone(houseStore.timezone))
 const startsOn = ref(today.value)
 const days = ref(1)
 const busy = ref(false)
+// Focus follows the control that replaces the pressed one (RF-091-09).
+const cancelButton = ref(null)
+const startInput = ref(null)
 
 const period = computed(() => houseStore.bonusPeriod)
 const periodLabel = computed(() => {
@@ -99,9 +108,13 @@ async function start() {
 	busy.value = true
 	try {
 		await houseStore.startBonusPeriod(startsOn.value, days.value)
+		// The cancel button is off while busy, and an off button takes no focus.
+		busy.value = false
+		await nextTick()
+		cancelButton.value?.focus()
 	} catch (error) {
 		// The store has logged it.
-		showServerRefusal(error, t('chorestrike', 'Could not start the bonus days'))
+		showRefusal(error, t('chorestrike', 'Could not start the bonus days'))
 	} finally {
 		busy.value = false
 	}
@@ -112,9 +125,11 @@ async function cancel() {
 	try {
 		await houseStore.cancelBonusPeriod(period.value.id)
 		startsOn.value = today.value
+		await nextTick()
+		startInput.value?.focus()
 	} catch (error) {
 		// The store has logged it.
-		showServerRefusal(error, t('chorestrike', 'Could not cancel the bonus days'))
+		showRefusal(error, t('chorestrike', 'Could not cancel the bonus days'))
 	} finally {
 		busy.value = false
 	}

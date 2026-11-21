@@ -1,57 +1,45 @@
-import { mount, flushPromises } from '@vue/test-utils'
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
+import { beforeEach, describe, expect, it, jest } from '@jest/globals'
+import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { showError } from '@nextcloud/dialogs'
 import TaskList from '../../../src/components/Tasks/TaskList.vue'
-import { useUserStore } from '../../../src/store/user.js'
-import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
+import TaskRow from '../../../src/components/Tasks/TaskRow.vue'
 import { confirmHold } from '../helpers/hold.js'
 
-// Mock Nextcloud l10n
 jest.mock('@nextcloud/l10n', () => ({
-	translate: jest.fn((app, text, vars) => {
-		if (vars) {
-			return text.replace(/{\w+}/g, (match) => {
-				const key = match.slice(1, -1)
-				return vars[key] || match
-			})
-		}
-		return text
-	}),
-	translatePlural: jest.fn((app, singular, plural, count) => count === 1 ? singular : plural),
+	translate: jest.fn((app, text, vars) => (vars
+		? text.replace(/{\w+}/g, (match) => vars[match.slice(1, -1)] ?? match)
+		: text)),
+	translatePlural: jest.fn((app, singular, plural, count) => (count === 1 ? singular : plural)),
 }))
 
-// Mock the Icon component to render simple text
-jest.mock('../../../src/components/Common', () => ({
-	Icon: {
-		name: 'Icon',
-		props: ['name', 'size'],
-		template: '<span class="icon">{{ name }}</span>',
-	},
-}))
-
-// Mock the checklist store
 jest.mock('../../../src/store/checklist.js', () => ({
 	useChecklistStore: jest.fn(() => ({
 		fetchTaskItems: jest.fn(),
 		fetchRoomTaskProgress: jest.fn(),
 		toggleItem: jest.fn(),
-		addItem: jest.fn(),
-		updateItem: jest.fn(),
-		deleteItem: jest.fn(),
-		reorderItems: jest.fn(),
 		getTaskItems: jest.fn(() => []),
 		getRoomTaskProgress: jest.fn(() => []),
 	})),
 }))
 
+const day = 86400000
+
+/**
+ * The task list (CS-PLAN-067 §3.4, CS-PLAN-091 WP-B6): sorted rows of the
+ * one task row, with a heading where the section of a row changes. The
+ * rows themselves are covered by TaskRow.spec.js.
+ */
 describe('TaskList', () => {
 	const mockTask = (overrides = {}) => ({
 		task: {
 			id: 1,
 			name: 'Test Task',
-			description: 'Test Description',
 			energyCost: 2,
-			estimatedMinutes: 30,
 			priority: 2,
 			frequencyType: 'weekly',
 			frequencyValue: 1,
@@ -62,528 +50,155 @@ describe('TaskList', () => {
 			roomId: 1,
 			taskId: 1,
 			isActive: true,
-			nextDue: new Date(Date.now() + 86400000).toISOString(), // tomorrow
+			nextDue: new Date(Date.now() + day).toISOString(),
 			assignees: [],
 			...overrides.roomTask,
 		},
 	})
+	const mountList = (props = {}) => mount(TaskList, { props: { loading: false, roomTasks: [mockTask()], ...props } })
 
 	beforeEach(() => {
-		// Create and set active Pinia instance for each test
-		const pinia = createPinia()
-		setActivePinia(pinia)
-	})
-
-	// BUG-UX-011: the chips rolled back silently on a refused change.
-	describe('refused assignee change', () => {
-		const toggleRejectedWith = async (error) => {
-			const store = useRoomTasksStore()
-			store.setAssignees = jest.fn().mockRejectedValue(error)
-			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: [mockTask()] } })
-			const item = wrapper.findComponent({ name: 'TaskListItem' })
-			item.vm.$emit('toggleAssignee', 1, 'kid')
-			await flushPromises()
-			return item
-		}
-
-		it('rolls the draft back and passes the coded reason to the row', async () => {
-			const item = await toggleRejectedWith(Object.assign(new Error('Assigning this member would exceed a daily task limit'), { code: 'CONFLICT' }))
-
-			expect(item.props('assigneeDraft')).toEqual([])
-			expect(item.props('assigneeRefusal')).toBe('Assigning this member would exceed a daily task limit')
-		})
-
-		it('never shows an uncoded error text, and says that it failed', async () => {
-			showError.mockClear()
-			const item = await toggleRejectedWith(new Error('Request failed with status code 500'))
-
-			expect(item.props('assigneeDraft')).toEqual([])
-			expect(item.props('assigneeRefusal')).toBe('')
-			expect(showError).toHaveBeenCalledWith('Failed to update task')
-		})
+		setActivePinia(createPinia())
 	})
 
 	describe('rendering states', () => {
-		it('should show loading state when loading prop is true', () => {
-			const wrapper = mount(TaskList, {
-				props: { loading: true, roomTasks: [] },
-			})
+		it('shows the skeleton while loading', () => {
+			const wrapper = mountList({ loading: true, roomTasks: [] })
 
 			expect(wrapper.find('.skeleton-loading').exists()).toBe(true)
 			expect(wrapper.findAll('.skeleton-task-item')).toHaveLength(5)
 			expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
 		})
 
-		it('should show empty state when no tasks and not loading', () => {
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: [] },
-			})
+		it('shows the empty state without rows, also for a null list', () => {
+			const wrapper = mountList({ roomTasks: [] })
 
 			expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
 			expect(wrapper.find('.empty-icon').exists()).toBe(true)
 			expect(wrapper.text()).toContain('No tasks yet')
 			expect(wrapper.text()).toContain('Add your first task to get started')
+			expect(mountList({ roomTasks: null }).find('[data-testid="empty-state"]').exists()).toBe(true)
 		})
 
-		it('should render task items when tasks provided', () => {
-			const tasks = [mockTask()]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
+		it('renders every row as the one task row in its list form', () => {
+			const wrapper = mountList({ roomTasks: [mockTask(), mockTask({ task: { id: 2 }, roomTask: { id: 2 } })] })
 
-			expect(wrapper.find('.task-items').exists()).toBe(true)
-			expect(wrapper.findAll('.task-item')).toHaveLength(1)
-		})
-	})
-
-	describe('task item rendering', () => {
-		it('should display task name and priority', () => {
-			const tasks = [mockTask({ task: { name: 'Clean Kitchen', priority: 3 } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			expect(wrapper.find('.task-name').text()).toBe('Clean Kitchen')
-			expect(wrapper.find('.priority-badge').exists()).toBe(true)
-			expect(wrapper.find('.priority-badge').classes()).toContain('high')
-		})
-
-		it('should show correct priority labels', () => {
-			const priorities = [
-				{ priority: 1, label: 'Low', class: 'low' },
-				{ priority: 2, label: 'Normal', class: 'medium' },
-				{ priority: 3, label: 'High', class: 'high' },
-			]
-
-			priorities.forEach(({ priority, label, class: className }) => {
-				const tasks = [mockTask({ task: { priority } })]
-				const wrapper = mount(TaskList, {
-					props: { loading: false, roomTasks: tasks },
-				})
-
-				expect(wrapper.find('.priority-badge').text()).toBe(label)
-				expect(wrapper.find('.priority-badge').classes()).toContain(className)
-			})
-		})
-
-		it('should show task metadata', () => {
-			const tasks = [mockTask({
-				task: { energyCost: 3, estimatedMinutes: 45 },
-			})]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			expect(wrapper.text()).toContain('3')
-			expect(wrapper.text()).not.toContain('45m')
-		})
-
-		it('should show assigned indicator when task is assigned', () => {
-			const tasks = [mockTask({ roomTask: { assignees: ['user-5'] } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			expect(wrapper.text()).toContain('Assigned')
-		})
-	})
-
-	describe('stable testids (CS-PLAN-015)', () => {
-		it('renders data-testid="task-item" on every task row', () => {
-			const tasks = [
-				mockTask({ task: { id: 1 }, roomTask: { id: 1 } }),
-				mockTask({ task: { id: 2 }, roomTask: { id: 2 } }),
-			]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
+			expect(wrapper.find('[data-testid="room-task-list"]').exists()).toBe(true)
+			expect(wrapper.findAllComponents(TaskRow).map((row) => row.props('variant'))).toEqual(['list', 'list'])
 			expect(wrapper.findAll('[data-testid="task-item"]')).toHaveLength(2)
 		})
 
-		it('renders the visibility-crown-icon testid on admin-only tasks', () => {
-			const tasks = [mockTask({ task: { visibilityType: 'admin-only' } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
+		it('keeps no selection, bulk bar or claim of its own (D-091-87)', () => {
+			const wrapper = mountList()
 
-			expect(wrapper.find('[data-testid="visibility-crown-icon"]').exists()).toBe(true)
-		})
-
-		it('renders the visibility-lock-icon testid on private tasks (CS-PLAN-051)', () => {
-			const tasks = [mockTask({ task: { visibilityType: 'private' } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			expect(wrapper.find('[data-testid="visibility-lock-icon"]').exists()).toBe(true)
-		})
-
-		it('does not render the crown or lock testid on public tasks', () => {
-			const tasks = [mockTask({ task: { visibilityType: 'public' } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			expect(wrapper.find('[data-testid="visibility-crown-icon"]').exists()).toBe(false)
-			expect(wrapper.find('[data-testid="visibility-lock-icon"]').exists()).toBe(false)
-		})
-	})
-
-	describe('task status', () => {
-		it('should show complete button for active tasks', () => {
-			const tasks = [mockTask({ roomTask: { isActive: true } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			expect(wrapper.find('[data-testid="complete-task-button"]').exists()).toBe(true)
-			expect(wrapper.find('.completed-check').exists()).toBe(false)
-		})
-
-		it('should show completed checkmark for inactive tasks', () => {
-			const tasks = [mockTask({ roomTask: { isActive: false } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			expect(wrapper.find('[data-testid="complete-task-button"]').exists()).toBe(false)
-			expect(wrapper.find('.completed-check').exists()).toBe(true)
-			expect(wrapper.text()).toContain('Completed')
-		})
-
-		it('should apply overdue class to overdue tasks', () => {
-			const yesterday = new Date(Date.now() - 86400000).toISOString()
-			const tasks = [mockTask({ roomTask: { nextDue: yesterday, isActive: true, status: 'overdue' } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			expect(wrapper.find('.task-item').classes()).toContain('overdue')
-			expect(wrapper.find('.task-due').classes()).toContain('overdue')
-		})
-
-		it('does not mark work still due (open window) overdue from its past timestamp alone (D-084-08)', () => {
-			const yesterday = new Date(Date.now() - 86400000).toISOString()
-			const tasks = [mockTask({ roomTask: { nextDue: yesterday, isActive: true, cycle: { state: 'open' } } })]
-			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: tasks } })
-
-			expect(wrapper.find('.task-item').classes()).not.toContain('overdue')
+			expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(0)
+			expect(wrapper.find('[data-testid="bulk-assign-bar"]').exists()).toBe(false)
 			expect(wrapper.find('[data-testid="claim-overdue-button"]').exists()).toBe(false)
 		})
 
-		it('should apply completed class to inactive tasks', () => {
-			const tasks = [mockTask({ roomTask: { isActive: false } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			expect(wrapper.find('.task-item').classes()).toContain('completed')
-		})
-	})
-
-	describe('user interactions', () => {
-		it('should emit complete event when the complete hold is confirmed', async () => {
-			const tasks = [mockTask({ roomTask: { id: 42, isActive: true } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			await confirmHold(wrapper, '[data-testid="complete-task-button"]')
-
-			expect(wrapper.emitted('complete')).toBeTruthy()
-			expect(wrapper.emitted('complete')[0]).toEqual([42])
-		})
-
-		it('resolves the claim dialog assignee name once members load after opening', async () => {
-			const userStore = useUserStore()
-			userStore.currentUser = { nextcloudUserId: 'mom' }
-			userStore.houseUsers = []
-			const tasks = [mockTask({
-				task: { visibilityType: 'public' },
-				roomTask: { assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), cycle: { state: 'overdue' } },
-			})]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			await wrapper.find('[data-testid="claim-overdue-button"]').trigger('click')
-			const dialog = wrapper.get('[data-testid="overdue-claim-dialog"]')
-			expect(dialog.text()).toContain('dad')
-
-			userStore.houseUsers = [{ nextcloudUserId: 'dad', displayName: 'Dad' }]
-			await flushPromises()
-
-			expect(wrapper.get('[data-testid="overdue-claim-dialog"]').text()).toContain('Dad')
-		})
-
-		it('completes a confirmed claim as the reviewed sole participant without a second dialog', async () => {
-			const userStore = useUserStore()
-			userStore.currentUser = { nextcloudUserId: 'mom' }
-			userStore.houseUsers = [{ nextcloudUserId: 'dad', displayName: 'Dad' }]
-			const tasks = [mockTask({
-				task: { visibilityType: 'public' },
-				roomTask: { id: 77, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), cycle: { state: 'overdue' } },
-			})]
-			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: tasks } })
-
-			await wrapper.find('[data-testid="claim-overdue-button"]').trigger('click')
-			await wrapper.get('[data-testid="confirm-claim-button"]').trigger('click')
-
-			expect(wrapper.emitted('complete')).toEqual([[77, {
-				participants: [{ userId: 'mom', sharePct: 100 }],
-				allocationReviewed: true,
-			}]])
-			expect(wrapper.find('[data-testid="overdue-claim-dialog"]').exists()).toBe(false)
-		})
-
-		it('falls back to the participation path when the claimer identity is unresolved', async () => {
-			const userStore = useUserStore()
-			// `userId` is derived from `currentUser` (null as well).
-			userStore.currentUser = null
-			userStore.houseUsers = []
-			const tasks = [mockTask({
-				task: { visibilityType: 'public' },
-				roomTask: { id: 78, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), cycle: { state: 'overdue' } },
-			})]
-			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: tasks } })
-
-			await wrapper.find('[data-testid="claim-overdue-button"]').trigger('click')
-			await wrapper.get('[data-testid="confirm-claim-button"]').trigger('click')
-
-			expect(wrapper.emitted('complete')).toEqual([[78]])
-		})
-
-		it('should emit edit event when edit button clicked', async () => {
-			const userStore = useUserStore()
-			userStore.currentUser = { id: 1, role: 'owner', nextcloudUserId: 'u1' }
-			const roomTask = { id: 42, isActive: true }
-			const tasks = [mockTask({ roomTask })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			await wrapper.find('.action-btn[title="Edit"]').trigger('click')
-
-			expect(wrapper.emitted('edit')).toBeTruthy()
-			expect(wrapper.emitted('edit')[0][0]).toMatchObject({ id: 42, isActive: true })
-		})
-
-		it('should emit delete event when delete button clicked', async () => {
-			const userStore = useUserStore()
-			userStore.currentUser = { id: 1, role: 'owner', nextcloudUserId: 'u1' }
-			const tasks = [mockTask({ roomTask: { id: 42 } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			await wrapper.find('.action-btn.delete').trigger('click')
-
-			expect(wrapper.emitted('delete')).toBeTruthy()
-			expect(wrapper.emitted('delete')[0]).toEqual([42])
-		})
-	})
-
-	describe('task sorting', () => {
-		it('should sort tasks by due date', () => {
-			const today = new Date().toISOString()
-			const tomorrow = new Date(Date.now() + 86400000).toISOString()
-
-			const tasks = [
-				mockTask({ task: { id: 2 }, roomTask: { id: 2, nextDue: tomorrow } }),
-				mockTask({ task: { id: 1 }, roomTask: { id: 1, nextDue: today } }),
-			]
-
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			const taskNames = wrapper.findAll('.task-name').map(el => el.text())
-			expect(taskNames).toEqual(['Test Task', 'Test Task'])
-		})
-
-		it('should sort by priority when due dates are equal', () => {
-			const sameDate = new Date().toISOString()
-
-			const tasks = [
-				mockTask({ task: { id: 1, name: 'Low Priority', priority: 1 }, roomTask: { id: 1, nextDue: sameDate } }),
-				mockTask({ task: { id: 2, name: 'High Priority', priority: 3 }, roomTask: { id: 2, nextDue: sameDate } }),
-			]
-
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-
-			const taskNames = wrapper.findAll('.task-name').map(el => el.text())
-			expect(taskNames[0]).toBe('High Priority')
-		})
-	})
-
-	describe('prop validation', () => {
-		it('should have correct prop types', () => {
+		it('declares its props', () => {
 			expect(TaskList.props.roomTasks.type).toBe(Array)
 			expect(TaskList.props.roomTasks.default()).toEqual([])
 			expect(TaskList.props.loading.type).toBe(Boolean)
 			expect(TaskList.props.loading.default).toBe(false)
 		})
+	})
 
-		it('should handle null roomTasks gracefully', () => {
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: null },
+	describe('task status', () => {
+		it('offers Done for an active row', () => {
+			const wrapper = mountList()
+
+			expect(wrapper.find('[data-testid="complete-task-button"]').exists()).toBe(true)
+			expect(wrapper.find('.completed-check').exists()).toBe(false)
+		})
+
+		it('shows a finished row as completed with its check mark', () => {
+			const wrapper = mountList({ roomTasks: [mockTask({ roomTask: { isActive: false } })] })
+
+			expect(wrapper.find('[data-testid="complete-task-button"]').exists()).toBe(false)
+			expect(wrapper.find('.completed-check').exists()).toBe(true)
+			expect(wrapper.get('[data-testid="task-item"]').classes()).toContain('completed')
+			expect(wrapper.get('.task-due').text()).toBe('Completed')
+		})
+
+		it('marks a row whose cycle is overdue', () => {
+			const wrapper = mountList({
+				roomTasks: [mockTask({ roomTask: { nextDue: new Date(Date.now() - 3 * day).toISOString(), cycle: { state: 'overdue', windowEndOn: '2000-01-01' } } })],
 			})
 
-			// Should show empty state since roomTasks is null
-			expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
+			expect(wrapper.get('[data-testid="task-item"]').classes()).toContain('overdue')
+			expect(wrapper.get('.task-due').classes()).toContain('overdue')
+		})
+
+		it('does not mark work still due (open window) overdue from its past timestamp alone (D-084-08)', () => {
+			const wrapper = mountList({
+				roomTasks: [mockTask({ roomTask: { nextDue: new Date(Date.now() - day).toISOString(), cycle: { state: 'open' } } })],
+			})
+
+			expect(wrapper.get('[data-testid="task-item"]').classes()).not.toContain('overdue')
 		})
 	})
 
-	describe('bulk assignment + checklist editor gating (CS-PLAN-042)', () => {
-		const seedMembers = (role = null) => {
-			const userStore = useUserStore()
-			userStore.houseUsers = [
-				{ nextcloudUserId: 'u1', displayName: 'Alice' },
-				{ nextcloudUserId: 'u2', displayName: 'Bob' },
-			]
-			if (role !== null) {
-				userStore.currentUser = { id: 1, role, nextcloudUserId: 'u1' }
-			}
-			return userStore
-		}
+	describe('completion', () => {
+		it('passes a confirmed hold on with the room task id', async () => {
+			const wrapper = mountList({ roomTasks: [mockTask({ roomTask: { id: 42 } })] })
 
-		it('hides the bulk bar until a task is selected', () => {
-			seedMembers('owner')
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: [mockTask()] },
-			})
+			await confirmHold(wrapper, '[data-testid="complete-task-button"]')
 
-			expect(wrapper.find('[data-testid="bulk-assign-bar"]').exists()).toBe(false)
+			expect(wrapper.emitted('complete')).toHaveLength(1)
+			expect(wrapper.emitted('complete')[0][0]).toBe(42)
 		})
 
-		it('shows the bulk bar when a task row is selected', async () => {
-			seedMembers('owner')
-			const tasks = [
-				mockTask({ roomTask: { id: 1 } }),
-				mockTask({ task: { id: 2 }, roomTask: { id: 2 } }),
-			]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
+		it('passes the split a row picked on with it', async () => {
+			const item = mockTask({ roomTask: { id: 42 } })
+			const wrapper = mountList({ roomTasks: [item] })
+			const split = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
 
-			await wrapper.find('[data-testid="select-task-1"]').setValue(true)
+			wrapper.getComponent(TaskRow).vm.$emit('complete', item, split)
 
-			const bar = wrapper.find('[data-testid="bulk-assign-bar"]')
-			expect(bar.exists()).toBe(true)
-			expect(bar.text()).toContain('1 selected')
-
-			await wrapper.find('[data-testid="select-task-2"]').setValue(true)
-			expect(wrapper.find('[data-testid="bulk-assign-bar"]').text()).toContain('2 selected')
+			expect(wrapper.emitted('complete')).toEqual([[42, split]])
 		})
+	})
 
-		it('issues one bulk call for the selection and clears it on success', async () => {
-			seedMembers('owner')
-			const tasks = [mockTask({ roomTask: { id: 1 } }), mockTask({ task: { id: 2 }, roomTask: { id: 2 } })]
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: tasks },
-			})
-			const roomTasksStore = useRoomTasksStore()
-			roomTasksStore.bulkAssignTasks = jest.fn().mockResolvedValue([{ id: 1 }, { id: 2 }])
-
-			await wrapper.find('[data-testid="select-task-1"]').setValue(true)
-			await wrapper.find('[data-testid="select-task-2"]').setValue(true)
-			await wrapper.find('[data-testid="bulk-assign-target"]').setValue('u1')
-			await wrapper.find('[data-testid="bulk-assign-button"]').trigger('click')
-			await flushPromises()
-
-			expect(roomTasksStore.bulkAssignTasks).toHaveBeenCalledTimes(1)
-			expect(roomTasksStore.bulkAssignTasks).toHaveBeenCalledWith([1, 2], 'u1')
-			expect(wrapper.find('[data-testid="bulk-assign-bar"]').exists()).toBe(false)
-		})
-
-		it('hides row-selection checkboxes, the bulk bar, edit and delete controls for children (CS-PLAN-061 §3.9, D5; CS-PLAN-066 §3.5)', async () => {
-			seedMembers('child')
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: [mockTask()] },
+	describe('order', () => {
+		it('sorts by due date, then by priority', () => {
+			const now = new Date().toISOString()
+			const wrapper = mountList({
+				roomTasks: [
+					mockTask({ task: { id: 1, name: 'Tomorrow' }, roomTask: { id: 1, nextDue: new Date(Date.now() + day).toISOString() } }),
+					mockTask({ task: { id: 2, name: 'Low', priority: 1 }, roomTask: { id: 2, nextDue: now } }),
+					mockTask({ task: { id: 3, name: 'High', priority: 3 }, roomTask: { id: 3, nextDue: now } }),
+				],
 			})
 
-			// CS-PLAN-066 §3.5: the child has no available bulk action, so the
-			// non-actionable row-selection checkbox is hidden entirely.
-			expect(wrapper.find('[data-testid="select-task-1"]').exists()).toBe(false)
-
-			// Child role: no management surface at all.
-			expect(wrapper.find('[data-testid="bulk-assign-bar"]').exists()).toBe(false)
-
-			const labels = wrapper.findAll('.task-actions .action-btn').map(btn => btn.attributes('title'))
-			expect(labels).not.toContain('Edit')
-			expect(labels).not.toContain('Remove')
-			// Execution surface stays: complete + details toggle.
-			expect(wrapper.find('[data-testid="complete-task-button"]').exists()).toBe(true)
-		})
-
-		it('keeps edit and delete controls for members (CS-PLAN-061 §3.9, D5)', () => {
-			seedMembers('member')
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: [mockTask()] },
-			})
-
-			const labels = wrapper.findAll('.task-actions .action-btn').map(btn => btn.attributes('title'))
-			expect(labels).toContain('Edit')
-			expect(labels).toContain('Remove')
-		})
-
-		it('enables the checklist editor for owners', async () => {
-			const userStore = seedMembers()
-			userStore.currentUser = { id: 1, role: 'owner', nextcloudUserId: 'u1' }
-
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: [mockTask()] },
-			})
-			// Expand the task row to render TaskChecklist
-			await wrapper.findAll('.action-btn')[1].trigger('click')
-
-			expect(wrapper.findComponent({ name: 'TaskChecklist' }).props('canEdit')).toBe(true)
-		})
-
-		it('keeps the checklist editor locked for members', async () => {
-			const userStore = seedMembers()
-			userStore.currentUser = { id: 2, role: 'member', nextcloudUserId: 'u2' }
-
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: [mockTask()] },
-			})
-			await wrapper.findAll('.action-btn')[1].trigger('click')
-
-			expect(wrapper.findComponent({ name: 'TaskChecklist' }).props('canEdit')).toBe(false)
+			expect(wrapper.findAll('.task-name').map((name) => name.text())).toEqual(['High', 'Low', 'Tomorrow'])
 		})
 	})
 
 	describe('sections and order from the view (CS-PLAN-090 WP-C)', () => {
 		const rows = () => [
-			mockTask({ task: { id: 1, name: 'Later' }, roomTask: { id: 1, nextDue: new Date(Date.now() + 86400000).toISOString() } }),
-			mockTask({ task: { id: 2, name: 'Sooner' }, roomTask: { id: 2, nextDue: new Date(Date.now() - 86400000).toISOString() } }),
-			mockTask({ task: { id: 3, name: 'Latest' }, roomTask: { id: 3, nextDue: new Date(Date.now() + 3 * 86400000).toISOString() } }),
+			mockTask({ task: { id: 1, name: 'Later' }, roomTask: { id: 1, nextDue: new Date(Date.now() + day).toISOString() } }),
+			mockTask({ task: { id: 2, name: 'Sooner' }, roomTask: { id: 2, nextDue: new Date(Date.now() - day).toISOString() } }),
+			mockTask({ task: { id: 3, name: 'Latest' }, roomTask: { id: 3, nextDue: new Date(Date.now() + 3 * day).toISOString() } }),
 		]
 		const names = (wrapper) => wrapper.findAll('.task-name').map((name) => name.text())
 		const headings = (wrapper) => wrapper.findAll('[data-testid="task-section-heading"]').map((heading) => heading.text())
 
 		it('shows no heading and keeps the due order by default', () => {
-			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: rows() } })
+			const wrapper = mountList({ roomTasks: rows() })
 
 			expect(names(wrapper)).toEqual(['Sooner', 'Later', 'Latest'])
 			expect(headings(wrapper)).toEqual([])
 		})
 
 		it('uses the order it is given', () => {
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: rows(), compare: (a, b) => b.roomTask.id - a.roomTask.id },
-			})
+			const wrapper = mountList({ roomTasks: rows(), compare: (a, b) => b.roomTask.id - a.roomTask.id })
 
 			expect(names(wrapper)).toEqual(['Latest', 'Sooner', 'Later'])
 		})
 
 		it('shows a heading where the section of a row differs from the row before', () => {
-			const wrapper = mount(TaskList, {
-				props: { loading: false, roomTasks: rows(), sectionLabel: (item) => (item.roomTask.id === 2 ? 'Overdue · 1' : 'Later · 2') },
-			})
+			const wrapper = mountList({ roomTasks: rows(), sectionLabel: (item) => (item.roomTask.id === 2 ? 'Overdue · 1' : 'Later · 2') })
 
 			expect(headings(wrapper)).toEqual(['Overdue · 1', 'Later · 2'])
 			expect(wrapper.find('.task-items').element.firstElementChild.textContent.trim()).toBe('Overdue · 1')

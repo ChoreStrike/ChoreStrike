@@ -242,87 +242,18 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
-		// CS-PLAN-063: the former createRoomTask action was folded into
-		// createTaskAggregate (covered above).
-
-		describe('bulkAssignTasks (CS-PLAN-042, CR-SVC-61, CS-PLAN-066 D1)', () => {
-			it('posts one bulk call and reconciles the returned successes only', async () => {
-				store.roomTasks = [
-					{ id: 1, assignees: [] },
-					{ id: 2, assignees: [] },
-				]
-				// Canonical D1 shape: returned successes carry their PERSISTED
-				// assignee set (user-ID array) — never the requested set.
-				api.post.mockResolvedValue([
-					{ id: 1, assignees: ['user1'] },
-				])
-
-				const assigned = await store.bulkAssignTasks([1, 2], 'user1')
-
-				expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks/bulk-assign', {
-					roomTaskIds: [1, 2],
-					userId: 'user1',
-				})
-				expect(assigned).toEqual([{ id: 1, assignees: ['user1'] }])
-				// The returned success reconciles the cached chip state.
-				expect(store.roomTasks[0].assignees).toEqual(['user1'])
-				// The skipped task stays untouched — no client-assumed success.
-				expect(store.roomTasks[1].assignees).toEqual([])
-			})
-
-			it('reconciles only the server-persisted assignee set (no local union)', async () => {
-				store.roomTasks = [{ id: 1, assignees: ['user1'] }]
-				api.post.mockResolvedValue([{ id: 1, assignees: ['user1'] }])
-
-				await store.bulkAssignTasks([1], 'user1')
-
-				expect(store.roomTasks[0].assignees).toEqual(['user1'])
-			})
-
-			it('throws for empty userId without calling the API', async () => {
-				await expect(store.bulkAssignTasks([1], '  ')).rejects.toThrow('User ID is required')
-				expect(api.post).not.toHaveBeenCalled()
-			})
-
-			it('throws when roomTaskIds is not an array', async () => {
-				await expect(store.bulkAssignTasks(5, 'user1')).rejects.toThrow('Room task IDs must be an array')
-				expect(api.post).not.toHaveBeenCalled()
-			})
-
-			it('propagates API errors', async () => {
-				api.post.mockRejectedValue(new Error('boom'))
-
-				await expect(store.bulkAssignTasks([1], 'user1')).rejects.toThrow('boom')
-				expect(store.error).toBe('boom')
-			})
+		// D-091-87: bulk assignment and the separate assignee write are gone;
+		// the one form saves the assignees with the task (CS-PLAN-091 WP-B6).
+		it('no longer exposes bulk assignment or a separate assignee write', () => {
+			expect(store.bulkAssignTasks).toBeUndefined()
+			expect(store.setAssignees).toBeUndefined()
+			expect(store.createTaskAggregate).toBeUndefined()
+			expect(store.createFromTemplate).toBeUndefined()
 		})
 
 		// CS-PLAN-067 §3.4: the unused fetchAssignees action was removed —
 		// rows already carry their canonical assignee arrays (CS-PLAN-066
 		// D1); no production consumer needed the per-task endpoint read.
-
-		describe('setAssignees', () => {
-			it('replaces assignees from the canonical user-ID response (D1)', async () => {
-				store.roomTasks = [{ id: 1, assignees: [] }]
-				// CS-PLAN-066 D1: the PUT response IS the persisted user-ID set.
-				api.put.mockResolvedValue(['user1', 'user2'])
-
-				const result = await store.setAssignees(1, ['user1', 'user2'])
-
-				expect(api.put).toHaveBeenCalledWith(
-					'/api/v1/room-tasks/1/assignees',
-					{ userIds: ['user1', 'user2'] },
-				)
-				expect(result).toEqual(['user1', 'user2'])
-				expect(store.roomTasks[0].assignees).toEqual(['user1', 'user2'])
-			})
-
-			it('throws on API failure', async () => {
-				api.put.mockRejectedValue(new Error('Not a member'))
-
-				await expect(store.setAssignees(1, ['intruder'])).rejects.toThrow('Not a member')
-			})
-		})
 
 		describe('pruned split-undo seam (CS-PLAN-064 D5)', () => {
 			it('no longer exposes uncompleteRoomTask or reactivateRoomTask', () => {
@@ -610,7 +541,7 @@ describe('RoomTasks Store', () => {
 				await expect(store.completeRoomTask(1)).rejects.toBe(conflict)
 				await flushPromises()
 
-				expect(store._completionTargetFor(1).expectedVersion).toBe(1)
+				expect(store.completionTargetOf(1).expectedVersion).toBe(1)
 			})
 
 			it('stores the fresh cycle block from the completion response', async () => {
@@ -1065,7 +996,7 @@ describe('RoomTasks Store', () => {
 				rewards: { completion: { id: 92, version: 0 }, participants: [] },
 			})
 
-			expect(store._completionTargetFor(7)).toEqual({ state: 'asleep', expectedVersion: 6, wakeOn: null })
+			expect(store.completionTargetOf(7)).toEqual({ state: 'asleep', expectedVersion: 6, wakeOn: null })
 			await store.completeRoomTask(7)
 
 			expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks/7/complete', { commandId: expect.any(String), expectedVersion: 6 })
@@ -1173,76 +1104,93 @@ describe('RoomTasks Store', () => {
 		})
 	})
 
-	describe('createTaskAggregate (CS-PLAN-063 §3.5, CS-PLAN-066 D1)', () => {
-		it('posts ONE aggregate request, updates both stores, and returns the aggregate', async () => {
-			api.post.mockResolvedValue({
+	// CS-PLAN-091 WP-B6: the one form's store posts; these place its answers.
+	describe('addCreatedRoomTask', () => {
+		it('adds the created room task with its canonical assignees and caches the definition once', () => {
+			const tasksStore = useTasksStore()
+			tasksStore.tasks.push({ id: 7, name: 'Old name' })
+			store.roomTasks = []
+			store.houseLoaded = true
+			const refresh = jest.spyOn(store, 'refreshDerivedProjections').mockResolvedValue(undefined)
+
+			store.addCreatedRoomTask({
 				task: { id: 7, name: 'Dishes' },
 				roomTask: { id: 42, roomId: 3, taskId: 7 },
-				// CS-PLAN-066 D1: canonical unique, ordered user-ID array.
 				assignees: ['mom', 'dad'],
 			})
+
+			expect(store.roomTasks).toEqual([{ id: 42, roomId: 3, taskId: 7, assignees: ['mom', 'dad'] }])
+			expect(tasksStore.tasks.filter(t => t.id === 7)).toEqual([{ id: 7, name: 'Dishes' }])
+			expect(store.houseStale).toBe(true)
+			expect(refresh).toHaveBeenCalled()
+		})
+
+		it('stores an empty assignee set when the answer names none', () => {
 			store.roomTasks = []
 
-			const tasksStore = useTasksStore()
-			const result = await store.createTaskAggregate({ roomId: 3, task: { name: 'Dishes' }, assigneeUserIds: ['mom', 'dad'] })
+			store.addCreatedRoomTask({ task: { id: 8, name: 'Mop' }, roomTask: { id: 43, roomId: 3, taskId: 8 } })
 
-			// One request, no follow-up PUT (the chain is gone).
-			expect(api.post).toHaveBeenCalledTimes(1)
-			expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks', { roomId: 3, task: { name: 'Dishes' }, assigneeUserIds: ['mom', 'dad'] })
-			expect(api.put).not.toHaveBeenCalled()
-
-			expect(result.task.id).toBe(7)
-			expect(result.roomTask.id).toBe(42)
-			expect(store.roomTasks).toHaveLength(1)
-			expect(store.roomTasks[0].id).toBe(42)
-			expect(store.roomTasks[0].assignees).toEqual(['mom', 'dad'])
-			expect(tasksStore.getTaskById(7)).toBeTruthy()
-		})
-
-		it('does not duplicate an already-cached definition', async () => {
-			api.post.mockResolvedValue({
-				task: { id: 7, name: 'Dishes' },
-				roomTask: { id: 42, roomId: 3, taskId: 7 },
-				assignees: [],
-			})
-
-			const tasksStore = useTasksStore()
-			tasksStore.tasks.push({ id: 7, name: 'Dishes' })
-
-			await store.createTaskAggregate({ roomId: 3, task: { name: 'Dishes' }, assigneeUserIds: [] })
-
-			expect(tasksStore.getTaskById(7)).toBeTruthy()
-			expect(tasksStore.tasks.filter(t => t.id === 7)).toHaveLength(1)
-		})
-
-		it('propagates failures (nothing persisted server-side on error)', async () => {
-			api.post.mockRejectedValue(new Error('Validation failed'))
-
-			await expect(store.createTaskAggregate({ roomId: 3, task: { name: '' } })).rejects.toThrow('Validation failed')
-			expect(store.roomTasks).toHaveLength(0)
+			expect(store.roomTasks[0].assignees).toEqual([])
 		})
 	})
 
-		describe('createFromTemplate (CS-PLAN-063 D1 aggregate shape, CS-PLAN-066 D1 assignees)', () => {
-		it('joins the room task, stores the canonical assignee set, and caches the definition', async () => {
-			api.post.mockResolvedValue({
-				task: { id: 9, name: 'Bathroom blitz' },
-				roomTask: { id: 43, roomId: 3, taskId: 9 },
-				assignees: ['mom'],
-			})
-			store.roomTasks = []
-
+	describe('applySavedRoomTask', () => {
+		it('replaces the row in every slice, takes the fresh cycle and definition, and rereads the rows', () => {
+			const refresh = jest.spyOn(store, 'refreshDerivedProjections').mockResolvedValue(undefined)
 			const tasksStore = useTasksStore()
+			tasksStore.tasks.push({ id: 5, name: 'Dishes' })
+			store.roomTasks = [{ id: 1, roomId: 12, taskId: 5, assignees: ['mom'], cycle: cycleFixture() }]
+			store.dailyTasks = [{ roomTask: { id: 1, roomId: 12 }, task: { id: 5 }, cycle: cycleFixture() }]
+			const cycle = cycleFixture({ cycleKey: 'c60', expectedVersion: 4 })
 
-			const result = await store.createFromTemplate({ roomId: 3, templateId: 'bathroom-blitz' })
+			store.applySavedRoomTask({
+				task: { id: 5, name: 'Wash up' },
+				roomTask: { id: 1, roomId: 13, taskId: 5 },
+				assignees: ['dad'],
+				cycle,
+			})
 
-			expect(api.post).toHaveBeenCalledTimes(1)
-			expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks/from-template', { roomId: 3, templateId: 'bathroom-blitz' })
-			expect(result.task.id).toBe(9)
-			expect(store.roomTasks).toHaveLength(1)
-			expect(store.roomTasks[0].id).toBe(43)
-			expect(store.roomTasks[0].assignees).toEqual(['mom'])
-			expect(tasksStore.getTaskById(9)).toBeTruthy()
+			expect(store.roomTasks[0]).toMatchObject({ id: 1, roomId: 13, assignees: ['dad'] })
+			expect(store.dailyTasks[0].roomTask.roomId).toBe(13)
+			expect(store.completionTargetOf(1)).toEqual(cycle)
+			expect(tasksStore.getTaskById(5).name).toBe('Wash up')
+			expect(refresh).toHaveBeenCalledTimes(1)
+			expect(refresh).toHaveBeenCalledWith({ rows: true })
+		})
+
+		it('rereads every loaded list exactly once after a save: one refresh, which the in-flight guard cannot swallow', async () => {
+			store.houseLoaded = true
+			store.dueTodayLoaded = true
+			store.overdueLoaded = true
+			store.roomTasks = [
+				{ id: 1, roomId: 12, taskId: 5, assignees: [], cycle: cycleFixture({ expectedVersion: 1 }) },
+				{ id: 2, roomId: 13, taskId: 5, assignees: [], cycle: cycleFixture({ expectedVersion: 1 }) },
+			]
+			store.dailyTasks = [{ roomTask: { id: 2, roomId: 13 }, task: { id: 5, name: 'Dishes' }, cycle: cycleFixture({ expectedVersion: 1 }) }]
+			// An all-rooms rule edit moved the cycle of the other room too.
+			api.get.mockImplementation((path) => Promise.resolve(path.endsWith('filtered-daily')
+				? [{ roomTask: { id: 2, roomId: 13 }, task: { id: 5, name: 'Wash up' }, cycle: cycleFixture({ expectedVersion: 2 }) }]
+				: (path.endsWith('/room-tasks')
+					? [1, 2].map((id) => ({ id, roomId: 11 + id, taskId: 5, assignees: [], cycle: cycleFixture({ expectedVersion: 2 }) }))
+					: [])))
+
+			store.applySavedRoomTask({ task: { id: 5, name: 'Wash up' }, roomTask: { id: 1, roomId: 12, taskId: 5 }, assignees: [], cycle: cycleFixture({ expectedVersion: 2 }) })
+			await flushPromises()
+
+			const reads = api.get.mock.calls.map(([path]) => path.replace('/api/v1/room-tasks', '') || '/')
+			expect(reads.sort()).toEqual(['/', '/due-today', '/filtered-daily', '/overdue'])
+			expect(store.completionTargetOf(2).expectedVersion).toBe(2)
+			expect(store.dailyTasks[0].task.name).toBe('Wash up')
+			expect(store.refreshFailed).toBe(false)
+		})
+
+		it('keeps the assignees the row itself carries when the answer has no separate set', () => {
+			jest.spyOn(store, 'refreshDerivedProjections').mockResolvedValue(undefined)
+			store.roomTasks = [{ id: 1, roomId: 12, taskId: 5, assignees: ['mom'] }]
+
+			store.applySavedRoomTask({ task: { id: 5 }, roomTask: { id: 1, roomId: 12, taskId: 5, assignees: ['teen'] } })
+
+			expect(store.roomTasks[0].assignees).toEqual(['teen'])
 		})
 	})
 

@@ -646,7 +646,7 @@ class TestDataService {
 		$member->setJoinedAt(clone $weekStart);
 		$this->houseUserMapper->update($member);
 		$completedAt = (clone $weekStart)->modify('+12 hours');
-		$cycleKey = 'd' . $weekStart->format('Y-m-d');
+		$cycleKey = CurrentCycle::keyOn($weekStart->format('Y-m-d'));
 
 		$completion = new CompletedTask();
 		$completion->setRoomTaskId($roomTask->getId());

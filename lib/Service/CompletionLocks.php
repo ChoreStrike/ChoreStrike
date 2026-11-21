@@ -8,11 +8,14 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\Wallet;
 use OCA\ChoreStrike\Db\WalletMapper;
+use OCA\ChoreStrike\Db\WorkShare;
+use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\IL10N;
@@ -29,8 +32,28 @@ class CompletionLocks {
 		private WalletMapper $walletMapper,
 		private WalletService $walletService,
 		private CreditPolicy $creditPolicy,
+		private WorkShareMapper $workShareMapper,
+		private TaskResponsibility $responsibility,
 		private IL10N $l10n,
 	) {
+	}
+
+	/**
+	 * The latest selected allocation of a completion with its people
+	 * locked: the share rows that carry a wallet (a departed one included)
+	 * and the live members behind them plus the room task's assignees, by
+	 * member id. The undo reverses these shares; the undo and the date
+	 * correction recount these members (RF-091-10).
+	 *
+	 * @return array{shares: WorkShare[], members: HouseUser[]}
+	 */
+	public function latestAllocation(int $houseId, CompletedTask $completion, int $roomTaskId): array {
+		$shares = array_values(array_filter(
+			$this->workShareMapper->findByCompletionAndRevision((int)$completion->getId(), $completion->getAllocationRevision()),
+			static fn (WorkShare $share): bool => $share->getWalletId() !== null
+		));
+		$walletIds = array_map(static fn (WorkShare $share): int => (int)$share->getWalletId(), $shares);
+		return ['shares' => $shares, 'members' => $this->membersOfWallets($houseId, $walletIds, $this->responsibility->membersOf($houseId, $roomTaskId))];
 	}
 
 	/**

@@ -32,12 +32,13 @@
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > member mobile: My Day completion and checklist execution work at the mobile viewport with 44px targets",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: cold counters are correct without any room visit (D2)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: complete from My Day reconciles counters without reload and the queued undo restores them (D3/D10)",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: the one form saves an edit with one real HTTP PUT /room-tasks/{id} (D6)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: the overdue list holds only overdue work and Done needs a hold (CS-PLAN-084 WP-C)",
-    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: the real HTTP PUT /tasks/{id} edit roundtrip works with the production body shape (D6)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner phone: the all-tasks list pages by 20 and \"Completed\" loads finished work on demand (CS-PLAN-084 WP-D)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner: a changed energy reaches the open task at once",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner: editing a task two rooms share asks for the scope and splits it off for this room",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner: saving the members of a lower row keeps the scroll position",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner: the facts of a task row are legible in the light and dark themes",
-    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner: toggling a member chip in a lower row keeps the scroll position",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > real Nextcloud DE and EN core rendering uses the shipped translations"
   ],
   "workflow-state-reconciliation.spec.ts": [
@@ -130,14 +131,13 @@
   ],
   "task-checklist-and-features.spec.ts": [
     "task-checklist-and-features.spec.ts > Group Assignment > should show assigned status for tasks",
-    "task-checklist-and-features.spec.ts > Task Checklist > should collapse task details",
-    "task-checklist-and-features.spec.ts > Task Checklist > should display checklist when expanding a task",
-    "task-checklist-and-features.spec.ts > Task Checklist > should show completion badge with correct count",
-    "task-checklist-and-features.spec.ts > Task Checklist > should show progress bar in checklist",
-    "task-checklist-and-features.spec.ts > Task Checklist > should toggle checklist item completion",
-    "task-checklist-and-features.spec.ts > Task Scheduling Modes > should show scheduling mode options in task edit form",
-    "task-checklist-and-features.spec.ts > Task Scheduling Modes > should show time input for static scheduling",
-    "task-checklist-and-features.spec.ts > Template Selector > should show template selector when creating task"
+    "task-checklist-and-features.spec.ts > Task rhythm in the form > a fixed day asks for weekdays, a monthly one for the day of the month, once for neither",
+    "task-checklist-and-features.spec.ts > Task rhythm in the form > the form offers after completion, a fixed day and once",
+    "task-checklist-and-features.spec.ts > Task sub-tasks > an opened row shows its sub-tasks with their progress",
+    "task-checklist-and-features.spec.ts > Task sub-tasks > closing the row hides its sub-tasks",
+    "task-checklist-and-features.spec.ts > Task sub-tasks > the form adds, orders and removes sub-tasks in one save",
+    "task-checklist-and-features.spec.ts > Task sub-tasks > ticking a sub-task marks it done and strikes it through",
+    "task-checklist-and-features.spec.ts > Template fill > a template fills the form, and the save creates a task of its own"
   ],
   "3-floor-house.spec.ts": [
     "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Atomic Journey: create-with-assignee renders the assignee from ONE request (CS-PLAN-063)",
@@ -209,7 +209,7 @@
   ],
   "release-task-templates.spec.ts": [
     "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > a room type exposes the templates that apply to it",
-    "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > creating a room task from a template succeeds",
+    "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > a template fills the form of a room, and the save creates a task of its own",
     "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > setup catalog returns levels, room types, and templates"
   ],
   "quiet-digest.spec.ts": [
@@ -345,13 +345,12 @@
     "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > Protected views wait for membership bootstrap before issuing reads"
   ],
   "overdue-task-claiming.spec.ts": [
-    "overdue-task-claiming.spec.ts > Overdue Task Claiming > claim button opens confirmation dialog naming the assignee",
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > claiming overdue task via API records takeover",
-    "overdue-task-claiming.spec.ts > Overdue Task Claiming > confirming a claim in the UI completes it once and the next cycle returns to the assignee",
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > non-assignee can complete overdue public task",
-    "overdue-task-claiming.spec.ts > Overdue Task Claiming > overdue task assigned to another user shows claim button",
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > overdue work of someone else is marked and Done opens the picker with the assignee ticked",
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > private overdue task cannot be claimed by non-assignee",
-    "overdue-task-claiming.spec.ts > Overdue Task Claiming > work due today is never overdue: no claim button for others (D-084-08)"
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > taking over in the picker completes it once and the next cycle returns to the assignee",
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > work due today is never overdue for someone else either (D-084-08)"
   ],
   "private-tasks.spec.ts": [
     "private-tasks.spec.ts > Private Tasks > my-private filter shows only own private tasks",
@@ -362,7 +361,7 @@
   "task-grouping.spec.ts": [
     "task-grouping.spec.ts > Task grouping > A completed task shows its room as Last cleaned",
     "task-grouping.spec.ts > Task grouping > A room heading shows its open tasks and its cleanliness",
-    "task-grouping.spec.ts > Task grouping > New in a room heading opens the template picker for that room",
+    "task-grouping.spec.ts > Task grouping > New in a room heading opens the one form with that room and its templates",
     "task-grouping.spec.ts > Task grouping > The switch groups by room and by person and mirrors the grouping in the address"
   ],
   "self-availability-member.spec.ts": [
@@ -423,7 +422,7 @@
   ],
   "mobile-core.spec.ts": [
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > My Day hold-complete and undo: a tap opens the picker, the hold completes once, undo restores",
-    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > claim confirm: an owner takes over overdue work in one confirmation and the next cycle stays with the assignee",
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > claim confirm: an owner takes over overdue work in the picker and the next cycle stays with the assignee",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > handover: a member records the work of someone else and the successor stays with the assignee",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > paged task list: 20 rows per page with collapsed filters on the phone",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > postpone and history: a child postpones a task, then re-dates and deletes its own entry",

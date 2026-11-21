@@ -139,6 +139,30 @@ class HouseSetupIntegrationTest extends IntegrationTestCase {
 		$this->assertContains('household', $types);
 	}
 
+	/**
+	 * D-091-88 (FEAT-UX-043): two rooms of one type get a definition each,
+	 * so an edit in one room never changes the other room's task.
+	 */
+	public function testTwoRoomsOfOneType_GetADefinitionEach(): void {
+		$result = $this->setupService->applySetup($this->houseId, [
+			'intensityLevel' => TemplateService::LEVEL_PUTZTEUFEL,
+			'options' => ['createHouseholdRoom' => false, 'createHallways' => false],
+			'floors' => [
+				['name' => 'Upstairs', 'rooms' => [
+					['name' => 'Bedroom Kim', 'roomType' => 'bedroom'],
+					['name' => 'Bedroom Mia', 'roomType' => 'bedroom'],
+				]],
+			],
+		]);
+
+		$roomIds = $this->collectIdsIn('chorestrike_rooms', 'id', 'floor_id', $this->collectIds('chorestrike_floors', 'id', 'house_id', $this->houseId));
+		$taskIds = $this->collectIdsIn('chorestrike_room_tasks', 'task_id', 'room_id', $roomIds);
+		$this->assertGreaterThan(0, $result['roomTasks']);
+		$this->assertSame($result['roomTasks'], $result['tasks'], 'one definition per room task');
+		$this->assertCount($result['roomTasks'], $taskIds);
+		$this->assertSame($taskIds, array_values(array_unique($taskIds)), 'no definition is shared by two rooms');
+	}
+
 	public function testPutzmuffelProducesFewerTasksThanPutzteufel(): void {
 		$payload = [
 			'intensityLevel' => TemplateService::LEVEL_PUTZTEUFEL,

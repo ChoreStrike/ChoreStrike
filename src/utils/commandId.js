@@ -20,3 +20,37 @@ export function generateCommandId() {
 		return value.toString(16)
 	})
 }
+
+/**
+ * The UUID of a logical command (RF-072-WP1-07): a retry of the same shown
+ * target reuses it, so the server replays the receipt of a command whose
+ * answer was lost.
+ * @param {Object<string, string>} pending Command key → UUID, as a store keeps it.
+ * @param {string} commandKey The command and the target it was sent for.
+ * @return {{commandId: string, pending: Object<string, string>}} The UUID and the map to keep.
+ */
+export function rememberCommand(pending, commandKey) {
+	if (pending[commandKey]) {
+		return { commandId: pending[commandKey], pending }
+	}
+	const commandId = generateCommandId()
+	return { commandId, pending: { ...pending, [commandKey]: commandId } }
+}
+
+/**
+ * A definite answer (any status below 500) closes the command; an
+ * uncertain failure — no answer or a 5xx, where the server may have
+ * committed — keeps its UUID for the retry.
+ * @param {Object<string, string>} pending Command key → UUID.
+ * @param {string} commandKey The command and its target.
+ * @param {?object} [error] The failure, absent on success.
+ * @return {Object<string, string>} The map to keep.
+ */
+export function settleCommand(pending, commandKey, error = null) {
+	if (error && (error.status === undefined || error.status >= 500)) {
+		return pending
+	}
+	const rest = { ...pending }
+	delete rest[commandKey]
+	return rest
+}

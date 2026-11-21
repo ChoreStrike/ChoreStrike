@@ -12,7 +12,6 @@ const DYNAMIC = {
 	'src/constants/titles.js': ['title.labelKey'],
 	'src/components/Common/MedalBadge.vue': ['key'],
 	'src/components/Insights/RankingPanel.vue': ['MEDAL_LABELS[medal.medalType]'],
-	'src/components/Tasks/TaskEditForm.vue': ['frequencyLabel', 'everyKey'],
 	'lib/Service/TaskService.php': ['$message'],
 	'lib/Service/TemplateService.php': ["(string)$rt['defaultName']", "(string)$template['name']", "(string)($template['description']??'')", "(string)($template['instructions']??'')", "(string)$t['name']", "(string)($t['description']??'')", "(string)($t['instructions']??'')"],
 }
@@ -70,13 +69,6 @@ function extractKeysFromSource(file, content) {
 		const map = source.match(/const MEDAL_LABELS = \{([\s\S]*?)\}/)
 		if (!map) throw new Error(`Missing dynamic map: ${file}: MEDAL_LABELS`)
 		for (const entry of map[1].matchAll(/:\s*('(?:\\.|[^'\\])*')/g)) keys.push(decodeLiteral(entry[1]))
-	}
-	if (file === 'src/components/Tasks/TaskEditForm.vue') {
-		for (const name of ['frequencyLabel', 'everyKey']) {
-			const declaration = source.match(new RegExp(`const ${name} = ([\\s\\S]*?)(?=\\n\\s*const )`))
-			if (!declaration) throw new Error(`Missing recurrence owner: ${name}`)
-			for (const entry of declaration[1].matchAll(/[?:]\s*('(?:\\.|[^'\\])*')/g)) keys.push(decodeLiteral(entry[1]))
-		}
 	}
 	if (file === 'lib/Service/TaskService.php') {
 		const dates = source.match(/foreach\s*\(\[([^\]]+)\]\s+as\s+\$field\s*=>\s*\$message\)/)

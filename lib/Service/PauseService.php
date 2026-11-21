@@ -219,7 +219,7 @@ class PauseService {
 				$pause = $this->pauseMapper->appendRevision($pause);
 				return ['pauseGroupId' => $pause->getPauseGroupId(), 'revision' => $pause->getRevision(), 'state' => $pause->getState()];
 			},
-			$this->actorGuard($actor)
+			$this->actorGuard($actor), audited: true
 		);
 		return $refs;
 	}
@@ -258,7 +258,7 @@ class PauseService {
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $pause, new \DateTime());
 				return ['pauseGroupId' => $pause->getPauseGroupId(), 'revision' => $pause->getRevision(), 'state' => $pause->getState()];
 			},
-			$this->actorGuard($actor, true)
+			$this->actorGuard($actor, true), audited: true
 		);
 		return $refs;
 	}
@@ -340,7 +340,7 @@ class PauseService {
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $pause, new \DateTime());
 				return ['pauseGroupId' => $pause->getPauseGroupId(), 'revision' => $pause->getRevision(), 'state' => $pause->getState()];
 			},
-			$this->actorGuard($actor, true)
+			$this->actorGuard($actor, true), audited: true
 		);
 		return $refs;
 	}
@@ -420,7 +420,7 @@ class PauseService {
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $revision, $now);
 				return ['pauseGroupId' => $pauseGroupId, 'revision' => $revision->getRevision(), 'state' => $revision->getState()];
 			},
-			$this->actorGuard($actor, false, $pauseGroupId)
+			$this->actorGuard($actor, false, $pauseGroupId), audited: true
 		);
 		return $refs;
 	}
@@ -478,7 +478,7 @@ class PauseService {
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $revision, $now);
 				return ['pauseGroupId' => $pauseGroupId, 'revision' => $revision->getRevision(), 'state' => $revision->getState()];
 			},
-			$this->actorGuard($actor, false, $pauseGroupId)
+			$this->actorGuard($actor, false, $pauseGroupId), audited: true
 		);
 		return $refs;
 	}
@@ -661,7 +661,7 @@ class PauseService {
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $current, new \DateTime());
 				return ['pauseGroupId' => $pauseGroupId, 'revision' => $current->getRevision(), 'state' => $current->getState()];
 			},
-			$this->actorGuard($actor, true, $pauseGroupId)
+			$this->actorGuard($actor, true, $pauseGroupId), audited: true
 		);
 		return $refs;
 	}

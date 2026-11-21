@@ -75,14 +75,32 @@ class CommandService {
 	}
 
 	/**
+	 * The optimistic version a client showed: a whole number, also as the
+	 * canonical decimal string of a form body (`"4"`, never `"04"` or `4.0`).
+	 *
 	 * @param array<string, mixed> $payload
 	 */
 	public static function requireExpectedVersion(array $payload, IL10N $l10n): int {
 		$version = $payload['expectedVersion'] ?? null;
-		if (!is_int($version) || $version < 0) {
+		if ((!is_int($version) && !is_string($version)) || (string)(int)$version !== (string)$version || (int)$version < 0) {
 			throw new \InvalidArgumentException($l10n->t('A valid expectedVersion is required'));
 		}
-		return $version;
+		return (int)$version;
+	}
+
+	/**
+	 * A closed command body: every field is one the command knows.
+	 *
+	 * @param array<string, mixed> $payload The body without framework keys
+	 * @param list<string> $allowed
+	 * @throws \InvalidArgumentException with a translated message (400)
+	 */
+	public static function assertClosedBody(array $payload, array $allowed, IL10N $l10n): void {
+		foreach (array_keys($payload) as $field) {
+			if (!in_array($field, $allowed, true)) {
+				throw new \InvalidArgumentException($l10n->t('Unknown field: %1$s', [$field]));
+			}
+		}
 	}
 
 	private CommandReceiptMapper $receiptMapper;
@@ -111,7 +129,7 @@ class CommandService {
 	 * @param int $houseId The house ID (locks the aggregate)
 	 * @param int $actorHouseUserId The acting membership's ID (never null — system commands need an actor discriminator first)
 	 * @param string $commandUuid Client-supplied idempotency UUID (max 36 chars)
-	 * @param string $action Stable action identifier (e.g. 'scheduling.apply', max 64 chars)
+	 * @param string $action Stable action identifier (e.g. 'room_task.edit', max 64 chars)
 	 * @param array<string, mixed> $payload The whitelisted normalized command fields
 	 * @param callable(): array<string, mixed> $fn The domain aggregate; returns the result identity to store
 	 * @param callable(int, int): void|null $authorizeUnderLock Optional under-lock authorization guard (CS-PLAN-070 WP7 §3.4),
@@ -119,6 +137,8 @@ class CommandService {
 	 *                                                          actor identity, visibility and current action authority — never business version/funding/state
 	 *                                                          preconditions, which the committed receipt already answers. All WP7 commands supply it so authorization
 	 *                                                          never lives only in the aggregate that replay skips.
+	 * @param bool $audited Whether a first commit is written to the audit log: the owner-capable house
+	 *                      commands (reset, absences, coin multipliers) and the one form's save pass true
 	 * @return array{result: array<string, mixed>, receipt: CommandReceipt, replay: bool}
 	 * @throws ConflictException on a reused key with a changed payload (409)
 	 * @throws \InvalidArgumentException on an empty/oversized UUID/action, a null actor or an unencodable result identity
@@ -131,6 +151,7 @@ class CommandService {
 		array $payload,
 		callable $fn,
 		?callable $authorizeUnderLock = null,
+		bool $audited = false,
 	): array {
 		if (trim($commandUuid) === '') {
 			throw new \InvalidArgumentException('commandUuid is required');
@@ -223,14 +244,9 @@ class CommandService {
 				'replay' => false,
 			];
 		});
-		// These owner-capable command surfaces share one post-commit event;
+		// Owner-capable command surfaces share one post-commit event;
 		// receipts distinguish committed commands from replay without payloads.
-		if (!$outcome['replay'] && in_array($action, [
-			'house.reset', 'scheduling.apply', 'occurrence.amend', 'occurrence.catch-up', 'occurrence.restart',
-			'pause.request', 'pause.house', 'pause.approve', 'pause.reject', 'pause.recognize-illness', 'pause.shorten',
-			'pause.delete', CoinMultiplierService::ACTION_FACTOR, CoinMultiplierService::ACTION_PERIOD_START,
-			CoinMultiplierService::ACTION_PERIOD_CANCEL,
-		], true)) {
+		if ($audited && !$outcome['replay']) {
 			$this->appLogger->audit('House command committed', [
 				'event' => 'house.command.committed', 'service' => 'CommandService',
 				'houseId' => $houseId, 'actorId' => $actorHouseUserId,

@@ -349,10 +349,10 @@ describe('House Store', () => {
 				expect(store.bonusPeriod).toEqual(period)
 			})
 
-			it('starts a period with a fresh command and reads which one the house shows now', async () => {
-				store.house = { id: 1, bonusPeriod: null }
+			// RF-091-10: the answer names the period the house shows now; no second read.
+			it('starts a period with a fresh command and shows the period its answer names', async () => {
+				store.house = { id: 1, name: 'Home', bonusPeriod: null }
 				api.post.mockResolvedValue({ bonusPeriod: period })
-				api.get.mockResolvedValue({ id: 1, bonusPeriod: period })
 
 				await expect(store.startBonusPeriod('2026-11-20', 2)).resolves.toEqual(period)
 
@@ -361,8 +361,18 @@ describe('House Store', () => {
 					startsOn: '2026-11-20',
 					days: 2,
 				})
-				expect(api.get).toHaveBeenCalledWith('/api/v1/house')
+				expect(api.get).not.toHaveBeenCalled()
 				expect(store.bonusPeriod).toEqual(period)
+				expect(store.house.name).toBe('Home')
+			})
+
+			it('shows no period when the answer names none', async () => {
+				store.house = { id: 1, bonusPeriod: period }
+				api.post.mockResolvedValue({})
+
+				await expect(store.startBonusPeriod('2026-11-22', 1)).resolves.toBeNull()
+
+				expect(store.bonusPeriod).toBeNull()
 			})
 
 			it('hands a refused start on and leaves the house as it is', async () => {

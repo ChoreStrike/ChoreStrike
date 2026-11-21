@@ -70,6 +70,45 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Lock several room tasks in one statement, in id order ({@see lockForUpdate()}
+	 * for the mechanism per provider). Must be called inside an open transaction.
+	 *
+	 * @param int[] $roomTaskIds
+	 * @return array<int, RoomTask> By id; an id without a row is absent
+	 */
+	public function lockForUpdateByIds(array $roomTaskIds): array {
+		$ids = array_values(array_unique(array_map('intval', $roomTaskIds)));
+		if ($ids === []) {
+			return [];
+		}
+		sort($ids);
+		if ($this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->update($this->getTableName())
+				->set('is_active', $qb->createFunction('is_active'))
+				->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+			$qb->executeStatement();
+
+			$read = $this->db->getQueryBuilder();
+			$read->select('*')->from($this->getTableName())
+				->where($read->expr()->in('id', $read->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
+				->orderBy('id', 'ASC');
+			$entities = $this->findEntities($read);
+		} else {
+			$sql = 'SELECT * FROM *PREFIX*' . $this->getTableName() . ' WHERE id IN (:ids) ORDER BY id FOR UPDATE';
+			$result = $this->db->executeQuery($sql, ['ids' => $ids], ['ids' => IQueryBuilder::PARAM_INT_ARRAY]);
+			$entities = array_map(fn (array $row): RoomTask => $this->mapRowToEntity($row), $result->fetchAll());
+			$result->closeCursor();
+		}
+
+		$byId = [];
+		foreach ($entities as $roomTask) {
+			$byId[(int)$roomTask->getId()] = $roomTask;
+		}
+		return $byId;
+	}
+
+	/**
 	 * Find room task by ID
 	 *
 	 * @param int $id The room task ID

@@ -10,7 +10,6 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
@@ -20,92 +19,45 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Exception\ValidationException;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
 
 /**
- * Owns the atomic task-creation aggregate (CS-PLAN-063 §3.2, CR-WF-03):
- * one service-owned transaction writes the task definition, the room-task
- * materialization (its first date anchors the derived window, ADR-021), and
- * the initial assignee join rows — or nothing at all.
- *
- * Both user-facing create paths run through {@see create()}:
- * the custom path (inline `task` definition payload) and the mount path
- * (existing `taskId`), while {@see createFromTemplate()} materializes a
- * catalog template and delegates to the same body. Every variant returns
- * the one aggregate response shape `{task, roomTask, assignees}` (D1).
+ * Owns the atomic task-creation aggregate (CS-PLAN-063 §3.2, CR-WF-03), the
+ * one form's create (CS-PLAN-091 WP-B6): one service-owned transaction
+ * writes the task definition with its sub-tasks, the room task (its first
+ * date anchors the derived window, ADR-021), the initial assignees and an
+ * optional sleep — or nothing at all. Every room task gets a definition of
+ * its own; a catalog template only fills the form (FEAT-UX-043).
  *
  * Transaction doctrine (ADR-007, WP3 precedent): the transaction takes the
  * house row lock first (the documented first lock — house → room_task →
- * dependents), revalidates every distinct assignee membership and the
- * mount-duplicate guard under the lock, then performs fresh inserts only.
- * A membership removed after the pre-transaction checks rolls the whole
- * aggregate back — no orphan task definitions, ever.
+ * dependents), revalidates every distinct assignee membership under the
+ * lock, then performs fresh inserts only. A membership removed after the
+ * pre-transaction checks rolls the whole aggregate back — no orphan task
+ * definitions, ever.
  *
  * Authorization preamble (never bypassable): children cannot create
  * (CS-PLAN-061 D5), the room must belong to the caller's house (404
- * anti-enumeration), the definition must be visible to the actor
- * (ADR-010 matrix), admin-only creation is owner-gated (403), and
- * private creation stamps the creator as `ownerUserId`.
+ * anti-enumeration), admin-only creation is owner-gated (403), and private
+ * creation stamps the creator as `ownerUserId`.
  */
 class TaskCreationService {
-	/** Definition fields accepted on the custom create path (closed set). */
-	private const DEFINITION_FIELDS = [
-		'name', 'description', 'energyCost', 'priority',
-		'frequencyType', 'frequencyValue', 'estimatedMinutes', 'category',
-		'scopeType', 'recurrenceMode', 'activeFrom', 'activeUntil',
-		'schedulingMode', 'fixedScheduleTime', 'fixedScheduleDays', 'fixedMonthDay',
-		'flexDays', 'instructions', 'tips', 'visibilityType',
-	];
-
-	private TransactionExecutor $transactions;
-	private TaskMapper $taskMapper;
-	private RoomTaskMapper $roomTaskMapper;
-	private TaskAssigneeMapper $taskAssigneeMapper;
-	private HouseMapper $houseMapper;
-	private HouseUserMapper $houseUserMapper;
-	private RoomService $roomService;
-	private TaskService $taskService;
-	private TemplateService $templateService;
-	private TaskAccessPolicy $taskAccessPolicy;
-	private AuthorizationService $authorization;
-	private CalendarService $calendarService;
-	private CycleService $cycleService;
-	private IL10N $l10n;
-	private AppLogger $appLogger;
-
 	public function __construct(
-		TransactionExecutor $transactions,
-		TaskMapper $taskMapper,
-		RoomTaskMapper $roomTaskMapper,
-		TaskAssigneeMapper $taskAssigneeMapper,
-		HouseMapper $houseMapper,
-		HouseUserMapper $houseUserMapper,
-		RoomService $roomService,
-		TaskService $taskService,
-		TemplateService $templateService,
-		TaskAccessPolicy $taskAccessPolicy,
-		AuthorizationService $authorization,
-		CalendarService $calendarService,
-		CycleService $cycleService,
-		IL10N $l10n,
-		AppLogger $appLogger,
+		private TransactionExecutor $transactions,
+		private TaskMapper $taskMapper,
+		private RoomTaskMapper $roomTaskMapper,
+		private TaskAssigneeMapper $taskAssigneeMapper,
+		private HouseMapper $houseMapper,
+		private RoomService $roomService,
+		private TaskService $taskService,
+		private SubTaskWriter $subTasks,
+		private SleepService $sleep,
+		private AuthorizationService $authorization,
+		private CalendarService $calendarService,
+		private CycleService $cycleService,
+		private IL10N $l10n,
+		private AppLogger $appLogger,
 	) {
-		$this->transactions = $transactions;
-		$this->taskMapper = $taskMapper;
-		$this->roomTaskMapper = $roomTaskMapper;
-		$this->taskAssigneeMapper = $taskAssigneeMapper;
-		$this->houseMapper = $houseMapper;
-		$this->houseUserMapper = $houseUserMapper;
-		$this->roomService = $roomService;
-		$this->taskService = $taskService;
-		$this->templateService = $templateService;
-		$this->taskAccessPolicy = $taskAccessPolicy;
-		$this->authorization = $authorization;
-		$this->calendarService = $calendarService;
-		$this->cycleService = $cycleService;
-		$this->l10n = $l10n;
-		$this->appLogger = $appLogger;
 	}
 
 	/**
@@ -113,17 +65,16 @@ class TaskCreationService {
 	 *
 	 * @param int $houseId The caller's house ID (scopes the target room)
 	 * @param HouseUser $actor The acting user's house membership
-	 * @param array $payload Either `{task: {...definition}, roomId, assigneeUserIds?, firstDate?}`
-	 *                       (custom) or `{taskId, roomId, assigneeUserIds?, firstDate?}` (mount)
+	 * @param array<string, mixed> $payload The form: `{roomId, task, assigneeUserIds?, checklistItems?, firstDate?, sleeping?, wakeOn?}`
 	 * @return array{task: Task, roomTask: RoomTask, assignees: TaskAssignee[]}
 	 *
 	 * @throws ValidationException if the definition fails the closed constraint set (400)
-	 * @throws NotFoundException if the room, task, or its visibility denies the actor (404)
+	 * @throws NotFoundException if the room is not the caller's (404)
 	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the actor is a child or member + admin-only (403)
-	 * @throws \InvalidArgumentException on a bad payload variant, non-member assignee, invalid firstDate, or duplicate mount (400)
+	 * @throws \InvalidArgumentException on a bad payload, a non-member assignee or an invalid date (400)
 	 */
 	public function create(int $houseId, HouseUser $actor, array $payload): array {
-		[$roomId, $assigneeUserIds, $firstDate] = $this->validatePayloadEnvelope($payload);
+		$form = $this->validateEnvelope($payload);
 
 		// Actor policy (CS-PLAN-061 D5): children execute tasks, they do not
 		// create them (frontend entry-point gating is CS-PLAN-063 D6).
@@ -134,141 +85,51 @@ class TaskCreationService {
 		// denial (never a hint that the room exists elsewhere). The denial
 		// is logged as a security event with stable context keys.
 		try {
-			$this->roomService->validateRoomOwnership($roomId, $houseId);
+			$this->roomService->validateRoomOwnership((int)$form->roomId, $houseId);
 		} catch (NotFoundException $e) {
 			$this->appLogger->securityWarning('Cross-house room task creation denied', [
 				'service' => 'TaskCreationService',
-				'roomId' => $roomId,
+				'roomId' => $form->roomId,
 				'houseId' => $houseId,
 			]);
 			throw $e;
 		}
 
-		if (array_key_exists('task', $payload)) {
-			$definition = $this->materializeDefinition($payload['task']);
-		} else {
-			$definition = $this->materializeExistingTask((int)$payload['taskId'], $actor);
-		}
-
+		$definition = $this->materializeDefinition((array)$form->definition);
 		[$visibilityType, $ownerUserId] = $this->resolveCreationVisibility($definition, $actor);
 
-		return $this->runAggregate($houseId, $actor, $roomId, $definition, $visibilityType, $ownerUserId, $assigneeUserIds, $firstDate);
+		return $this->runAggregate($houseId, $actor, $form, $definition, $visibilityType, $ownerUserId);
 	}
 
 	/**
-	 * Create a room task from a catalog template.
+	 * The closed envelope of the form's create: a room and a definition are
+	 * required; every other field is the form's ({@see TaskFormPayload}).
 	 *
-	 * Materializes the template at the given cleaning level (default
-	 * putzteufel), applies whitelisted overrides, and runs the same atomic
-	 * {@see create()} body — the template path shares the exact validation,
-	 * gates, and response shape of the custom path (no bypass, D1). The
-	 * scalar assignee is normalized to a one-element set (setup parity).
-	 *
-	 * @param int $houseId The caller's house ID (scopes the target room)
-	 * @param HouseUser $actor The acting user's house membership
-	 * @param int $roomId The room ID (resolved + validated server-side)
-	 * @param string $templateId The catalog template ID
-	 * @param string|null $level One of TemplateService::LEVELS (default putzteufel)
-	 * @param array $overrides Optional materialization overrides
-	 * @param string|null $assigneeUserId Optional assignee (must be a house member)
-	 * @return array{task: Task, roomTask: RoomTask, assignees: TaskAssignee[]}
+	 * @throws \InvalidArgumentException
 	 */
-	public function createFromTemplate(
-		int $houseId,
-		HouseUser $actor,
-		int $roomId,
-		string $templateId,
-		?string $level,
-		array $overrides,
-		?string $assigneeUserId,
-	): array {
-		$materialized = $this->templateService->materializeTemplate(
-			$templateId,
-			$level ?? TemplateService::LEVEL_PUTZTEUFEL,
-			$overrides,
-		);
-
-		return $this->create($houseId, $actor, [
-			'roomId' => $roomId,
-			'task' => $materialized,
-			'assigneeUserIds' => ($assigneeUserId !== null && $assigneeUserId !== '') ? [$assigneeUserId] : [],
-		]);
-	}
-
-	/**
-	 * Validate the shared envelope: room id, assignee list, and first date.
-	 *
-	 * @return array{0: int, 1: string[], 2: string|null}
-	 */
-	private function validatePayloadEnvelope(array $payload): array {
-		$roomId = $payload['roomId'] ?? null;
-		if (!is_int($roomId) || $roomId < 1) {
+	private function validateEnvelope(array $payload): TaskFormPayload {
+		CommandService::assertClosedBody($payload, TaskFormPayload::FIELDS, $this->l10n);
+		$form = TaskFormPayload::fromPayload($payload, $this->calendarService, $this->l10n);
+		$form->assertFirstDateInRange($this->l10n);
+		if ($form->roomId === null) {
 			throw new \InvalidArgumentException($this->l10n->t('roomId is required'));
 		}
-
-		$hasTask = array_key_exists('task', $payload);
-		$hasTaskId = array_key_exists('taskId', $payload);
-		if ($hasTask === $hasTaskId) {
-			throw new \InvalidArgumentException(
-				$this->l10n->t('Exactly one of task or taskId is required')
-			);
+		if ($form->definition === null) {
+			throw new \InvalidArgumentException($this->l10n->t('task must be an object'));
 		}
-		if ($hasTaskId && (!is_int($payload['taskId']) || $payload['taskId'] < 1)) {
-			throw new \InvalidArgumentException($this->l10n->t('Invalid value type for field: %1$s', ['taskId']));
-		}
-
-		$rawAssignees = $payload['assigneeUserIds'] ?? [];
-		if (!is_array($rawAssignees)) {
-			throw new \InvalidArgumentException($this->l10n->t('Invalid value type for field: %1$s', ['assigneeUserIds']));
-		}
-		$assigneeUserIds = array_values(array_unique(array_filter(
-			$rawAssignees,
-			fn ($id) => is_string($id) && trim($id) !== ''
-		)));
-
-		return [$roomId, $assigneeUserIds, $this->parseFirstDate($payload['firstDate'] ?? null)];
-	}
-
-	/** How far the first date may lie from today, either way. */
-	private const FIRST_DATE_RANGE_DAYS = 366;
-
-	/**
-	 * The optional first date (ADR-021 decision 1): a real house-local
-	 * `Y-m-d` calendar day within a year of today, never coerced (→ 400
-	 * with a translated message). It is the centre of the first window.
-	 */
-	private function parseFirstDate($firstDate): ?string {
-		if ($firstDate === null || $firstDate === '') {
-			return null;
-		}
-		if (!is_string($firstDate)) {
-			throw new \InvalidArgumentException($this->l10n->t('Invalid value type for field: %1$s', ['firstDate']));
-		}
-		$day = $this->calendarService->isDayKey($firstDate) ? \DateTime::createFromFormat('!Y-m-d', $firstDate, new \DateTimeZone('UTC')) : false;
-		if ($day === false || $day->format('Y-m-d') !== $firstDate) {
-			throw new \InvalidArgumentException($this->l10n->t('Invalid firstDate date format'));
-		}
-		$today = new \DateTime('today', new \DateTimeZone('UTC'));
-		if ((int)$today->diff($day)->days > self::FIRST_DATE_RANGE_DAYS) {
-			throw new \InvalidArgumentException($this->l10n->t('The first date must lie within one year of today'));
-		}
-		return $firstDate;
+		return $form;
 	}
 
 	/**
-	 * Normalize and validate the custom-path definition against the one
-	 * closed constraint set (CS-PLAN-063 §3.1): unknown fields are rejected,
-	 * absent optionals fall back to the canonical defaults, and every value
-	 * must pass {@see TaskService::validateTaskData} (the template path runs
-	 * through the same gate — no bypass).
+	 * Normalize and validate the definition against the one closed
+	 * constraint set (CS-PLAN-063 §3.1, {@see TaskService::FORM_FIELDS}):
+	 * unknown fields are rejected, absent optionals fall back to the
+	 * canonical defaults, and every value must pass
+	 * {@see TaskService::validateTaskData}.
 	 */
-	private function materializeDefinition($raw): array {
-		if (!is_array($raw)) {
-			throw new ValidationException($this->l10n->t('Invalid value type for field: %1$s', ['task']));
-		}
-
+	private function materializeDefinition(array $raw): array {
 		foreach (array_keys($raw) as $field) {
-			if (!in_array($field, self::DEFINITION_FIELDS, true)) {
+			if (!in_array($field, TaskService::FORM_FIELDS, true)) {
 				throw new ValidationException($this->l10n->t('Unknown or immutable field: %1$s', [$field]));
 			}
 		}
@@ -285,6 +146,7 @@ class TaskCreationService {
 			'schedulingMode' => Task::SCHEDULING_DYNAMIC,
 			'flexDays' => 0,
 			'visibilityType' => Task::VISIBILITY_PUBLIC,
+			'isVoluntary' => false,
 		], $raw);
 
 		$errors = $this->taskService->validateTaskData($definition);
@@ -293,29 +155,6 @@ class TaskCreationService {
 		}
 
 		return $definition;
-	}
-
-	/**
-	 * Resolve the mount variant: the existing definition is re-read and must
-	 * be visible to the actor (ADR-010) — an invisible or unknown id is the
-	 * 404 anti-enumeration denial.
-	 */
-	private function materializeExistingTask(int $taskId, HouseUser $actor): array {
-		try {
-			$task = $this->taskMapper->find($taskId);
-		} catch (DoesNotExistException $e) {
-			throw new NotFoundException($this->l10n->t('Task not found'));
-		}
-
-		$this->taskAccessPolicy->assertCanViewTask($task, $actor);
-
-		return [
-			'name' => $task->getName(),
-			'flexDays' => $task->getFlexDays(),
-			'visibilityType' => $task->getVisibilityType(),
-			// Mount never re-inserts the definition — carried via taskId.
-			'__existingTaskId' => $taskId,
-		];
 	}
 
 	/**
@@ -344,72 +183,43 @@ class TaskCreationService {
 
 	/**
 	 * The aggregate transaction: house lock first (documented order), then
-	 * under-lock membership revalidation, the mount-duplicate recheck, and
-	 * the three canonical writes — definition, room task, initial assignees.
-	 * Any failure rolls back every write.
+	 * the under-lock membership revalidation and the writes — definition and
+	 * sub-tasks, room task, initial assignees, the first window and an
+	 * optional sleep. Any failure rolls back every write.
 	 *
-	 * @param string[] $assigneeUserIds
 	 * @return array{task: Task, roomTask: RoomTask, assignees: TaskAssignee[]}
 	 */
-	private function runAggregate(
-		int $houseId,
-		HouseUser $actor,
-		int $roomId,
-		array $definition,
-		string $visibilityType,
-		?string $ownerUserId,
-		array $assigneeUserIds,
-		?string $firstDate,
-	): array {
-		$existingTaskId = $definition['__existingTaskId'] ?? null;
-		unset($definition['__existingTaskId']);
+	private function runAggregate(int $houseId, HouseUser $actor, TaskFormPayload $form, array $definition, string $visibilityType, ?string $ownerUserId): array {
+		[$task, $roomTask] = $this->transactions->run(function () use ($houseId, $actor, $form, $definition, $visibilityType, $ownerUserId): array {
+			// First lock of the documented order (house → room_task →
+			// dependents): serialize concurrent writes on the house row.
+			$house = $this->houseMapper->findForUpdate($houseId);
+			// A membership removed after the pre-transaction checks must not
+			// leave assignee rows for a former member (→ rollback).
+			$assigneeUserIds = $form->assigneeUserIds ?? [];
+			$this->authorization->assertMembersUnderLock($houseId, $assigneeUserIds);
 
-		[$task, $roomTask] = $this->transactions->run(
-			function () use ($houseId, $actor, $roomId, $definition, $visibilityType, $ownerUserId, $assigneeUserIds, $firstDate, $existingTaskId) {
-				// First lock of the documented order (house → room_task →
-				// dependents): serialize concurrent writes on the house row.
-				$this->houseMapper->findForUpdate($houseId);
-
-				// Membership revalidation at the transaction boundary: a
-				// membership removed after the pre-transaction checks must
-				// not leave assignee rows for a former member (→ rollback).
-				foreach (array_unique($assigneeUserIds) as $userId) {
-					if ($this->houseUserMapper->findByHouseAndUser($houseId, $userId) === null) {
-						throw new \InvalidArgumentException(
-							$this->l10n->t('User is not a member of this house: %1$s', [$userId])
-						);
-					}
-				}
-
-				// Mount-duplicate guard, rechecked under the lock so two
-				// concurrent mounts cannot both pass the pre-check.
-				if ($existingTaskId !== null && $this->roomTaskMapper->exists($roomId, $existingTaskId)) {
-					throw new \InvalidArgumentException(
-						$this->l10n->t('Task %1$d already exists in room %2$d', [$existingTaskId, $roomId])
-					);
-				}
-
-				if ($existingTaskId !== null) {
-					$task = $this->taskMapper->find($existingTaskId);
-				} else {
-					$task = $this->insertDefinition($definition, $visibilityType, $ownerUserId);
-				}
-
-				// The first date anchors the derived window (ADR-021); no
-				// future cycle is stored. Default: tomorrow in the house zone.
-				$timeZone = $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
-				$now = new \DateTime();
-				$firstDate ??= RecurrenceCalculator::dayAfter($this->calendarService->dayKey($now, $timeZone));
-				$roomTask = $this->roomTaskMapper->create($roomId, $task->getId(), $this->calendarService->dayStartInstant($firstDate, $timeZone));
-
-				foreach ($assigneeUserIds as $userId) {
-					$this->taskAssigneeMapper->addAssignee($roomTask->getId(), $userId, $actor->getNextcloudUserId());
-				}
-				$this->cycleService->startUnderLock($roomTask, $task, $firstDate, $timeZone, $now);
-
-				return [$task, $roomTask];
+			$task = $this->insertDefinition($definition, $visibilityType, $ownerUserId);
+			if ($form->subTasks !== null) {
+				$this->subTasks->createUnderLock((int)$task->getId(), $form->subTasks);
 			}
-		);
+
+			// The first date anchors the derived window (ADR-021); no
+			// future cycle is stored. Default: tomorrow in the house zone.
+			$timeZone = $this->calendarService->getTimeZone($house);
+			$now = new \DateTime();
+			$firstDate = $form->firstDate ?? RecurrenceCalculator::dayAfter($this->calendarService->dayKey($now, $timeZone));
+			$roomTask = $this->roomTaskMapper->create((int)$form->roomId, $task->getId(), $this->calendarService->dayStartInstant($firstDate, $timeZone));
+			foreach ($assigneeUserIds as $userId) {
+				$this->taskAssigneeMapper->addAssignee($roomTask->getId(), $userId, $actor->getNextcloudUserId());
+			}
+			// The room task is new: it has no completions to read.
+			$this->cycleService->startUnderLock($roomTask, $task, $firstDate, $timeZone, $now, []);
+			if ($form->sleeping === true) {
+				$this->sleep->applyUnderLock($house, $roomTask, $task, true, $form->wakeOn, $timeZone, $now, []);
+			}
+			return [$task, $roomTask];
+		});
 
 		return [
 			'task' => $task,
@@ -420,12 +230,15 @@ class TaskCreationService {
 
 	/**
 	 * Insert the task definition via named arguments (replaces the
-	 * 24-positional-param seam, CS-PLAN-063 §3.2).
+	 * 24-positional-param seam, CS-PLAN-063 §3.2). Every value takes its
+	 * stored form from the one normalizer the edit uses too
+	 * ({@see TaskService::storedValue()}, D-091-100).
 	 */
 	private function insertDefinition(array $definition, string $visibilityType, ?string $ownerUserId): Task {
+		$stored = static fn (string $field): mixed => TaskService::storedValue($field, $definition[$field] ?? null);
 		return $this->taskMapper->create(
 			name: (string)$definition['name'],
-			description: isset($definition['description']) ? (string)$definition['description'] : null,
+			description: $stored('description'),
 			energyCost: (int)$definition['energyCost'],
 			priority: (int)$definition['priority'],
 			frequencyType: (string)$definition['frequencyType'],
@@ -434,36 +247,18 @@ class TaskCreationService {
 			category: (string)$definition['category'],
 			scopeType: (string)($definition['scopeType'] ?? 'room'),
 			recurrenceMode: (string)($definition['recurrenceMode'] ?? Task::RECURRENCE_RECURRING),
-			activeFrom: $this->toDate($definition['activeFrom'] ?? null),
-			activeUntil: $this->toDate($definition['activeUntil'] ?? null),
+			activeFrom: $stored('activeFrom'),
+			activeUntil: $stored('activeUntil'),
+			isVoluntary: (bool)$definition['isVoluntary'],
 			schedulingMode: (string)($definition['schedulingMode'] ?? Task::SCHEDULING_DYNAMIC),
-			fixedScheduleTime: $this->toDate($definition['fixedScheduleTime'] ?? null),
-			fixedScheduleDays: $this->toWeekdayJson($definition['fixedScheduleDays'] ?? null),
-			instructions: isset($definition['instructions']) ? (string)$definition['instructions'] : null,
-			tips: isset($definition['tips']) ? (string)$definition['tips'] : null,
+			fixedScheduleTime: $stored('fixedScheduleTime'),
+			fixedScheduleDays: $stored('fixedScheduleDays'),
+			instructions: $stored('instructions'),
+			tips: $stored('tips'),
 			visibilityType: $visibilityType,
 			ownerUserId: $ownerUserId,
 			flexDays: (int)($definition['flexDays'] ?? 0),
 			fixedMonthDay: isset($definition['fixedMonthDay']) ? (int)$definition['fixedMonthDay'] : null,
 		);
-	}
-
-	/** Parse a validated date string (validation guarantees parseability). */
-	private function toDate($value): ?\DateTime {
-		if ($value === null || $value === '') {
-			return null;
-		}
-		return new \DateTime((string)$value);
-	}
-
-	/** Persist weekday lists in their canonical JSON encoding. */
-	private function toWeekdayJson($value): ?string {
-		if ($value === null || $value === '') {
-			return null;
-		}
-		if (is_array($value)) {
-			return json_encode(array_values($value));
-		}
-		return (string)$value;
 	}
 }

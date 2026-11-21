@@ -50,10 +50,12 @@ return [
         // (shadowing rule fixed by CS-PLAN-023; guarded by RouteMatrixTest).
         // Pruned 2026-09-05 (CS-PLAN-063): `task#create` (POST /tasks) lost
         // its last consumer to the atomic creation aggregate — creation now
-        // runs exclusively through POST /room-tasks (custom/mount) and
-        // POST /room-tasks/from-template.
+        // runs exclusively through POST /room-tasks, the one form's create
+        // (CS-PLAN-091 WP-B6).
         ['name' => 'task#index', 'url' => '/api/v1/tasks', 'verb' => 'GET'],
-        ['name' => 'task#update', 'url' => '/api/v1/tasks/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        // Pruned 2026-11-18 (CS-PLAN-091 WP-B6): `task#update` (PUT /tasks/{id})
+        // — the one form saves the definition with its room task through
+        // PUT /room-tasks/{id}.
         // Pruned 2026-09-06 (CS-PLAN-064, decision D5): `task#uncomplete`
         // (PUT /tasks/{id}/uncomplete) lost its last consumer to the undo
         // aggregate — undo now runs exclusively through POST
@@ -65,18 +67,20 @@ return [
         ['name' => 'room_task#index', 'url' => '/api/v1/room-tasks', 'verb' => 'GET'],
         ['name' => 'room_task#overdue', 'url' => '/api/v1/room-tasks/overdue', 'verb' => 'GET'],
         ['name' => 'room_task#dueToday', 'url' => '/api/v1/room-tasks/due-today', 'verb' => 'GET'],
-        ['name' => 'room_task#fromTemplate', 'url' => '/api/v1/room-tasks/from-template', 'verb' => 'POST'],
         ['name' => 'room_task#range', 'url' => '/api/v1/room-tasks/range', 'verb' => 'GET'],
         ['name' => 'room_task#filteredDaily', 'url' => '/api/v1/room-tasks/filtered-daily', 'verb' => 'GET'],
         // CS-PLAN-091 WP-B4 (ADR-021 §8): the bonus tasks of Today.
         ['name' => 'room_task#bonus', 'url' => '/api/v1/room-tasks/bonus', 'verb' => 'GET'],
-        // Static single-segment route — must stay ahead of the `{id}` block.
-        ['name' => 'room_task#bulkAssign', 'url' => '/api/v1/room-tasks/bulk-assign', 'verb' => 'POST'],
         ['name' => 'room_task#create', 'url' => '/api/v1/room-tasks', 'verb' => 'POST'],
+        // CS-PLAN-091 WP-B6: the one form's save on an existing task.
+        ['name' => 'room_task_edit#update', 'url' => '/api/v1/room-tasks/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
         ['name' => 'room_task#delete', 'url' => '/api/v1/room-tasks/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
         ['name' => 'room_task#complete', 'url' => '/api/v1/room-tasks/{id}/complete', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
-        ['name' => 'room_task#assignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
-        ['name' => 'room_task#setAssignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        // Pruned 2026-11-18 (CS-PLAN-091 WP-B6, D-091-87): `room_task#fromTemplate`
+        // (POST /room-tasks/from-template; a template only fills the form),
+        // `room_task#bulkAssign` (POST /room-tasks/bulk-assign) and
+        // `room_task#assignees`/`#setAssignees` (GET/PUT /room-tasks/{id}/assignees)
+        // — assignees change in the one form only.
         // CS-PLAN-064 WP5: the one idempotent undo aggregate (decision D5)
         // — replaced by the WP3 targeted completion correction: undo runs
         // exclusively through POST /completions/{id}/undo (exact
@@ -205,15 +209,14 @@ return [
 
         // Template API — removed (CS-PLAN-027 D7): the dead JSON
         // TemplateController endpoints were superseded by the setup catalog
-        // (setup#catalog) and the per-room from-template endpoint
-        // (room_task#fromTemplate). The v2 catalog lives in TemplateService.
+        // (setup#catalog), whose templates fill the one form (CS-PLAN-091
+        // WP-B6). The v2 catalog lives in TemplateService.
 
         // Checklist API
         ['name' => 'checklist#getTaskItems', 'url' => '/api/v1/checklists/task/{taskId}', 'verb' => 'GET', 'requirements' => ['taskId' => '\d+']],
-        ['name' => 'checklist#addTaskItem', 'url' => '/api/v1/checklists/task/{taskId}', 'verb' => 'POST', 'requirements' => ['taskId' => '\d+']],
-        ['name' => 'checklist#updateTaskItem', 'url' => '/api/v1/checklists/item/{itemId}', 'verb' => 'PUT', 'requirements' => ['itemId' => '\d+']],
-        ['name' => 'checklist#deleteTaskItem', 'url' => '/api/v1/checklists/item/{itemId}', 'verb' => 'DELETE', 'requirements' => ['itemId' => '\d+']],
-        ['name' => 'checklist#reorderTaskItems', 'url' => '/api/v1/checklists/reorder', 'verb' => 'POST'],
+        // Pruned 2026-11-18 (CS-PLAN-091 WP-B6): `checklist#addTaskItem`,
+        // `#updateTaskItem`, `#deleteTaskItem` and `#reorderTaskItems` — the
+        // sub-tasks are saved with the one form.
         ['name' => 'checklist#getRoomTaskProgress', 'url' => '/api/v1/checklists/progress/{roomTaskId}', 'verb' => 'GET', 'requirements' => ['roomTaskId' => '\d+']],
         ['name' => 'checklist#toggleItem', 'url' => '/api/v1/checklists/toggle/{roomTaskId}/{itemId}', 'verb' => 'POST', 'requirements' => ['roomTaskId' => '\d+', 'itemId' => '\d+']],
 

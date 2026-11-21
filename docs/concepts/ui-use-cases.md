@@ -10,12 +10,12 @@ its pruned routes or superseded write bodies are available.
 |---|---|
 | First owner and setup | First eligible bootstrap joins the owner; Settings/setup wizard writes the complete house/floor/room/template aggregate once. Later users require invitations. |
 | Invitations and roles | Owners manage membership; members manage visible tasks; children execute tasks and their own availability but do not manage definitions. |
-| Task creation | TaskManager opens the floor/room/assignee form, a room heading of its list by room that room's templates; `POST /room-tasks` atomically creates/mounts the aggregate. Room templates use `POST /room-tasks/from-template` with an explicit catalog level. |
-| Room task editing | Assignees change in the expanded row; definition edits are the task form. A task's window is derived (ADR-021): until the one form of CS-PLAN-091 WP-B6 brings the first date, no dialog moves it. Both forms expose member-load errors and retry without discarding input. |
+| Task creation | TaskManager's *New Task* and *New* in a room heading of its list by room open the one form (CS-PLAN-091 WP-B6, FEAT-UX-040); *From template* fills it from the setup catalog, the chosen room's type first. `POST /room-tasks` creates the whole aggregate — definition, sub-tasks, room task, assignees, first date and sleep — in one atomic write. |
+| Room task editing | One form for a new and an existing task: *Edit* in the opened row opens it, and one save is one atomic `PUT /room-tasks/{id}` of the definition, sub-tasks, room, assignees, first date and sleep (BUG-UX-011). A definition several rooms share asks *Only this room* or *All rooms* first (FEAT-UX-043). The first date moves the first window until the first completion; afterwards the form shows the next window read-only (ADR-021). Description, instructions, priority, category and visibility sit under a collapsed *More* (D-091-85); the form deletes the task after a confirmation (D-091-86). It shows member-load errors and retries without discarding input. Children never open it. |
 | Handover | There is no handover of a single appointment any more (ADR-021 §13): assignees change in the task, and anyone may record work for someone else. A held Done button completes a task for its assignees at once; a short tap opens the picker for who did it and which sub-tasks are done (CS-PLAN-091 WP-B2). |
-| Postpone, history | The opened row of the task list offers **Postpone** to every member (up to three times per cycle, not for a red task or one without flex days) and the task's history: who did it when, with **Change date** and **Delete** on the entries the viewer may correct — the owner any, everyone else their own latest (CS-PLAN-091 WP-B3). Insights lists postponements, date changes, deletions and absences between the completions. |
+| Postpone, history | The opened row — the same on Today and in the task list (CS-PLAN-091 WP-B6, FEAT-UX-050) — offers **Postpone** to every member (up to three times per cycle, not for a red task or one without flex days) and the task's history: who did it when, with **Change date** and **Delete** on the entries the viewer may correct — the owner any, everyone else their own latest (CS-PLAN-091 WP-B3). Insights lists postponements, date changes, deletions and absences between the completions. |
 | Task creation readiness | Task Manager enables New Task only after the initial definition/instance/count reads succeed. A failed load requires retry first, so creation cannot race those initial snapshots or appear to disappear after a successful write. The aggregate response still renders the task without a post-create refetch. |
-| Task discovery | Task Manager defaults to the current person's assigned tasks plus unassigned work. My tasks / Unassigned / Everyone are explicit buttons; choosing a person switches to everyone-scoped filtering, and floor/room filters compose with it. Changing floors clears the room selection. Assignment names are visible without expansion. These are display filters, never authorization changes. |
+| Task discovery | Task Manager defaults to the current person's assigned tasks plus unassigned work. My tasks / Unassigned / Everyone are explicit buttons and the presets of *People*: a tick per member and one for unassigned work, with *All* and *None*, so the buttons and the ticks always say the same. Below them a quick filter takes a floor or one of its rooms. The detail filters (status, priority, energy, visibility, category, search) sit behind *Filters* (GUI review of CS-PLAN-091 WP-B6, D-091-106). Assignment names are visible without expansion. These are display filters, never authorization changes. |
 | Upcoming appointments | The calendar shows them. Today no longer lists the next agreed appointments (CS-PLAN-090 WP-B, D-090-11). |
 | Completion participation | Initial completion requires the signed-in actor to have a positive actual-work share. The dialog refuses missing identity or an excluded actor with an explanation; attribution correction intentionally does not require the correcting owner to participate. |
 | Scheduling | The view shows availability and the planned load. The owner's preview and apply are retired (ADR-022, CS-PLAN-091 WP-B1): nothing is saved as a plan; the live suggestion follows in WP-C. |
@@ -141,9 +141,9 @@ without a dedicated endpoint call.
 | 04 | Structure: rooms | Settings, TaskManager (list by room) |
 | 05 | Task definitions (catalog) | TaskManager |
 | 06 | Task creation (materialize room tasks) | TaskManager |
-| 07 | Task lifecycle maintenance | TaskManager, TaskList |
+| 07 | Task lifecycle maintenance | TaskManager, TaskForm |
 | 08 | Daily execution (Today) | TodayView, TaskList |
-| 09 | Assignment & teamwork | TaskList, TodayView |
+| 09 | Assignment & teamwork | TaskForm, the completion picker |
 | 10 | Planning: availability, energy, task plans | Settings → Planning (own days and energy), SchedulingView (weekly plan, from the calendar) |
 | 11 | Progress & gamification | TodayView (status line), InsightsView (ranking section), Settings |
 | 12 | Minigames | ArcadeCatalog (optional Arcade view) |
@@ -222,8 +222,8 @@ points:** TaskManager.
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | List definitions | TaskManager | `GET /tasks` | ✅ |
-| Create definition (+ materialize room task, see UC-06) | TaskManager → TaskEditForm | `POST /tasks` | ✅ (since CS-PLAN-038) |
-| Edit definition | TaskManager → TaskEditForm | `PUT /tasks/{id}` | ✅ |
+| Create definition (+ materialize room task, see UC-06) | TaskManager → `TaskForm` | `POST /room-tasks` | ✅ (one form, CS-PLAN-091 WP-B6; `POST /tasks` pruned in CS-PLAN-063) |
+| Edit definition | task row → *Edit* → `TaskForm` | `PUT /room-tasks/{id}` | ✅ (CS-PLAN-091 WP-B6; `PUT /tasks/{id}` pruned) |
 | Delete definition | — | `DELETE /tasks/{id}` | ⛔ pruned (CS-PLAN-055) |
 | Search definitions | — | `GET /tasks/search` | ⛔ pruned (CS-PLAN-055) |
 | Browse by category / categories | — | `GET /tasks/category/{c}`, `GET /tasks/categories` | ⛔ pruned (CS-PLAN-055) |
@@ -236,7 +236,7 @@ Links into the TaskManager may preset its filters once on entry; unknown
 values keep the defaults, and the filters stay freely changeable afterwards.
 The list shows client-side pages of 20 compact rows (D-084-02); `page` mirrors
 the current page, is dropped on page 1 and resets whenever a filter changes. The
-scope buttons stay visible; the other filters sit in a panel behind a *Filters*
+scope buttons with *People* and the floor/room quick filter stay visible; the detail filters sit in a panel behind a *Filters*
 toggle (with an active-filter count) that starts collapsed on phones (≤ 768 px).
 The default view issues one active-only house read; the *Completed* status
 loads finished (inactive, never deleted) tasks on demand with one extra
@@ -268,23 +268,25 @@ and the same single house read feeds all three.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Create from cleaning template (level pills, adjust name/frequency/minutes/energy/priority) | room heading → *New* → `TaskTemplatePicker`, the custom form one step behind it (`TaskCreateDialog`, CS-PLAN-090 D-090-12) | `POST /room-tasks/from-template` | ✅ |
-| Custom task with cascading room picker | TaskEditForm → `RoomPicker` | `POST /tasks` → `POST /room-tasks` | ✅ unified chain (`createTaskWithRoomTask`) |
-| Assignees at creation (member chips) | TaskEditForm → `AssigneeChips` | `PUT /room-tasks/{id}/assignees` | ✅ |
-| Due date at creation | TaskEditForm | `POST /room-tasks` (`nextDue`) | ⚠️ backend field exists, but TaskEditForm does not expose or send it (workflow review 2026-09-02) |
-| Partial-success feedback on chained creation | toasts | — | ✅ |
+| Fill from a cleaning template | `TaskForm` → *From template* (`TaskTemplateFill`: the chosen room's type first, the setup wizard's default level) | `GET /setup/catalog`, then the form's `POST /room-tasks` | ✅ (CS-PLAN-091 WP-B6: a template only fills the form; `POST /room-tasks/from-template` pruned) |
+| Custom task with the room picker (one button: a floor opens its rooms, a room is the choice) | `TaskForm` → `RoomPicker` | `POST /room-tasks` | ✅ one atomic aggregate (CS-PLAN-063, CS-PLAN-091 WP-B6) |
+| Assignees at creation (member chips) | `TaskForm` → `AssigneeChips` | `POST /room-tasks` (`assigneeUserIds`) | ✅ |
+| Sub-tasks at creation | `TaskForm` → `SubTaskEditor` | `POST /room-tasks` (`checklistItems`) | ✅ (CS-PLAN-091 WP-B6) |
+| First date at creation | `TaskForm` (default tomorrow; the first window lies around it) | `POST /room-tasks` (`firstDate`) | ✅ (ADR-021, D-091-19) |
+| Refusal feedback | `showRefusal` toast; the form keeps its input | — | ✅ (one atomic write: nothing is half created) |
 
 ## UC-07 — Task lifecycle maintenance
 
 **Goal:** keep room tasks correct over time. **Personas:** Owner. **Entry
-points:** TaskManager, TaskList (expanded row).
+points:** TaskManager, the task row and its form.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Edit due date | retired with ADR-021 (CS-PLAN-091 WP-B1): the window follows from the first date, the rule and the last completion; the task form's first date follows in WP-B6 | — (`PUT /room-tasks/{id}/due-date` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
+| Edit due date | retired with ADR-021 (CS-PLAN-091 WP-B1): the window follows from the first date, the rule and the last completion; the one form's first date sets the first window (CS-PLAN-091 WP-B6) | — (`PUT /room-tasks/{id}/due-date` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
 | Record "last done on" (FEAT-UX-045) | retired: the first date replaces it (D-091-19) | — (`PUT /room-tasks/{id}/last-done` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
-| Edit assignees | TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
-| Delete room task | TaskManager | `DELETE /room-tasks/{id}` | ✅ |
+| Edit assignees | task row → *Edit* → `TaskForm` → `AssigneeChips` | `PUT /room-tasks/{id}` (`assigneeUserIds`) | ✅ (CS-PLAN-091 WP-B6; `PUT /room-tasks/{id}/assignees` pruned) |
+| Move to another room | `TaskForm` → `RoomPicker` | `PUT /room-tasks/{id}` (`roomId`) | ✅ (CS-PLAN-091 WP-B6: the history moves with the task, the room journal keeps its entries) |
+| Delete room task | `TaskForm` → *Delete task*, after a confirmation | `DELETE /room-tasks/{id}` | ✅ (D-091-86) |
 | Deactivate (pause) task | — | `POST /room-tasks/{id}/deactivate` | ⛔ pruned (CS-PLAN-055; `reactivate`/`uncomplete` followed by CS-PLAN-064) |
 | Undo a completion (snackbar) | global `UndoSnackbar` queued list (~5 s per entry, UX-015; single tap, never a hold) | `POST /completions/{id}/undo` — targeted correction of the exact completion (WP3; replaced the CS-PLAN-064 `POST /room-tasks/{id}/undo` aggregate) | ✅ exact server-side restore: recurrence, ledger, rewards/streak, cleanliness, checklist (CS-PLAN-064/ADR-011; the CS-PLAN-041 `uncomplete`+conditional-`reactivate` chain was pruned, D5) |
 
@@ -299,9 +301,9 @@ Today**; explicit deep links stay usable.
 |---|---|---|---|
 | Personalized daily list (child-aware limits) | TodayView | `GET /room-tasks/filtered-daily` | ✅ CS-PLAN-065 (D4): child eligibility (own-or-unassigned) runs before the availability gate and the child limit; the read order is `nextDue, createdAt, id` and rows embed their canonical `assignees` |
 | My tasks ↔ Everyone filter | TodayView | client-side | ✅ (default: My tasks) |
-| Overdue block (first, red; one row per chore with its planned date, window end and days since) | TodayView → `TodayTaskRow` | `GET /room-tasks/overdue` | ✅ (CS-PLAN-090 WP-B) |
+| Overdue block (first, red; one row per chore with its planned date, window end and days since) | TodayView → `TaskRow` (`overdue`) | `GET /room-tasks/overdue` | ✅ (CS-PLAN-090 WP-B) |
 | Short household instructions per row | TodayView | definition `instructions` (falls back to `description`) | ✅ CS-PLAN-066 §3.5 (plain escaped text, never v-html) |
-| Optional expandable checklist on Today | `TodayTaskRow` → `TaskChecklist` (execute-only: `can-edit=false`, frozen when completed) | `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}`, `POST /checklists/toggle/{rt}/{item}` | ✅ CS-PLAN-066 §3.5 (progress refreshes after the server-side occurrence reset on completion; checklist-less rows hide the toggle after the one-shot empty discovery — final-review a11y fix 2026-09-12) |
+| Optional expandable checklist on Today | `TaskRow` → opened row (`TaskRowDetails`) → `TaskChecklist` (execute-only, frozen when completed) | `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}`, `POST /checklists/toggle/{rt}/{item}` | ✅ CS-PLAN-066 §3.5; one opened row on Today and in the task list since CS-PLAN-091 WP-B6 |
 | Complete task (celebration: confetti/sound/toast, combo, streak) | TodayView, TaskList, TaskManager — Done is a 600 ms press-and-hold with a short-tap hint and one in-flight request per room task (CS-PLAN-084 WP-E) | `POST /room-tasks/{id}/complete` | ✅ (CS-PLAN-065 D7 removed the dead per-completion energy-counter store write; CS-PLAN-066 reconciles every owning store before the events and re-syncs the titles store before the title-unlocked event fires once per response) |
 | Counts of due and overdue work | TaskManager stats bar; Today's overdue heading | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ✅ CS-PLAN-066 (D2): the counters read dedicated endpoint-backed projections; a scoped room load or the child-limited daily list can never overwrite them; the coordinated derived refresh (D3) keeps them truthful after mutations. The Dashboard tiles are gone (CS-PLAN-090 WP-B); `/tasks?status=overdue&scope=all` stays as an address |
 | Per-row assignee resolution | TodayView | daily AND overdue rows embed canonical `assignees` (D1) | ✅ CS-PLAN-066 (no per-row re-fetch remains) |
@@ -309,21 +311,21 @@ Today**; explicit deep links stay usable.
 | Own status (open energy against the day, weekly goal, streak, Coins) | TodayView → `TodayStatusLine` | `GET /game/state`, `GET /scheduling/preferences` (both optional: a dash until read) | ✅ CS-PLAN-090 WP-B |
 | Work already possible today (open flex window) | TodayView, collapsed behind one line | `GET /room-tasks/filtered-daily` (`openWindow`) | ✅ BUG-UX-005, CS-PLAN-090 WP-B |
 | Next appointments | — | — | ⛔ removed from Today (CS-PLAN-090 D-090-11); the calendar shows upcoming work |
-| Checklist toggle while completing | TaskList → `TaskChecklist` | `POST /checklists/toggle/{rt}/{item}`, `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}` | ✅ |
-| Checklist editor (add/edit/delete/reorder items) | TaskList → `TaskChecklist` (owner-only `can-edit`) | `POST /checklists/task/{id}`, `PUT+DELETE /checklists/item/{id}`, `POST /checklists/reorder` | ✅ (unlocked for owners since CS-PLAN-042; store speaks the backend contract: `label`/`sortOrder`, `itemOrders` map, `{items, stats}` progress envelope) |
+| Checklist toggle while completing | a short tap on Done → `CompletionPicker` (which sub-tasks are done); the opened row → `TaskChecklist` | `POST /room-tasks/{id}/complete`, `POST /checklists/toggle/{rt}/{item}` | ✅ (CS-PLAN-091 WP-B2, WP-B6) |
+| Checklist editor (add/edit/delete/reorder items) | `TaskForm` → `SubTaskEditor` (adults and the owner) | `POST /room-tasks`, `PUT /room-tasks/{id}` (`checklistItems`) | ✅ (CS-PLAN-091 WP-B6; the item write routes are pruned) |
 | Complete/assign from calendar day | CalendarView | — | ❌ read-only (review W6) |
 
 ## UC-09 — Assignment & teamwork
 
 **Goal:** distribute work fairly; recover stuck tasks. **Personas:** Owner +
-Members. **Entry points:** TaskList expanded row; TodayView claim button.
+Members. **Entry points:** the one form; the picker of a short tap on Done.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Multi-assign via member chips (optimistic + rollback) | TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
-| Single assign / unassign actions | — | `POST /room-tasks/{id}/assign`, `POST …/unassign` | ⛔ pruned (CS-PLAN-055; `PUT /room-tasks/{id}/assignees` set-assignees remains the live single-edit path) |
-| Bulk assignment (selection bar → one call) | TaskList selection → member dropdown | `POST /room-tasks/bulk-assign` | ✅ (CS-PLAN-042, CR-SVC-61 closed; per-item isolation, partial-success toast) |
-| Claim overdue public task (dialog → complete as sole participant) | TaskList → `OverdueClaimDialog` | `GET /room-tasks` cycle `overdue` + complete with the reviewed claimer allocation | ✅ (claim target ≤24 px, UX-007; no second participation dialog and no claim for work due today, CS-PLAN-084) |
+| Multi-assign via member chips | `TaskForm` → `AssigneeChips` | `PUT /room-tasks/{id}` (`assigneeUserIds`) | ✅ (CS-PLAN-091 WP-B6; the row's chips and `PUT /room-tasks/{id}/assignees` are gone) |
+| Single assign / unassign actions | — | `POST /room-tasks/{id}/assign`, `POST …/unassign` | ⛔ pruned (CS-PLAN-055; the form's assignee list is the live path) |
+| Bulk assignment (selection bar → one call) | — | `POST /room-tasks/bulk-assign` | ⛔ removed (CS-PLAN-091 WP-B6, D-091-87) |
+| Claim overdue public task | — | — | ⛔ retired (CS-PLAN-091 WP-B6): a short tap on Done opens the picker, where anyone records who did the work (ADR-021 §13) |
 | Dedicated claimable-tasks query | — | `GET /room-tasks/overdue-claims` | ⛔ pruned (CS-PLAN-055; UI uses `/overdue` + client filter) |
 
 ## UC-10 — Planning: availability, energy, task plans
@@ -591,6 +593,12 @@ decisions update intent below, not the current implementation/route inventory.
 > (`GET /users/{id}/stats`, `GET /room-tasks/user/{userId}`,
 > `GET /room-tasks/user/{userId}/stats`) and CS-PLAN-042 added
 > `POST /room-tasks/bulk-assign` (UC-09).
+>
+> CS-PLAN-091 WP-B6 (2026-11) pruned `PUT /tasks/{id}`,
+> `POST /room-tasks/from-template`, `POST /room-tasks/bulk-assign`,
+> `GET+PUT /room-tasks/{id}/assignees` and the four checklist-item writes: the
+> one form's `POST /room-tasks` and `PUT /room-tasks/{id}` carry them (96
+> routes, pinned by `RouteMatrixTest`).
 
 ### Test Data API (3 — test mode only)
 

@@ -106,55 +106,6 @@ describe('checklist store', () => {
 			expect(store.progressMeta[10]).toEqual({ cycleKey: 'c72', revision: 3 })
 		})
 
-		it('addItem posts the label contract and appends the item', async () => {
-			const created = { id: 9, taskId: 5, label: 'Dust shelf', sortOrder: 0 }
-			api.post.mockResolvedValue(created)
-
-			await store.addItem(5, { label: 'Dust shelf' })
-
-			expect(api.post).toHaveBeenCalledWith('/api/v1/checklists/task/5', { label: 'Dust shelf', sortOrder: undefined })
-			expect(store.items[5]).toContainEqual(created)
-		})
-
-		it('addItem never duplicates an item a concurrent read already delivered', async () => {
-			const created = { id: 9, taskId: 5, label: 'Dust shelf', sortOrder: 0 }
-			api.post.mockImplementation(async () => {
-				// The expansion read lands first and already lists the new item.
-				store.items[5] = [{ id: 8, taskId: 5, label: 'Mop', sortOrder: 0 }, { ...created }]
-				return created
-			})
-
-			await store.addItem(5, { label: 'Dust shelf' })
-
-			expect(store.items[5].map(item => item.id)).toEqual([8, 9])
-		})
-
-		it('addItem rejects a blank label without calling the API', async () => {
-			await expect(store.addItem(5, { label: '   ' })).rejects.toThrow('Checklist item label is required')
-			expect(api.post).not.toHaveBeenCalled()
-		})
-
-		it('updateItem puts the new label and patches the cached item', async () => {
-			const updated = { id: 1, taskId: 5, label: 'Renamed', sortOrder: 0 }
-			api.put.mockResolvedValue(updated)
-			store.items = { 5: [{ id: 1, taskId: 5, label: 'Old', sortOrder: 0 }] }
-
-			await store.updateItem(1, 'Renamed')
-
-			expect(api.put).toHaveBeenCalledWith('/api/v1/checklists/item/1', { label: 'Renamed' })
-			expect(store.items[5][0].label).toBe('Renamed')
-		})
-
-		it('deleteItem removes the item from the task cache', async () => {
-			api.delete.mockResolvedValue()
-			store.items = { 5: [{ id: 1, label: 'A' }, { id: 2, label: 'B' }] }
-
-			await store.deleteItem(1, 5)
-
-			expect(api.delete).toHaveBeenCalledWith('/api/v1/checklists/item/1')
-			expect(store.items[5]).toEqual([{ id: 2, label: 'B' }])
-		})
-
 		it('toggleItem upserts the returned progress row by checklistItemId', async () => {
 			const row = { id: 3, roomTaskId: 10, checklistItemId: 5, isChecked: true }
 			api.post.mockResolvedValue({ progress: row, stats: {} })
@@ -198,21 +149,17 @@ describe('checklist store', () => {
 			expect(store.progress[10]).toEqual([row])
 		})
 
-		it('reorderItems sends the itemOrders map and reorders the local list', async () => {
-			api.post.mockResolvedValue()
-			store.items = {
-				5: [
-					{ id: 2, label: 'Second', sortOrder: 1 },
-					{ id: 1, label: 'First', sortOrder: 0 },
-				],
-			}
+		// CS-PLAN-091 WP-B6: the one form saves the sub-tasks with the task.
+		it('setTaskItems replaces the cached sub-tasks of a task with the answered ones', () => {
+			store.items = { 5: [{ id: 1, label: 'Old' }], 6: [{ id: 3, label: 'Other' }] }
 
-			await store.reorderItems(5, [1, 2])
+			store.setTaskItems(5, [{ id: 2, label: 'New' }, { id: 1, label: 'Old' }])
+			expect(store.items[5].map(item => item.id)).toEqual([2, 1])
+			expect(store.items[6]).toEqual([{ id: 3, label: 'Other' }])
 
-			expect(api.post).toHaveBeenCalledWith('/api/v1/checklists/reorder', {
-				itemOrders: { 1: 0, 2: 1 },
-			})
-			expect(store.items[5].map(item => item.id)).toEqual([1, 2])
+			store.setTaskItems(5, undefined)
+			expect(store.items[5]).toEqual([])
+			expect(api.post).not.toHaveBeenCalled()
 		})
 
 		it('reset clears all state', () => {

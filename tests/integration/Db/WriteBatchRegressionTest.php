@@ -14,7 +14,6 @@ use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
@@ -27,8 +26,8 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * Mock-based tests pin the query shape, but only a real database proves
  * the semantics the set-based writes rely on: house isolation of the
  * subquery UPDATE, the orphan-free explicit delete cascade (D1/D2 proof
- * — the schema has no FK constraints), CASE-WHEN reorder persistence,
- * and the house-scoped skip of the bulk assign pre-validation.
+ * — the schema has no FK constraints) and CASE-WHEN reorder persistence.
+ * Bulk assignment went with CS-PLAN-091 WP-B6 (D-091-87).
  */
 class WriteBatchRegressionTest extends IntegrationTestCase {
 	private RoomMapper $roomMapper;
@@ -36,7 +35,6 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 	private FloorMapper $floorMapper;
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
-	private TaskAssigneeMapper $taskAssigneeMapper;
 	private RoomService $roomService;
 	private RoomTaskService $roomTaskService;
 	private FloorService $floorService;
@@ -51,7 +49,6 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		$this->floorMapper = \OC::$server->get(FloorMapper::class);
 		$this->houseUserMapper = \OC::$server->get(HouseUserMapper::class);
 		$this->completedTaskMapper = \OC::$server->get(CompletedTaskMapper::class);
-		$this->taskAssigneeMapper = \OC::$server->get(TaskAssigneeMapper::class);
 		$this->roomService = \OC::$server->get(RoomService::class);
 		$this->roomTaskService = \OC::$server->get(RoomTaskService::class);
 		$this->floorService = \OC::$server->get(FloorService::class);
@@ -399,48 +396,4 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		$this->floorService->reorderFloors($houseId, [$floorOther]);
 	}
 
-	/**
-	 * bulkAssignTasks skips a real cross-house room task id and a
-	 * missing id, assigning only the caller's own tasks.
-	 */
-	public function testBulkAssignTasks_HouseScopedSkipOnRealCrossHouseId(): void {
-		$houseA = $this->createHouse('wbatch_bulk_a', 'Bulk House A');
-		$this->addHouseMember($houseA, 'wbatch_bulk_member', 'Member');
-		$floorA = $this->createFloor($houseA);
-		$roomA = $this->createRoom($houseA, $floorA, 'Kitchen A');
-		$rtA1 = $this->trackRoomTaskId($this->assignTaskToRoom($this->createTask($houseA, 'Dishes A'), $roomA));
-		$rtA2 = $this->trackRoomTaskId($this->assignTaskToRoom($this->createTask($houseA, 'Laundry A'), $roomA));
-
-		$houseB = $this->createHouse('wbatch_bulk_b', 'Bulk House B');
-		$floorB = $this->createFloor($houseB);
-		$roomB = $this->createRoom($houseB, $floorB, 'Kitchen B');
-		$rtB1 = $this->trackRoomTaskId($this->assignTaskToRoom($this->createTask($houseB, 'Dishes B'), $roomB));
-
-		$this->actingAs('wbatch_bulk_a');
-		$actor = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseA, 'wbatch_bulk_a');
-		$result = $this->roomTaskService->bulkAssignTasks(
-			[$rtA1, $rtB1, 999999999, $rtA2],
-			'wbatch_bulk_member',
-			$houseA,
-			$actor
-		);
-
-		self::assertSame(
-			[$rtA1, $rtA2],
-			array_map(static fn ($rt) => $rt->getId(), $result),
-			'only the caller\'s own tasks come back, in input order'
-		);
-		self::assertSame(
-			['wbatch_bulk_member'],
-			$this->taskAssigneeMapper->findUserIdsByRoomTask($rtA1),
-			'the persisted assignment lives in the canonical join table'
-		);
-
-		// The foreign task was never written.
-		self::assertSame(
-			[],
-			$this->taskAssigneeMapper->findUserIdsByRoomTask($rtB1),
-			'the foreign task stays unassigned'
-		);
-	}
 }

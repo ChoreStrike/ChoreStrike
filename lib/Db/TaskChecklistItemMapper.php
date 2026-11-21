@@ -76,35 +76,6 @@ class TaskChecklistItemMapper extends QBMapper {
 	}
 
 	/**
-	 * Update checklist item label
-	 *
-	 * @param int $itemId
-	 * @param string $label
-	 */
-	public function updateLabel(int $itemId, string $label): TaskChecklistItem {
-		$item = $this->find($itemId);
-		$item->setLabel($label);
-		return $this->update($item);
-	}
-
-	/**
-	 * Update sort order for multiple items
-	 *
-	 * @param array $itemOrders Map of itemId => sortOrder
-	 */
-	public function updateSortOrders(array $itemOrders): void {
-		foreach ($itemOrders as $itemId => $sortOrder) {
-			try {
-				$item = $this->find($itemId);
-				$item->setSortOrder($sortOrder);
-				$this->update($item);
-			} catch (DoesNotExistException $e) {
-				continue;
-			}
-		}
-	}
-
-	/**
 	 * Find multiple checklist items by IDs in one query (CR-053-01).
 	 *
 	 * Skip-on-missing semantics: ids that do not exist are simply absent

@@ -171,7 +171,6 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 			'roomId' => $f['roomId'],
 			'task' => ['name' => 'Clear the attic', 'energyCost' => 20, 'frequencyType' => 'weekly', 'frequencyValue' => 1],
 			'assigneeUserIds' => ['cc_owner'],
-			'nextDue' => (new \DateTime())->format('Y-m-d'),
 		]);
 		$this->registerCreatedTask((int)$created['task']->getId());
 		$roomTaskId = (int)$created['roomTask']->getId();
@@ -379,7 +378,7 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 		$owner = $this->houseUser($f['houseId'], 'cc_owner');
 		$view = \OC::$server->get(\OCA\ChoreStrike\Service\CompletionReadModel::class)->show($f['houseId'], $owner, (int)$completion['id']);
 
-		self::assertSame('Removed member', $view['history'][1]['actorDisplayName']);
+		self::assertSame('Former member', $view['history'][1]['actorDisplayName']);
 		self::assertNull($view['history'][1]['actor']);
 		self::assertTrue($view['canCorrect'], 'the owner keeps correction authority');
 	}

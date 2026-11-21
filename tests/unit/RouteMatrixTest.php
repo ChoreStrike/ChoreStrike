@@ -312,15 +312,19 @@ class RouteMatrixTest extends TestCase {
 	 * CS-PLAN-091 WP-B4 added the sleep command (the task row) and the bonus
 	 * rows of Today, WP-B5 the owner's coin factor and the two bonus-period
 	 * commands (the reward settings) → 104.
+	 * CS-PLAN-091 WP-B6 added the one form's save (PUT /room-tasks/{id})
+	 * and retired the editors it replaces: the definition update, the
+	 * template create, the assignee read and write, bulk assignment and the
+	 * four sub-task writers → 96.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			104,
+			96,
 			$this->routes['routes'],
-			'Route count drifted from the pin (104 after CS-PLAN-091 WP-B5) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (96 after CS-PLAN-091 WP-B6) — add only with a consumer, then update deliberately'
 		);
 	}
 
@@ -521,10 +525,52 @@ class RouteMatrixTest extends TestCase {
 	}
 
 	/**
+	 * CS-PLAN-091 WP-B6 (FEAT-UX-040, D-091-87): the one form saves a task
+	 * in one request, so the editors it replaces stay gone — a request to
+	 * any of them finds no route and answers 404.
+	 *
+	 * @dataProvider retiredEditorProvider
+	 */
+	public function testRetiredEditorsAreNotReintroduced(string $verbAndUrl, string $name): void {
+		$declared = array_map(
+			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
+			$this->routes['routes']
+		);
+		$names = array_column($this->routes['routes'], 'name');
+
+		$this->assertNotContains($verbAndUrl, $declared, 'CS-PLAN-091 WP-B6 retired ' . $verbAndUrl);
+		$this->assertNotContains($name, $names, 'CS-PLAN-091 WP-B6 retired ' . $name);
+	}
+
+	public static function retiredEditorProvider(): array {
+		return [
+			'definition update' => ['PUT /api/v1/tasks/{id}', 'task#update'],
+			'template create' => ['POST /api/v1/room-tasks/from-template', 'room_task#fromTemplate'],
+			'bulk assignment' => ['POST /api/v1/room-tasks/bulk-assign', 'room_task#bulkAssign'],
+			'assignee read' => ['GET /api/v1/room-tasks/{id}/assignees', 'room_task#assignees'],
+			'assignee write' => ['PUT /api/v1/room-tasks/{id}/assignees', 'room_task#setAssignees'],
+			'sub-task add' => ['POST /api/v1/checklists/task/{taskId}', 'checklist#addTaskItem'],
+			'sub-task rename' => ['PUT /api/v1/checklists/item/{itemId}', 'checklist#updateTaskItem'],
+			'sub-task delete' => ['DELETE /api/v1/checklists/item/{itemId}', 'checklist#deleteTaskItem'],
+			'sub-task reorder' => ['POST /api/v1/checklists/reorder', 'checklist#reorderTaskItems'],
+		];
+	}
+
+	/** CS-PLAN-091 WP-B6: the one form's save, as the API reference names it. */
+	public function testFormSaveRouteMatchesTheContract(): void {
+		$declared = [];
+		foreach ($this->routes['routes'] as $route) {
+			$declared[$route['name']] = $route['verb'] . ' ' . $route['url'];
+		}
+		$this->assertSame('PUT /api/v1/room-tasks/{id}', $declared['room_task_edit#update'] ?? null);
+		$this->assertSame('POST /api/v1/room-tasks', $declared['room_task#create'] ?? null);
+	}
+
+	/**
 	 * The definition-only create endpoint pruned by CS-PLAN-063 must stay
-	 * gone: creation runs exclusively through POST /room-tasks (custom /
-	 * mount variants) and POST /room-tasks/from-template. Re-adding it
-	 * requires a consumer and a new expose decision.
+	 * gone: creation runs exclusively through POST /room-tasks, the one
+	 * form's create. Re-adding it requires a consumer and a new expose
+	 * decision.
 	 */
 	public function testPrunedDefinitionCreateRouteIsNotReintroduced(): void {
 		$declared = array_map(

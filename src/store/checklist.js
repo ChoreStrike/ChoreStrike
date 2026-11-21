@@ -86,106 +86,6 @@ export const useChecklistStore = defineStore('checklist', {
 		},
 
 		/**
-		 * Add a checklist item to a task
-		 * @param {number} taskId The task ID
-		 * @param {object} itemData The item data (backend contract)
-		 * @param {string} itemData.label Item label
-		 * @param {number} [itemData.sortOrder] Explicit sort position
-		 */
-		async addItem(taskId, itemData) {
-			const label = itemData?.label
-			if (!label || String(label).trim() === '') {
-				throw new Error('Checklist item label is required')
-			}
-
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.post(`/api/v1/checklists/task/${taskId}`, {
-					label,
-					sortOrder: itemData.sortOrder,
-				})
-
-				if (!this.items[taskId]) {
-					this.items[taskId] = []
-				}
-				// A concurrent fetchTaskItems (row expansion) may already have
-				// delivered the new item; replace it instead of rendering it twice.
-				const existing = this.items[taskId].findIndex((item) => item.id === data.id)
-				if (existing >= 0) {
-					this.items[taskId][existing] = data
-				} else {
-					this.items[taskId].push(data)
-				}
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to add checklist item', error, { store: 'checklist', action: 'addItem', taskId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Update a checklist item label
-		 * @param {number} itemId The item ID
-		 * @param {string} label The new label
-		 */
-		async updateItem(itemId, label) {
-			if (!label || String(label).trim() === '') {
-				throw new Error('Checklist item label is required')
-			}
-
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.put(`/api/v1/checklists/item/${itemId}`, { label })
-
-				for (const taskId in this.items) {
-					const index = this.items[taskId].findIndex((item) => item.id === itemId)
-					if (index >= 0) {
-						this.items[taskId][index] = data
-						break
-					}
-				}
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to update checklist item', error, { store: 'checklist', action: 'updateItem', itemId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Delete a checklist item
-		 * @param {number} itemId The item ID
-		 * @param {number} taskId The task ID (for local state update)
-		 */
-		async deleteItem(itemId, taskId) {
-			this.loading = true
-			this.error = null
-
-			try {
-				await api.delete(`/api/v1/checklists/item/${itemId}`)
-
-				if (this.items[taskId]) {
-					this.items[taskId] = this.items[taskId].filter((item) => item.id !== itemId)
-				}
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to delete checklist item', error, { store: 'checklist', action: 'deleteItem', itemId, taskId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
 		 * Toggle a sub-task of the room task's CURRENT cycle.
 		 *
 		 * The request carries the cached cycle key and progress revision
@@ -247,40 +147,13 @@ export const useChecklistStore = defineStore('checklist', {
 		},
 
 		/**
-		 * Reorder checklist items
-		 *
-		 * Sends the persisted order as an `itemOrders` map
-		 * (itemId → position), the shape the controller expects.
-		 *
-		 * @param {number} taskId The task ID
-		 * @param {Array<number>} itemIds Ordered array of item IDs
+		 * The sub-tasks a save or a creation of the one form answered
+		 * (CS-PLAN-091 WP-B6): they replace the cached list of the task.
+		 * @param {number} taskId The definition.
+		 * @param {object[]} items Its sub-tasks in their order.
 		 */
-		async reorderItems(taskId, itemIds) {
-			this.loading = true
-			this.error = null
-
-			try {
-				await api.post('/api/v1/checklists/reorder', {
-					itemOrders: Object.fromEntries(itemIds.map((id, index) => [id, index])),
-				})
-
-				if (this.items[taskId]) {
-					const orderedItems = []
-					itemIds.forEach((id) => {
-						const item = this.items[taskId].find((i) => i.id === id)
-						if (item) {
-							orderedItems.push(item)
-						}
-					})
-					this.items[taskId] = orderedItems
-				}
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to reorder checklist items', error, { store: 'checklist', action: 'reorderItems', taskId })
-				throw error
-			} finally {
-				this.loading = false
-			}
+		setTaskItems(taskId, items) {
+			this.items = { ...this.items, [taskId]: items ?? [] }
 		},
 
 		/**

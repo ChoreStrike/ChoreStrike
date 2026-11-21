@@ -36,7 +36,7 @@ class FixtureCleanupTest extends IntegrationTestCase {
 			'completion and source-free journal' => [\OCA\ChoreStrike\Tests\Integration\Service\CompletionConcurrencyTest::class, 'testSameRoomCompletion_BlockedOnRoomLock_BuildsOnCommittedWinnerCleanliness'],
 			'worker completion' => [\OCA\ChoreStrike\Tests\Integration\Service\ConcurrentCompletionTest::class, 'testTwoUsersSameRoomConcurrentCompletions_SumOfBothDeltasLand'],
 			'house mutation' => [\OCA\ChoreStrike\Tests\Integration\Service\HouseMutationConcurrencyTest::class, 'testCompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsAlreadyCompleted409'],
-			'worker mount' => [\OCA\ChoreStrike\Tests\Integration\Service\TaskCreationConcurrencyTest::class, 'testConcurrentMountRace_ExactlyOneRow_LoserGets400'],
+			'worker move' => [\OCA\ChoreStrike\Tests\Integration\Service\TaskCreationConcurrencyTest::class, 'testConcurrentMoveIntoAMountedRoom_ExactlyOneRow_LoserGets409'],
 			'worker floor' => [\OCA\ChoreStrike\Tests\Integration\Setup\SetupApplyConcurrencyTest::class, 'testConcurrentApplyRace_ExactlyOneStructure_LoserGetsConflict'],
 			'setup controller' => [\OCA\ChoreStrike\Tests\Integration\Setup\SetupApplyConcurrencyTest::class, 'testControllerMatrix_OwnerMemberNonMemberAndAlreadySetUp'],
 			'setup aggregate' => [\OCA\ChoreStrike\Tests\Integration\Setup\HouseSetupIntegrationTest::class, 'testApplySetupCreatesFloorsRoomsTasksAndRoomTasks'],

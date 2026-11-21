@@ -82,7 +82,6 @@ class CompletionService {
 		private WalletService $walletService,
 		private RoomReplayService $roomReplay,
 		private CalendarService $calendar,
-		private TaskAccessPolicy $taskAccessPolicy,
 		private CycleService $cycles,
 		private TaskResponsibility $responsibility,
 		private ChecklistService $checklists,
@@ -131,11 +130,7 @@ class CompletionService {
 		$this->access->task($roomTask->getTaskId());
 		$house = $this->houseMapper->find($houseId);
 
-		$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
-		if ($houseUser === null) {
-			throw new ForbiddenException($this->l10n->t('Only house members can complete tasks'));
-		}
-		$actorId = (int)$houseUser->getId();
+		$actorId = (int)$this->access->member($houseId, $userId, null, $this->l10n->t('Only house members can complete tasks'))->getId();
 
 		$newTitle = null;
 		try {
@@ -174,12 +169,7 @@ class CompletionService {
 		$post = $command['replay'] ? null : $this->postCommit->runForCompletion($houseId, $roomTaskId, $userId);
 
 		$freshRoomTask = $this->access->roomTask($roomTaskId, $houseId);
-		$freshHouseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
-		if ($freshHouseUser === null || (int)$freshHouseUser->getId() !== $actorId) {
-			throw new ForbiddenException($this->l10n->t('Only house members can complete tasks'));
-		}
-		$task = $this->access->task($freshRoomTask->getTaskId());
-		$this->taskAccessPolicy->assertCanView($task, $freshHouseUser, $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId));
+		$task = $this->access->visibleTask($freshRoomTask, $this->access->member($houseId, $userId, $actorId, $this->l10n->t('Only house members can complete tasks')));
 		// The receipt names an entry of this room task, which is scoped above.
 		$completion = $this->completedTaskMapper->find((int)$command['result']['completionId']);
 		$response = $this->readModel->response(
@@ -188,16 +178,10 @@ class CompletionService {
 		// The fresh target rides along on a replay too: the first attempt
 		// committed, so the cycle the client showed is closed.
 		$response['cycle'] = $this->readModel->cycleBlock($freshRoomTask, $house, $task);
-		if ($post === null) {
-			return $response;
+		if ($post !== null) {
+			$response['rewards']['newTitle'] = $newTitle;
 		}
-
-		$response['rewards']['weeklyGoal'] = $post['weeklyGoal'];
-		$response['rewards']['newTitle'] = $newTitle;
-		if ($post['degraded']) {
-			$response['rewards']['degraded'] = true;
-		}
-		return $response;
+		return CompletionPostCommitService::merge($response, $post);
 	}
 
 	/**
@@ -222,14 +206,9 @@ class CompletionService {
 	): array {
 		$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
 
-		$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
-		if ($houseUser === null || (int)$houseUser->getId() !== $actorId) {
-			throw new ForbiddenException($this->l10n->t('Only house members can complete tasks'));
-		}
-
+		$houseUser = $this->access->member($houseId, $userId, $actorId, $this->l10n->t('Only house members can complete tasks'));
 		$assigneeUserIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId);
-		$task = $this->access->task($roomTask->getTaskId());
-		$this->taskAccessPolicy->assertCanView($task, $houseUser, $assigneeUserIds);
+		$task = $this->access->visibleTask($roomTask, $houseUser, $assigneeUserIds);
 
 		if (!$roomTask->getIsActive()) {
 			throw new ConflictException($this->l10n->t('Task is not active'));
@@ -265,7 +244,8 @@ class CompletionService {
 		$recognitionMembers = $this->locks->participants($allocation, $task, $assigneeUserIds, $members);
 		$walletsByUserId = $this->locks->wallets($houseId, array_keys($allocation), $members);
 		$walletIds = array_map(static fn (Wallet $wallet): int => (int)$wallet->getId(), array_values($walletsByUserId));
-		if ($cycle === null) {
+		if ($classification === CompletedTask::CLASS_BONUS) {
+			// A bonus task pays a person once per day, whoever records it.
 			$this->creditPolicy->assertBonusOncePerDay($roomTaskId, $workDateKey, $walletIds);
 		}
 
@@ -420,15 +400,7 @@ class CompletionService {
 		if ($noop) {
 			$response['undone'] = false;
 		}
-		if ($post === null) {
-			return $response;
-		}
-
-		$response['rewards']['weeklyGoal'] = $post['weeklyGoal'];
-		if ($post['degraded']) {
-			$response['rewards']['degraded'] = true;
-		}
-		return $response;
+		return CompletionPostCommitService::merge($response, $post);
 	}
 
 	/**
@@ -452,12 +424,8 @@ class CompletionService {
 		// come from the SHARE rows (persisted bindings), so a departed
 		// participant's retained wallet reverses like any other.
 		$roomTask = $target->roomTask;
-		$latestShares = array_values(array_filter(
-			$this->workShareMapper->findByCompletionAndRevision($completionId, $completion->getAllocationRevision()),
-			static fn (WorkShare $share): bool => $share->getWalletId() !== null
-		));
+		['shares' => $latestShares, 'members' => $members] = $this->locks->latestAllocation($houseId, $completion, (int)$roomTask->getId());
 		$walletIds = array_map(static fn (WorkShare $share): int => (int)$share->getWalletId(), $latestShares);
-		$members = $this->locks->membersOfWallets($houseId, $walletIds, $this->responsibility->membersOf($houseId, (int)$roomTask->getId()));
 		$this->locks->walletsById($walletIds);
 
 		$now = new \DateTime();

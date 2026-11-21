@@ -548,18 +548,21 @@ class HouseSetupServiceTest extends TestCase {
 		$this->db->expects($this->never())->method('commit');
 		$this->floorMapper->expects($this->never())->method('create');
 
-		$membership = $this->createMock(\OCA\ChoreStrike\Db\HouseUser::class);
-		// First lookup = pre-transaction fast-fail check (member present),
-		// second lookup = revalidation under the lock (membership is gone).
-		$this->houseUserMapper->expects($this->exactly(2))
+		// The pre-transaction fast-fail check finds the member; the one
+		// membership check of every aggregate under its lock no longer does.
+		$this->houseUserMapper->expects($this->once())
 			->method('findByHouseAndUser')
-			->willReturnOnConsecutiveCalls($membership, null);
+			->willReturn($this->createMock(\OCA\ChoreStrike\Db\HouseUser::class));
+		$this->authorization->expects($this->once())
+			->method('assertMembersUnderLock')
+			->with(1, ['u1'])
+			->willThrowException(new \InvalidArgumentException('User is not a member of this house: u1'));
 
 		$payload = $this->basePayload();
 		$payload['floors'][0]['rooms'][0]['assigneeUserId'] = 'u1';
 
 		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('Assignee is not a member');
+		$this->expectExceptionMessage('User is not a member of this house: u1');
 		$this->service->applySetup(1, $payload);
 	}
 

@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CommandService;
 use OCA\ChoreStrike\Service\CompletionDateCommand;
 use OCA\ChoreStrike\Service\CompletionReadModel;
 use OCA\ChoreStrike\Service\CompletionService;
@@ -272,29 +273,12 @@ class CompletionController extends Controller {
 		$payload = $this->request->getParams();
 		unset($payload['id'], $payload['_route']);
 
-		foreach (array_keys($payload) as $key) {
-			if (!in_array($key, $allowedFields, true)) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('Unknown field: %1$s', [$key])],
-				], 400);
-			}
-		}
-
-		$commandId = $payload['commandId'] ?? null;
-		if (!is_string($commandId) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $commandId)) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('A valid commandId (UUID) is required')],
-			], 400);
-		}
-
-		$expectedVersion = $payload['expectedVersion'] ?? null;
-		if (!is_numeric($expectedVersion) || (int)$expectedVersion < 0 || (string)(int)$expectedVersion !== (string)$expectedVersion) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('A valid expectedVersion is required')],
-			], 400);
+		try {
+			CommandService::assertClosedBody($payload, $allowedFields, $this->l);
+			$commandId = CommandService::requireCommandUuid($payload, $this->l);
+			$expectedVersion = CommandService::requireExpectedVersion($payload, $this->l);
+		} catch (\InvalidArgumentException $e) {
+			return ControllerErrorFormatter::validation($e);
 		}
 
 		$reasonCode = $payload['reasonCode'] ?? null;
@@ -327,7 +311,7 @@ class CompletionController extends Controller {
 
 		return [
 			'commandId' => strtolower($commandId),
-			'expectedVersion' => (int)$expectedVersion,
+			'expectedVersion' => $expectedVersion,
 			'reasonCode' => $reasonCode,
 			'participants' => $participants,
 			'allocationReviewed' => $allocationReviewed,

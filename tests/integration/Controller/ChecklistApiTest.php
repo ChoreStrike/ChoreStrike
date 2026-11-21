@@ -24,12 +24,12 @@ use OCP\IRequest;
  * Real-DB integration tests for the checklist endpoints (CR-053-01 /
  * CR-053-22 partial): the ChecklistService guard must reject cross-house
  * task/item access and visibility-matrix denials with 404 on every
- * endpoint, reject foreign items in toggle/reorder, keep the happy paths
- * working, and enforce owner-only definition mutations (CS-PLAN-061 D4:
- * members get 403 on item add/update/delete/reorder).
+ * endpoint, reject foreign items in toggle, and keep the happy paths
+ * working. The sub-tasks themselves are written by the one form's save
+ * (CS-PLAN-091 WP-B6, RoomTaskEditTest); the four item writers are gone.
  *
  * The controller resolves the shared instance house, so the tests run
- * against it (BulkAssignIntegrationTest pattern: controlled IRequest
+ * against it (controlled IRequest
  * mock, real service/DB stack below); strict cross-house isolation is
  * proven with an isolated foreign fixture house. Cross-house assertions
  * verify persisted rows directly — never via a foreign-owner controller
@@ -101,43 +101,6 @@ class ChecklistApiTest extends IntegrationTestCase {
 		self::assertSame('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
 	}
 
-	public function testAddTaskItem_CrossHouseTask_Returns404AndCreatesNothing(): void {
-		[$taskId] = $this->seedForeignTaskWithItems();
-
-		$response = $this->makeController(self::MEMBER)->addTaskItem($taskId, 'Injected');
-
-		self::assertSame(404, $response->getStatus());
-		self::assertSame(1, $this->countItems($taskId), 'no item may be created for a foreign task');
-	}
-
-	public function testUpdateTaskItem_CrossHouseItem_Returns404AndKeepsLabel(): void {
-		[$taskId, $itemId] = $this->seedForeignTaskWithItems();
-
-		$response = $this->makeController(self::MEMBER)->updateTaskItem($itemId, 'Hijacked');
-
-		self::assertSame(404, $response->getStatus());
-		self::assertSame('Foreign item', $this->fetchItemColumn($itemId, 'label'), 'the label must be unchanged');
-	}
-
-	public function testDeleteTaskItem_CrossHouseItem_Returns404AndKeepsRow(): void {
-		[$taskId, $itemId] = $this->seedForeignTaskWithItems();
-
-		$response = $this->makeController(self::MEMBER)->deleteTaskItem($itemId);
-
-		self::assertSame(404, $response->getStatus());
-		self::assertSame(1, $this->countItems($taskId), 'the foreign item must remain');
-	}
-
-	public function testReorderTaskItems_CrossHouseItem_Returns404AndKeepsOrder(): void {
-		[, $itemId] = $this->seedForeignTaskWithItems();
-
-		$response = $this->makeController(self::MEMBER, ['itemOrders' => [(string)$itemId => 99]])
-			->reorderTaskItems();
-
-		self::assertSame(404, $response->getStatus());
-		self::assertSame('0', (string)$this->fetchItemColumn($itemId, 'sort_order'), 'the foreign sort order must remain');
-	}
-
 	public function testGetRoomTaskProgress_CrossHouseRoomTask_Returns404(): void {
 		[, , $foreignRoomTaskId] = $this->seedForeignRoomTask();
 
@@ -180,60 +143,6 @@ class ChecklistApiTest extends IntegrationTestCase {
 		self::assertSame(200, $ownerResponse->getStatus());
 	}
 
-	public function testAddTaskItem_PrivateTask_MemberGets404(): void {
-		[$privateTaskId] = $this->seedVisibilityTaskWithItems(Task::VISIBILITY_PRIVATE, self::OWNER);
-
-		$response = $this->makeController(self::MEMBER)->addTaskItem($privateTaskId, 'Nope');
-
-		self::assertSame(404, $response->getStatus(), 'visibility (404) wins over the owner gate (403)');
-		self::assertSame(1, $this->countItems($privateTaskId));
-	}
-
-	// ========== Owner-only definition mutations (CS-PLAN-061 D4) ==========
-
-	public function testAddTaskItem_Member_Returns403(): void {
-		['taskId' => $taskId] = $this->seedOwnPublicTaskWithItems(1);
-
-		$response = $this->makeController(self::MEMBER)->addTaskItem($taskId, 'Nope');
-
-		self::assertSame(403, $response->getStatus());
-		self::assertSame('FORBIDDEN', $response->getData()['error']['code']);
-		self::assertSame(1, $this->countItems($taskId), 'no item may be created by a member');
-	}
-
-	public function testUpdateTaskItem_Member_Returns403(): void {
-		['itemIds' => [$itemId]] = $this->seedOwnPublicTaskWithItems(1);
-
-		$response = $this->makeController(self::MEMBER)->updateTaskItem($itemId, 'Hijacked');
-
-		self::assertSame(403, $response->getStatus());
-		self::assertSame('FORBIDDEN', $response->getData()['error']['code']);
-		self::assertSame('Item 0', $this->fetchItemColumn($itemId, 'label'), 'the label must be unchanged');
-	}
-
-	public function testDeleteTaskItem_Member_Returns403(): void {
-		['taskId' => $taskId, 'itemIds' => [$itemId]] = $this->seedOwnPublicTaskWithItems(1);
-
-		$response = $this->makeController(self::MEMBER)->deleteTaskItem($itemId);
-
-		self::assertSame(403, $response->getStatus());
-		self::assertSame('FORBIDDEN', $response->getData()['error']['code']);
-		self::assertSame(1, $this->countItems($taskId), 'the item must remain');
-	}
-
-	public function testReorderTaskItems_Member_Returns403(): void {
-		['itemIds' => $itemIds] = $this->seedOwnPublicTaskWithItems(2);
-
-		$response = $this->makeController(self::MEMBER, ['itemOrders' => [
-			(string)$itemIds[0] => 1,
-			(string)$itemIds[1] => 0,
-		]])->reorderTaskItems();
-
-		self::assertSame(403, $response->getStatus());
-		self::assertSame('FORBIDDEN', $response->getData()['error']['code']);
-		self::assertSame('0', (string)$this->fetchItemColumn($itemIds[0], 'sort_order'), 'the order must be unchanged');
-	}
-
 	// ========== Item <-> task linkage ==========
 
 	public function testToggleItem_ItemFromAnotherTask_Returns404(): void {
@@ -243,29 +152,6 @@ class ChecklistApiTest extends IntegrationTestCase {
 		$response = $this->makeController(self::MEMBER)->toggleItem($fixture['roomTaskId'], $otherItemId);
 
 		self::assertSame(404, $response->getStatus(), 'an item of another task must not toggle this room task\'s progress');
-	}
-
-	public function testReorderTaskItems_ItemsFromMultipleTasks_Returns400(): void {
-		$fixture = $this->seedOwnPublicTaskWithItems(1);
-		['itemIds' => [$otherItemId]] = $this->seedOwnPublicTaskWithItems(1, 'Other');
-
-		$response = $this->makeController(self::OWNER, ['itemOrders' => [
-			(string)$fixture['itemIds'][0] => 1,
-			(string)$otherItemId => 0,
-		]])->reorderTaskItems();
-
-		self::assertSame(400, $response->getStatus());
-		self::assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
-	}
-
-	public function testReorderTaskItems_MalformedPayload_Returns400(): void {
-		$fixture = $this->seedOwnPublicTaskWithItems(1);
-
-		$response = $this->makeController(self::OWNER, ['itemOrders' => ['bogus' => 1]])
-			->reorderTaskItems();
-
-		self::assertSame(400, $response->getStatus());
-		self::assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
 	}
 
 	// ========== Happy paths ==========
@@ -293,51 +179,6 @@ class ChecklistApiTest extends IntegrationTestCase {
 
 		self::assertSame(200, $response->getStatus());
 		self::assertCount(1, $response->getData()['data']);
-	}
-
-	public function testAddTaskItem_HappyPath_AppendsSortOrder(): void {
-		['taskId' => $taskId] = $this->seedOwnPublicTaskWithItems(2);
-
-		$response = $this->makeController(self::OWNER)->addTaskItem($taskId, 'Third');
-
-		self::assertSame(200, $response->getStatus(), 'owner item edits stay allowed');
-		$data = $response->getData();
-		self::assertTrue($data['success']);
-		self::assertSame(2, $data['data']['sortOrder'], 'a missing sortOrder appends after the existing items');
-	}
-
-	public function testUpdateTaskItem_HappyPath(): void {
-		['itemIds' => [$itemId]] = $this->seedOwnPublicTaskWithItems(1);
-
-		$response = $this->makeController(self::OWNER)->updateTaskItem($itemId, 'Relabeled');
-
-		self::assertSame(200, $response->getStatus());
-		self::assertSame('Relabeled', $this->fetchItemColumn($itemId, 'label'));
-	}
-
-	public function testDeleteTaskItem_HappyPath(): void {
-		['taskId' => $taskId, 'itemIds' => [$itemId]] = $this->seedOwnPublicTaskWithItems(1);
-
-		$response = $this->makeController(self::OWNER)->deleteTaskItem($itemId);
-
-		self::assertSame(200, $response->getStatus());
-		self::assertSame(0, $this->countItems($taskId));
-	}
-
-	public function testReorderTaskItems_HappyPath_SwapsOrder(): void {
-		['taskId' => $taskId] = $this->seedOwnPublicTaskWithItems(2);
-		$items = \OC::$server->get(TaskChecklistItemMapper::class)->findByTaskId($taskId);
-		[$firstItemId, $secondItemId] = array_map(static fn ($item): int => $item->getId(), $items);
-
-		$response = $this->makeController(self::OWNER, ['itemOrders' => [
-			(string)$firstItemId => 1,
-			(string)$secondItemId => 0,
-		]])->reorderTaskItems();
-
-		self::assertSame(200, $response->getStatus());
-		$sorted = $this->makeController(self::OWNER)->getTaskItems($taskId)->getData()['data'];
-		self::assertSame($secondItemId, $sorted[0]['id']);
-		self::assertSame($firstItemId, $sorted[1]['id']);
 	}
 
 	public function testToggleAndGetProgress_HappyPath(): void {
@@ -450,30 +291,6 @@ class ChecklistApiTest extends IntegrationTestCase {
 	private function createItem(int $taskId, string $label, int $sortOrder): int {
 		$item = \OC::$server->get(TaskChecklistItemMapper::class)->create($taskId, $label, $sortOrder);
 		return $item->getId();
-	}
-
-	private function countItems(int $taskId): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select($qb->func()->count('*', 'count'))
-			->from('chorestrike_chk_items')
-			->where($qb->expr()->eq('task_id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)));
-		$result = $qb->executeQuery();
-		$count = (int)$result->fetchOne();
-		$result->closeCursor();
-
-		return $count;
-	}
-
-	private function fetchItemColumn(int $itemId, string $column): string {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select($column)
-			->from('chorestrike_chk_items')
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($itemId, IQueryBuilder::PARAM_INT)));
-		$result = $qb->executeQuery();
-		$value = $result->fetchOne();
-		$result->closeCursor();
-
-		return (string)$value;
 	}
 
 	private function trackRoomTask(int $roomTaskId): int {

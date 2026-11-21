@@ -11,9 +11,9 @@ namespace OCA\ChoreStrike\Tests\Integration\Service;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
-use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskCreationService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 
 /**
  * BUG-UX-013: the daily limit never hides what a child owes. Runs the real
@@ -22,6 +22,8 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  * ever trims what nobody owns.
  */
 class ChildDailyLimitTest extends IntegrationTestCase {
+	use TaskEditing;
+
 	private const OWNER = 'cdl_owner';
 	private const KID = 'cdl_kid';
 
@@ -79,7 +81,7 @@ class ChildDailyLimitTest extends IntegrationTestCase {
 		$this->createTaskDueToday('Own', [self::KID]);
 		$unassigned = $this->createTaskDueToday('Assigned later', []);
 
-		\OC::$server->get(RoomTaskService::class)->setAssignees($unassigned, [self::KID], $this->houseId, $this->actor);
+		$this->assignTo($this->houseId, $this->actor, $unassigned, [self::KID]);
 
 		self::assertSame(['Own', 'Assigned later'], $this->myDayNames(), 'an assignment on a full day is accepted and never hidden');
 	}

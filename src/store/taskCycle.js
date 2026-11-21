@@ -5,7 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { api } from '../services/api.js'
-import { generateCommandId } from '../utils/commandId.js'
+import { rememberCommand, settleCommand } from '../utils/commandId.js'
 import { logger } from '../utils/logger.js'
 import { useRoomTasksStore } from './roomTasks.js'
 
@@ -49,33 +49,21 @@ export const useTaskCycleStore = defineStore('taskCycle', {
 			if (this.postponingIds[roomTaskId]) {
 				return null
 			}
-			const roomTasksStore = useRoomTasksStore()
-			const target = roomTasksStore._completionTargetFor(roomTaskId)
-			if (!target?.cycleKey) {
-				const error = new Error('The task changed since it was displayed. Reload and try again.')
-				error.code = 'STALE_TARGET'
-				throw error
-			}
 			this.postponingIds = { ...this.postponingIds, [roomTaskId]: true }
-			const commandKey = `postpone:${roomTaskId}:${target.cycleKey}:${target.expectedVersion}`
 			try {
-				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/postpone`, {
-					commandId: this._commandIdFor(commandKey),
-					cycleKey: target.cycleKey,
-					expectedVersion: target.expectedVersion,
-				})
-				this._settleCommand(commandKey)
-				roomTasksStore.reconcileCompletionPayload(roomTaskId, data)
-				roomTasksStore.refreshDerivedProjections()
-				return data
-			} catch (error) {
-				this._settleCommand(commandKey, error)
-				logger.error('Failed to postpone room task', error, { store: 'taskCycle', action: 'postpone', roomTaskId })
-				// A 409 means the shown cycle is gone or cannot move: read the rows again.
-				if (error?.status === 409) {
-					roomTasksStore.refreshDerivedProjections({ rows: true })
-				}
-				throw error
+				return await this._runCycleCommand(roomTaskId, 'postpone', (target) => {
+					if (!target.cycleKey) {
+						return null
+					}
+					return {
+						key: `${target.cycleKey}:${target.expectedVersion}`,
+						send: (commandId) => api.post(`/api/v1/room-tasks/${roomTaskId}/postpone`, {
+							commandId,
+							cycleKey: target.cycleKey,
+							expectedVersion: target.expectedVersion,
+						}),
+					}
+				}, {})
 			} finally {
 				const rest = { ...this.postponingIds }
 				delete rest[roomTaskId]
@@ -92,29 +80,50 @@ export const useTaskCycleStore = defineStore('taskCycle', {
 		 * @param {?string} [wakeOn] House-local day the task wakes on (`YYYY-MM-DD`), with `sleeping` only.
 		 * @return {Promise<object>} `{ roomTask, cycle, replay }`
 		 */
-		async setSleeping(roomTaskId, sleeping, wakeOn = null) {
+		setSleeping(roomTaskId, sleeping, wakeOn = null) {
+			// The task leaves or joins the lists of what is due: the rows read again.
+			return this._runCycleCommand(roomTaskId, 'sleep', (target) => ({
+				key: `${target.expectedVersion}:${sleeping}:${wakeOn ?? ''}`,
+				send: (commandId) => api.put(`/api/v1/room-tasks/${roomTaskId}/sleep`, {
+					commandId,
+					expectedVersion: target.expectedVersion,
+					sleeping,
+					...(sleeping && wakeOn ? { wakeOn } : {}),
+				}),
+			}), { rows: true })
+		},
+
+		/**
+		 * The skeleton of a command on the cycle a row shows (RF-091-09):
+		 * the shown target, one UUID per logical command, the answer
+		 * reconciled into every cached row, and a refusal (409) that reads
+		 * the rows again so the next attempt carries the current target.
+		 * @param {number} roomTaskId The room task.
+		 * @param {string} name The command, for its key and the log.
+		 * @param {function(object): ?{key: string, send: function(string): Promise<object>}} build
+		 *   The request for the shown target; null when the target cannot carry it.
+		 * @param {object} refresh What the success reads again (the options of refreshDerivedProjections).
+		 * @return {Promise<object>} The command's answer.
+		 */
+		async _runCycleCommand(roomTaskId, name, build, refresh) {
 			const roomTasksStore = useRoomTasksStore()
-			const target = roomTasksStore._completionTargetFor(roomTaskId)
-			if (!target) {
+			const target = roomTasksStore.completionTargetOf(roomTaskId)
+			const request = target ? build(target) : null
+			if (!request) {
 				const error = new Error('The task changed since it was displayed. Reload and try again.')
 				error.code = 'STALE_TARGET'
 				throw error
 			}
-			const commandKey = `sleep:${roomTaskId}:${target.expectedVersion}:${sleeping}:${wakeOn ?? ''}`
+			const commandKey = `${name}:${roomTaskId}:${request.key}`
 			try {
-				const payload = { commandId: this._commandIdFor(commandKey), expectedVersion: target.expectedVersion, sleeping }
-				if (sleeping && wakeOn) {
-					payload.wakeOn = wakeOn
-				}
-				const data = await api.put(`/api/v1/room-tasks/${roomTaskId}/sleep`, payload)
+				const data = await request.send(this._commandIdFor(commandKey))
 				this._settleCommand(commandKey)
 				roomTasksStore.reconcileCompletionPayload(roomTaskId, data)
-				// The task left or joined the lists of what is due.
-				roomTasksStore.refreshDerivedProjections({ rows: true })
+				roomTasksStore.refreshDerivedProjections(refresh)
 				return data
 			} catch (error) {
 				this._settleCommand(commandKey, error)
-				logger.error('Failed to change the sleep of a room task', error, { store: 'taskCycle', action: 'setSleeping', roomTaskId })
+				logger.error(`Failed to ${name} a room task`, error, { store: 'taskCycle', action: name, roomTaskId })
 				if (error?.status === 409) {
 					roomTasksStore.refreshDerivedProjections({ rows: true })
 				}
@@ -195,10 +204,9 @@ export const useTaskCycleStore = defineStore('taskCycle', {
 		 * @return {string} The command UUID.
 		 */
 		_commandIdFor(commandKey) {
-			if (!this.pendingCommands[commandKey]) {
-				this.pendingCommands = { ...this.pendingCommands, [commandKey]: generateCommandId() }
-			}
-			return this.pendingCommands[commandKey]
+			const { commandId, pending } = rememberCommand(this.pendingCommands, commandKey)
+			this.pendingCommands = pending
+			return commandId
 		},
 
 		/**
@@ -209,12 +217,7 @@ export const useTaskCycleStore = defineStore('taskCycle', {
 		 * @param {?object} [error] The failure, absent on success.
 		 */
 		_settleCommand(commandKey, error = null) {
-			if (error && (error.status === undefined || error.status >= 500)) {
-				return
-			}
-			const rest = { ...this.pendingCommands }
-			delete rest[commandKey]
-			this.pendingCommands = rest
+			this.pendingCommands = settleCommand(this.pendingCommands, commandKey, error)
 		},
 
 		/** Identity or house switch: drop everything of the previous household. */

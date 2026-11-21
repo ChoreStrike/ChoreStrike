@@ -61,7 +61,7 @@ class CoinMultiplierController extends Controller {
 
 	/**
 	 * Start a bonus period: `{ "commandId": "<uuid>", "startsOn": "Y-m-d", "days": 1–3 }`.
-	 * Answers with `{ bonusPeriod }`.
+	 * Answers with `{ bonusPeriod }`, the period the house shows now.
 	 *
 	 * @NoAdminRequired
 	 */
@@ -75,7 +75,7 @@ class CoinMultiplierController extends Controller {
 			if (!is_int($days)) {
 				throw new \InvalidArgumentException($this->l->t('Bonus days last one to three days'));
 			}
-			return ['bonusPeriod' => $this->multipliers->startPeriod($houseId, $startsOn, $days, $commandId)->toPayload()];
+			return ['bonusPeriod' => $this->multipliers->startPeriod($houseId, $startsOn, $days, $commandId)?->toPayload()];
 		});
 	}
 
@@ -88,9 +88,7 @@ class CoinMultiplierController extends Controller {
 	 */
 	public function cancelPeriod(int $id): JSONResponse {
 		return $this->ownerCommand('cancelPeriod', [], function (int $houseId, array $payload, string $commandId) use ($id): array {
-			$this->multipliers->cancelPeriod($houseId, $id, $commandId);
-			$house = $this->houseService->getOrCreateHouse($this->houseService->getInstanceId());
-			return ['bonusPeriod' => $this->multipliers->runningOrNext($house)?->toPayload()];
+			return ['bonusPeriod' => $this->multipliers->cancelPeriod($houseId, $id, $commandId)?->toPayload()];
 		});
 	}
 
@@ -109,11 +107,7 @@ class CoinMultiplierController extends Controller {
 
 			$payload = $this->request->getParams();
 			unset($payload['id'], $payload['userId'], $payload['_route']);
-			foreach (array_keys($payload) as $field) {
-				if ($field !== 'commandId' && !in_array($field, $fields, true)) {
-					throw new \InvalidArgumentException($this->l->t('Unknown field: %1$s', [$field]));
-				}
-			}
+			CommandService::assertClosedBody($payload, ['commandId', ...$fields], $this->l);
 			$commandId = strtolower(CommandService::requireCommandUuid($payload, $this->l));
 
 			return new JSONResponse(['success' => true, 'data' => $command($houseId, $payload, $commandId)]);

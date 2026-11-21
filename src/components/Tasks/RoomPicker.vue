@@ -5,224 +5,234 @@
 
 <template>
 	<div class="room-picker" data-testid="room-picker">
-		<template v-if="isLocked">
-			<p class="locked-room" data-testid="room-picker-locked">
-				<Icon name="MapPin" :size="16" class="icon" />
-				{{ lockedRoomLabel }}
+		<button ref="toggle"
+			type="button"
+			class="picker-toggle"
+			:aria-expanded="open ? 'true' : 'false'"
+			:aria-controls="panelId"
+			data-testid="room-picker-toggle"
+			@click="open = !open">
+			<Icon name="MapPin" :size="16" class="picker-icon" />
+			<span class="picker-label">{{ label }}</span>
+			<ExpandChevron :open="open" />
+		</button>
+		<div v-if="open" :id="panelId" class="picker-panel">
+			<button v-if="filter"
+				type="button"
+				class="picker-entry"
+				:aria-pressed="modelValue === null && floorId === null ? 'true' : 'false'"
+				data-testid="room-picker-all"
+				@click="choose(null, null)">
+				{{ t('chorestrike', 'All rooms') }}
+			</button>
+			<ul class="picker-list">
+				<li v-for="floor in floorsWithRooms" :key="floor.id">
+					<button type="button"
+						class="picker-entry picker-floor"
+						:aria-expanded="openFloorId === floor.id ? 'true' : 'false'"
+						:aria-controls="openFloorId === floor.id ? `${panelId}-floor-${floor.id}` : undefined"
+						:aria-current="filter && chosenFloorId === floor.id && modelValue === null ? 'true' : undefined"
+						:data-testid="`room-picker-floor-${floor.id}`"
+						@click="pickFloor(floor.id)">
+						<ExpandChevron :open="openFloorId === floor.id" />
+						{{ floor.name }}
+					</button>
+					<ul v-if="openFloorId === floor.id" :id="`${panelId}-floor-${floor.id}`" class="picker-list picker-rooms">
+						<li v-for="entry in roomsStore.roomsByFloor[floor.id]" :key="entry.id">
+							<button type="button"
+								class="picker-entry"
+								:aria-pressed="entry.id === modelValue ? 'true' : 'false'"
+								:data-testid="`room-picker-room-${entry.id}`"
+								@click="choose(floor.id, entry.id)">
+								{{ entry.name }}
+							</button>
+						</li>
+					</ul>
+				</li>
+			</ul>
+			<p v-if="floorsWithRooms.length === 0" class="picker-empty">
+				{{ t('chorestrike', 'No rooms yet') }}
 			</p>
-		</template>
-
-		<template v-else>
-			<div class="form-row">
-				<div class="form-group half">
-					<label for="room-picker-floor">{{ t('chorestrike', 'Floor') }}</label>
-					<select id="room-picker-floor"
-						v-model.number="selectedFloorId"
-						class="form-input"
-						data-testid="room-picker-floor">
-						<option v-for="floor in floorsWithRooms"
-							:key="floor.id"
-							:value="floor.id">
-							{{ floor.name }}
-						</option>
-					</select>
-				</div>
-
-				<div class="form-group half">
-					<label for="room-picker-room">{{ t('chorestrike', 'Room') }} *</label>
-					<select id="room-picker-room"
-						v-model.number="selectedRoomId"
-						class="form-input"
-						data-testid="room-picker-room"
-						required>
-						<option :value="null" disabled>
-							{{ t('chorestrike', 'Select a room') }}
-						</option>
-						<option v-for="room in roomsInFloor"
-							:key="room.id"
-							:value="room.id">
-							{{ room.name }}
-						</option>
-					</select>
-					<p v-if="roomsInFloor.length === 0" class="field-error">
-						{{ t('chorestrike', 'No rooms in this floor yet') }}
-					</p>
-				</div>
-			</div>
-		</template>
+		</div>
 	</div>
 </template>
 
-<script>
+<script setup>
 import { translate as t } from '@nextcloud/l10n'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, useId, watch } from 'vue'
+import ExpandChevron from '../Common/ExpandChevron.vue'
 import Icon from '../Common/Icon.vue'
 import { useRoomsStore } from '../../store/rooms.js'
 import { logger } from '../../utils/logger.js'
 
-export default {
-	name: 'RoomPicker',
+/**
+ * The one room choice (CS-PLAN-091 WP-B6, the operator's GUI review): one
+ * button that opens the floors in place; a floor opens its rooms, a room
+ * is the choice. As the quick filter of the task list (`filter`) a floor
+ * is a choice of its own and *All rooms* clears it.
+ */
+const props = defineProps({
+	/** The chosen room, or null. */
+	modelValue: { type: Number, default: null },
+	/** Filter only: the chosen floor while no room is chosen. */
+	floorId: { type: Number, default: null },
+	/** The floor that opens first while nothing is chosen. */
+	initialFloorId: { type: Number, default: null },
+	/** A filter: floors can be chosen and nothing has to be. */
+	filter: { type: Boolean, default: false },
+})
+const emit = defineEmits(['update:modelValue', 'select'])
 
-	components: {
-		Icon,
-	},
+const roomsStore = useRoomsStore()
+const panelId = `room-picker-panel-${useId()}`
+const toggle = ref(null)
+const open = ref(false)
+const openFloorId = ref(null)
 
-	props: {
-		modelValue: {
-			type: Number,
-			default: null,
-		},
+const floorsWithRooms = computed(() => roomsStore.floors.filter((floor) => (roomsStore.roomsByFloor[floor.id] || []).length > 0))
+const room = computed(() => (props.modelValue === null ? null : roomsStore.getRoomById(props.modelValue) ?? null))
+/** The floor of the choice: the room's, else the chosen floor of a filter. */
+const chosenFloorId = computed(() => room.value?.floorId ?? (props.filter ? props.floorId : null))
 
-		// When set, the room is fixed (e.g. creation from a room's context)
-		// and the selects are replaced by a read-only label.
-		presetRoomId: {
-			type: Number,
-			default: null,
-		},
+const label = computed(() => {
+	const floor = roomsStore.getFloorById(chosenFloorId.value)
+	if (room.value) {
+		return floor ? `${floor.name} · ${room.value.name}` : room.value.name
+	}
+	if (floor) {
+		return floor.name
+	}
+	return props.filter ? t('chorestrike', 'All rooms') : t('chorestrike', 'Select a room')
+})
 
-		// Floor shown first when no room is selected yet (FEAT-UX-038:
-		// a floor-only filter); unlike presetRoomId it locks nothing.
-		initialFloorId: {
-			type: Number,
-			default: null,
-		},
-	},
+// The panel opens on the floor of the choice, else on the preferred or the only floor.
+watch(open, (now) => {
+	if (now) {
+		const only = floorsWithRooms.value.length === 1 ? floorsWithRooms.value[0].id : null
+		openFloorId.value = chosenFloorId.value ?? props.initialFloorId ?? only
+	}
+})
 
-	emits: ['update:modelValue'],
-
-	setup(props, { emit }) {
-		const roomsStore = useRoomsStore()
-		const selectedFloorId = ref(null)
-		const selectedRoomId = ref(props.modelValue ?? props.presetRoomId)
-		const isLocked = computed(() => props.presetRoomId !== null)
-
-		const floorsWithRooms = computed(() => {
-			return roomsStore.floors.filter((floor) => (roomsStore.roomsByFloor[floor.id] || []).length > 0)
-		})
-
-		const roomsInFloor = computed(() => {
-			if (selectedFloorId.value === null) {
-				return []
-			}
-			return roomsStore.roomsByFloor[selectedFloorId.value] || []
-		})
-
-		const lockedRoomLabel = computed(() => {
-			const room = roomsStore.getRoomById(props.presetRoomId)
-			if (!room) {
-				return t('chorestrike', 'This room')
-			}
-			const floor = roomsStore.getFloorById(room.floorId)
-			return floor ? `${room.name} · ${floor.name}` : room.name
-		})
-
-		// Keep the emitted room in sync with the selection
-		watch(selectedRoomId, (roomId) => {
-			emit('update:modelValue', roomId)
-		})
-
-		// Selecting a floor resets an incompatible room selection
-		watch(selectedFloorId, (floorId) => {
-			if (selectedRoomId.value === null) {
-				return
-			}
-			const room = roomsStore.getRoomById(selectedRoomId.value)
-			if (!room || room.floorId !== floorId) {
-				selectedRoomId.value = null
-			}
-		})
-
-		// Derive the floor from a restored/changed model value
-		watch(() => props.modelValue, (roomId) => {
-			if (roomId === selectedRoomId.value) {
-				return
-			}
-			selectedRoomId.value = roomId
-		})
-
-		watch(selectedRoomId, (roomId) => {
-			if (roomId === null) {
-				return
-			}
-			const room = roomsStore.getRoomById(roomId)
-			if (room && room.floorId !== selectedFloorId.value) {
-				selectedFloorId.value = room.floorId
-			}
-		}, { immediate: true })
-
-		onMounted(async () => {
-			if (roomsStore.floors.length === 0 || roomsStore.rooms.length === 0) {
-				try {
-					await roomsStore.fetchFloorsWithRooms()
-				} catch (error) {
-					logger.error('Failed to load floors and rooms', error, { component: 'RoomPicker', action: 'mounted' })
-				}
-			}
-			if (selectedFloorId.value === null && floorsWithRooms.value.length > 0) {
-				// A room selected before the floors loaded keeps its floor.
-				const preferred = roomsStore.getRoomById(selectedRoomId.value)?.floorId ?? props.initialFloorId
-				const floor = floorsWithRooms.value.find((candidate) => candidate.id === preferred) ?? floorsWithRooms.value[0]
-				selectedFloorId.value = floor.id
-			}
-		})
-
-		return {
-			isLocked,
-			floorsWithRooms,
-			roomsInFloor,
-			selectedFloorId,
-			selectedRoomId,
-			lockedRoomLabel,
-			t,
-		}
-	},
+/**
+ * A floor opens its rooms; in a filter it is also the choice.
+ * @param {number} id The floor.
+ */
+function pickFloor(id) {
+	const chosen = props.filter && chosenFloorId.value === id && props.modelValue === null
+	openFloorId.value = openFloorId.value === id && (!props.filter || chosen) ? null : id
+	if (props.filter && !chosen) {
+		emit('update:modelValue', null)
+		emit('select', { floorId: id, roomId: null })
+	}
 }
+
+/**
+ * Take a room (or, in a filter, all rooms) and close.
+ * @param {?number} floor The floor of the room.
+ * @param {?number} roomId The room, or null for all rooms.
+ */
+async function choose(floor, roomId) {
+	emit('update:modelValue', roomId)
+	emit('select', { floorId: floor, roomId })
+	open.value = false
+	await nextTick()
+	toggle.value?.focus()
+}
+
+onMounted(async () => {
+	// The task list reads the structure itself; the form may open before anything did.
+	if (!props.filter && (roomsStore.floors.length === 0 || roomsStore.rooms.length === 0)) {
+		try {
+			await roomsStore.fetchFloorsWithRooms()
+		} catch (error) {
+			logger.error('Failed to load floors and rooms', error, { component: 'RoomPicker', action: 'mounted' })
+		}
+	}
+})
 </script>
 
 <style scoped>
-.room-picker .form-row {
+.room-picker {
 	display: flex;
-	gap: 1rem;
+	flex-direction: column;
+	gap: 0.35rem;
 }
 
-.form-group {
+.picker-toggle,
+.picker-entry {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+	min-height: 44px;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	background: var(--color-main-background);
+	color: var(--color-main-text);
+	font-size: 0.95rem;
+	text-align: start;
+	cursor: pointer;
+}
+
+.picker-toggle {
+	border-color: var(--color-text-maxcontrast);
+}
+
+.picker-label {
 	flex: 1;
-	margin-bottom: 0.5rem;
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 
-.form-group label {
-	display: block;
-	margin-bottom: 0.4rem;
-	font-size: 0.9rem;
+.picker-icon {
+	color: var(--color-text-maxcontrast);
+}
+
+.picker-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	padding: 0.5rem;
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	background: var(--color-background-dark);
+}
+
+.picker-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.picker-rooms {
+	margin-block-start: 0.35rem;
+	padding-inline-start: 1.5rem;
+}
+
+.picker-floor {
 	font-weight: 600;
 }
 
-.form-input {
-	width: 100%;
-	padding: 0.6rem;
-	border: 1px solid var(--color-border);
-	border-radius: 6px;
-	background-color: var(--color-main-background);
-	color: var(--color-main-text);
-	font-size: 0.95rem;
+.picker-entry[aria-pressed='true'],
+.picker-entry[aria-current='true'] {
+	border-color: var(--color-primary-element);
+	background: var(--color-primary-element-light);
+	font-weight: 700;
 }
 
-.locked-room {
-	display: flex;
-	align-items: center;
-	gap: 0.4rem;
+.picker-toggle:focus-visible,
+.picker-entry:focus-visible {
+	outline: 2px solid var(--color-main-text);
+	outline-offset: 2px;
+}
+
+.picker-empty {
 	margin: 0;
-	padding: 0.6rem 0.75rem;
-	border: 1px solid var(--color-border);
-	border-radius: 6px;
-	background: var(--color-background-dark);
-	color: var(--color-main-text);
-	font-size: 0.95rem;
-}
-
-.field-error {
 	color: var(--color-error-text);
 	font-size: 0.85rem;
-	margin: 0.4rem 0 0 0;
 }
 </style>

@@ -76,6 +76,7 @@ class RoomTaskCycleControllerTest extends TestCase {
 			$this->sleepService,
 			$this->activityService,
 			$this->roomTaskReadService,
+			new \OCA\ChoreStrike\Service\CalendarService(),
 			$l10n,
 			$this->createMock(AppLogger::class)
 		);
@@ -94,7 +95,7 @@ class RoomTaskCycleControllerTest extends TestCase {
 		// Every member may postpone: no role gate ahead of the service.
 		$this->postponeService->expects($this->once())->method('postpone')
 			->with(1, $this->isInstanceOf(HouseUser::class), 7, self::UUID, 'd2026-11-18', 4)
-			->willReturn(['roomTask' => $roomTask, 'cycle' => $cycle, 'replay' => false]);
+			->willReturn(['roomTask' => $roomTask, 'cycle' => $cycle, 'timeZone' => new \DateTimeZone('UTC'), 'replay' => false]);
 		$this->roomTaskReadService->expects($this->once())->method('roomTaskPayload')
 			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), $cycle)
 			->willReturn(['id' => 7, 'status' => 'due_today']);
@@ -187,7 +188,7 @@ class RoomTaskCycleControllerTest extends TestCase {
 		// The role is the service's decision: no gate ahead of it.
 		$this->sleepService->expects($this->once())->method('setSleeping')
 			->with(1, $this->isInstanceOf(HouseUser::class), 7, self::UUID, 4, $sleeping, $wakeOn)
-			->willReturn(['roomTask' => $roomTask, 'cycle' => $cycle, 'replay' => false]);
+			->willReturn(['roomTask' => $roomTask, 'cycle' => $cycle, 'timeZone' => new \DateTimeZone('UTC'), 'replay' => false]);
 		$this->roomTaskReadService->expects($this->once())->method('roomTaskPayload')
 			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), $cycle)
 			->willReturn(['id' => 7]);
@@ -205,6 +206,8 @@ class RoomTaskCycleControllerTest extends TestCase {
 			'no sleeping flag' => [array_diff_key($valid, ['sleeping' => true])],
 			'a sleeping flag as text' => [['sleeping' => 'true'] + $valid],
 			'a wake date that is no text' => [$valid + ['wakeOn' => 20261201]],
+			'a wake date that is no day' => [$valid + ['wakeOn' => '2026-02-30']],
+			'a wake date while waking' => [['sleeping' => false, 'wakeOn' => '2026-12-01'] + $valid],
 			'a cycle key: the command names no cycle' => [$valid + ['cycleKey' => 'd2026-11-18']],
 			'an unknown field' => [$valid + ['days' => 3]],
 			'no version' => [array_diff_key($valid, ['expectedVersion' => true])],

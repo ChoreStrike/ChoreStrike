@@ -21,7 +21,7 @@ use OCA\ChoreStrike\Db\TransactionExecutor;
  * what the passing of time changes without any command. A fixed-day cycle
  * whose window ended without the work is recorded as missed, exactly once,
  * a sleeping task wakes on its wake date, and the `next_due` projection
- * follows the cycle that is current now. {@see CycleService} stays the
+ * follows the cycle that is current now. {@see CycleMisses} stays the
  * only writer of cycle rows.
  */
 class CycleAdvanceService {
@@ -29,7 +29,9 @@ class CycleAdvanceService {
 	public const BATCH_SIZE = 200;
 
 	public function __construct(
-		private CycleService $cycles,
+		private CycleProjection $projection,
+		private CycleMisses $misses,
+		private CycleSleep $sleep,
 		private WindowService $windows,
 		private CycleMapper $cycleMapper,
 		private RoomTaskMapper $roomTaskMapper,
@@ -107,9 +109,9 @@ class CycleAdvanceService {
 				continue;
 			}
 			$history = $histories[$id] ?? null;
-			$missed = $this->cycles->unrecordedMissed($house, $roomTask, $task, $history, $recorded[$id] ?? null, $timeZone, $now);
+			$missed = $this->misses->unrecordedMissed($house, $roomTask, $task, $history, $recorded[$id] ?? null, $timeZone, $now);
 			$cycle = $this->windows->currentCycle($roomTask, $task, $history, $timeZone, $now);
-			if ($missed !== [] || CycleService::wakesBy($roomTask, $today) || $this->cycles->projectionDrifted($roomTask, $cycle, $timeZone)) {
+			if ($missed !== [] || CycleSleep::wakesBy($roomTask, $today) || $this->projection->projectionDrifted($roomTask, $cycle, $timeZone)) {
 				$needing[] = $id;
 			}
 		}
@@ -122,15 +124,15 @@ class CycleAdvanceService {
 		$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
 		$task = $this->taskMapper->find($roomTask->getTaskId());
 		$timeZone = $this->calendar->getTimeZone($house);
-		if (CycleService::wakesBy($roomTask, WindowService::todayKey($now, $timeZone))) {
+		if (CycleSleep::wakesBy($roomTask, WindowService::todayKey($now, $timeZone))) {
 			// The fresh cycle hangs on the wake date, also when the job runs late.
-			$this->cycles->wakeUnderLock($roomTask, $task, $roomTask->getWakeOn()->format('Y-m-d'), $timeZone, $now);
+			$this->sleep->wakeUnderLock($roomTask, $task, $roomTask->getWakeOn()->format('Y-m-d'), $timeZone, $now);
 			return 0;
 		}
 		$history = $this->windows->historiesFor([$roomTaskId])[$roomTaskId] ?? null;
 
-		$written = $this->cycles->recordMissedUnderLock($house, $roomTask, $task, $history, $timeZone, $now);
-		$this->cycles->reprojectUnderLock($roomTask, $this->windows->currentCycle($roomTask, $task, $history, $timeZone, $now), $timeZone);
+		$written = $this->misses->recordMissedUnderLock($house, $roomTask, $task, $history, $timeZone, $now);
+		$this->projection->reprojectUnderLock($roomTask, $this->windows->currentCycle($roomTask, $task, $history, $timeZone, $now), $timeZone);
 		return $written;
 	}
 }

@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { createRoomTask, openRoom, roomGroup } from './fixtures/rooms.ts'
+import { chooseFormRoom, openFormMore } from './fixtures/task-form.ts'
 
 /**
  * E2E test: Task creation and completion flow
@@ -13,14 +14,8 @@ import { createRoomTask, openRoom, roomGroup } from './fixtures/rooms.ts'
  */
 
 async function selectFirstRoomWithRooms(page: Page): Promise<boolean> {
-	const roomSelect = page.getByTestId('room-picker-room')
-	await expect(roomSelect).toBeVisible({ timeout: 15000 })
-	const optionValue = await roomSelect.locator('option').nth(1).getAttribute('value')
-	if (!optionValue) {
-		return false
-	}
-	await roomSelect.selectOption(optionValue)
-	return true
+	await expect(page.getByTestId('task-form').getByTestId('room-picker-toggle')).toBeVisible({ timeout: 15000 })
+	return chooseFormRoom(page)
 }
 
 test.describe('Task Creation and Completion', () => {
@@ -43,10 +38,12 @@ test.describe('Task Creation and Completion', () => {
 		await expect(taskNameInput).toBeVisible({ timeout: 15000 })
 
 		await taskNameInput.fill('Test Task - Vacuum Living Room')
-		await page.getByTestId('task-description-input').fill('Weekly vacuuming of the living room carpet')
 		await page.getByTestId('task-energy-select').selectOption('2')
+		await page.getByTestId('task-frequency-unit').selectOption('week')
+		// Description and priority sit folded under "More" (D-091-85).
+		await openFormMore(page)
+		await page.getByTestId('task-description-input').fill('Weekly vacuuming of the living room carpet')
 		await page.getByTestId('task-priority-select').selectOption('2')
-		await page.getByTestId('task-frequency-type').selectOption('weekly')
 
 		// Unified creation (CS-PLAN-038): a room is required; saving chains
 		// the definition POST with the room-task materialization POST.
@@ -97,13 +94,12 @@ test.describe('Task Creation and Completion', () => {
 		const room = await openRoom(page, 'Living Room', { orFirst: true })
 
 		await roomGroup(page, room).getByTestId('room-add-task-button').click()
-		await expect(page.getByTestId('add-task-picker')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('task-form')).toBeVisible({ timeout: 15000 })
 
-		// Switch to the custom-task tab; the room is preset and locked.
-		await page.getByTestId('picker-tab-custom').click()
+		// The one form opens with the room of the heading chosen.
 		const taskNameInput = page.getByTestId('task-name-input')
 		await expect(taskNameInput).toBeVisible({ timeout: 15000 })
-		await expect(page.getByTestId('room-picker-locked')).toBeVisible()
+		await expect(page.getByTestId('task-form').getByTestId('room-picker-toggle')).toContainText(room.name)
 
 		await taskNameInput.fill('Custom room task')
 

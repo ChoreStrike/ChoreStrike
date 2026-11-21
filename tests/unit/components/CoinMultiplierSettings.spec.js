@@ -10,7 +10,7 @@ import BonusDaysBanner from '../../../src/components/Today/BonusDaysBanner.vue'
 import BonusDaysSettings from '../../../src/components/Settings/BonusDaysSettings.vue'
 import CoinFactorSettings from '../../../src/components/Settings/CoinFactorSettings.vue'
 import RewardSettings from '../../../src/components/Settings/RewardSettings.vue'
-import { showServerRefusal } from '../../../src/utils/errorToast.js'
+import { showRefusal } from '../../../src/utils/errorToast.js'
 
 jest.mock('@nextcloud/l10n', () => ({
 	translate: (app, text, vars = {}) => Object.entries(vars).reduce((out, [key, value]) => out.replace(`{${key}}`, String(value)), text),
@@ -18,7 +18,7 @@ jest.mock('@nextcloud/l10n', () => ({
 jest.mock('@/utils/logger', () => ({
 	logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
 }))
-jest.mock('../../../src/utils/errorToast.js', () => ({ showServerRefusal: jest.fn() }))
+jest.mock('../../../src/utils/errorToast.js', () => ({ showRefusal: jest.fn() }))
 jest.mock('../../../src/components/Rewards/RewardCatalogEditor.vue', () => ({
 	name: 'RewardCatalogEditor',
 	template: '<div data-testid="catalog-editor-stub" />',
@@ -88,7 +88,7 @@ describe('coin multipliers', () => {
 			await select(wrapper, 0).setValue('2')
 			await flushPromises()
 
-			expect(showServerRefusal).toHaveBeenCalledWith(refusal, 'Could not save the coin factor')
+			expect(showRefusal).toHaveBeenCalledWith(refusal, 'Could not save the coin factor')
 			expect(wrapper.find('[data-testid="coin-factor-saved"]').exists()).toBe(false)
 			expect(select(wrapper, 0).element.disabled).toBe(false)
 		})
@@ -139,6 +139,32 @@ describe('coin multipliers', () => {
 			expect(mockHouseStore.cancelBonusPeriod).toHaveBeenCalledWith(3)
 		})
 
+		// RF-091-09: the swap of form and period is announced, and focus follows it.
+		it('announces the period and moves focus to the control that replaces the pressed one', async () => {
+			const period = { id: 3, startsOn: dayKey(0), endsOn: dayKey(0) }
+			mockHouseStore.startBonusPeriod.mockImplementation(async () => {
+				mockHouseStore.bonusPeriod = period
+				return period
+			})
+			mockHouseStore.cancelBonusPeriod.mockImplementation(async () => {
+				mockHouseStore.bonusPeriod = null
+			})
+			const wrapper = mount(BonusDaysSettings, { attachTo: document.body })
+			const status = () => wrapper.get('[role="status"]')
+			expect(status().text()).toBe('')
+
+			await wrapper.get('[data-testid="bonus-days-form"]').trigger('submit')
+			await flushPromises()
+			expect(status().text()).toBe('Running today')
+			expect(document.activeElement?.dataset.testid).toBe('bonus-days-cancel')
+
+			await wrapper.get('[data-testid="bonus-days-cancel"]').trigger('click')
+			await flushPromises()
+			expect(status().text()).toBe('')
+			expect(document.activeElement?.dataset.testid).toBe('bonus-days-start')
+			wrapper.unmount()
+		})
+
 		it('shows why the server refused to start them', async () => {
 			const refusal = Object.assign(new Error('Bonus days are already planned for this time'), { status: 409, code: 'CONFLICT' })
 			mockHouseStore.startBonusPeriod.mockRejectedValue(refusal)
@@ -147,8 +173,21 @@ describe('coin multipliers', () => {
 			await wrapper.get('[data-testid="bonus-days-form"]').trigger('submit')
 			await flushPromises()
 
-			expect(showServerRefusal).toHaveBeenCalledWith(refusal, 'Could not start the bonus days')
+			expect(showRefusal).toHaveBeenCalledWith(refusal, 'Could not start the bonus days')
 			expect(wrapper.get('[data-testid="bonus-days-submit"]').element.disabled).toBe(false)
+		})
+
+		it('shows why the server refused to cancel them and keeps the period', async () => {
+			const refusal = Object.assign(new Error('Owner role required'), { status: 403, code: 'FORBIDDEN' })
+			mockHouseStore.bonusPeriod = { id: 3, startsOn: dayKey(0), endsOn: dayKey(1) }
+			mockHouseStore.cancelBonusPeriod.mockRejectedValue(refusal)
+			const wrapper = mount(BonusDaysSettings)
+
+			await wrapper.get('[data-testid="bonus-days-cancel"]').trigger('click')
+			await flushPromises()
+
+			expect(showRefusal).toHaveBeenCalledWith(refusal, 'Could not cancel the bonus days')
+			expect(wrapper.find('[data-testid="bonus-days-period"]').exists()).toBe(true)
 		})
 	})
 

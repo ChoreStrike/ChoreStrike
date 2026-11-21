@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals'
-import { addDaysToKey, dateKeyInZone, daysBetweenKeys, formatDayKey, formatLongDayKey, todayKeyInZone, weekdayOfKey } from '../../../src/utils/dateKeys.js'
+import { addDaysToKey, dateKeyInZone, daysBetweenKeys, formatDayKey, formatLongDayKey, formatPastDayKey, todayKeyInZone, weekdayOfKey } from '../../../src/utils/dateKeys.js'
 
 describe('dateKeys (CS-PLAN-057 house-timezone day keys)', () => {
 	describe('dateKeyInZone', () => {
@@ -141,6 +141,19 @@ describe('dateKeys (CS-PLAN-057 house-timezone day keys)', () => {
 			expect(daysBetweenKeys('', '2026-11-11')).toBeNull()
 			expect(daysBetweenKeys('2026-11-11', null)).toBeNull()
 			expect(daysBetweenKeys('2026-11-11T08:00:00Z', '2026-11-12')).toBeNull()
+		})
+	})
+
+	// RF-091-09: a history entry from another year names its year.
+	describe('formatPastDayKey', () => {
+		it('formats a day of this year like formatDayKey and adds the year otherwise', () => {
+			expect(formatPastDayKey('2026-11-09', '2026-11-18')).toBe(formatDayKey('2026-11-09'))
+			expect(formatPastDayKey('2025-12-30', '2026-01-02')).toContain('2025')
+			expect(formatPastDayKey('2025-12-30', '2026-01-02')).not.toBe(formatDayKey('2025-12-30'))
+		})
+
+		it('shows the placeholder for no day', () => {
+			expect(formatPastDayKey(null, '2026-11-18')).toBe('—')
 		})
 	})
 })

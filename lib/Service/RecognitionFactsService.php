@@ -148,7 +148,7 @@ class RecognitionFactsService {
 				? $this->windows->cyclesThrough($roomTask, $task, $histories[$id] ?? null, $tz, $now, $toKey, $fromKey)
 				: array_filter([$this->windows->currentCycle($roomTask, $task, $histories[$id] ?? null, $tz, $now)]);
 			foreach (array_values($cycles) as $index => $cycle) {
-				if ($cycle->endOn < $fromKey || ($toKey !== null && $cycle->endOn > $toKey) || str_starts_with($cycle->key, 'p')) {
+				if ($cycle->endOn < $fromKey || ($toKey !== null && $cycle->endOn > $toKey) || $cycle->isProjected()) {
 					continue;
 				}
 				$state = match (true) {

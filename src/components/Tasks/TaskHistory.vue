@@ -5,7 +5,7 @@
 
 <template>
 	<section class="task-history" data-testid="task-history">
-		<h5 class="history-heading">
+		<h5 ref="heading" class="history-heading" tabindex="-1">
 			{{ t('chorestrike', 'History') }}
 		</h5>
 		<p v-if="failed"
@@ -21,7 +21,7 @@
 			{{ t('chorestrike', 'Loading…') }}
 		</p>
 		<p v-else-if="entries.length === 0" class="history-note" data-testid="task-history-empty">
-			{{ t('chorestrike', 'Not done yet.') }}
+			{{ t('chorestrike', 'Not done yet') }}
 		</p>
 		<ul v-else class="history-list">
 			<li v-for="entry in entries"
@@ -29,8 +29,8 @@
 				class="history-entry"
 				data-testid="task-history-entry">
 				<div class="history-line">
-					<strong>{{ formatDayKey(dayOf(entry)) }}</strong>
-					<span>· {{ peopleOf(entry) }}</span>
+					<strong>{{ formatPastDayKey(dayOf(entry), today) }}</strong>
+					<span>· {{ entryPeople(entry) }}</span>
 					<span v-if="entry.recordedForOthers" class="history-recorder" data-testid="task-history-recorder">
 						{{ t('chorestrike', 'recorded by {name}', { name: entry.displayName }) }}
 					</span>
@@ -40,6 +40,7 @@
 				<div v-if="entry.canCorrect" class="history-actions">
 					<template v-if="editingId === entry.id">
 						<input
+							:ref="(element) => { if (element) dateInput = element }"
 							v-model="draftDate"
 							type="date"
 							class="history-date"
@@ -57,12 +58,13 @@
 						<button type="button"
 							class="history-button"
 							:disabled="busy"
-							@click="editingId = null">
+							@click="stopEdit(entry)">
 							{{ t('chorestrike', 'Cancel') }}
 						</button>
 					</template>
 					<template v-else>
-						<button type="button"
+						<button :ref="(element) => { if (element) redateButtons[entry.id] = element }"
+							type="button"
 							class="history-button"
 							data-testid="task-history-redate"
 							@click="startEdit(entry)">
@@ -78,7 +80,8 @@
 				</div>
 			</li>
 		</ul>
-		<p v-if="!userStore.isHouseOwner && entries && entries.length > 0" class="history-note">
+		<!-- The note follows the rights the server granted, not the role. -->
+		<p v-if="entries && entries.some((entry) => !entry.canCorrect)" class="history-note" data-testid="task-history-rights">
 			{{ t('chorestrike', 'You can change or delete your own latest entry. Everything else is for the owner.') }}
 		</p>
 
@@ -95,13 +98,13 @@
 <script setup>
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { translate as t } from '@nextcloud/l10n'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import ConfirmDialog from '../Common/ConfirmDialog.vue'
 import { useHouseStore } from '../../store/house.js'
 import { useTaskCycleStore } from '../../store/taskCycle.js'
-import { useUserStore } from '../../store/user.js'
-import { dateKeyInZone, formatDayKey, todayKeyInZone } from '../../utils/dateKeys.js'
-import { showErrorWithReference, showHistoryError } from '../../utils/errorToast.js'
+import { dateKeyInZone, formatPastDayKey, todayKeyInZone } from '../../utils/dateKeys.js'
+import { showRefusal } from '../../utils/errorToast.js'
+import { entryPeople } from '../../utils/taskDisplay.js'
 
 /**
  * The history of one task in its opened row (CS-PLAN-091 WP-B3): who did
@@ -115,13 +118,17 @@ const props = defineProps({
 
 const taskCycleStore = useTaskCycleStore()
 const houseStore = useHouseStore()
-const userStore = useUserStore()
 
 const failed = ref(false)
 const busy = ref(false)
 const editingId = ref(null)
 const draftDate = ref('')
 const deleting = ref(null)
+// Focus moves into the date edit and back to its button (RF-091-09).
+// A ref: the template cannot assign a plain const.
+const dateInput = ref(null)
+const redateButtons = {}
+const heading = ref(null)
 
 const entries = computed(() => taskCycleStore.historyOf(props.roomTaskId))
 const today = computed(() => todayKeyInZone(houseStore.timezone))
@@ -135,16 +142,6 @@ function dayOf(entry) {
 	return entry.workDate ?? dateKeyInZone(entry.completedAt, houseStore.timezone)
 }
 
-/**
- * The people credited; a withheld split falls back to who recorded it.
- * @param {object} entry History entry.
- * @return {string}
- */
-function peopleOf(entry) {
-	const names = (entry.allocation ?? []).map((share) => share.displayName)
-	return names.length > 0 ? names.join(', ') : entry.displayName
-}
-
 async function load() {
 	failed.value = false
 	try {
@@ -155,19 +152,27 @@ async function load() {
 	}
 }
 
-function startEdit(entry) {
+async function startEdit(entry) {
 	draftDate.value = dayOf(entry)
 	editingId.value = entry.id
+	await nextTick()
+	dateInput.value?.focus()
+}
+
+async function stopEdit(entry) {
+	editingId.value = null
+	await nextTick()
+	redateButtons[entry.id]?.focus()
 }
 
 async function saveDate(entry) {
 	busy.value = true
 	try {
 		await taskCycleStore.changeDate(props.roomTaskId, entry, draftDate.value)
-		editingId.value = null
+		await stopEdit(entry)
 	} catch (error) {
 		// The store logged it; the toast tells the member.
-		showHistoryError(error)
+		showRefusal(error, t('chorestrike', 'Could not change the date'))
 	} finally {
 		busy.value = false
 	}
@@ -175,15 +180,26 @@ async function saveDate(entry) {
 
 async function confirmDelete() {
 	const entry = deleting.value
+	const index = entries.value?.findIndex((shown) => shown.id === entry.id) ?? -1
 	busy.value = true
+	let deleted = false
 	try {
 		await taskCycleStore.deleteEntry(props.roomTaskId, entry)
+		deleted = true
 	} catch (error) {
 		// The room-task store logged it; the toast tells the member.
-		showErrorWithReference(t('chorestrike', 'Could not delete the entry'), error)
+		showRefusal(error, t('chorestrike', 'Could not delete the entry'))
 	} finally {
 		busy.value = false
 		deleting.value = null
+	}
+	if (deleted) {
+		// The pressed button went with its entry: the entry that took its
+		// place gets the focus, else the heading.
+		await nextTick()
+		const next = entries.value?.[index] ?? entries.value?.[index - 1]
+		const button = next && next.id !== entry.id ? redateButtons[next.id] : null
+		;(button?.isConnected ? button : heading.value)?.focus()
 	}
 }
 
@@ -193,7 +209,8 @@ async function confirmDelete() {
  * @param {{roomTaskId?: ?number}} event The store's event.
  */
 function onTaskChanged(event) {
-	if (event?.roomTaskId === props.roomTaskId) {
+	// The store reads the history after its own delete: no second read here.
+	if (event?.roomTaskId === props.roomTaskId && deleting.value === null) {
 		load()
 	}
 }
@@ -289,6 +306,7 @@ onBeforeUnmount(() => {
 }
 
 .history-button:focus-visible,
+.history-heading:focus-visible,
 .history-date:focus-visible {
 	outline: 2px solid var(--color-main-text);
 	outline-offset: 2px;

@@ -6,13 +6,13 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals'
 import { flushPromises, mount } from '@vue/test-utils'
 import CompletionPicker from '../../../src/components/Tasks/CompletionPicker.vue'
-import { showErrorWithReference } from '../../../src/utils/errorToast.js'
+import { showRefusal } from '../../../src/utils/errorToast.js'
 
 jest.mock('@nextcloud/l10n', () => ({ translate: (app, text) => text }))
 jest.mock('@/utils/logger', () => ({
 	logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
 }))
-jest.mock('../../../src/utils/errorToast.js', () => ({ showErrorWithReference: jest.fn() }))
+jest.mock('../../../src/utils/errorToast.js', () => ({ showRefusal: jest.fn() }))
 jest.mock('@/components/Common/Modal.vue', () => ({
 	name: 'Modal',
 	props: ['ariaLabel'],
@@ -149,7 +149,10 @@ describe('CompletionPicker', () => {
 
 		const checklist = wrapper.findComponent({ name: 'TaskChecklist' })
 		expect(mockChecklistStore.fetchRoomTaskProgress).toHaveBeenCalledWith(11)
-		expect(checklist.props()).toMatchObject({ canEdit: false, roomTaskId: 11, taskId: 3, progress: [{ checklistItemId: 77, isChecked: true }] })
+		expect(checklist.props()).toMatchObject({ roomTaskId: 11, progress: [{ checklistItemId: 77, isChecked: true }] })
+		// Nothing the ticks-only checklist does not declare falls through to its markup.
+		expect(checklist.attributes('taskid')).toBeUndefined()
+		expect(checklist.attributes('canedit')).toBeUndefined()
 		expect(wrapper.get('[data-testid="picker-subtasks-note"]').text()).toContain('completes the task with every sub-task')
 
 		checklist.vm.$emit('toggle', { itemId: 78, roomTaskId: 11 })
@@ -160,7 +163,7 @@ describe('CompletionPicker', () => {
 		expect(wrapper.emitted('confirm')).toBeUndefined()
 	})
 
-	it('shows a failed tick and keeps the picker open', async () => {
+	it('shows why the server refused a tick, as the opened row does, and keeps the picker open', async () => {
 		mockChecklistStore.items[3] = [{ id: 77, label: 'Carpet' }]
 		const failure = Object.assign(new Error('stale'), { status: 409, code: 'STALE_TARGET' })
 		mockChecklistStore.toggleItem.mockRejectedValue(failure)
@@ -169,7 +172,7 @@ describe('CompletionPicker', () => {
 		wrapper.findComponent({ name: 'TaskChecklist' }).vm.$emit('toggle', { itemId: 77, roomTaskId: 11 })
 		await flushPromises()
 
-		expect(showErrorWithReference).toHaveBeenCalledWith('Could not update the checklist', failure)
+		expect(showRefusal).toHaveBeenCalledWith(failure, 'Could not update the checklist')
 		expect(wrapper.emitted('close')).toBeUndefined()
 	})
 

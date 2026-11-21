@@ -353,6 +353,7 @@ class RoomTaskReadServiceTest extends TestCase {
 			'centreOn' => $this->day('today'),
 			'state' => 'open',
 			'postponeCount' => 0,
+			'postponeLimit' => 3,
 			'canPostpone' => false,
 		], $facts[1]['block']);
 		$this->assertSame(['c77', $this->day('+5 days')], [$facts[4]['block']['cycleKey'], $facts[4]['block']['centreOn']], 'the next window follows the latest completion');

@@ -2,12 +2,14 @@
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
  *
- * E2E: Overdue Task Claiming — claim button, takeover confirmation, notification
+ * E2E: Overdue Task Claiming — taking over the overdue work of someone else
  *
- * Verifies the CS-PLAN-005 Phase 3 frontend contract:
- * - Overdue tasks assigned to another user show a "Claim & complete" button
- * - Clicking the button opens a confirmation dialog naming the original assignee
- * - Confirming the claim completes the task and records the takeover
+ * The claim button and its dialog went with the one task row (CS-PLAN-091
+ * WP-B6). Overdue work of someone else is taken over the way any work is
+ * recorded for someone: a short tap on Done opens the picker with the
+ * assignee ticked, and crediting oneself instead records the takeover.
+ * - Overdue rows are marked; work due today never is (D-084-08)
+ * - Taking over in the picker completes once and records the takeover
  * - Public overdue tasks are completable by non-assignees; private ones are denied
  *
  * Requires: Docker test environment with the `family` database profile.
@@ -74,107 +76,95 @@ test.describe('Overdue Task Claiming', () => {
 		return roomTaskId
 	}
 
-	test('overdue task assigned to another user shows claim button', async ({ browser }) => {
+	/** The household task list with every member's rows. */
+	async function openHouseholdList(page: Page): Promise<void> {
+		await page.goto('/apps/chorestrike/#/tasks')
+		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+		await page.getByTestId('tasks-filter-all').click()
+	}
+
+	test('overdue work of someone else is marked and Done opens the picker with the assignee ticked', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			// Dedicated probe (CS-PLAN-068): parallel-pool siblings also
 			// complete seeded Kitchen rows, so the seeded "Take out trash" is
-			// not a stable claim target — the probe is owned by this file.
-			const probeName = `Claim Button ${Date.now()}`
+			// not a stable target — the probe is owned by this file.
+			const probeName = `Claim Picker ${Date.now()}`
 			await createOverdueProbe(page, probeName, { assignees: ['dad'] })
+			await openHouseholdList(page)
 
-			// The claim affordance lives on the TaskManager task rows
-			// (TaskListItem), not on My Day.
-			await page.goto('/apps/chorestrike/#/tasks')
-			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
-			await page.getByTestId('tasks-filter-all').click()
-
-			const overdueRow = page.locator('[data-testid="task-item"]')
-				.filter({ hasText: probeName })
-				.first()
+			const overdueRow = page.getByTestId('task-item').filter({ hasText: probeName }).first()
 			await expect(overdueRow).toBeVisible({ timeout: 15000 })
-			await expect(overdueRow.getByTestId('claim-overdue-button')).toBeVisible()
+			await expect(overdueRow).toHaveClass(/overdue/)
+			// The picker reads the member names: gate on the row's resolved one first.
+			await expect(overdueRow.getByTestId('task-assignees')).toContainText('Dad')
+
+			// A short tap sends nothing; it asks who did the work.
+			const completions: string[] = []
+			page.on('request', (request) => {
+				if (request.method() === 'POST' && request.url().endsWith('/complete')) {
+					completions.push(request.url())
+				}
+			})
+			await overdueRow.getByTestId('complete-task-button').click()
+			const dialog = page.getByTestId('participation-dialog')
+			await expect(dialog).toBeVisible({ timeout: 10000 })
+			await expect(dialog.getByTestId('participant-row-dad')).toContainText('Dad')
+			await expect(dialog.getByTestId('participant-active-dad')).toBeChecked()
+			await expect(dialog.getByTestId('participant-active-mom')).not.toBeChecked()
+			await dialog.getByTestId('participation-cancel').click()
+			await expect(dialog).toHaveCount(0)
+			expect(completions).toEqual([])
 		} finally {
 			await context.close()
 		}
 	})
 
-	test('work due today is never overdue: no claim button for others (D-084-08)', async ({ browser }) => {
+	test('work due today is never overdue for someone else either (D-084-08)', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const probeName = `Due Today ${Date.now()}`
 			await createOverdueProbe(page, probeName, { assignees: ['dad'], firstDate: dayKey(0), expectedStatus: 'due_today' })
+			await openHouseholdList(page)
 
-			await page.goto('/apps/chorestrike/#/tasks')
-			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
-			await page.getByTestId('tasks-filter-all').click()
-			const row = page.locator('[data-testid="task-item"]').filter({ hasText: probeName }).first()
+			const row = page.getByTestId('task-item').filter({ hasText: probeName }).first()
 			await expect(row.getByTestId('task-assignees')).toContainText('Dad', { timeout: 15000 })
 			await expect(row).not.toHaveClass(/overdue/)
-			await expect(row.getByTestId('claim-overdue-button')).toHaveCount(0)
+			await expect(row.locator('.task-due')).not.toHaveClass(/overdue/)
 		} finally {
 			await context.close()
 		}
 	})
 
-	test('claim button opens confirmation dialog naming the assignee', async ({ browser }) => {
-		const { context, page } = await createUserContext(browser, 'mom')
-		try {
-			await createOverdueProbe(page, `Claim Dialog ${Date.now()}`, { assignees: ['dad'] })
-
-			await page.goto('/apps/chorestrike/#/tasks')
-			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
-			await page.getByTestId('tasks-filter-all').click()
-
-			const overdueRow = page.locator('[data-testid="task-item"]')
-				.filter({ hasText: 'Claim Dialog' })
-				.first()
-			await expect(overdueRow).toBeVisible({ timeout: 15000 })
-			// The claim dialog snapshots the assignee name when it opens, so
-			// gate on the row's resolved display name first (TaskManager
-			// loads members on mount; the raw fallback would be the lower-
-			// case user id and never re-renders inside the open dialog).
-			await expect(overdueRow.getByTestId('task-assignees')).toContainText('Dad')
-			await overdueRow.getByTestId('claim-overdue-button').click()
-
-			const dialog = page.getByTestId('overdue-claim-dialog')
-			await expect(dialog).toBeVisible({ timeout: 10000 })
-			// The member list resolves the original assignee's display name.
-			await expect(dialog).toContainText('Dad')
-			// The dialog is only observed here — confirming happens in the
-			// API takeover proof below, so the probe row stays claimable.
-			await dialog.locator('.secondary-button').click()
-		} finally {
-			await context.close()
-		}
-	})
-
-	test('confirming a claim in the UI completes it once and the next cycle returns to the assignee', async ({ browser }) => {
+	test('taking over in the picker completes it once and the next cycle returns to the assignee', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const probeName = `Claim Confirm ${Date.now()}`
 			const roomTaskId = await createOverdueProbe(page, probeName, { assignees: ['dad'] })
-
-			await page.goto('/apps/chorestrike/#/tasks')
-			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
-			await page.getByTestId('tasks-filter-all').click()
-			const overdueRow = page.locator('[data-testid="task-item"]').filter({ hasText: probeName }).first()
+			await openHouseholdList(page)
+			const overdueRow = page.getByTestId('task-item').filter({ hasText: probeName }).first()
 			await expect(overdueRow.getByTestId('task-assignees')).toContainText('Dad', { timeout: 15000 })
 
+			// Mom credits herself instead of dad: one confirmation, one completion.
+			await overdueRow.getByTestId('complete-task-button').click()
+			const dialog = page.getByTestId('participation-dialog')
+			await dialog.getByTestId('participant-active-dad').uncheck()
+			await dialog.getByTestId('participant-active-mom').check()
+			await dialog.getByTestId('participant-share-mom').fill('100')
 			const completion = page.waitForResponse((response) => response.request().method() === 'POST'
 				&& response.url().includes(`/room-tasks/${roomTaskId}/complete`))
-			await overdueRow.getByTestId('claim-overdue-button').click()
-			await page.getByTestId('overdue-claim-dialog').getByTestId('confirm-claim-button').click()
-			// One confirmation is the reviewed allocation: no second participation dialog.
-			expect((await completion).status()).toBe(200)
-			await expect(page.getByTestId('participation-dialog')).toHaveCount(0)
+			await dialog.getByTestId('participation-confirm').click()
+			const recorded = await completion
+			expect(recorded.status()).toBe(200)
+			expect(recorded.request().postDataJSON().participants).toEqual([{ userId: 'mom', sharePct: 100 }])
+			await expect(dialog).toHaveCount(0)
 			await expect(page.getByTestId(`undo-snackbar-entry-${roomTaskId}`)).toBeVisible({ timeout: 10000 })
 
 			const rows = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
 			const row = ((await rows.json()).data as Array<{ id: number, wasClaimed: boolean, claimedByUser: string, originalAssignee: string, assignees?: string[], status: string }>).find((item) => item.id === roomTaskId)
-			expect(row).toMatchObject({ wasClaimed: true, claimedByUser: 'mom', originalAssignee: 'dad' })
+			expect(row).toMatchObject({ wasClaimed: true, claimedByUser: 'mom', originalAssignee: 'dad', assignees: ['dad'] })
 			expect(row?.status, 'the claimed cycle is done; the next one is not overdue').not.toBe('overdue')
-			await expect(overdueRow.getByTestId('claim-overdue-button')).toHaveCount(0)
+			await expect(overdueRow).not.toHaveClass(/overdue/)
 			await expect(overdueRow.getByTestId('task-assignees')).toContainText('Dad')
 		} finally {
 			await context.close()

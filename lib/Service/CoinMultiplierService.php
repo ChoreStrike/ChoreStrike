@@ -71,15 +71,16 @@ class CoinMultiplierService {
 
 	/**
 	 * Start a bonus period of one to three house-local days, today or
-	 * later. Periods of a house do not overlap.
+	 * later. Periods of a house do not overlap. Answers, like the cancel,
+	 * with the period the house shows now ({@see runningOrNext()}).
 	 *
 	 * @param string $startsOn First day (`Y-m-d`)
 	 * @throws ForbiddenException the caller is not the owner
 	 * @throws ConflictException the period would overlap another one
 	 * @throws \InvalidArgumentException a day or length the period cannot take
 	 */
-	public function startPeriod(int $houseId, string $startsOn, int $days, string $commandId): BonusPeriod {
-		$command = $this->ownerCommand($houseId, $commandId, self::ACTION_PERIOD_START, ['startsOn' => $startsOn, 'days' => $days], function () use ($houseId, $startsOn, $days): array {
+	public function startPeriod(int $houseId, string $startsOn, int $days, string $commandId): ?BonusPeriod {
+		$this->ownerCommand($houseId, $commandId, self::ACTION_PERIOD_START, ['startsOn' => $startsOn, 'days' => $days], function () use ($houseId, $startsOn, $days): array {
 			$now = new \DateTime();
 			$this->assertPeriod($startsOn, $days, $this->calendar->dayKey($now, $this->calendar->getTimeZone($this->houseMapper->find($houseId))));
 			$endsOn = RecurrenceCalculator::offsetDays($startsOn, $days - 1);
@@ -95,19 +96,19 @@ class CoinMultiplierService {
 			$period->setCreatedAt($now);
 			return ['periodId' => (int)$this->periodMapper->insert($period)->getId()];
 		});
-		return $this->periodOrNotFound($houseId, (int)$command['result']['periodId']);
+		return $this->runningOrNext($this->houseMapper->find($houseId));
 	}
 
 	/**
 	 * Cancel a bonus period that has not ended. Completions recorded while
 	 * it ran keep the percent frozen on them. Cancelling a cancelled period
-	 * again changes nothing.
+	 * again changes nothing. Answers with the period the house shows now.
 	 *
 	 * @throws ForbiddenException the caller is not the owner
 	 * @throws NotFoundException an unknown period
 	 * @throws ConflictException the period has ended
 	 */
-	public function cancelPeriod(int $houseId, int $periodId, string $commandId): BonusPeriod {
+	public function cancelPeriod(int $houseId, int $periodId, string $commandId): ?BonusPeriod {
 		$this->ownerCommand($houseId, $commandId, self::ACTION_PERIOD_CANCEL, ['periodId' => $periodId], function () use ($houseId, $periodId): array {
 			$period = $this->periodOrNotFound($houseId, $periodId);
 			$now = new \DateTime();
@@ -121,7 +122,7 @@ class CoinMultiplierService {
 			}
 			return ['periodId' => $periodId];
 		});
-		return $this->periodOrNotFound($houseId, $periodId);
+		return $this->runningOrNext($this->houseMapper->find($houseId));
 	}
 
 	/**
@@ -179,13 +180,12 @@ class CoinMultiplierService {
 				if ((int)$this->authorization->requireHouseOwner($lockedHouseId)->getId() !== $actorId) {
 					throw new ForbiddenException($this->l10n->t('Not a member of this house'));
 				}
-			});
+			}, audited: true);
 	}
 
 	/** @throws \InvalidArgumentException */
 	private function assertPeriod(string $startsOn, int $days, string $today): void {
-		$day = $this->calendar->isDayKey($startsOn) ? \DateTime::createFromFormat('!Y-m-d', $startsOn, new \DateTimeZone('UTC')) : false;
-		if ($day === false || $day->format('Y-m-d') !== $startsOn) {
+		if (!$this->calendar->isRealDay($startsOn)) {
 			throw new \InvalidArgumentException($this->l10n->t('A valid date (Y-m-d) is required'));
 		}
 		if ($days < BonusPeriod::MIN_DAYS || $days > BonusPeriod::MAX_DAYS) {

@@ -5,11 +5,12 @@
 
 import { describe, it, expect } from '@jest/globals'
 import {
+	asleepLabel,
 	compareTaskItems,
+	entryPeople,
+	memberNames,
 	daysLabel,
 	isOverdue,
-	priorityClass,
-	priorityLabel,
 	frequencyLabel,
 	dueClass,
 	dueText,
@@ -65,21 +66,6 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 			expect(isOverdue({ isActive: true, nextDue: '2000-01-01T00:00:00Z', status: 'overdue' })).toBe(true)
 			expect(isOverdue({ isActive: true, nextDue: '2000-01-01T00:00:00Z', status: 'due_today' })).toBe(false)
 			expect(isOverdue({ isActive: true, status: 'overdue', cycle: null })).toBe(true)
-		})
-	})
-
-	describe('priorityClass / priorityLabel', () => {
-		it('maps 1..3 to low/medium/high and defaults to medium', () => {
-			expect(priorityClass(1)).toBe('low')
-			expect(priorityClass(2)).toBe('medium')
-			expect(priorityClass(3)).toBe('high')
-			expect(priorityClass(99)).toBe('medium')
-		})
-
-		it('labels the three stored priorities', () => {
-			expect(priorityLabel(1)).toBe('Low')
-			expect(priorityLabel(2)).toBe('Normal')
-			expect(priorityLabel(3)).toBe('High')
 		})
 	})
 
@@ -271,6 +257,31 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 			const bonus = { roomTask: { id: 1, nextDue: '2000-01-01T00:00:00Z', cycle: { state: 'bonus', expectedVersion: 0 } }, task: { priority: 3 } }
 			const dated = { roomTask: { id: 2, nextDue: '2030-05-10T00:00:00Z', cycle: { state: 'upcoming', windowEndOn: '2030-05-10' } }, task: { priority: 1 } }
 			expect([bonus, dated].sort(compareTaskItems).map(item => item.roomTask.id)).toEqual([2, 1])
+		})
+	})
+
+	// RF-091-09: one formatter each for member names, entry people and sleep.
+	describe('memberNames / entryPeople / asleepLabel', () => {
+		const members = [{ nextcloudUserId: 'mom', displayName: 'Parent' }, { nextcloudUserId: 'kid', displayName: 'Kid' }]
+
+		it('names members by their display name and falls back to the user ID', () => {
+			expect(memberNames(['kid', 'mom', 'gone'], members)).toBe('Kid, Parent, gone')
+			expect(memberNames([], members)).toBe('')
+			expect(memberNames(null, null)).toBe('')
+		})
+
+		it('names the people an entry credits, else who recorded it, else an unknown member', () => {
+			expect(entryPeople({ displayName: 'Dad', allocation: [{ displayName: 'Kid' }, { displayName: 'Mom' }] })).toBe('Kid, Mom')
+			expect(entryPeople({ displayName: 'Dad', allocation: [] })).toBe('Dad')
+			expect(entryPeople({ displayName: 'Dad', allocation: [{ displayName: null }] })).toBe('Dad')
+			expect(entryPeople({ displayName: '' })).toBe('Unknown member')
+			expect(entryPeople(undefined)).toBe('Unknown member')
+		})
+
+		it('says that a task sleeps, with its wake date when it has one', () => {
+			expect(asleepLabel({ state: 'asleep', wakeOn: null })).toBe('Asleep')
+			expect(asleepLabel({ state: 'asleep', wakeOn: '2026-12-24' })).toMatch(/^Asleep until .*24/)
+			expect(asleepLabel(null)).toBe('Asleep')
 		})
 	})
 })

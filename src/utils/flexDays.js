@@ -15,9 +15,6 @@ export const FLEX_DAYS_SANITY_MAX = 366
 /** Bound of a one-time task, which has no period. */
 export const FLEX_DAYS_ONE_TIME_MAX = 7
 
-/** Early completion of a fixed schedule is bounded by the 7-day agreement horizon. */
-export const FIXED_SCHEDULE_EARLY_DAYS = 7
-
 const UNIT_DAYS = { daily: 1, weekly: 7, monthly: 30 }
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 

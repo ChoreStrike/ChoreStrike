@@ -5,6 +5,7 @@ import { completeRoomTaskViaApi, newCommandId, resolveCycleReceipt } from './fix
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
 import { openSettings, openSettingsCategory } from './fixtures/settings.ts'
+import { openFormMore, putRoomTask } from './fixtures/task-form.ts'
 
 const API = '/apps/chorestrike/api/v1'
 
@@ -89,16 +90,22 @@ test.describe('Settings', () => {
 		const listed = (await dataOf(await page.request.get(`${API}/house`))).taskCategories
 		const created = listed.items.find((item: { label: string | null }) => item.label === name)
 		expect(created?.key).toMatch(/^c[0-9a-f]{8}$/)
-		const task = (await dataOf(await page.request.get(`${API}/tasks`)))[0]
+		// The one form's save (CS-PLAN-091 WP-B6) carries the category; a
+		// definition the seed shares between rooms changes in all of them.
+		const roomTask = (await dataOf(await page.request.get(`${API}/room-tasks`)))[0]
+		const task = (await dataOf(await page.request.get(`${API}/tasks`))).find((entry: { id: number }) => entry.id === roomTask.taskId)
+		const saveCategory = async (category: string) => {
+			await dataOf(await putRoomTask(page, roomTask.id, { task: { category }, scope: 'allRooms' }))
+		}
 		try {
-			await dataOf(await page.request.put(`${API}/tasks/${task.id}`, { data: { category: created.key } }))
+			await saveCategory(created.key)
 			await page.goto(`/apps/chorestrike/#/tasks?scope=all&category=${created.key}`)
 			await expect(page.getByTestId('category-filter')).toHaveValue(created.key, { timeout: 20000 })
 			const rows = page.getByTestId('task-item')
 			await expect(rows.filter({ hasText: task.name }).first()).toBeVisible({ timeout: 20000 })
 			await expect(rows.filter({ hasNotText: task.name })).toHaveCount(0)
 		} finally {
-			await dataOf(await page.request.put(`${API}/tasks/${task.id}`, { data: { category: task.category } }))
+			await saveCategory(task.category)
 			const current = (await dataOf(await page.request.get(`${API}/house`))).taskCategories
 			await dataOf(await page.request.put(`${API}/house/task-categories`, {
 				data: { revision: current.revision, items: current.items.filter((item: { key: string }) => item.key !== created.key) },
@@ -299,6 +306,8 @@ test.describe('Settings', () => {
 		await page.goto('/apps/chorestrike/#/tasks')
 		await page.getByTestId('add-task-button').click()
 		await expect(page.getByTestId('task-energy-select')).toBeVisible()
+		// Every select of the one form, the folded ones under "More" included.
+		await openFormMore(page)
 		expect(await clippedSelects(page.locator('body'))).toEqual([])
 	})
 

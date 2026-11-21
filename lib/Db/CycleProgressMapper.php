@@ -137,19 +137,40 @@ class CycleProgressMapper extends QBMapper {
 	}
 
 	/**
-	 * The stats of the ticks a caller already holds.
+	 * The stats of the ticks a caller already holds, over the sub-tasks the
+	 * definition has now: a tick of a removed sub-task counts no more.
 	 *
 	 * @param CycleProgress[] $rows The ticks of one cycle
+	 * @param int[] $itemIds The definition's current sub-tasks
 	 * @return array{total: int, checked: int, unchecked: int, percentage: float|int}
 	 */
-	public static function statsOf(array $rows, int $itemCount): array {
-		$checked = min($itemCount, count(array_filter($rows, static fn (CycleProgress $row): bool => $row->getIsChecked())));
+	public static function statsOf(array $rows, array $itemIds): array {
+		$itemCount = count($itemIds);
+		$checked = count(array_filter($rows, static fn (CycleProgress $row): bool => $row->getIsChecked() && in_array($row->getChecklistItemId(), $itemIds, true)));
 		return [
 			'total' => $itemCount,
 			'checked' => $checked,
 			'unchecked' => max(0, $itemCount - $checked),
 			'percentage' => $itemCount > 0 ? round(($checked / $itemCount) * 100, 1) : 0,
 		];
+	}
+
+	/**
+	 * Carry the ticks of one cycle over to the copies of their sub-tasks
+	 * (CS-PLAN-091 WP-B6): a room task that splits off a shared definition
+	 * keeps what was already ticked. Ticks of a sub-task without a copy stay
+	 * as they are.
+	 *
+	 * @param array<int, int> $itemMap Old sub-task id => its copy
+	 */
+	public function moveToItems(int $roomTaskId, string $cycleKey, array $itemMap): void {
+		foreach ($this->findByCycle($roomTaskId, $cycleKey) as $row) {
+			$copy = $itemMap[$row->getChecklistItemId()] ?? null;
+			if ($copy !== null) {
+				$row->setChecklistItemId($copy);
+				$this->update($row);
+			}
+		}
 	}
 
 	/**

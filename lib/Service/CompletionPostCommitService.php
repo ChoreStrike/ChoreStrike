@@ -67,6 +67,26 @@ class CompletionPostCommitService {
 	}
 
 	/**
+	 * Merge a post-commit result into a command's answer: the refreshed
+	 * weekly goal and whether the refresh degraded. Without a result (a
+	 * replay, a no-op) the answer stays as it is.
+	 *
+	 * @param array<string, mixed> $response
+	 * @param array{weeklyGoal: ?array<string, mixed>, degraded: bool}|null $post
+	 * @return array<string, mixed>
+	 */
+	public static function merge(array $response, ?array $post): array {
+		if ($post === null) {
+			return $response;
+		}
+		$response['rewards']['weeklyGoal'] = $post['weeklyGoal'];
+		if ($post['degraded']) {
+			$response['rewards']['degraded'] = true;
+		}
+		return $response;
+	}
+
+	/**
 	 * Run the post-commit phase of a correction that moves what a week
 	 * counts (an undo, a date correction): the weekly-goal refresh in the
 	 * same log-and-degrade boundary (D7); closed-week bell receipts are

@@ -7,7 +7,6 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
-use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -38,7 +37,6 @@ class RoomTaskServiceLoggingTest extends TestCase {
 		FloorMapper $floorMapper,
 		RoomService $roomService,
 		TaskAssigneeMapper $taskAssigneeMapper,
-		HouseUserMapper $houseUserMapper,
 		AppLogger $appLogger,
 	): RoomTaskService {
 		return new RoomTaskService(
@@ -62,14 +60,12 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			),
 			$roomService,
 			$taskAssigneeMapper,
-			$houseUserMapper,
 			$this->createMock(CompletedTaskMapper::class),
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			$this->createIdentityL10n(),
 			$appLogger,
 			$this->createMock(TaskAccessPolicy::class),
 			$this->createMock(AuthorizationService::class),
-			$this->createMock(\OCA\ChoreStrike\Service\CycleService::class),
 			new \OCA\ChoreStrike\Service\WindowService(new \OCA\ChoreStrike\Service\RecurrenceCalculator(), $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class))
 		);
 	}
@@ -88,7 +84,6 @@ class RoomTaskServiceLoggingTest extends TestCase {
 		$floorMapper = $this->createMock(FloorMapper::class);
 		$roomService = $this->createMock(RoomService::class);
 		$taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
-		$houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$appLogger = $this->createMock(AppLogger::class);
 
 		$roomTask = new RoomTask();
@@ -117,7 +112,6 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$floorMapper,
 			$roomService,
 			$taskAssigneeMapper,
-			$houseUserMapper,
 			$appLogger
 		);
 
@@ -125,70 +119,6 @@ class RoomTaskServiceLoggingTest extends TestCase {
 		$this->expectExceptionMessage('Room task not found');
 
 		$service->validateRoomTaskOwnership(10, 1);
-	}
-
-	/**
-	 * BulkAssignTasks_SkippedItem_LogsWithoutUserId.
-	 *
-	 * CR-SVC-09: the warning context must not contain the raw target
-	 * userId (privacy) — houseId and roomTaskId are sufficient context.
-	 * CS-PLAN-037: a foreign id never comes back from the house-scoped
-	 * fetch, so the skip is logged with a reason instead of an exception.
-	 */
-	public function testBulkAssignTasks_SkippedItem_LogsWithoutUserId(): void {
-		$roomTaskMapper = $this->createMock(RoomTaskMapper::class);
-		$taskMapper = $this->createMock(TaskMapper::class);
-		$roomMapper = $this->createMock(RoomMapper::class);
-		$floorMapper = $this->createMock(FloorMapper::class);
-		$roomService = $this->createMock(RoomService::class);
-		$taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
-		$houseUserMapper = $this->createMock(HouseUserMapper::class);
-		$appLogger = $this->createMock(AppLogger::class);
-
-		// The house-scoped fetch returns NOTHING for the foreign id 20.
-		$roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([]);
-
-		$member = new \OCA\ChoreStrike\Db\HouseUser();
-		$member->setNextcloudUserId('target-user');
-		$houseUserMapper->method('findByHouseId')->willReturn([$member]);
-
-		$appLogger->expects($this->once())
-			->method('warning')
-			->with(
-				'Bulk room task assignment skipped failed item',
-				$this->callback(function (array $context): bool {
-					return !array_key_exists('userId', $context)
-						&& $context['service'] === 'RoomTaskService'
-						&& $context['roomTaskId'] === 20
-						&& $context['houseId'] === 1
-						&& $context['reason'] === 'not_found_in_house';
-				})
-			);
-
-		$service = $this->createService(
-			$roomTaskMapper,
-			$taskMapper,
-			$roomMapper,
-			$floorMapper,
-			$roomService,
-			$taskAssigneeMapper,
-			$houseUserMapper,
-			$appLogger
-		);
-
-		$result = $service->bulkAssignTasks([20], 'target-user', 1, $this->createHouseUser());
-
-		$this->assertSame([], $result);
-	}
-
-	/**
-	 * HouseUser actor for the bulk-assign actor policy gate (CS-PLAN-061 §3.4).
-	 */
-	private function createHouseUser(string $userId = 'assigner', string $role = 'owner'): \OCA\ChoreStrike\Db\HouseUser {
-		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
-		$houseUser->setNextcloudUserId($userId);
-		$houseUser->setRole($role);
-		return $houseUser;
 	}
 
 	private function createIdentityL10n(): IL10N {

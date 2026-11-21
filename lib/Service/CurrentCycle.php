@@ -41,6 +41,25 @@ final class CurrentCycle {
 		return 'd' . $dayKey;
 	}
 
+	/**
+	 * The key of a projected after-completion cycle in a calendar range:
+	 * its anchor, a completion, does not exist yet, so it is never a
+	 * completion target ({@see isKey()} refuses it).
+	 */
+	public static function keyProjected(string $dayKey): string {
+		return 'p' . $dayKey;
+	}
+
+	/** The day a key of {@see keyOn()} hangs on; null for the key of another kind. */
+	public static function dayOfKey(string $key): ?string {
+		return str_starts_with($key, 'd') ? substr($key, 1) : null;
+	}
+
+	/** A cycle of {@see keyProjected()}: shown in a calendar range, never a fact. */
+	public function isProjected(): bool {
+		return str_starts_with($this->key, 'p');
+	}
+
 	/** Whether a client value has the shape of a cycle key (boundary validation). */
 	public static function isKey(mixed $value): bool {
 		return is_string($value) && preg_match('/^(c[1-9]\d{0,17}|d\d{4}-\d{2}-\d{2})$/D', $value) === 1;

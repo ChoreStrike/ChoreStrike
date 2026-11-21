@@ -31,6 +31,30 @@ export function assignmentLabel(userIds = [], members = []) {
 }
 
 /**
+ * The display names of members, in the given order; an id the list does
+ * not know shows as itself.
+ * @param {string[]} userIds Nextcloud user ids.
+ * @param {object[]} members Loaded household members.
+ * @return {string}
+ */
+export function memberNames(userIds = [], members = []) {
+	const namesById = new Map((members ?? []).map((member) => [member.nextcloudUserId, member.displayName]))
+	return (userIds ?? []).map((id) => namesById.get(id) || id).join(', ')
+}
+
+/**
+ * The people of a history or activity entry (RF-091-09, the one
+ * formatter): the ones its split credits, or who recorded it when the
+ * split is withheld.
+ * @param {object} entry Entry with `allocation` and `displayName`.
+ * @return {string}
+ */
+export function entryPeople(entry) {
+	const names = (entry?.allocation ?? []).map((share) => share.displayName).filter(Boolean)
+	return names.length > 0 ? names.join(', ') : (entry?.displayName || t('chorestrike', 'Unknown member'))
+}
+
+/**
  * The `cycle` block of a row (ADR-021): on the row itself in the My Day
  * reads, inside the room task in the task lists.
  * @param {?object} item Enriched row or flat room task payload.
@@ -74,24 +98,6 @@ export function isOverdue(roomTask) {
 		return roomTask.cycle.state === 'overdue'
 	}
 	return roomTask.status === 'overdue'
-}
-
-/**
- * Priority badge class for the stored 1..3 priority.
- * @param {number} priority Stored task priority.
- * @return {string}
- */
-export function priorityClass(priority) {
-	return { 1: 'low', 2: 'medium', 3: 'high' }[priority] || 'medium'
-}
-
-/**
- * Localized priority label for the stored 1..3 priority.
- * @param {number} priority Stored task priority.
- * @return {string}
- */
-export function priorityLabel(priority) {
-	return { 1: t('chorestrike', 'Low'), 2: t('chorestrike', 'Normal'), 3: t('chorestrike', 'High') }[priority]
 }
 
 /**
@@ -214,6 +220,17 @@ export function dueClass(roomTask, timezone) {
 }
 
 /**
+ * The one label of a sleeping task: until when it sleeps.
+ * @param {object} cycle The row's `cycle` block in the `asleep` state.
+ * @return {string}
+ */
+export function asleepLabel(cycle) {
+	return cycle?.wakeOn
+		? t('chorestrike', 'Asleep until {date}', { date: formatDayKey(cycle.wakeOn) })
+		: t('chorestrike', 'Asleep')
+}
+
+/**
  * Localized due-date text ("Overdue by …", "Due today", …) in house-local
  * days (CS-PLAN-084 D-084-08).
  * @param {object} roomTask Room task payload.
@@ -226,9 +243,7 @@ export function dueText(roomTask, timezone) {
 	}
 	// A sleeping task and a bonus task have no window (ADR-021 decisions 7 and 8).
 	if (roomTask.cycle?.state === 'asleep') {
-		return roomTask.cycle.wakeOn
-			? t('chorestrike', 'Asleep until {date}', { date: formatDayKey(roomTask.cycle.wakeOn) })
-			: t('chorestrike', 'Asleep')
+		return asleepLabel(roomTask.cycle)
 	}
 	if (roomTask.cycle?.state === 'bonus') {
 		return t('chorestrike', 'Bonus task')

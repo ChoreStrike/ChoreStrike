@@ -19,9 +19,7 @@
 			<TaskChecklist
 				:items="items"
 				:progress="checklistStore.getRoomTaskProgress(roomTaskId)"
-				:canEdit="false"
 				:roomTaskId="roomTaskId"
-				:taskId="taskId"
 				@toggle="toggle" />
 			<p class="picker-note" data-testid="picker-subtasks-note">
 				{{ t('chorestrike', 'Ticks are saved at once. “Done” completes the task with every sub-task.') }}
@@ -37,7 +35,7 @@ import ParticipationDialog from '../Common/ParticipationDialog.vue'
 import TaskChecklist from './TaskChecklist.vue'
 import { useChecklistStore } from '../../store/checklist.js'
 import { useUserStore } from '../../store/user.js'
-import { showErrorWithReference } from '../../utils/errorToast.js'
+import { showRefusal } from '../../utils/errorToast.js'
 import { logger } from '../../utils/logger.js'
 
 /**
@@ -123,7 +121,8 @@ async function toggle({ itemId, roomTaskId }) {
 	try {
 		await checklistStore.toggleItem(roomTaskId, itemId)
 	} catch (error) {
-		showErrorWithReference(t('chorestrike', 'Could not update the checklist'), error)
+		// The server's reason, as the opened row shows it.
+		showRefusal(error, t('chorestrike', 'Could not update the checklist'))
 		logger.error('Failed to toggle checklist item', error, { component: 'CompletionPicker', action: 'toggle', roomTaskId, itemId })
 	}
 }

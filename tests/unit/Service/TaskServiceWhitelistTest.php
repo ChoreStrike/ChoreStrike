@@ -18,7 +18,8 @@ use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for the updateTask mutable-field whitelist (CS-PLAN-011 S4).
+ * Unit tests for the closed field set of the one form (CS-PLAN-011 S4,
+ * CS-PLAN-091 WP-B6: {@see TaskService::FORM_FIELDS}).
  *
  * Verifies that only whitelisted columns may be mass-assigned and that any
  * other key is rejected with \InvalidArgumentException (→ 400), preventing
@@ -36,7 +37,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->authorization = $this->createMock(AuthorizationService::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
-		// updateTask denies non-viewers before the whitelist loop — the
+		// The gate denies non-viewers before the whitelist loop — the
 		// visibility matrix is exercised in TaskServiceTest; admit everyone
 		// here so the whitelist behavior stays isolated.
 		$this->taskAccessPolicy->method('canViewTask')->willReturn(true);
@@ -46,10 +47,7 @@ class TaskServiceWhitelistTest extends TestCase {
 			return $parameters === [] ? $pattern : vsprintf($pattern, array_map('strval', array_values($parameters)));
 		});
 
-		// CS-PLAN-071 WP0: updateTask writes run house-first; the under-lock
-		// task re-read returns the test's prepared entity (stubLockedTask).
-		$houseMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class);
-		$houseMapper->method('findForUpdate')->willReturn(new \OCA\ChoreStrike\Db\House());
+		// The under-lock task re-read returns the test's prepared entity (stubLockedTask).
 		$this->taskMapper->method('lockForUpdate')->willReturnCallback(function (): Task {
 			if ($this->lockedTask === null) {
 				throw new \LogicException('call stubLockedTask() for updateTask success-path tests');
@@ -63,16 +61,20 @@ class TaskServiceWhitelistTest extends TestCase {
 		$taskCategories->method('getList')->willReturn(['revision' => 0, 'items' => array_map(static fn (string $key): array => ['key' => $key, 'label' => null], \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS)]);
 		$this->service = new TaskService(
 			$this->taskMapper,
-			$houseMapper,
 			$this->createMock(\OCA\ChoreStrike\Db\RoomTaskMapper::class),
 			$l10n,
 			$this->authorization,
 			$this->taskAccessPolicy,
-			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			$this->createMock(\OCA\ChoreStrike\Service\CycleService::class),
-			new \OCA\ChoreStrike\Service\CalendarService(),
 			$taskCategories,
 		);
+	}
+
+	/** The definition part of the one form's save: the gate, then the locked write. */
+	private function update(int $taskId, array $updates, HouseUser $actor): Task {
+		$accepted = $this->service->prepareUpdate($this->taskMapper->find($taskId), $updates, $actor);
+		$locked = $this->taskMapper->lockForUpdate($taskId);
+		return $this->service->applyUnderLock($locked, clone $locked, $accepted);
 	}
 
 	/**
@@ -99,7 +101,7 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: bogusColumn');
-		$this->service->updateTask(1, ['bogusColumn' => 'evil'], $this->createHouseUser());
+		$this->update(1, ['bogusColumn' => 'evil'], $this->createHouseUser());
 	}
 
 	public function testUpdateTask_RejectsImmutableInternalColumn_WithInvalidArgument(): void {
@@ -111,7 +113,7 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: isTemplate');
-		$this->service->updateTask(1, ['isTemplate' => true], $this->createHouseUser());
+		$this->update(1, ['isTemplate' => true], $this->createHouseUser());
 	}
 
 	public function testUpdateTask_AppliesWhitelistedField(): void {
@@ -120,7 +122,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
 		$this->stubLockedTask($task);
 
-		$result = $this->service->updateTask(1, ['name' => 'Shiny New Name'], $this->createHouseUser());
+		$result = $this->update(1, ['name' => 'Shiny New Name'], $this->createHouseUser());
 
 		$this->assertSame('Shiny New Name', $result->getName());
 	}
@@ -139,7 +141,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$this->taskMapper->expects($this->never())->method('update');
 
 		try {
-			$this->service->updateTask(1, ['name' => null, 'energyCost' => 3], $this->createHouseUser());
+			$this->update(1, ['name' => null, 'energyCost' => 3], $this->createHouseUser());
 			$this->fail('A null name must be rejected by validation');
 		} catch (\OCA\ChoreStrike\Exception\ValidationException $e) {
 			$this->assertSame(['Task name is required'], $e->getErrors());
@@ -152,7 +154,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$this->taskMapper->method('update')->willReturnArgument(0);
 		$this->stubLockedTask($task);
 
-		$result = $this->service->updateTask(1, ['activeFrom' => '2026-01-15'], $this->createHouseUser());
+		$result = $this->update(1, ['activeFrom' => '2026-01-15'], $this->createHouseUser());
 
 		$this->assertInstanceOf(\DateTime::class, $result->getActiveFrom());
 		$this->assertSame('2026-01-15', $result->getActiveFrom()->format('Y-m-d'));
@@ -167,7 +169,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$this->taskMapper->method('update')->willReturnArgument(0);
 		$this->stubLockedTask($task);
 
-		$result = $this->service->updateTask(1, [
+		$result = $this->update(1, [
 			'name' => 'Multi',
 			'energyCost' => 3,
 			'priority' => 1,
@@ -187,7 +189,7 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: taskTier');
-		$this->service->updateTask(1, ['name' => 'Multi', 'taskTier' => 'gold'], $this->createHouseUser());
+		$this->update(1, ['name' => 'Multi', 'taskTier' => 'gold'], $this->createHouseUser());
 	}
 
 	public function testUpdateTask_RejectsMassAssignmentOfId(): void {
@@ -197,16 +199,15 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: id');
-		$this->service->updateTask(42, ['id' => 999], $this->createHouseUser());
+		$this->update(42, ['id' => 999], $this->createHouseUser());
 	}
 
 	/**
 	 * `isPrivate` is a legacy frontend shim that delegates to setVisibilityType.
-	 * It is intentionally NOT whitelisted: the controller normalizes it into
-	 * the canonical `visibilityType` and strips it before calling updateTask,
-	 * so the service rejects any `isPrivate` that reaches it (defense in depth
-	 * — prevents the shim from clobbering an admin-only value applied via
-	 * visibilityType).
+	 * It is intentionally NOT a field of the form: the canonical
+	 * `visibilityType` is the only visibility input, so the service rejects
+	 * any `isPrivate` (defense in depth — the shim can never clobber an
+	 * admin-only value applied via visibilityType).
 	 */
 	public function testUpdateTask_RejectsIsPrivateLegacyField(): void {
 		$task = new Task();
@@ -214,6 +215,6 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: isPrivate');
-		$this->service->updateTask(1, ['isPrivate' => true], $this->createHouseUser());
+		$this->update(1, ['isPrivate' => true], $this->createHouseUser());
 	}
 }

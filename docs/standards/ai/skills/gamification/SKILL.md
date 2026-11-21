@@ -73,7 +73,7 @@ describe the WP3 model as the shipped contract.
 - Attribution never rewrites the frozen work facts (time, zone, cycle key and
   window, total energy, rate), the room journal or the audit chain
   (`completion_revs` is append-only; a departed-not-erased actor renders as
-  the localized 'Removed member' placeholder).
+  the localized 'Former member' placeholder).
 - The date correction (`PUT /completions/{id}/date`, ADR-021 §9) is the one
   audited change of a work fact: it moves the work day between the days of the
   neighbouring entries, decides the classification again against the frozen

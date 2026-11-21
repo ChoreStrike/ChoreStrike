@@ -9,79 +9,83 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration\Service;
 
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Service\TaskCreationService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier;
+use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
- * Real-DB concurrency tests for the creation aggregate (CS-PLAN-063 §4).
+ * Real-DB concurrency tests for the one form's two writes (CS-PLAN-063 §4,
+ * CS-PLAN-091 WP-B6).
  *
  * The races are reproduced deterministically with two real connections (the
  * `proc_open` helper pattern from BootstrapConcurrencyTest, refined by
  * SetupApplyConcurrencyTest): the helper process plays the concurrent
  * winner (holds the house-row lock inside an uncommitted transaction), the
  * test process plays the loser whose aggregate blocks at the lock and then
- * either fails the under-lock duplicate recheck (mount race) or the
- * under-lock membership revalidation (removed-member race) — both with 400
- * and zero persisted writes.
+ * either fails the under-lock duplicate recheck of a move (409) or the
+ * under-lock membership revalidation of a create (400) — both with zero
+ * persisted writes.
  *
  * MariaDB/PostgreSQL use row locks; SQLite serializes real database writers.
  */
 class TaskCreationConcurrencyTest extends IntegrationTestCase {
+	use TaskEditing;
+
 	protected function setUp(): void {
 		parent::setUp();
 	}
 
 	/**
-	 * Two concurrent mounts of the same definition: exactly one room-task
-	 * row survives and the loser gets 400 — the duplicate guard is rechecked
-	 * under the house lock, so the loser sees the winner's committed row.
+	 * A room task moves into a room while a concurrent writer mounts the
+	 * same definition there: the move is rechecked under the house lock, so
+	 * the loser sees the winner's committed row, answers 409 and moves
+	 * nothing — the room holds the definition exactly once.
 	 */
-	public function testConcurrentMountRace_ExactlyOneRow_LoserGets400(): void {
-		$ownerUserId = 'tcc-mount-owner-' . uniqid();
+	public function testConcurrentMoveIntoAMountedRoom_ExactlyOneRow_LoserGets409(): void {
+		$ownerUserId = 'tcc-move-owner-' . uniqid();
 		$houseId = $this->createHouse($ownerUserId);
 		$floorId = $this->createFloor($houseId, 'Race Floor');
-		$roomId = $this->createRoom($houseId, $floorId, 'Race Room');
-		$taskId = $this->createTask($houseId, 'Race Mount Source');
+		$fromRoomId = $this->createRoom($houseId, $floorId, 'Race Room');
+		$toRoomId = $this->createRoom($houseId, $floorId, 'Race Target');
+		$taskId = $this->createTask($houseId, 'Race Move Source');
+		$roomTaskId = $this->assignTaskToRoom($taskId, $fromRoomId);
+		$actor = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)
+			->findByNextcloudUserId($houseId, $ownerUserId);
+		$edit = $this->formEdit($roomTaskId, ['roomId' => $toRoomId]);
 
-		// T1 (helper): lock the house row, insert the winning room task
-		// (uncommitted), signal, hold, commit.
-		$signalFile = sys_get_temp_dir() . '/cs-create-mount-race-' . uniqid();
-		$helperScript = sys_get_temp_dir() . '/cs-create-mount-holder-' . uniqid() . '.php';
+		// T1 (helper): lock the house row, mount the definition in the
+		// target room (uncommitted), signal, hold, commit.
+		$signalFile = sys_get_temp_dir() . '/cs-edit-move-race-' . uniqid();
+		$helperScript = sys_get_temp_dir() . '/cs-edit-move-holder-' . uniqid() . '.php';
 		file_put_contents($helperScript, $this->buildRoomTaskInsertHolderScript());
 
 		$process = proc_open(
-			[PHP_BINARY, $helperScript, (string)$houseId, $signalFile, (string)$roomId, (string)$taskId],
+			[PHP_BINARY, $helperScript, (string)$houseId, $signalFile, (string)$toRoomId, (string)$taskId],
 			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
 			$pipes
 		);
-		self::assertIsResource($process, 'failed to start the mount-race holder process');
+		self::assertIsResource($process, 'failed to start the move-race holder process');
 		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
 			while (!file_exists($signalFile)) {
 				if (microtime(true) > $deadline) {
-					self::fail('The mount-race holder did not acquire the house lock in time');
+					self::fail('The move-race holder did not acquire the house lock in time');
 				}
 				usleep(50000);
 			}
 
-			// T2 (this process): the aggregate blocks at findForUpdate until
-			// T1 commits, then the under-lock duplicate recheck must reject.
-			$service = \OC::$server->get(TaskCreationService::class);
-			$actor = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)
-				->findByNextcloudUserId($houseId, $ownerUserId);
-
+			// T2 (this process): the save blocks at the house lock until T1
+			// commits, then the under-lock duplicate recheck must refuse.
 			try {
-				$service->create($houseId, $actor, [
-					'roomId' => $roomId,
-					'taskId' => $taskId,
-				]);
-				self::fail('The racing loser mount must be rejected with 400');
-			} catch (\InvalidArgumentException $e) {
-				self::assertStringContainsString('already exists in room', $e->getMessage());
+				\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskEditService::class)->edit($houseId, $actor, $roomTaskId, $edit);
+				self::fail('The racing loser move must be refused with 409');
+			} catch (ConflictException $e) {
+				self::assertStringContainsString('already has this task', $e->getMessage());
 			}
 			self::assertTrue($barrier->wasReached());
 			QueryBarrier::finish($process, $pipes);
@@ -92,8 +96,8 @@ class TaskCreationConcurrencyTest extends IntegrationTestCase {
 			@unlink($helperScript);
 		}
 
-		// Exactly one room-task row survived the race.
-		self::assertSame(1, $this->countRoomTasksFor($roomId, $taskId), 'exactly one mount may survive the race');
+		self::assertSame(1, $this->countRoomTasksFor($toRoomId, $taskId), 'the target room holds the definition once');
+		self::assertSame(1, $this->countRoomTasksFor($fromRoomId, $taskId), 'the loser stayed where it was');
 	}
 
 	/**

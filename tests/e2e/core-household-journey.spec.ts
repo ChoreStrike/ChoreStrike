@@ -34,6 +34,7 @@ import { journeyClock } from './fixtures/house-clock.js'
 import { runOcc } from './fixtures/occ-runner.ts'
 import { listRooms, openRoom, roomGroup } from './fixtures/rooms.ts'
 import { openSettingsCategory } from './fixtures/settings.ts'
+import { addSubTasks, openFormMore, openRowDetails, setFlexDays } from './fixtures/task-form.ts'
 
 const DAD_EMAIL = 'dad@chorestrike.test'
 const KID_EMAIL = 'kid@chorestrike.test'
@@ -253,63 +254,67 @@ test.describe('Canonical household journey', () => {
 			try {
 				await openApp(page)
 
-				// ---- Custom task with instructions, flex window and assignee.
+				// ---- Custom task with instructions, flex window, assignee and
+				// sub-tasks: one save of the one form (CS-PLAN-091 WP-B6), which
+				// a room heading opens with the room chosen.
 				const kitchenGroup = roomGroup(page, await openRoom(page, 'Kitchen'))
 				await kitchenGroup.getByTestId('room-add-task-button').click()
-
-				// The unified picker opens on the template tab — switch to the
-				// custom form.
-				const picker = page.getByTestId('add-task-picker')
-				await expect(picker).toBeVisible()
-				await page.getByTestId('picker-tab-custom').click()
+				await expect(page.getByTestId('task-form')).toBeVisible()
 
 				await page.getByTestId('task-name-input').fill(CUSTOM_TASK)
-				await page.getByTestId('task-instructions-input').fill('Rinse everything, then load the racks.')
 				await page.getByTestId('task-energy-select').selectOption('2')
 				// Weekly: flex 3 fits its cap of 4; a daily rule caps at 1
 				// (FEAT-UX-039, half the period rounded up).
-				await page.getByTestId('task-frequency-type').selectOption('weekly')
+				await page.getByTestId('task-frequency-unit').selectOption('week')
 				// The candidate's first window hangs on house-local TODAY
 				// (flex 3 gives it a ± 3 day window) and it is assigned to
 				// the child right here, so the child's My Day shows it.
 				await page.getByTestId('task-next-due-input').fill(houseLocalDate(0))
 				await page.getByTestId('assignee-chip-kid').click()
-				await page.getByTestId('task-flex-days-input').fill('3')
+				await setFlexDays(page, 3)
+				await addSubTasks(page, ['Rinse plates', 'Load the racks'])
+				await openFormMore(page)
+				await page.getByTestId('task-instructions-input').fill('Rinse everything, then load the racks.')
+				const customResponse = page.waitForResponse((response) => response.request().method() === 'POST'
+					&& new URL(response.url()).pathname.endsWith('/api/v1/room-tasks'))
 				await page.getByTestId('save-task-button').click()
-				await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 20000 })
+				const customCreated = await customResponse
+				expect(customCreated.ok(), await customCreated.text()).toBeTruthy()
+				expect(customCreated.request().postDataJSON().checklistItems).toEqual([{ label: 'Rinse plates' }, { label: 'Load the racks' }])
+				await expect(page.getByTestId('task-form')).toHaveCount(0, { timeout: 20000 })
 
 				// ---- Second custom task: admin-only visibility probe.
 				await kitchenGroup.getByTestId('room-add-task-button').click()
-				const picker2 = page.getByTestId('add-task-picker')
-				await expect(picker2).toBeVisible()
-				await page.getByTestId('picker-tab-custom').click()
+				await expect(page.getByTestId('task-form')).toBeVisible()
 				await page.getByTestId('task-name-input').fill(ADMIN_TASK)
 				await page.getByTestId('task-energy-select').selectOption('1')
+				await openFormMore(page)
 				await page.getByTestId('task-visibility-select').selectOption('admin-only')
 				await page.getByTestId('save-task-button').click()
-				await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 20000 })
+				await expect(page.getByTestId('task-form')).toHaveCount(0, { timeout: 20000 })
 
-				// ---- Template-based task through the picker UI.
+				// ---- Template-based task: a template only fills the form
+				// (FEAT-UX-043); its targets stay tap-sized on a phone.
 				await kitchenGroup.getByTestId('room-add-task-button').click()
-				await expect(page.getByTestId('add-task-picker')).toBeVisible()
-				await page.getByTestId('picker-level-putzmuffel').click()
+				await expect(page.getByTestId('task-form')).toBeVisible()
 				await page.setViewportSize({ width: 390, height: 844 })
-				await page.getByTestId('picker-level-putzteufel').click()
-				await page.getByTestId('picker-level-putzmuffel').click()
-				const levelTarget = await page.getByTestId('picker-level-putzmuffel').boundingBox()
-				expect(levelTarget!.height).toBeGreaterThanOrEqual(44)
-				expect(levelTarget!.width).toBeGreaterThanOrEqual(44)
+				await page.getByTestId('task-template-open').click()
+				await page.getByTestId('task-template-room-type').selectOption('kitchen')
+				const templateTarget = await page.getByTestId('task-template-kitchen_sink').boundingBox()
+				expect(templateTarget!.height).toBeGreaterThanOrEqual(44)
+				await page.getByTestId('task-template-kitchen_sink').click()
+				await expect(page.getByTestId('task-name-input')).toHaveValue('Clean kitchen sink')
 				const templateResponse = page.waitForResponse((response) => response.request().method() === 'POST'
-					&& response.url().includes('/api/v1/room-tasks'))
-				await page.getByTestId('picker-template-kitchen_sink').click()
+					&& new URL(response.url()).pathname.endsWith('/api/v1/room-tasks'))
+				await page.getByTestId('save-task-button').click()
 				const templateCreated = await templateResponse
 				expect(templateCreated.ok()).toBeTruthy()
 				const templateTask = (await templateCreated.json()).data.task
+				expect(templateTask.name).toBe('Clean kitchen sink')
 				expect(templateTask.frequencyType).toBe('weekly')
-				expect(templateTask.frequencyValue).toBe(2)
-				expect(templateTask.estimatedMinutes).toBe(7)
+				expect(templateTask.frequencyValue).toBe(1)
 				await page.setViewportSize({ width: 1280, height: 720 })
-				await expect(page.getByTestId('add-task-picker')).toHaveCount(0, { timeout: 20000 })
+				await expect(page.getByTestId('task-form')).toHaveCount(0, { timeout: 20000 })
 
 				// ---- Persisted reads and a reload match the submitted values.
 				// The definition list carries name/instructions; the room-task
@@ -352,24 +357,9 @@ test.describe('Canonical household journey', () => {
 				await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 20000 })
 				await expect(page.getByTestId('room-task-list').getByText(CUSTOM_TASK)).toBeVisible({ timeout: 15000 })
 
-				// Checklist input through the owner edit surface (TaskManager);
-				// the editor opens via the add-item trigger (same pattern as
-				// task-checklist-and-features.spec.ts).
-				await page.getByTestId('nav-tasks').click()
-				await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
-				const taskRow = page.locator('[data-testid="task-item"]').filter({ hasText: CUSTOM_TASK }).first()
-				await expect(taskRow).toBeVisible({ timeout: 15000 })
-				await taskRow.locator('button[title="Show details"]').click()
-				await expect(page.getByTestId('task-checklist')).toBeVisible({ timeout: 15000 })
-				await page.locator('.add-item-trigger').first().click()
-				await page.getByTestId('checklist-new-item-input').fill('Rinse plates')
-				await page.getByTestId('checklist-add-item-button').click()
-				await expect(page.locator('[data-testid^="checklist-item-"]')).toHaveCount(1, { timeout: 15000 })
-				// The inline editor closes per item — reopen it for the second.
-				await page.locator('.add-item-trigger').first().click()
-				await page.getByTestId('checklist-new-item-input').fill('Load the racks')
-				await page.getByTestId('checklist-add-item-button').click()
-				await expect(page.locator('[data-testid^="checklist-item-"]')).toHaveCount(2, { timeout: 15000 })
+				// The sub-tasks the form sent belong to the definition, in order.
+				const items = await page.request.get(`/apps/chorestrike/api/v1/checklists/task/${definition!.id}`)
+				expect(((await items.json()).data as Array<{ label: string }>).map((item) => item.label)).toEqual(['Rinse plates', 'Load the racks'])
 			} finally {
 				await context.close()
 			}
@@ -442,12 +432,13 @@ test.describe('Canonical household journey', () => {
 				const row = kidPreview.page.locator('[data-testid="today-task-item"]').filter({ hasText: CUSTOM_TASK }).first()
 				await expect(row).toBeVisible({ timeout: 20000 })
 				await expect(row).toContainText('Kitchen')
-				await expect(row).toContainText('Rinse everything, then load the racks.')
+				// The opened row shows the instructions and the sub-tasks (CS-PLAN-091 WP-B6).
+				const details = await openRowDetails(row)
+				await expect(details).toContainText('Rinse everything, then load the racks.')
 
 				// Checklist progress is usable and persists per cycle; the
 				// checkbox input is visually hidden — click its label.
-				await kidPreview.page.getByTestId(`today-checklist-toggle-${flexRoomTaskId}`).click()
-				const checklistItem = kidPreview.page.locator('[data-testid^="checklist-item-"]').first()
+				const checklistItem = details.locator('[data-testid^="checklist-item-"]').first()
 				await expect(checklistItem).toBeVisible({ timeout: 15000 })
 				await checklistItem.locator('label.item-checkbox').click()
 				await expect(checklistItem.locator('input[type="checkbox"]')).toBeChecked({ timeout: 15000 })
@@ -561,11 +552,14 @@ test.describe('Canonical household journey', () => {
 				// The undone completion reopens the very same cycle.
 				expect(restored!.cycle).toMatchObject({ cycleKey: cycleKeyBefore, state: 'open' })
 				expect(restored!.idealDueDate.startsWith(houseLocalDate(0))).toBeTruthy()
-				await kidAgain.page.getByTestId(`today-checklist-toggle-${flexRoomTaskId}`).click()
-				const progress = kidAgain.page.locator('[data-testid^="checklist-item-"] input[type="checkbox"]')
+				const againRow = kidAgain.page.locator('[data-testid="today-task-item"]').filter({ hasText: CUSTOM_TASK }).first()
+				const againDetails = await openRowDetails(againRow)
+				const progress = againDetails.locator('[data-testid^="checklist-item-"] input[type="checkbox"]')
+				// D-091-60: an undo keeps the ticks the completion set — the
+				// reopened cycle shows every sub-task done.
 				await expect(progress).toHaveCount(2)
 				await expect(progress.nth(0)).toBeChecked()
-				await expect(progress.nth(1)).not.toBeChecked()
+				await expect(progress.nth(1)).toBeChecked()
 			} finally {
 				await kidAgain.context.close()
 			}

@@ -165,7 +165,7 @@ class SetupApplyConcurrencyTest extends IntegrationTestCase {
 				$setupService->applySetup($houseId, $payload);
 				self::fail('The removed-member assignee must fail the under-lock revalidation');
 			} catch (\InvalidArgumentException $e) {
-				self::assertStringContainsString('Assignee is not a member', $e->getMessage());
+				self::assertStringContainsString('is not a member of this house', $e->getMessage());
 			}
 			self::assertTrue($barrier->wasReached());
 			QueryBarrier::finish($process, $pipes);

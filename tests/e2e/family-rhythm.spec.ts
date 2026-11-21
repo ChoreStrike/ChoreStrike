@@ -43,6 +43,7 @@ import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
 import { openRoom } from './fixtures/rooms.ts'
+import { openEditForm, putRoomTask } from './fixtures/task-form.ts'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const CYCLE_KEY_RE = /^(d\d{4}-\d{2}-\d{2}|c\d+)$/
@@ -125,11 +126,18 @@ test.describe('Family rhythm — derived cycles', () => {
 				expect(created.status(), await created.text()).toBe(200)
 				const id = (await created.json()).data.roomTask.id
 				await page.goto('/apps/chorestrike/#/tasks')
+				// The one form names the kind of rhythm, the fixed rule day and
+				// the read-only next window (CS-PLAN-091 WP-B6).
 				const row = page.getByTestId('task-item').filter({ hasText: name })
-				await row.getByRole('button', { name: 'Edit', exact: true }).click()
-				await expect(page.locator(`input[type="radio"][value="${mode}"]`)).toBeChecked()
-				await expect(page.getByText('Next due shifts based on when you complete the task', { exact: true })).toBeVisible()
-				await expect(page.getByText('Fixed schedule (e.g., every Monday 18:00)', { exact: true })).toBeVisible()
+				await openEditForm(page, row)
+				await expect(page.getByTestId(`task-rhythm-${mode === 'static' ? 'fixed' : 'after'}`)).toHaveAttribute('aria-pressed', 'true')
+				await expect(page.getByTestId(`task-rhythm-${mode === 'static' ? 'after' : 'fixed'}`)).toHaveAttribute('aria-pressed', 'false')
+				if (mode === 'static') {
+					await expect(page.getByTestId(`task-weekday-${weekday}`)).toHaveAttribute('aria-pressed', 'true')
+				}
+				await expect(page.getByTestId('task-next-window')).toContainText('Next window')
+				await page.getByTestId('task-cancel-button').click()
+				await expect(page.getByTestId('task-form')).toHaveCount(0)
 				await page.goto('/apps/chorestrike/#/today')
 				const button = page.getByTestId(`today-complete-button-${id}`)
 				await expect(page.getByTestId('today-section-catchup').getByTestId(`today-complete-button-${id}`)).toBeVisible()
@@ -288,11 +296,7 @@ test.describe('Family rhythm — derived cycles', () => {
 			// bumps its version (open work is not frozen).
 			const staleReceipt = await resolveCycleReceipt(page, roomTaskId)
 			expect(staleReceipt, 'the probe must expose a completable cycle').not.toBeNull()
-			const row = await readFlatRow(page, roomTaskId)
-			const edit = await page.request.put(`/apps/chorestrike/api/v1/tasks/${row!.taskId}`, {
-				data: { energyCost: 3 },
-				headers: { Accept: 'application/json' },
-			})
+			const edit = await putRoomTask(page, roomTaskId, { task: { energyCost: 3 } })
 			expect(edit.status(), await edit.text()).toBe(200)
 
 			// The stale receipt no longer matches the shown cycle → 409; the

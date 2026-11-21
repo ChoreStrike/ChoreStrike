@@ -8,17 +8,13 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
-use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
-use OCA\ChoreStrike\Exception\NotFoundException;
-use OCA\ChoreStrike\Exception\ValidationException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\IL10N;
 use OCP\IRequest;
 
 /**
@@ -30,21 +26,18 @@ class TaskController extends Controller {
 	private TaskService $taskService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
-	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
 		TaskService $taskService,
 		HouseService $houseService,
 		AuthorizationService $authService,
-		IL10N $l,
 		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->taskService = $taskService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
-		$this->l = $l;
 		$this->initializeControllerLogger($appLogger);
 	}
 
@@ -79,149 +72,10 @@ class TaskController extends Controller {
 		}
 	}
 
-	/**
-	 * Update task
-	 *
-	 * Envelope shaping and owner-gate mapping only — value validation is
-	 * service-owned (TaskService::updateTask → validateTaskData, CS-PLAN-063
-	 * §3.1). The definition-only create endpoint was pruned by the WP4
-	 * aggregate (POST /room-tasks).
-	 *
-	 * The closed top-level payload is read from the request parameters
-	 * (BUG-API-001 / D6): a dispatcher-resolved `array $updates` argument is
-	 * bound to a body key literally named `updates`, which the client's
-	 * top-level definition body never sends — every real HTTP call died on
-	 * a TypeError (500) before the controller body ran. Same fix pattern as
-	 * SchedulingController::memberUpdatesPayload (RF-065-05).
-	 *
-	 * @NoAdminRequired
-	 */
-	public function update(int $id): JSONResponse {
-		try {
-			$updates = $this->updatePayload();
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->assertHouseMember($house->getId());
-
-			// Load existing task through the visibility policy (defense in
-			// depth, CS-PLAN-061 §3.2): an invisible task is a 404 before any
-			// update logic runs.
-			$existingTask = $this->taskService->getVisibleTask($id, $houseUser);
-
-			// The canonical `visibilityType` is the sole visibility source of
-			// truth; any legacy `isPrivate` key still sent by a stale client
-			// is dropped (CS-PLAN-060 WP1 D1).
-			unset($updates['isPrivate']);
-
-			// Admin-only visibility requires owner role (both setting and unsetting)
-			if (isset($updates['visibilityType'])) {
-				$newVisibility = $updates['visibilityType'];
-				if ($newVisibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
-					return new JSONResponse([
-						'success' => false,
-						'error' => [
-							'code' => 'FORBIDDEN',
-							'message' => $this->l->t('Only house owners can set admin-only visibility')
-						]
-					], 403);
-				}
-				if ($existingTask->getVisibilityType() === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY
-					&& $newVisibility !== \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY
-					&& !$houseUser->isOwner()) {
-					return new JSONResponse([
-						'success' => false,
-						'error' => [
-							'code' => 'FORBIDDEN',
-							'message' => $this->l->t('Only house owners can change admin-only task visibility')
-						]
-					], 403);
-				}
-			}
-
-			// Prevent non-owners from reassigning task ownership
-			if (isset($updates['ownerUserId']) && !$houseUser->isOwner()) {
-				unset($updates['ownerUserId']);
-			}
-
-			// Taking a task private claims ownership for the caller when no
-			// owner is set. Otherwise a member could make a public task
-			// private with a null owner, orphaning it — reads then return
-			// 404 for every user (null !== any userId), so the task would be
-			// invisible and un-updatable through the API.
-			$effectiveVisibility = $updates['visibilityType'] ?? $existingTask->getVisibilityType();
-			if ($effectiveVisibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE
-				&& !isset($updates['ownerUserId'])
-				&& $existingTask->getOwnerUserId() !== $houseUser->getNextcloudUserId()
-			) {
-				$updates['ownerUserId'] = $houseUser->getNextcloudUserId();
-			}
-
-			try {
-				$task = $this->taskService->updateTask($id, $updates, $houseUser);
-			} catch (ValidationException $e) {
-				// Service-owned value validation (CS-PLAN-063 §3.1) keeps
-				// the 400 envelope with the localized details[] list.
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'VALIDATION_ERROR',
-						'message' => $e->getMessage(),
-						'details' => $e->getErrors(),
-					]
-				], 400);
-			} catch (NotFoundException $e) {
-				// Defense-in-depth visibility denial from the service
-				// (CS-PLAN-061 §3.2) must preserve the 404 anti-enumeration
-				// contract — never a 403 that confirms the task exists.
-				return new JSONResponse([
-					'success' => false,
-					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
-				], 404);
-			}
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $task->jsonSerialize()
-			]);
-		} catch (NotFoundException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'RESOURCE_NOT_FOUND',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 404);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (ConflictException $e) {
-			// A refused change, no server error (BUG-UX-011).
-			return ControllerErrorFormatter::conflictResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('update', $e, ['taskId' => $id]);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'TASK_UPDATE_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
+	// `update` (PUT /tasks/{id}) was pruned 2026-11-18 (CS-PLAN-091 WP-B6):
+	// the one form saves the definition with its room task through the edit
+	// aggregate PUT /room-tasks/{id} (RoomTaskEditController).
 
 	// `uncomplete` was pruned 2026-09-06 (CS-PLAN-064, decision D5): the
 	// one idempotent undo operation is POST /room-tasks/{id}/undo.
-
-	/**
-	 * The closed task-update payload (BUG-API-001 / D6): every top-level
-	 * request key except the route internals (`id`, `_route`). Unknown keys
-	 * stay in the array so TaskService::validateTaskData rejects them
-	 * (closed shape); route parameters are never editable fields.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function updatePayload(): array {
-		$params = $this->request->getParams();
-		unset($params['id'], $params['_route']);
-		return $params;
-	}
 }

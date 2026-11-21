@@ -24,7 +24,7 @@ function mountFeed(items, props = {}) {
 	return mount(ActivityFeed, { props: { items, timezone: 'UTC', ...props } })
 }
 const row = (wrapper, id) => wrapper.get(`[data-testid="activity-row-${id}"]`)
-const share = (userId, coinMinor, sharePct = 100) => ({ userId, displayName: userId, sharePct, energyMinor: coinMinor / 10, coinMinor })
+const share = (userId, coinMinor, sharePct = 100) => ({ userId, displayName: userId[0].toUpperCase() + userId.slice(1), sharePct, energyMinor: coinMinor / 10, coinMinor })
 
 describe('ActivityFeed', () => {
 	afterEach(() => {
@@ -58,6 +58,16 @@ describe('ActivityFeed', () => {
 		])
 
 		expect(wrapper.get('[data-testid="activity-coins-1"]').text()).toBe('+40')
+		// RF-091-09: the line names everyone the split credits, as the history does.
+		expect(row(wrapper, 1).find('.activity-actor').text()).toBe('Mom, Kid')
+	})
+
+	it('names who recorded a completion whose split is withheld', () => {
+		const wrapper = mountFeed([
+			{ id: 1, displayName: 'Dad', taskTitle: 'T', completedAt: at('2026-11-12T08:00:00Z'), totalEnergy: 2, allocation: [] },
+		])
+
+		expect(row(wrapper, 1).find('.activity-actor').text()).toBe('Dad')
 	})
 
 	it('groups the lines by the household\'s day, today and yesterday by name', () => {
@@ -88,7 +98,7 @@ describe('ActivityFeed', () => {
 
 	it('marks undone lines, pays them no coins, and falls back for an unknown actor or task', () => {
 		const wrapper = mountFeed([
-			{ id: 1, displayName: '', taskTitle: '', roomName: 'Kitchen', completedAt: at('2026-11-12T08:00:00Z'), undoneAt: at('2026-11-12T08:05:00Z'), totalEnergy: 2, allocation: [share('mom', 2000)] },
+			{ id: 1, displayName: '', taskTitle: '', roomName: 'Kitchen', completedAt: at('2026-11-12T08:00:00Z'), undoneAt: at('2026-11-12T08:05:00Z'), totalEnergy: 2, allocation: [{ ...share('mom', 2000), displayName: null }] },
 		])
 
 		const item = wrapper.get('[data-testid="activity-item"]')
@@ -197,7 +207,7 @@ describe('ActivityFeed', () => {
 	describe('what happened besides completions (CS-PLAN-091 WP-B3)', () => {
 		const completion = { id: 1, displayName: 'Mom', taskTitle: 'Dishes', completedAt: at('2026-11-12T08:00:00Z'), totalEnergy: 2 }
 		const events = [
-			{ type: 'postponed', at: at('2026-11-12T09:00:00Z'), displayName: 'Kid', taskTitle: 'Tidy room', roomTaskId: 4, postponeCount: 2 },
+			{ type: 'postponed', at: at('2026-11-12T09:00:00Z'), displayName: 'Kid', taskTitle: 'Tidy room', roomTaskId: 4, postponeCount: 2, postponeLimit: 3 },
 			{ type: 'date_changed', at: at('2026-11-12T07:00:00Z'), displayName: 'Mom', taskTitle: null, roomTaskId: 5, completionId: 9 },
 			{ type: 'deleted', at: at('2026-11-11T18:00:00Z'), displayName: 'Dad', taskTitle: 'Vacuum', roomTaskId: 6, completionId: 8 },
 			// The owner entered the kid's absence: the line's person is the owner.
@@ -212,7 +222,7 @@ describe('ActivityFeed', () => {
 			expect(today.map((line) => line.attributes('data-testid'))).toEqual(['activity-event-postponed', 'activity-item', 'activity-event-date_changed'])
 			expect(today[0].text()).toContain('Kid')
 			expect(today[0].find('.activity-task').text()).toBe('{task} postponed')
-			expect(today[0].find('.activity-count').text()).toBe('{count} of 3')
+			expect(today[0].find('.activity-count').text()).toBe('{count} of {limit}')
 			// A withheld title falls back like a completion's does.
 			expect(today[2].find('.activity-task').text()).toBe('{task}: date changed')
 
@@ -227,7 +237,8 @@ describe('ActivityFeed', () => {
 			mountFeed([], { events })
 
 			expect(translate).toHaveBeenCalledWith('chorestrike', '{task} postponed', { task: 'Tidy room' })
-			expect(translate).toHaveBeenCalledWith('chorestrike', '{count} of 3', { count: 2 })
+			// The limit is the server's, not a constant of the client.
+			expect(translate).toHaveBeenCalledWith('chorestrike', '{count} of {limit}', { count: 2, limit: 3 })
 			expect(translate).toHaveBeenCalledWith('chorestrike', '{task}: date changed', { task: 'Unknown task' })
 			expect(translate).toHaveBeenCalledWith('chorestrike', '{task}: entry deleted', { task: 'Vacuum' })
 			// The absent person is named, in whole sentences per kind.

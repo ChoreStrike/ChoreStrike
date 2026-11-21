@@ -23,7 +23,7 @@ import { logger } from '../utils/logger.js'
 export function useTaskCompletion({ roomTasksStore, view, onCompleted }) {
 	/**
 	 * @param {number} roomTaskId The shown row.
-	 * @param {?object} [split] The picker's or an overdue claim's reviewed split; absent, the server credits the default one.
+	 * @param {?object} [split] The picker's reviewed split; absent, the server credits the default one.
 	 */
 	async function requestCompletion(roomTaskId, split = null) {
 		try {

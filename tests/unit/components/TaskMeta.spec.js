@@ -31,12 +31,19 @@ describe('TaskMeta', () => {
 		expect(tokens.match(/--cs-energy:/g)).toHaveLength(3)
 	})
 
-	it('shows the energy in the main text colour on an overdue task row (RF-090-40)', () => {
-		// The energy hues reach 4.5:1 on the ordinary backgrounds only; on the
-		// overdue row's --color-error-hover they fall to about 3.9:1 (light theme).
-		const row = readFileSync(resolve(__dirname, '../../../src/components/Tasks/TaskListItem.vue'), 'utf8')
+	it('keeps the energy on an ordinary background on an overdue task row (RF-090-40)', () => {
+		// The energy hues reach 4.5:1 on the ordinary backgrounds only; on an
+		// --color-error-hover tint they fall to about 3.9:1 (light theme). The
+		// one task row (CS-PLAN-091 WP-B6) is a card on the main background
+		// and marks overdue work by its border: a tint under it would need
+		// the energy in the main text colour again.
+		const row = readFileSync(resolve(__dirname, '../../../src/components/Tasks/TaskRow.vue'), 'utf8')
+		const card = row.match(/\.task-row-group\s*\{([^}]*)\}/)
+		const overdue = row.match(/\.task-row-group\.overdue\s*\{([^}]*)\}/)
 
-		expect(row).toMatch(/\.task-item\.overdue\s*\{[^}]*background:\s*var\(--color-error-hover\)/)
-		expect(row).toMatch(/\.task-item\.overdue :deep\(\.meta-item\.energy\)\s*\{\s*color:\s*var\(--color-main-text\);?\s*\}/)
+		// The card's own background also keeps the row off the red block of Today.
+		expect(card[1]).toMatch(/background:\s*var\(--color-main-background\)/)
+		expect(overdue[1]).toMatch(/border-color:\s*var\(--color-element-error\)/)
+		expect(overdue[1]).not.toMatch(/background/)
 	})
 })

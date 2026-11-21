@@ -49,7 +49,7 @@ class HouseService {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private WalletService $walletService;
 	private RewardConfigService $rewardConfigService;
-	private CycleService $cycleService;
+	private CycleProjection $cycleProjection;
 	private PauseService $pauseService;
 	private RoomReplayService $roomReplayService;
 	private CommandService $commandService;
@@ -79,7 +79,7 @@ class HouseService {
 		TaskAssigneeMapper $taskAssigneeMapper,
 		WalletService $walletService,
 		RewardConfigService $rewardConfigService,
-		CycleService $cycleService,
+		CycleProjection $cycleProjection,
 		PauseService $pauseService,
 		RoomReplayService $roomReplayService,
 		CommandService $commandService,
@@ -108,7 +108,7 @@ class HouseService {
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->walletService = $walletService;
 		$this->rewardConfigService = $rewardConfigService;
-		$this->cycleService = $cycleService;
+		$this->cycleProjection = $cycleProjection;
 		$this->pauseService = $pauseService;
 		$this->roomReplayService = $roomReplayService;
 		$this->commandService = $commandService;
@@ -530,7 +530,7 @@ class HouseService {
 					// C5k: open windows are derived in the house zone, so they
 					// follow the change at once; closed cycles and completions
 					// keep the zone and days frozen on them (ADR-021).
-					$this->cycleService->reprojectHouseUnderLock($houseId, new \DateTimeZone($timezone), new \DateTime());
+					$this->cycleProjection->reprojectHouseUnderLock($houseId, new \DateTimeZone($timezone), new \DateTime());
 					// CS-PLAN-070 WP5 (C5k): pending digest slots re-resolve
 					// in the new zone under the 24-elapsed-hour spacing rule.
 					$this->digestScheduleService->reviseForZoneChangeUnderLock($houseId, $timezone, new \DateTime());
@@ -692,7 +692,7 @@ class HouseService {
 			if ((int)$owner->getId() !== $actorId) {
 				throw new ForbiddenException($this->l10n->t('Not a member of this house'));
 			}
-		});
+		}, audited: true);
 	}
 
 	/**

@@ -39,7 +39,7 @@ below.)*
 > entry states which work package it blocks (CS-PLAN-058 §2.2).
 
 ### [P2] FEAT-UX-040 — One task form for new and edit: recurrence, layout and controls
-**Status**: In Progress (CS-PLAN-091 WP-B6, active 2026-11-16); before: Backlog (Round 2, D-089-01; alpha.2 trial feedback 2026-10-24/26; needs operator feedback on design variants before any implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
+**Status**: In Progress (CS-PLAN-091 WP-B6, implemented 2026-11-19, the operator's GUI review 2026-11-21, interim Full review `PASS-WITH-FIXES` 2026-11-21); before: Backlog (Round 2, D-089-01; alpha.2 trial feedback 2026-10-24/26; needs operator feedback on design variants before any implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
 **Owning**: CS-PLAN-091 WP-B6 · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-050 · **Folded-in**: same mask for New Task and Edit Task with assignees and room (operator, 2026-10-26, CS-PLAN-088 feedback register #11); sub-tasks, assigned members, room picker and mode naming (operator, 2026-11-03, CS-PLAN-089 feedback register); first date, read-only next window, sleeping and bonus switches (operator, 2026-11-09, CONCEPT-002)
 **Source**: Operator feedback on the New Task dialog (2026-10-24), CS-PLAN-088 feedback register #4
 
@@ -50,13 +50,15 @@ Recurrence"; the preview repeats "Repeat". Two places for one setting confuse,
 and the size and grouping of the controls (six sections in one long scroll) need
 a second look.
 
-- [ ] Present two or three variants to the operator (for example presets as
+- [x] Present two or three variants to the operator (for example presets as
       quick-fill inside the Schedule section; room and assignees first; advanced
-      fields collapsed) and record the choice as a decision before coding.
-- [ ] Implement the chosen layout once for both entry points (*New Task* and *New*
+      fields collapsed) and record the choice as a decision before coding (the
+      simplified-core mockups; D-091-85 to D-091-88, 2026-11-18).
+- [x] Implement the chosen layout once for both entry points (*New Task* and *New*
       in a room heading, both in `TaskCreateDialog` since CS-PLAN-090 WP-C), keeping
-      the `data-testid` hooks the Playwright specs use.
-- [ ] Tests: Jest form specs and the affected browser scenarios updated.
+      the `data-testid` hooks the Playwright specs use (`TaskForm`, 2026-11-19; the
+      specs follow the form's hooks).
+- [x] Tests: Jest form specs and the affected browser scenarios updated.
 
 **Folded in 2026-10-26 (operator):** New Task and Edit Task should share one
 mask, with assignees and room in both. Today there are three: `TaskEditForm` in
@@ -64,13 +66,17 @@ create mode (room and assignees), `TaskEditForm` in edit mode in the Tasks tab
 (definition only) and `RoomTaskEditModal` in the room view (due date and
 assignees).
 
-- [ ] One mask for create and edit in both entry points; edit mode includes the
-      assignees (existing per-room-task assignee command) and the room.
-- [ ] Changing the room of an existing task needs a backend move command
+- [x] One mask for create and edit in both entry points; edit mode includes the
+      assignees (existing per-room-task assignee command) and the room (one
+      `PUT /room-tasks/{id}` carries both).
+- [x] Changing the room of an existing task needs a backend move command
       (house-scoped, under the room-task lock). Decide what moves along (open
       occurrence, assignees); every completion and journal entry stays with the
-      room it happened in. PHPUnit for the move and its history.
-- [ ] The edit mask states when the definition is shared by several rooms
+      room it happened in. PHPUnit for the move and its history (the move inside
+      the form's save: completions, closed cycles and assignees belong to the room
+      task and move with it, the room journal keeps every entry in its room;
+      `RoomTaskEditTest`).
+- [x] The edit mask states when the definition is shared by several rooms
       (see FEAT-UX-043).
 
 **Folded in 2026-11-04 (CS-PLAN-089 register G-1, G-2, G-3, T-4):** *Add* also
@@ -80,10 +86,10 @@ The room is picked with a button, first the floor, then the room. Sub-tasks and
 assigned members change only here, no longer in the task details. The family
 trial closes first (D-089-06).
 
-- [ ] Sub-tasks and assigned members are edited in the form only.
-- [ ] One saved form is one atomic write, so a refusal never leaves it partly
+- [x] Sub-tasks and assigned members are edited in the form only.
+- [x] One saved form is one atomic write, so a refusal never leaves it partly
       applied (the partial save of BUG-UX-011).
-- [ ] The mode names read clearly. Flex days already work in both modes (T-4
+- [x] The mode names read clearly (*After completion*, *Fixed day*, *Once*). Flex days already work in both modes (T-4
       needs no new behavior), but a mode called "Flexible" suggests otherwise.
 
 **Folded in 2026-11-09 (operator, CONCEPT-002):** the form shows the next window
@@ -174,7 +180,7 @@ goal, the rhythm and the ranking.
 
 - [x] Sleep and wake per room task; bonus as a definition property; *Today* lists bonus tasks
       (implemented 2026-11-18, D-091-65 to D-091-69; interim Full review `PASS-WITH-FIXES`, D-091-81 to D-091-84. The
-      sleep control and the bonus switch move into the one form with WP-B6, D-091-74).
+      sleep control and the bonus switch moved into the one form with WP-B6, 2026-11-19).
 - [x] Tests per CS-PLAN-091 §4 (WP-B4): `SleepAndBonusTest`, `WindowServiceTest`, the
       controller and store specs, and the browser scenario of a bonus day on *Today*.
 
@@ -522,7 +528,7 @@ deactivate/reactivate by filter (cf. the CS-PLAN-042 bulk-endpoint pattern).
 ---
 
 ### [P2] FEAT-UX-043 — Templates: copy instead of shared definitions, and a simple catalog picker
-**Status**: In Progress (CS-PLAN-091 WP-B6, form part only, active 2026-11-16); before: Backlog (Round 2, D-089-01; alpha.2 trial feedback 2026-10-26; operator feedback on a mockup before implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
+**Status**: In Progress (CS-PLAN-091 WP-B6, form part only, implemented 2026-11-19, interim Full review `PASS-WITH-FIXES` 2026-11-21); before: Backlog (Round 2, D-089-01; alpha.2 trial feedback 2026-10-26; operator feedback on a mockup before implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
 **Owning**: CS-PLAN-091 WP-B6, form part only · **Depends on**: CS-PLAN-080 · **Blocks**: — · **Folded-in**: *From template* in the one form (operator, 2026-11-03, CS-PLAN-089 feedback register)
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #12
 
@@ -544,12 +550,18 @@ them; Putzteufel means the same tasks plus more, with higher frequencies.
 Special sets such as pets (cats, …) and garden (the `outdoor` type has three
 templates today).
 
-- [ ] Decide the handling of existing shared definitions on the retained
+- [x] Decide the handling of existing shared definitions on the retained
       baseline. Recommended: no bulk rewrite; editing a definition mounted in
       several rooms asks "this room only / all rooms", and "this room only"
       splits off a copy for that room task while every completion, occurrence
-      and journal row stays valid. New setups create one definition per room.
-- [ ] Picker per the sketch, shown as a mockup first (together with FEAT-UX-040).
+      and journal row stays valid. New setups create one definition per room
+      (as recommended; D-091-88, implemented in WP-B6 2026-11-19).
+- [x] Picker per the sketch, shown as a mockup first (together with FEAT-UX-040)
+      (*From template* in the one form: room type, its templates with rhythm and
+      energy, a choice fills the form; WP-B6 2026-11-19).
+- [ ] The Putzmuffel ↔ Putzteufel switch in the picker, together with the catalog
+      content below (outside WP-B6's form part, D-091-96; the form fills the setup
+      wizard's default level until then).
 - [ ] Catalog content: Putzteufel a strict superset of Putzmuffel with equal or
       higher frequencies (enforced by a catalog test); new sets for pets and
       garden, plus proposals for the operator (e.g. plants, laundry, car/bike);
@@ -560,7 +572,7 @@ templates today).
 ---
 
 ### [P2] FEAT-UX-050 — Postpone, direct handover and no separate details view
-**Status**: In Progress (CS-PLAN-091 WP-B3, postpone implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18; the details view goes in WP-B6, the cleanliness route in WP-B7); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily execution
+**Status**: In Progress (CS-PLAN-091 WP-B3, postpone implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18; the details view went with WP-B6 2026-11-19, the cleanliness route goes in WP-B7); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily execution
 **Owning**: CS-PLAN-091 WP-B3 · **Depends on**: CS-PLAN-080, FEAT-UX-040, FEAT-UX-051 · **Blocks**: — · **Folded-in**: operator decisions of 2026-11-09 (CONCEPT-002)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-6, G-4, G-5, G-6
 
@@ -593,10 +605,11 @@ needed is for the owning plan to settle. Detail:
       postponement before code.
 - [x] Postpone implemented; no single-cycle handover and no restart home (CS-PLAN-091
       D-091-10); PHPUnit for the window, the limit, the target and the rights; browser
-      scenario (`PostponeAndHistoryTest`, `mobile-core`). Until WP-B6 the button sits in
-      the opened row of the task list (D-091-55).
-- [ ] The details view goes; checklist ticking moves to FEAT-UX-051 and editing to
-      FEAT-UX-040.
+      scenario (`PostponeAndHistoryTest`, `mobile-core`). Since WP-B6 the button sits in
+      the one opened row on *Today* and in the task list (D-091-55).
+- [x] The details view goes; checklist ticking moves to FEAT-UX-051 and editing to
+      FEAT-UX-040 (WP-B6 2026-11-19: `TaskRowDetails` holds the facts, the sub-tasks,
+      postpone, record for someone else, edit, sleep and the history).
 - [ ] The routes without a client go: `occurrence#catchUp` with the old writers (WP-B1)
       and `PUT /rooms/{id}/cleanliness` (WP-B7, D-089-09). Journal replay and read paths
       stay.
@@ -634,7 +647,7 @@ all sub-tasks as done.
 ---
 
 ### [P2] FEAT-UX-052 — Task history with owner corrections
-**Status**: In Progress (CS-PLAN-091 WP-B3, implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18; the history moves into the one row with WP-B6); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: review and correction
+**Status**: In Progress (CS-PLAN-091 WP-B3, implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18; the history moved into the one row with WP-B6 2026-11-19); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: review and correction
 **Owning**: CS-PLAN-091 WP-B3 · **Depends on**: CS-PLAN-080 · **Blocks**: — · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-5
 
@@ -658,9 +671,9 @@ window is no longer edited directly. Detail:
 
 - [x] ADR-014 and the concepts describe the date correction before code (ADR-021
       decision 9, WP-0).
-- [ ] History view per task, reachable from the one form (FEAT-UX-040). Implemented in
+- [x] History view per task, reachable from the one form (FEAT-UX-040). Implemented in
       the opened row of the task list (`GET /room-tasks/{id}/history`, D-091-54,
-      D-091-55); its place in the one row comes with WP-B6.
+      D-091-55); since WP-B6 it sits in the one opened row, next to *Edit*.
 - [x] Tests for all three corrections across coins, rhythm, weekly goal and room
       (`PostponeAndHistoryTest`, `CompletionCorrectionTest`,
       `CompletionUndoStateEqualityTest`).
@@ -686,7 +699,7 @@ neither, and rooms have no colour.
 
 ### [P3] FEAT-UX-058 — Household statistics
 **Status**: Backlog (Round 3, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: review and correction
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: a chart of cleanliness over time (operator, 2026-11-21, GUI review of CS-PLAN-091 WP-B6)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-5
 
 Which tasks get done regularly and which do not, also by category (D-089-04). The operator
@@ -694,6 +707,48 @@ would like this area to grow. It compares tasks, not people, so ADR-015 does not
 it reads the existing occurrence history.
 
 - [ ] Insights shows the first evaluations; the definitions of "regular" are written down.
+
+**Folded in 2026-11-21 (operator, GUI review of CS-PLAN-091 WP-B6):** a chart of the
+cleanliness over time, with a choice of what the axes show (house, floor or room; the
+period). It needs the derived cleanliness of FEAT-UX-071 and a value kept per room and day,
+because a past day cannot be derived again once rules and assignees have changed.
+
+- [ ] Chart of cleanliness over time with its choices; drawn in the app, no external
+      service.
+
+---
+
+### [P2] FEAT-UX-071 — Cleanliness derived from the due windows
+**Status**: Backlog (operator proposal in the GUI review of CS-PLAN-091 WP-B6, 2026-11-21; concept and ADR before any implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: review and correction
+**Owning**: unassigned · **Depends on**: FEAT-UX-068 · **Blocks**: — · **Folded-in**: —
+**Source**: Operator proposal (2026-11-21)
+
+A room's cleanliness is a stored value today: each completion raises it by an effect in the
+room journal (ADR-014). The operator proposes to derive it from the tasks' due windows, so
+that early work pays:
+
+- **Task:** 100 % from the day of the completion to the last flex day; then falling to 50 %
+  at the first flex day of the next window, and to 0 % one day after its last flex day.
+- **Room:** the mean of its tasks, weighted by their priority (1 to 3).
+- **Floor:** the mean of its rooms. **House:** the mean of all rooms, not of the floors.
+
+Open points for the concept (first assessment, 2026-11-21):
+
+- Which day ends the 100 % when work was early or late: the end of the fulfilled window, or
+  the completion day plus the flex days.
+- A household that does everything on the planned day stays near 75 %, and a daily task
+  without flex days reads 50 % every morning. Either that is the incentive, or 100 % holds
+  until the next window opens and falls inside it.
+- A task that was never done, sleeping, bonus, one-time and ended tasks, and a room without
+  tasks.
+- Private and admin-only tasks inside a value everyone sees.
+- What becomes of the stored value, the room journal with its retained entries, *Last
+  cleaned* and the house health that reads the cleanliness (an ADR next to ADR-014).
+
+- [ ] Concept and ADR: the curve, the edge cases, the retained journal.
+- [ ] One derivation next to `WindowService` for task, room, floor and house; PHPUnit for
+      the curve and the weights.
+- [ ] The room rows, floor headings and the house show the derived value; help text.
 
 ---
 

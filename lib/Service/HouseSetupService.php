@@ -138,7 +138,7 @@ class HouseSetupService {
 			// exactly one apply may ever pass this gate.
 			if ($this->floorMapper->countByHouseId($houseId) > 0) {
 				throw new ConflictException(
-					$this->l10n->t('The house is already set up. Use the per-room template picker instead.')
+					$this->l10n->t('The house is already set up. Add tasks in the task list instead.')
 				);
 			}
 
@@ -163,8 +163,7 @@ class HouseSetupService {
 				$this->houseMapper->update($house);
 			}
 
-			$createdTasks = [];
-			$taskEntities = [];
+			$materializedTemplates = [];
 			$skipped = [];
 			$taskCount = 0;
 			$roomTaskCount = 0;
@@ -196,68 +195,9 @@ class HouseSetupService {
 					$this->roomReplayService->recordBaseline($roomEntity);
 					$roomCount++;
 
-					$applicable = $this->templateService->getTemplatesForRoomType($room['roomType']);
-					foreach ($applicable as $template) {
-						if (($template['levels'][$level] ?? null) === null) {
-							// Template is level-exclusive (omitted from this plan).
-							// Report it for transparency without logging — this is
-							// expected behaviour, not the swallow-on-exception case.
-							if (!in_array($template['id'], $skipped, true)) {
-								$skipped[] = $template['id'];
-							}
-							continue;
-						}
-
-						$taskId = $createdTasks[$template['id']] ?? null;
-						if ($taskId === null) {
-							try {
-								$materialized = $this->templateService->materializeTemplate($template['id'], $level);
-							} catch (\InvalidArgumentException $e) {
-								// BUG-TEMPLATE-001: log every skip with context, never swallow silently.
-								$this->appLogger->warning('Setup wizard skipped template', [
-									'service' => 'HouseSetupService',
-									'event' => 'setup.skip-template',
-									'templateId' => $template['id'],
-									'level' => $level,
-									'reason' => $e->getMessage(),
-								]);
-								$skipped[] = $template['id'];
-								continue;
-							}
-
-							$task = $this->taskMapper->create(
-								name: $materialized['name'],
-								description: $materialized['description'],
-								energyCost: $materialized['energyCost'],
-								priority: $materialized['priority'],
-								frequencyType: $materialized['frequencyType'],
-								frequencyValue: $materialized['frequencyValue'],
-								estimatedMinutes: $materialized['estimatedMinutes'],
-								category: $materialized['category'],
-								scopeType: $materialized['scopeType'],
-								schedulingMode: $materialized['schedulingMode'],
-								instructions: $materialized['instructions'],
-							);
-							$taskId = $task->getId();
-							$createdTasks[$template['id']] = $taskId;
-							$taskEntities[$taskId] = $task;
-							$taskCount++;
-						}
-
-						$roomTask = $this->roomTaskMapper->create(
-							$roomEntity->getId(),
-							$taskId,
-							$nextDue
-						);
-						if (!empty($room['assigneeUserId'])) {
-							$this->taskAssigneeMapper->addAssignee(
-								$roomTask->getId(),
-								$room['assigneeUserId']
-							);
-						}
-						$this->cycleService->startUnderLock($roomTask, $taskEntities[$taskId], $firstDate, $timeZone, $now);
-						$roomTaskCount++;
-					}
+					$seeded = $this->seedRoomTasks($roomEntity, $room, $level, $materializedTemplates, $skipped, $firstDate, $nextDue, $timeZone, $now);
+					$taskCount += $seeded;
+					$roomTaskCount += $seeded;
 				}
 			}
 
@@ -294,6 +234,85 @@ class HouseSetupService {
 			'outcome' => 'applied',
 		]);
 		return $result;
+	}
+
+	/**
+	 * Give one new room the tasks of its type at the chosen level UNDER
+	 * LOCK. A template is materialized once for the whole setup, but every
+	 * room gets a definition of its own (D-091-88): an edit in one room
+	 * never changes another room's task. Each task starts on the first
+	 * date; a room task of this transaction has no completions to read.
+	 *
+	 * @param \OCA\ChoreStrike\Db\Room $roomEntity The room just created
+	 * @param array<string, mixed> $room The validated room of the payload
+	 * @param array<string, array<string, mixed>> $materialized Templates materialized so far, by id
+	 * @param string[] $skipped Templates the setup leaves out, for the result
+	 * @return int How many tasks the room got
+	 */
+	private function seedRoomTasks($roomEntity, array $room, string $level, array &$materialized, array &$skipped, string $firstDate, \DateTime $nextDue, \DateTimeZone $timeZone, \DateTime $now): int {
+		$seeded = 0;
+		foreach ($this->templateService->getTemplatesForRoomType($room['roomType']) as $template) {
+			if (($template['levels'][$level] ?? null) === null) {
+				// Template is level-exclusive (omitted from this plan).
+				// Report it for transparency without logging — this is
+				// expected behaviour, not the swallow-on-exception case.
+				if (!in_array($template['id'], $skipped, true)) {
+					$skipped[] = $template['id'];
+				}
+				continue;
+			}
+			$definition = $materialized[$template['id']] ?? $this->materialize($template['id'], $level, $skipped);
+			if ($definition === null) {
+				continue;
+			}
+			$materialized[$template['id']] = $definition;
+
+			$task = $this->taskMapper->create(
+				name: $definition['name'],
+				description: $definition['description'],
+				energyCost: $definition['energyCost'],
+				priority: $definition['priority'],
+				frequencyType: $definition['frequencyType'],
+				frequencyValue: $definition['frequencyValue'],
+				estimatedMinutes: $definition['estimatedMinutes'],
+				category: $definition['category'],
+				scopeType: $definition['scopeType'],
+				schedulingMode: $definition['schedulingMode'],
+				instructions: $definition['instructions'],
+			);
+			$roomTask = $this->roomTaskMapper->create($roomEntity->getId(), $task->getId(), $nextDue);
+			if (!empty($room['assigneeUserId'])) {
+				$this->taskAssigneeMapper->addAssignee($roomTask->getId(), $room['assigneeUserId']);
+			}
+			$this->cycleService->startUnderLock($roomTask, $task, $firstDate, $timeZone, $now, []);
+			$seeded++;
+		}
+		return $seeded;
+	}
+
+	/**
+	 * Materialize a template at the level; one that cannot be is logged,
+	 * reported as skipped and left out (BUG-TEMPLATE-001: never swallowed).
+	 *
+	 * @param string[] $skipped
+	 * @return array<string, mixed>|null
+	 */
+	private function materialize(string $templateId, string $level, array &$skipped): ?array {
+		try {
+			return $this->templateService->materializeTemplate($templateId, $level);
+		} catch (\InvalidArgumentException $e) {
+			$this->appLogger->warning('Setup wizard skipped template', [
+				'service' => 'HouseSetupService',
+				'event' => 'setup.skip-template',
+				'templateId' => $templateId,
+				'level' => $level,
+				'reason' => $e->getMessage(),
+			]);
+			if (!in_array($templateId, $skipped, true)) {
+				$skipped[] = $templateId;
+			}
+			return null;
+		}
 	}
 
 	/**
@@ -441,22 +460,15 @@ class HouseSetupService {
 	 * @throws \InvalidArgumentException
 	 */
 	private function revalidateAssignees(array $floors, int $houseId): void {
-		$checked = [];
+		$assignees = [];
 		foreach ($floors as $floor) {
 			foreach ($floor['rooms'] as $room) {
-				$assigneeUserId = $room['assigneeUserId'];
-				if ($assigneeUserId === null || isset($checked[$assigneeUserId])) {
-					continue;
-				}
-				$checked[$assigneeUserId] = true;
-
-				if ($this->houseUserMapper->findByHouseAndUser($houseId, $assigneeUserId) === null) {
-					throw new \InvalidArgumentException(
-						$this->l10n->t('Assignee is not a member of this house: %1$s', [$assigneeUserId])
-					);
+				if ($room['assigneeUserId'] !== null) {
+					$assignees[] = $room['assigneeUserId'];
 				}
 			}
 		}
+		$this->authorization->assertMembersUnderLock($houseId, $assignees);
 	}
 
 	/**

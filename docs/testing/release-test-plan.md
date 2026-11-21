@@ -43,7 +43,7 @@ the spec name. The manual tester may spot-check it but is not required to.
 | 7. Visibility & roles | full | full + new-feature focus | full |
 | 8. Gamification | full | full | full |
 | 9. Minigames (play-only) | smoke | full | full |
-| 10. Overdue claiming & teamwork | full | full | full |
+| 10. Recording for others & teamwork | full | full | full |
 | 11. Scheduling (member availability & energy) | full | full | full |
 | 12. Multi-user on one instance | full (Docker family) | full + real instance | full |
 | 13. Notifications | smoke | full | full |
@@ -169,18 +169,22 @@ Route surface: `task#*`, `room_task#*`, `checklist#*`.
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
-| Create task | Add a task (set energy, priority, frequency) | Task appears in the task list / room | `task-manager` |
+| Create task | Add a task through the one form (name, room, energy, rhythm with flex days, sub-tasks, first date; priority and category under *More*) | One request creates the task; it appears in the task list and the room | `task-manager`, `task-completion`, `core-household-journey` |
+| Edit task | Open a row, *Edit*, change name, rhythm, people and sub-tasks, save | One `PUT /room-tasks/{id}` writes everything or nothing; the row shows the change | `family-core-ux`, `RoomTaskEditTest` |
+| Edit a shared task | Edit a task the setup shares between two rooms | The form asks *Only this room* or *All rooms*; *Only this room* splits off a copy and keeps the history | `family-core-ux`, `RoomTaskEditTest` |
+| Move a task | Choose another room in the form, save | The task and its history move; the room journal keeps its entries | `RoomTaskEditTest` |
+| Delete task | *Delete task* in the form, confirm | The task leaves every list; what was done stays in the history | `RoomTaskServiceTest`, `TaskForm` Jest spec |
 | Longer task | Choose *Longer task* in the task dialog, enter 12, save, complete it | The hint names the daily budget; the task keeps 12 energy and pays 120 Coins | `task-completion`, `CompletionCorrectionTest` |
 | Complete task | Mark a room-task complete with the actual-work split | Work facts freeze (occurrence, work date/zone, total energy, rate); exact minor-unit wallet deltas post to the immutable ledger; the room journal records the requested effect (WP3 / ADR-014) | `task-completion`, `task-completion-full-flow`, `today-view` |
 | Undo completion | Use the snackbar undo action after completion | The targeted completion undo reverses the latest selected allocation exactly once: occurrence release, exact negative wallet deltas, room replay (the correction time never becomes `last_cleaned`), recognition recompute; idempotent, a second completion keeps the first entry's undo (UX-015 queue) | `release-task-lifecycle`, `task-completion`, `task-completion-full-flow`, `today-view` |
 | Correct the split (attribution) | Open a live completion from the Insights history, adjust the recorded participants | The reused participation form pre-fills the recorded split; the receipt-protected PUT re-accounts with exact wallet-union deltas (departed participants' retained wallets included) and the frozen work facts stay byte-identical (WP3 §3.4/§3.6) | `insights-flow` (owner attribution), `CompletionCorrectionTest`, `HouseMemberRemovalIntegrationTest` |
 | Replay a command | Retry the same completion/undo/attribution with the same command UUID | The stored outcome replays with zero repeated effects; a changed payload under the same UUID conflicts (CR-SVC-64) | PHPUnit `CommandServiceTest`, `CompletionConcurrencyTest`, `RoomReplayConcurrencyTest` |
-| Reschedule task | Change the due date | Due date updates | `release-task-lifecycle` |
+| First date | Set the first date of a task that was never done; try again after its first completion | The first window lies around the date; afterwards the form shows the next window read-only and the date stays | `RoomTaskEditTest`, `TaskFormParts` Jest spec |
 | Recurrence | Complete a recurring (daily/weekly/monthly) task | A new instance is generated per frequency | `family-rhythm` (occurrence receipt/replay/409 contract, CS-PLAN-072 WP1 / ADR-013); partial `today-view` (daily recurrence: completion shifts the next due out of today; weekly/monthly still manual) |
-| Assignees | Assign / unassign members; multi-assign | Assignee set persists; multi-assign works | `task-manager` |
+| Assignees | Assign / unassign members in the form; multi-assign | Assignee set persists; multi-assign works | `family-core-ux`, `mobile-core` |
 | Reactivate on undo | Undo a completion that deactivated a one-time room-task | The undo aggregate restores the recorded `isActive` before-state (no separate reactivate step; `release-task-lifecycle` posts the once-restoration via the undo response) | `release-task-lifecycle`, `task-completion-full-flow` |
-| Checklist items | Add / toggle / reorder / delete checklist items on a task | Progress tracked; room-task checklist progress updates | `task-checklist-and-features` |
-| Task templates (per-room picker) | Open a room's add-task flow, pick a template (filtered by room type + house-wide), adjust overrides, add | A room task is created from the template; custom-task path still works | `release-task-templates`, `TaskTemplatePicker` Jest spec |
+| Sub-tasks | Add / rename / reorder / remove sub-tasks in the form; tick them in the opened row | One save writes the list; ticks of the current cycle count; a removed sub-task's ticks stay as facts | `task-checklist-and-features`, `RoomTaskEditTest` |
+| Task templates (*From template*) | Open the form from a room, *From template*, pick a template of the room's type or the household's, adjust, save | The form is filled; the save creates a task of its own | `release-task-templates`, `task-checklist-and-features`, `TaskTemplateFill` Jest spec |
 
 ---
 
@@ -272,14 +276,14 @@ Route surface: `minigame#*`. Components: Snake, 2048, Memory (arcade section).
 
 ---
 
-## 10. Overdue Claiming & Shared Work
+## 10. Recording for Others & Shared Work
 
 Route surface: `room_task#overdueClaims/filteredDaily`, the completion work-split
 fields (`participants`/`allocationReviewed`).
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
-| Claim overdue task | Open the overdue-claim dialog; claim an overdue task | Task assigned to claimer; completed fairly | `overdue-task-claiming` |
+| Take over overdue work | Short tap on *Done* of someone else's overdue task, tick yourself, confirm | Completed once and credited to you as a takeover; the next cycle stays with the assignee | `overdue-task-claiming`, `mobile-core` |
 | Shared completion | Two members record the actual work split on one completion | Both wallets receive their exact minor-unit shares; the allocation revision is auditable (WP3 — no team bonus dimension) | `task-completion-full-flow`, `today-view`, `insights-flow` |
 | Split correction | A completer/owner corrects the recorded split afterwards | Exact union deltas re-account every named wallet; frozen work facts unchanged | `insights-flow`, PHPUnit `CompletionCorrectionTest` |
 
@@ -527,7 +531,7 @@ notifications no longer exist (ADR-016).
 | Phone landscape | Rotate to landscape | Layout adjusts without overflow | — |
 | Tablet | Open on a tablet-width viewport | Optimal, non-stretched layout | — |
 | Touch interactions | Tap, scroll, drag-to-reorder, open modals | Touch targets work; no missed taps or broken gestures | — |
-| Phone core set (emulated) | Today hold + undo, claim confirm, handover, reassignment, paged list, Today's status line and overdue block, Settings | Works on the Pixel 7 and iPhone 14 descriptors without horizontal overflow | **partial** `mobile-core` *(real fingers, screen readers and vibration: §14.1)* |
+| Phone core set (emulated) | Today hold + undo, takeover in the picker, recording for someone else, postpone and history in the opened row, reassignment in the form, paged list, Today's status line and overdue block, Settings | Works on the Pixel 7 and iPhone 14 descriptors without horizontal overflow | **partial** `mobile-core` *(real fingers, screen readers and vibration: §14.1)* |
 
 ### 14.1 Real-Device Checklist (CS-PLAN-084, operator)
 
@@ -541,13 +545,13 @@ release record (§18). It complements the gate and never replaces it.
 
 | # | Check | Expected |
 |---|---|---|
-| D1 | Child: Today, short tap on *Done* (the round check button) | Hint "Press and hold to confirm"; nothing is completed |
+| D1 | Child: Today, short tap on *Done* (the round check button) | The picker *Who did the work?* opens; nothing is completed until it is confirmed |
 | D2 | Child: press and hold *Done* (~0.6 s) | Ring fills, task completes once, check mark in the undo bar; Android vibrates briefly (iPhone: no vibration — expected) |
 | D3 | Child: start a hold, then scroll | The hold cancels, nothing is completed, the page scrolls |
 | D4 | Child: *Undo* in the undo bar | The task is open again |
-| D5 | Owner: claim an overdue task of another person | One confirmation dialog, no second dialog; the task stays with its assignee afterwards |
-| D6 | Owner: hand one occurrence to the child; child completes it | The child sees it on Today; next day it is back with the owner |
-| D7 | Owner: *All tasks* | 20 tasks per page, filters behind *Filters*, no sideways scrolling |
+| D5 | Owner: short tap on *Done* of another person's overdue task, tick yourself | One picker, no second dialog; the task stays with its assignee afterwards |
+| D6 | Owner: open a task with its arrow, *Edit*, change the room and the people, save | One save; the row shows the new room and people, its history stays |
+| D7 | Owner: *All tasks* | 20 tasks per page; *People* and the floor/room quick filter under the scope buttons, the rest behind *Filters*; no sideways scrolling |
 | D8 | Owner: Today's status line and overdue block | The four status tiles stand in one row without sideways scrolling; under *Everyone*, overdue work stands first in its red block; *Done* needs a hold |
 | D9 | Light and dark Nextcloud theme | Text, badges and buttons readable in both themes (follows the Nextcloud theme, not only the phone setting) |
 | D10 | Screen reader (TalkBack / VoiceOver) on *Done* | Announced with its hold hint; double-tap-and-hold completes it |
@@ -577,12 +581,12 @@ never names, account IDs or household details.
 
 | # | Check | Android | iPhone | Note |
 |---|---|---|---|---|
-| D1 | Child: Today, short tap on Done | | | |
+| D1 | Child: Today, short tap on Done opens the picker | | | |
 | D2 | Child: press and hold Done (~0.6 s) | | | |
 | D3 | Child: start a hold, then scroll | | | |
 | D4 | Child: Undo in the undo bar | | | |
-| D5 | Owner: claim an overdue task of another person | | | |
-| D6 | Owner: hand one occurrence to the child; child completes it | | | |
+| D5 | Owner: take over another person's overdue task in the picker | | | |
+| D6 | Owner: edit room and people of a task in the form | | | |
 | D7 | Owner: All tasks | | | |
 | D8 | Owner: Today's status line and overdue block | | | |
 | D9 | Light Nextcloud theme: text, badges and buttons readable | | | |
@@ -801,7 +805,7 @@ human-use evidence, publication or retained-baseline adoption is implied.
 - [ ] 7 Visibility & roles
 - [ ] 8 Gamification
 - [ ] 9 Minigames (play-only)
-- [ ] 10 Overdue claiming & shared work
+- [ ] 10 Recording for others & shared work
 - [ ] 11 Scheduling
 - [ ] 12 Multi-user on one instance
 - [ ] 13 Notifications

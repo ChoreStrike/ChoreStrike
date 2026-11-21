@@ -28,9 +28,9 @@ describe('ExpandChevron', () => {
 		'components/Settings/SettingsCategory.vue',
 		'components/Settings/StructureSettings.vue',
 		'views/TodayView.vue',
-		'components/Today/TodayTaskRow.vue',
 		'components/Tasks/TaskFilterBar.vue',
-		'components/Tasks/TaskListItem.vue',
+		// CS-PLAN-091 WP-B6: the one task row of Today and the task list.
+		'components/Tasks/TaskRow.vue',
 	])('is the expand mark of %s', (file) => {
 		const source = readFileSync(resolve(SRC, file), 'utf8')
 

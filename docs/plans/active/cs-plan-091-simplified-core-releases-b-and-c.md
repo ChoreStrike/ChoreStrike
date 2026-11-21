@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; RF-091-06 open for WP-B7, RF-091-09 and RF-091-10 for WP-B6; next: WP-B6)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; RF-091-06 open for WP-B7; next: WP-B7)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -413,6 +413,166 @@ How the approved fixes work:
   rows showed. Edits, sleeping and waking still move it. Extends D-091-68; ADR-021 §3
   and §8 amended.
 
+### Decisions for WP-B6 (operator, 2026-11-18)
+
+Asked before the first line of WP-B6; the operator chose the recommended option except
+for bulk assignment.
+
+- **D-091-85 Further fields fold under *More*:** the form shows what the mockup shows;
+  description, instructions, priority, category and visibility sit in a collapsed *More*
+  section at its end. The row drops the priority badge, and the description moves into the
+  opened row.
+- **D-091-86 A task is deleted from the form:** *Delete task* at the end of the edit form,
+  with a confirmation, for adults and the owner; the row's delete button goes.
+- **D-091-87 Bulk assignment goes:** assignees change in the form only (FEAT-UX-040); the
+  row checkbox, the bulk bar and `POST /room-tasks/bulk-assign` go.
+- **D-091-88 The setup wizard creates one definition per room:** new households start
+  without shared definitions; existing shared definitions split on edit (FEAT-UX-043, form
+  part).
+
+### Implementation decisions (WP-B6, for the interim review)
+
+Taken while implementing; each is open to the operator's GUI review and the interim review
+of WP-B6.
+Gates of the implementation round (2026-11-19, uncommitted tree on `1c962cf8`): Jest 185 suites /
+2584 tests, ESLint, stylelint, build, l10n (1287 keys), php-cs-fixer, docs encoding, backlog
+and adapter checks; PHPUnit unit 1845 and integration 680 on PostgreSQL (canonical), no skips;
+the browser gate's self-test and its regenerated scenario manifest; focused browser specs 32
+passed on `chromium` and 81 on `chromium-serial-db`, and the phone core set 11 passed each on
+`mobile-chromium` and `mobile-webkit`. Not run in this round: the MariaDB, SQLite and AIO rows
+and the proofs P1 to P3 (no schema step; the recovery fixture now writes sub-tasks through the
+form's save), which the interim Full review runs.
+
+- **D-091-89 One save, one command:** `PUT /room-tasks/{id}` takes `commandId`,
+  `expectedVersion` from the row's `cycle` block, the form's fields (`task`, `roomId`,
+  `assigneeUserIds`, `checklistItems`, `firstDate`, `sleeping`, `wakeOn`) and `scope`; every
+  field but the receipt is optional and an absent one stays. The receipt `room_task.edit`
+  keys the whole body, so a repeated command replays and a changed body under the same id
+  conflicts. Only definition values that differ from the stored ones count as a change, so a
+  save that changes nothing of a shared definition needs no scope. The answer is
+  `{ task, roomTask, assignees, checklistItems, cycle, replay }`.
+- **D-091-90 A move takes the room task's history along:** completions, closed cycles and
+  assignees belong to the room task and move with it; the room journal keeps every entry in
+  the room where it happened. A room that already holds the definition answers `409`, a
+  foreign room `404`. Settles FEAT-UX-040's open question of what moves.
+- **D-091-91 A split keeps every fact:** *this room* copies the definition and its sub-tasks
+  for this room task; the ticks of the current cycle follow their sub-tasks, and completions,
+  closed cycles and the journal stay as recorded. Without a scope the save answers
+  `409 SCOPE_REQUIRED` and writes nothing; the form asks and saves again.
+- **D-091-92 One window change per save:** a changed first date wins over a changed rule,
+  which wins over changed assignees; a split or a move alone only updates the row; the sleep
+  switch comes last. The first date changes only before the first completion (`409`
+  afterwards, D-091-19); a bonus task has no window and ignores it.
+- **D-091-93 Sub-tasks are part of the form:** the form sends the whole list; an entry with
+  the `id` of one of the task's sub-tasks keeps it, one without adds a sub-task, a missing
+  one goes, and its ticks stay as facts without counting. At most 50 entries of at most 255
+  characters. Adults and the owner edit them, as they edit everything else in the form (the
+  checklist editor of CS-PLAN-042 was the owner's). The four item write routes go, and with
+  them their audit log lines: the command receipt of the save names who changed what.
+- **D-091-94 What goes with the one form:** `PUT /tasks/{id}`, `POST /room-tasks/from-template`,
+  the mount variant of `POST /room-tasks`, `POST /room-tasks/bulk-assign` (D-091-87),
+  `GET|PUT /room-tasks/{id}/assignees` and the four checklist item writes (96 routes, pinned
+  by `RouteMatrixTest`). The creation takes `checklistItems`, `sleeping`, `wakeOn` and
+  `isVoluntary` in its one closed envelope. The overdue-claim dialog goes: recording for
+  someone else (WP-B2) covers it.
+- **D-091-95 The owner of a private task is claimed, not sent:** `ownerUserId` is no longer a
+  form field. A task that becomes private, or a private task without an owner, is claimed by
+  the member who saves it; an assignee's edit of a private task leaves its owner. The
+  transfer to another member through the update went.
+- **D-091-96 The template fill uses the default level:** *From template* lists the templates
+  of a room type, the chosen room's type first and the household's under every type (as the
+  per-room picker had them), and fills name, description, instructions,
+  energy, priority, category and the rhythm of the setup wizard's default level. The
+  Putzmuffel ↔ Putzteufel switch of the picker sketch stays with the catalog content of
+  FEAT-UX-043, which this plan does not take on.
+- **D-091-97 The energy field stays a select:** 1 to 5 and *Longer task* up to 20, as
+  before; the form only moves it next to the name.
+- **D-091-98 RF-091-10 shapes the structure:** postpone, sleep and the save share
+  `RoomTaskCommand` (lock, receipt, the guard with the member as they are now, the fresh
+  answer); `CycleService` hands the projection, the misses and sleep to `CycleProjection`,
+  `CycleMisses` and `CycleSleep`; both bonus-period commands answer the period the house
+  shows now; one placeholder, *Former member*, for a departed member; the server sends
+  `postponeLimit` in the `cycle` block and the activity event; the room task payload carries
+  `anchorOn`, the form's first date.
+- **D-091-99 One row everywhere:** `TaskRow` (variants due, overdue, possible and list) opens
+  in place to `TaskRowDetails` with rhythm, window, last done, assignees, description and
+  instructions, the sub-tasks, postpone, *For someone else*, *Edit*, sleep and the history;
+  the priority badge (D-091-85) and the row checkbox (D-091-87) are gone. `TodayView.vue`
+  stays at 567 non-blank lines; the GUI review decides on its length (D-091-74).
+- **D-091-100 A save changes only what changed:** an empty description, instructions or tip
+  is no text (stored as null, and a stored empty string counts the same); the form sends the
+  rhythm only when it changed, and reads a legacy `custom` type as every week, as the
+  windows derive it. The browser layer found it: a members-only save of a shared task
+  without instructions asked for the scope.
+- **D-091-101 The row on a phone:** *Done*, the text and the arrow share one line, and the
+  text takes everything the two controls leave. The guard of RF-087-08 (the text never
+  shrinks to a sliver) is re-pinned from 70 percent of the row to that rule; the GUI review
+  decides on the layout.
+- **D-091-102 One look and one refusal:** an overdue row of the list has the red border and
+  badge of *Today*, without a tinted background; the people of an entry name everyone it
+  credits (`entryPeople`) in the history and the feed; a refusal shows the server's
+  translated message (`showRefusal`), without a code.
+
+### GUI review of WP-B6 (operator, 2026-11-21)
+
+The operator reviewed the form and the row on the development stack ("so far everything
+works") and asked for the changes below. D-091-89 to D-091-102 drew no objection and stand
+for the interim review.
+Gates after the GUI review (2026-11-21, uncommitted tree on `1c962cf8`, frontend and tests
+only): Jest 186 suites / 2635 tests, ESLint, stylelint, build, l10n (1284 keys), docs
+encoding, backlog and adapter checks, the browser gate's self-test; focused browser specs
+26 and 17 passed on `chromium`, 81 on `chromium-serial-db`; the phone core set on
+`mobile-chromium` and `mobile-webkit` passed after its text-width guard followed the card
+(the text fills the space between *Done* and the arrow, D-091-101).
+
+- **D-091-103 A task is put to sleep in the form only:** the opened row loses *Put to
+  sleep* and its date form. A sleeping task keeps *Wake up* in its row; it also wakes by
+  its wake date, by a completion and through the form.
+- **D-091-104 Every task is a card:** each row has its own frame, on *Today* and in the
+  task list, so a section reads as a list. *Also possible today* stays the collapsed line
+  it was.
+- **D-091-105 One room button:** the form's two selects become one button that opens the
+  floors in place; a floor opens its rooms, a room is the choice.
+- **D-091-106 Quick filters in the task list (the operator extends WP-B6):** *People* next
+  to the scope buttons ticks members and unassigned work, with *All* and *None*; the three
+  scope buttons are its presets, so both always agree. Below them the room button of
+  D-091-105 filters by a floor or one of its rooms. Person, floor and room leave the
+  *Filters* panel, which keeps the detail filters. `?scope=` links work as before; a custom
+  choice of people is not mirrored in the address.
+- **D-091-107 Cleanliness from the windows is its own work:** the operator's proposal (a
+  task's value falls from 100 % after its window to 0 % past the next one; room, floor and
+  house as means) and a chart over time are routed to the backlog (FEAT-UX-071, a fold-in
+  to FEAT-UX-058). They need a concept and an ADR next to ADR-014 and are not part of this
+  plan.
+
+### Review decisions (interim Full review of WP-B6, 2026-11-21)
+
+Asked in one batch; the operator chose the recommended option each time. D-091-89 to
+D-091-107 accepted, with D-091-92, D-091-93 and D-091-100 amended as below.
+
+- **D-091-108 A save never takes the member's own sight:** a save after which the acting
+  member could no longer see the task — leaving the assignees of a private task that is
+  not theirs — is refused with `403` before anything is written. The owner changes who is
+  assigned. Before, the write committed and the answer said *not found*.
+- **D-091-109 Only its owner changes a private task's visibility:** an assignee edits
+  everything else. Before, an assignee could make the task public and private again and
+  owned it afterwards. Narrows D-091-95.
+- **D-091-110 A member who cannot see every room of a shared task splits silently:** the
+  save changes this room's copy whatever the scope says, asks nothing and leaves the room
+  tasks the member may not see untouched and unmentioned. The conflict of a move into a
+  room that already holds the definition stays, also where that instance is hidden: a
+  known, accepted disclosure inside one house.
+- **D-091-111 Length limits:** a name takes at most 255 characters, a description is text of
+  at most 2000; longer input is a translated `400` instead of a database error.
+- **D-091-112 What the review changed in the contract:** waking comes before the window
+  change of the same save, so a first date set with it holds (amends D-091-92); an unchanged
+  sleep state and an unchanged first date are not checked again, so a task on its wake day
+  and a never-completed task with an old anchor save; the form sends the version it was
+  opened with and only the fields the user changed (completes D-091-100), so a second click
+  after a refusal cannot overwrite someone else's change; the save is an audited command
+  again (amends D-091-93: the receipt does not replace the operational log line); a created
+  task stores an empty text as no text, like an edited one.
+
 ### Positions for the Standard A review
 
 These settle the remaining open points of the concept. They bind once Standard A passes.
@@ -655,6 +815,14 @@ new:      lib/Service/CompletionAccess.php, CorrectionTarget.php, CompletionLock
 new:      src/components/Today/TodayBonusSection.vue, TodayBonusRow.vue, BonusDaysBanner.vue,
           src/components/Tasks/SleepControl.vue, src/components/Settings/RewardSettings.vue,
           CoinFactorSettings.vue, BonusDaysSettings.vue (WP-B4, WP-B5)
+new:      lib/Service/RoomTaskEditService.php, RoomTaskCommand.php, TaskEdit.php,
+          TaskFormPayload.php, SubTaskList.php, SubTaskWriter.php, CycleProjection.php,
+          CycleMisses.php, CycleSleep.php, lib/Controller/RoomTaskEditController.php
+          (WP-B6, RF-091-10)
+new:      src/components/Tasks/TaskForm.vue, TaskRhythmField.vue, TaskWindowNote.vue,
+          SubTaskEditor.vue, TaskFormMore.vue, TaskTemplateFill.vue, TaskScopeDialog.vue,
+          TaskRow.vue, TaskRowDetails.vue, src/composables/useTaskFormState.js,
+          src/store/taskForm.js, src/utils/taskFormModel.js (WP-B6)
 modified: lib/Service/OccurrenceReconcileService.php, OccurrenceService.php,
           OccurrenceSelectionService.php, OccurrenceCompletionService.php, CompletionService.php,
           EffortAllocationService.php, RhythmService.php, WeeklyGoalService.php, RankingService.php,
@@ -679,6 +847,15 @@ modified: src/views/TodayView.vue, TaskManager.vue, CalendarView.vue, Scheduling
           src/utils/taskDisplay.js, src/services/api.js
 removed:  src/components/Tasks/TaskListDetails.vue, RoomTaskEditModal.vue,
           src/components/Scheduling/SchedulePlanner.vue (and their specs)
+new:      src/components/Tasks/TaskPeopleFilter.vue (GUI review of WP-B6),
+          lib/Service/SleepSwitch.php (interim Full review of WP-B6)
+modified: lib/Controller/TaskController.php, lib/Service/HouseSetupService.php,
+          src/components/Tasks/RoomPicker.vue, TaskFilterBar.vue, TaskChecklist.vue,
+          src/utils/taskFilters.js, src/store/tasks.js, checklist.js (WP-B6 and its GUI review)
+removed:  src/components/Tasks/TaskEditForm.vue, TaskCreateDialog.vue, TaskListItem.vue,
+          TaskListBulkBar.vue, TaskTemplatePicker.vue, OverdueClaimDialog.vue,
+          RecurrencePresetSelector.vue, index.js, src/components/Today/TodayTaskRow.vue
+          (WP-B6, with their specs)
 modified: l10n/de.json, l10n/en.json, l10n/templates/chorestrike.pot
 modified: tests named in section 4, tests/e2e/required-scenarios.json, scripts/run-e2e-gate.js
 modified: docs/concepts/*.md named in WP-0, docs/api/README.md, docs/api/notifications.md,
@@ -891,7 +1068,7 @@ accessibility findings it deferred.
   No index is needed (D-091-76). *Corrected by the interim review (D-091-80):* the
   activity budget had been measured without an absence; with as many absences as rows
   it is 14.
-- [ ] **RF-091-09 Client structure and accessibility of the cycle surfaces** (WP-B2/WP-B3,
+- [x] **RF-091-09 Client structure and accessibility of the cycle surfaces** (WP-B2/WP-B3,
   frontend; due with WP-B6, which rebuilds these surfaces in the inline row): a public
   completion-target getter of `useRoomTasksStore` for `useTaskCycleStore`; one refusal
   strategy in `errorToast.js` (`showHistoryError`, `showPostponeError` and the delete path,
@@ -907,12 +1084,21 @@ accessibility findings it deferred.
   refusal strategy (with `showHistoryError`); the sleep command of `taskCycle.js` as a
   copy of the postpone skeleton and a second caller of the private completion-target
   read; the people of a bonus row named by another inline formatter.
+  *Fixed 2026-11-19 with WP-B6:* `completionTargetOf` is the store's public getter;
+  `showRefusal` is the one refusal strategy (completion and postpone toasts build on it);
+  `postponeLimit` comes from the server; `entryPeople` and `memberNames` format people,
+  `asleepLabel` the asleep state; the history's note follows `canCorrect`; the disabled
+  postpone names its reason through `aria-describedby`; focus returns to the edited entry
+  and to the control that replaces the pressed one in `SleepControl`, `BonusDaysSettings`
+  and `TodayBonusRow`, with a live region for the swapped state; past dates carry their
+  year (`formatPastDayKey`); the sleep command runs through the store's one command
+  skeleton.
 
 Routed by the interim Full review of WP-B4 and WP-B5 (2026-11-18); every verified
 defect of that review was fixed in it (D-091-78), this is the structure and
 performance work it deferred (D-091-79).
 
-- [ ] **RF-091-10 What RF-091-07 left duplicated, and the reads of the new paths**
+- [x] **RF-091-10 What RF-091-07 left duplicated, and the reads of the new paths**
   (WP-B4/WP-B5, architecture and performance; due with WP-B6): the stale-target
   check of `SleepService` beside `CycleService::assertTarget()`; the live member and
   the visibility of a resolved room task in `CompletionAccess::authorize()`,
@@ -939,6 +1125,22 @@ performance work it deferred (D-091-79).
   not need (twice when a completion wakes a task); the sleep answer reads the house
   zone and the histories again. The sleep and wake rules are the extraction
   candidate of `CycleService` (511 non-blank lines).
+  *Fixed 2026-11-19 with WP-B6:* `RoomTaskCommand` is the one skeleton of postpone,
+  sleep and the save, with the stale-target check of `CycleService::assertTarget()`;
+  `CompletionAccess` is the one resolution of the room task, the live member and
+  the visible definition for the completion, its corrections and its read, the
+  deleted check included; `CycleReceipt` holds the one `expectedVersion`
+  rule and the closed-body loop; `isChildEligible()` and one credited-on-a-day
+  predicate serve the bonus rows; `CalendarService::isRealDay()` is the one real-day
+  parser; the date command shares the undo's post-commit merge and member locks;
+  cycle keys come from `CurrentCycle`; one "has a cycle" predicate; the period
+  constants live with their service and `cancelPeriod` in it, and both period
+  commands answer the shown period; `CompletionReadModel` owns the allocation
+  projection and the placeholder is *Former member* everywhere; `SleepControl` uses
+  `asleepLabel`. The bonus read derives cycles only for bonus rows, `currentFor()`
+  skips the histories of a task without cycles, and the sleep answer comes from
+  `RoomTaskCommand`'s one fresh read. `CycleService` fell to 316 non-blank lines with
+  `CycleProjection`, `CycleMisses` and `CycleSleep`.
 
 ## Review Outcome
 
@@ -1047,3 +1249,32 @@ docs and backlog checks; focused browser specs 6 passed on `chromium` and 20 on
 `chromium-serial-db`, the phone set 19 passed on `mobile-chromium` and `mobile-webkit`.
 `Version1037` unchanged: matrix and P4 of the implementation round stand. Interim review: the
 plan stays in `active/`.
+
+**Interim Full review of WP-B6, 2026-11-21: `PASS-WITH-FIXES`.** Scope: the whole
+uncommitted package on `feat/simplified-core-bc` (base `1c962cf8`, 227 paths, fingerprint
+`21d12189…45ec9a`), four reviewer tracks plus the main agent. Record:
+[CODE_REVIEW_2026-11-21](../../backlog/archive/CODE_REVIEW_2026-11-21.md#full-interim---cs-plan-091-wp-b6-one-form-and-one-row).
+
+Fixed in the review: after a save the lists were never read again (two refresh calls, the
+second one met the guard of the first); a second click after a stale refusal could
+overwrite someone else's change; a sleeping task on its wake day and a never-completed task
+with an old anchor could not be saved; a wake lost the first date of the same save; a
+deleted category made a members-only save of a shared task ask for the scope; the ticks of
+a split row showed unticked; a bounded rule lost its mode; a created task stored an empty
+text as `''`. The operator decided four authorization and validation questions (D-091-108
+to D-091-111); the contract changes are D-091-112. Also: the save is audited again, one
+start, one sleep switch, one member check and one cycle-block read for the room-task
+commands, fewer reads and requests per save and per opened row, focus kept through the
+form, the history, the template fill, the sub-task editor and a dialog whose opener is
+gone, dead code of the removals, German wording, the stale parts of the architecture,
+development and logging documents. Tests added for the replay guard, the gates of the
+decisions, combined saves and the refresh after a save. D-091-89 to D-091-107 accepted,
+D-091-92, D-091-93, D-091-95 and D-091-100 amended. Nothing routed; RF-091-06 stays open
+for WP-B7.
+
+Gates: Jest 186 suites / 2657 tests, ESLint, stylelint, build; PHPUnit unit 1872 and
+integration 707 on the canonical stack and on PostgreSQL, MariaDB, SQLite and the AIO row
+(matrix `r91b6b`), no skips; php-cs-fixer, l10n (1286 keys), adapter, docs and backlog
+checks; focused browser specs 35 passed on `chromium` (the request budgets among them), 93
+on `chromium-serial-db` and the phone set 11 each on `mobile-chromium` and
+`mobile-webkit`; the preservation proofs passed on the final tree: P1 on PostgreSQL, MariaDB and SQLite, P2, P3 and P4 on PostgreSQL, each with a clean teardown. No schema step. Interim review: the plan stays in `active/`.

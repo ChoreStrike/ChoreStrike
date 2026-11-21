@@ -258,6 +258,25 @@ class AuthorizationService {
 	}
 
 	/**
+	 * Every user is a member of the house, read in one query: the
+	 * membership revalidation of an aggregate UNDER LOCK (CR-WF-03), so a
+	 * member who left meanwhile rolls it back before an assignee row is
+	 * written.
+	 *
+	 * @param string[] $userIds Nextcloud user ids
+	 * @throws \InvalidArgumentException naming the first user who is no member (400)
+	 */
+	public function assertMembersUnderLock(int $houseId, array $userIds): void {
+		$userIds = array_values(array_unique($userIds));
+		$members = $this->houseUserMapper->findByHouseIdAndNextcloudUserIds($houseId, $userIds);
+		foreach ($userIds as $userId) {
+			if (!isset($members[$userId])) {
+				throw new \InvalidArgumentException($this->l10n->t('User is not a member of this house: %1$s', [$userId]));
+			}
+		}
+	}
+
+	/**
 	 * Assert the acting user may manage the task domain (CS-PLAN-061 §3.4,
 	 * decision D5): owners and members may create/update/delete/assign tasks;
 	 * children have the execution surface only (complete, checklist progress,

@@ -53,7 +53,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { computed, onMounted, ref } from 'vue'
 import { useUserStore } from '../../store/user.js'
-import { showServerRefusal } from '../../utils/errorToast.js'
+import { showRefusal } from '../../utils/errorToast.js'
 
 /**
  * Owner-only coin factor per member (CS-PLAN-091 WP-B5, ADR-021 decision
@@ -88,7 +88,7 @@ async function save(member, factor) {
 		savedName.value = member.displayName || member.nextcloudUserId
 	} catch (error) {
 		// The store has logged it; the select shows the stored factor again.
-		showServerRefusal(error, t('chorestrike', 'Could not save the coin factor'))
+		showRefusal(error, t('chorestrike', 'Could not save the coin factor'))
 	} finally {
 		savingUserId.value = null
 	}

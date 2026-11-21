@@ -99,7 +99,7 @@
 				<p class="overdue-hint">
 					{{ t('chorestrike', 'Completing it now counts as late work.') }}
 				</p>
-				<TodayTaskRow
+				<TaskRow
 					v-for="item in sections.overdue"
 					:key="item.roomTask.id"
 					:item="item"
@@ -119,7 +119,7 @@
 				<p v-if="sections.due.length === 0" class="section-empty">
 					{{ t('chorestrike', 'Nothing due today') }}
 				</p>
-				<TodayTaskRow
+				<TaskRow
 					v-for="item in sections.due"
 					:key="item.roomTask.id"
 					:item="item"
@@ -139,7 +139,7 @@
 					<ExpandChevron :open="showPossible" />
 				</button>
 				<template v-if="showPossible">
-					<TodayTaskRow
+					<TaskRow
 						v-for="item in sections.possible"
 						:key="item.roomTask.id"
 						:item="item"
@@ -170,10 +170,10 @@ import ExpandChevron from '../components/Common/ExpandChevron.vue'
 import Icon from '../components/Common/Icon.vue'
 import HelpEntry from '../components/Help/HelpEntry.vue'
 import SetupWizardEntry from '../components/Setup/SetupWizardEntry.vue'
+import TaskRow from '../components/Tasks/TaskRow.vue'
 import BonusDaysBanner from '../components/Today/BonusDaysBanner.vue'
 import TodayBonusSection from '../components/Today/TodayBonusSection.vue'
 import TodayStatusLine from '../components/Today/TodayStatusLine.vue'
-import TodayTaskRow from '../components/Today/TodayTaskRow.vue'
 import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 import { useTaskCompletion } from '../composables/useTaskCompletion.js'
 import { useGameStore } from '../store/game.js'
@@ -205,7 +205,7 @@ export default {
 		BonusDaysBanner,
 		TodayBonusSection,
 		TodayStatusLine,
-		TodayTaskRow,
+		TaskRow,
 	},
 
 	setup() {

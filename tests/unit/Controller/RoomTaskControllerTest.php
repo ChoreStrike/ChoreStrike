@@ -74,9 +74,7 @@ class RoomTaskControllerTest extends TestCase {
 	 * Stub the request params read by the creation endpoint.
 	 */
 	private function stubCreateParams(array $params): void {
-		$this->request->method('getParam')->willReturnCallback(
-			static fn (string $key) => $params[$key] ?? null
-		);
+		$this->request->method('getParams')->willReturn([...$params, '_route' => 'chorestrike.room_task.create']);
 	}
 
 	private function createHouseUser(): HouseUser {
@@ -552,18 +550,19 @@ class RoomTaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * Create_MountVariant_ForwardsAggregatePayload
+	 * Create_ForwardsTheFormBody
 	 *
-	 * CS-PLAN-063 §3.3: the creation endpoint routes through the atomic
+	 * CS-PLAN-063 §3.3, CS-PLAN-091 WP-B6: the creation endpoint routes the
+	 * form's body (without the route internals) through the atomic
 	 * TaskCreationService with the caller's house id and the acting
 	 * HouseUser, and returns the unified aggregate shape.
 	 */
-	public function testCreate_MountVariant_ForwardsAggregatePayload(): void {
+	public function testCreate_ForwardsTheFormBody(): void {
 		$house = new House();
 		$house->setId(42);
 		$houseUser = $this->createHouseUser();
 
-		$this->stubCreateParams(['roomId' => 1, 'taskId' => 5]);
+		$this->stubCreateParams(['roomId' => 1, 'task' => ['name' => 'Vacuum'], 'checklistItems' => [['label' => 'Carpet']]]);
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('assertHouseMember')->willReturn($houseUser);
@@ -571,7 +570,7 @@ class RoomTaskControllerTest extends TestCase {
 		$this->taskCreationService->expects($this->once())
 			->method('create')
 			->with(42, $this->identicalTo($houseUser), $this->callback(
-				fn (array $payload) => $payload === ['roomId' => 1, 'taskId' => 5]
+				fn (array $payload) => $payload === ['roomId' => 1, 'task' => ['name' => 'Vacuum'], 'checklistItems' => [['label' => 'Carpet']]]
 			))
 			->willReturn([
 				'task' => new Task(),
@@ -637,47 +636,24 @@ class RoomTaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * Create_Returns400WithoutTaskOrTaskId
-	 *
-	 * CS-PLAN-063 §3.3: exactly one of `task` / `taskId` is required.
+	 * A definition outside the closed set answers 400 with every message.
 	 */
-	public function testCreate_Returns400WithoutTaskOrTaskId(): void {
+	public function testCreate_ValidationRefusal_Is400WithTheDetails(): void {
 		$house = new House();
 		$house->setId(42);
 
-		$this->stubCreateParams(['roomId' => 1]);
+		$this->stubCreateParams(['roomId' => 1, 'task' => ['energyCost' => 99]]);
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('assertHouseMember');
-
-		$this->taskCreationService->expects($this->never())->method('create');
+		$this->taskCreationService->method('create')->willThrowException(
+			new \OCA\ChoreStrike\Exception\ValidationException('Energy cost must be between 1 and 20', ['Energy cost must be between 1 and 20', 'Task name is required'])
+		);
 
 		$response = $this->controller->create();
 
 		$this->assertEquals(400, $response->getStatus());
-		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
-	}
-
-	/**
-	 * Create_Returns400WithBothTaskAndTaskId
-	 *
-	 * The payload variants are mutually exclusive.
-	 */
-	public function testCreate_Returns400WithBothTaskAndTaskId(): void {
-		$house = new House();
-		$house->setId(42);
-
-		$this->stubCreateParams(['roomId' => 1, 'taskId' => 5, 'task' => ['name' => 'X']]);
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('assertHouseMember');
-
-		$this->taskCreationService->expects($this->never())->method('create');
-
-		$response = $this->controller->create();
-
-		$this->assertEquals(400, $response->getStatus());
-		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+		$this->assertSame(['Energy cost must be between 1 and 20', 'Task name is required'], $response->getData()['error']['details']);
 	}
 
 	/**
@@ -892,97 +868,12 @@ class RoomTaskControllerTest extends TestCase {
 		$this->assertSame(['mom', 'dad'], $response->getData()['data']['assignees']);
 	}
 
-	/**
-	 * BUG-UX-011: a refused change is a 409 with its reason, never a logged
-	 * 500; the child day limit reaches both actions.
-	 */
-	public function testSetAssignees_RefusedChange_Is409WithTheReason(): void {
-		$this->wireRoomTaskAction();
-		$this->appLogger->expects($this->never())->method('logException');
-		$this->roomTaskService->method('setAssignees')
-			->willThrowException(new \OCA\ChoreStrike\Exception\ConflictException('Over the day limit'));
-
-		$response = $this->controller->setAssignees(7, ['kid']);
-
-		$this->assertSame(409, $response->getStatus());
-		$this->assertSame(['code' => 'CONFLICT', 'message' => 'Over the day limit'], $response->getData()['error']);
-	}
-
 	private function wireRoomTaskAction(): void {
 		$house = new House();
 		$house->setId(1);
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('assertHouseMember')->willReturn($this->createHouseUser());
-	}
-
-	/**
-	 * SetAssignees_ReturnsCanonicalUserIdArray
-	 *
-	 * CS-PLAN-066 (D1): the PUT assignees response IS the persisted
-	 * user-ID set — no client-side union on relation objects.
-	 */
-	public function testSetAssignees_ReturnsCanonicalUserIdArray(): void {
-		$house = new House();
-		$house->setId(1);
-		$houseUser = $this->createHouseUser();
-
-		$assignee = new \OCA\ChoreStrike\Db\TaskAssignee();
-		$assignee->setUserId('mom');
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('assertHouseMember')->willReturn($houseUser);
-		$this->roomTaskService->method('validateRoomTaskOwnership');
-
-		$this->roomTaskService->expects($this->once())
-			->method('setAssignees')
-			->with(7, ['mom'], 1, $this->identicalTo($houseUser))
-			->willReturn([$assignee]);
-
-		$response = $this->controller->setAssignees(7, ['mom']);
-
-		$this->assertEquals(200, $response->getStatus());
-		$this->assertSame(['mom'], $response->getData()['data']);
-	}
-
-	/**
-	 * BulkAssign_CarriesCanonicalAssigneeSetsOnReturnedSuccesses
-	 *
-	 * CS-PLAN-066 (D1): the bulk response embeds each returned success's
-	 * persisted assignee set — the client reconciles exactly the server
-	 * result, never the requested set.
-	 */
-	public function testBulkAssign_CarriesCanonicalAssigneeSetsOnReturnedSuccesses(): void {
-		$house = new House();
-		$house->setId(1);
-		$houseUser = $this->createHouseUser();
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(3);
-		$roomTask->setRoomId(1);
-		$roomTask->setTaskId(2);
-
-		$this->request->method('getParam')->willReturnCallback(
-			static fn (string $key) => ['roomTaskIds' => [3, 4], 'userId' => 'mom'][$key] ?? null
-		);
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('assertHouseMember')->willReturn($houseUser);
-
-		$this->roomTaskService->expects($this->once())
-			->method('bulkAssignTasks')
-			->with([3, 4], 'mom', 1, $this->identicalTo($houseUser))
-			->willReturn([$roomTask]);
-		$this->roomTaskReadService->method('assigneesByRoomTasks')
-			->willReturn([3 => ['mom']]);
-
-		$response = $this->controller->bulkAssign();
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData()['data'];
-		$this->assertCount(1, $data);
-		$this->assertSame(['mom'], $data[0]['assignees']);
 	}
 
 	/**
