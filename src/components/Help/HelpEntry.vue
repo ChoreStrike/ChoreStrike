@@ -97,7 +97,7 @@ export default {
 		},
 
 		/**
-		 * The contextual topic id ('setup' | 'agreements' | 'progress' |
+		 * The contextual topic id ('setup' | 'shares' | 'progress' |
 		 * 'catalog' | 'owner-pricing'). Null/unknown opens the full
 		 * glossary.
 		 */
@@ -130,16 +130,16 @@ export default {
 					body: t('chorestrike', 'Every person — including a child — needs their own existing Nextcloud account; creating accounts and signing in belongs to Nextcloud. Wizard invites add members, and an owner sets the child role in the member settings. On a shared device everyone uses their own sign-in — there are no local child profiles.'),
 				},
 
-				agreements: {
-					title: t('chorestrike', 'Agreements and shares'),
-					body: t('chorestrike', 'Agreements are what the family has planned — responsibility and joint obligations differ from voluntary help. Actual shares split the total work; they never multiply it: a total energy-1 chore earns 10 Coins once, so 34/33/33% give 3.4/3.3/3.3 Coins.'),
+				shares: {
+					title: t('chorestrike', 'Work shares'),
+					body: t('chorestrike', 'People who do a chore together share it. Actual shares split the total work; they never multiply it: a total energy-1 chore earns 10 Coins once, so 34/33/33% give 3.4/3.3/3.3 Coins, before coin factors and bonus days.'),
 				},
 
 				progress: {
 					// The trigger label renders inline next to Today's
 					// heading — the Coins line lives in the modal body only.
 					title: t('chorestrike', 'Progress, windows and rhythm'),
-					body: t('chorestrike', 'Each chore has a completion window around its planned day. Free days and absences are neutral, and catch-up covers a miss without backdating on-time credit. Your contribution share is separate from your Coins: Coins are what you can spend or reserve.'),
+					body: t('chorestrike', 'Each chore has a due window around its planned day; work done inside it, or earlier, is on time. A window that lies entirely inside your absence is neutral, and finishing an overdue chore clears it without counting as on time. Your contribution share is separate from your Coins: Coins are what you can spend or reserve.'),
 				},
 
 				catalog: {

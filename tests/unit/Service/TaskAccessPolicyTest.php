@@ -135,18 +135,6 @@ class TaskAccessPolicyTest extends TestCase {
 		);
 	}
 
-	public function testAssertCanViewTaskThrowsNotFoundExceptionOnDenial(): void {
-		$this->taskAssigneeMapper->method('findUserIdsByTaskIds')->willReturn([1 => []]);
-
-		$this->expectException(NotFoundException::class);
-		$this->expectExceptionMessage('Task not found');
-
-		$this->policy->assertCanViewTask(
-			$this->task(Task::VISIBILITY_ADMIN_ONLY),
-			$this->houseUser('member'),
-		);
-	}
-
 	public function testFilterVisibleRoomTasksKeepsOrderAndDropsInvisible(): void {
 		$visible = new \OCA\ChoreStrike\Db\RoomTask();
 		$visible->setId(10);

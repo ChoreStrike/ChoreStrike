@@ -52,7 +52,7 @@
 					</template>
 					<template v-else>
 						<p class="participation-state" data-testid="ranking-optin-hint">
-							{{ t('chorestrike', 'You are not part of the ranking. Participation is voluntary and only ever shows your on-time share of agreed public tasks — starting next Monday.') }}
+							{{ t('chorestrike', 'You are not part of the ranking. Participation is voluntary and only ever shows your on-time share of public tasks — starting next Monday.') }}
 						</p>
 						<button
 							class="primary-button"

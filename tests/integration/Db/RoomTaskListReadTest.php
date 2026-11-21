@@ -13,14 +13,12 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
-use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 
 /**
  * Room-task list reads never list tombstoned (deleted) rows (CS-PLAN-084
  * D-084-07): the TaskManager "Completed" filter reads `activeOnly=false`
- * and must show finished work only, and the RoomDetail stats count the
- * room's current tasks — a deleted task is neither.
+ * and must show finished work only — a deleted task is not.
  */
 class RoomTaskListReadTest extends IntegrationTestCase {
 	private const OWNER = 'list_read_owner';
@@ -43,15 +41,6 @@ class RoomTaskListReadTest extends IntegrationTestCase {
 		$owner = \OC::$server->get(HouseUserMapper::class)->findByHouseAndUser($houseId, self::OWNER);
 		$endpointRows = \OC::$server->get(RoomTaskReadService::class)->getHouseRoomTasks($houseId, $owner, false)->roomTasks;
 		self::assertNotContains($ids['deleted'], $listed($endpointRows));
-	}
-
-	public function testRoomStats_IgnoreDeletedTasks(): void {
-		[$houseId, $roomId] = $this->fixture();
-		$owner = \OC::$server->get(HouseUserMapper::class)->findByHouseAndUser($houseId, self::OWNER);
-
-		$stats = \OC::$server->get(RoomTaskService::class)->getRoomTaskStats($roomId, $owner);
-
-		self::assertSame([2, 1], [$stats['totalTasks'], $stats['activeTasks']]);
 	}
 
 	/**

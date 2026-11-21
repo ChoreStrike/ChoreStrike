@@ -1064,7 +1064,7 @@ from the one form after a confirmation (D-091-86).
 > inactive room task and the coded conflicts of its receipt (below).
 
 > **Full route list:** the canonical, complete route table is
-> [`appinfo/routes.php`](../../appinfo/routes.php) (96 routes spanning `house`,
+> [`appinfo/routes.php`](../../appinfo/routes.php) (94 routes spanning `house`,
 > `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,
 > `checklist`, `minigame`, `setup`, and `test`). The task-sync ×6 and
 > reward-config ×2 HTTP surfaces were pruned in CS-PLAN-055 together with
@@ -1074,7 +1074,10 @@ from the one form after a confirmation (D-091-86).
 > adding the undo aggregate. CS-PLAN-091 WP-B6 pruned `PUT /tasks/{id}`,
 > `POST /room-tasks/from-template`, `POST /room-tasks/bulk-assign`,
 > `GET|PUT /room-tasks/{id}/assignees` and the four checklist-item writes for
-> the one form's two aggregates. Re-adding a route requires a consumer.
+> the one form's two aggregates. CS-PLAN-091 WP-B7 pruned the two routes
+> that had lost their client: `PUT /rooms/{id}/cleanliness` (its journal
+> entries keep replaying) and `GET /room-tasks/room/{roomId}/stats`.
+> Re-adding a route requires a consumer.
 > This document covers the core CRUD + completion
 > flows; the `RouteMatrixTest` contract test guards route↔controller drift.
 
@@ -1282,33 +1285,6 @@ openWindow, checklistItemCount }` objects.
 due-today and overdue rows carry `checklistItemCount`, the number of checklist
 items of the row's definition (0 without items), from one grouped query; My
 Day offers its checklist toggle only above zero.
-
-#### GET /room-tasks/room/{roomId}/stats
-Room task statistics (CS-PLAN-040). The app has no client for this route since the
-room page went into the task list (CS-PLAN-090 D-090-10); CS-PLAN-091 WP-B7 removes it. Rejects a
-cross-house `roomId` with `404 RESOURCE_NOT_FOUND`.
-
-**Response:**
-```json
-{
-  "totalTasks": 5,
-  "activeTasks": 3,
-  "overdueTasks": 1,
-  "dueTodayTasks": 2,
-  "dueSoonTasks": 1,
-  "completionRate": 40
-}
-```
-
-> **`completionRate` semantics (CR-SVC-31 root fix):** share of the room's
-> current tasks with at least one real completion row — deactivated/skipped
-> tasks do NOT count as completed; an empty room returns `0`.
-
-> **`overdueTasks` / `dueTodayTasks` semantics (CS-PLAN-084 RF-084-02):**
-> counted from the same `status` the `GET /room-tasks` rows carry (the cycle
-> state: a window that ended is overdue; today's work and a past planned day
-> inside an open flex window are due today), so the card and the rows never
-> disagree.
 
 ### Checklists
 

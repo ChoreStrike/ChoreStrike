@@ -8,16 +8,17 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Db;
 
-use JsonSerializable;
 use OCP\AppFramework\Db\Entity;
 
 /**
  * Immutable rule revision of one room task (CS-PLAN-072 WP1, parent
  * CS-PLAN-070 §3.2): the complete generation inputs for a period of the
  * task's timeline. Definition inputs (cadence, anchor, bounds, zone,
- * energy, participant defaults) are IMMUTABLE after insert; only the
+ * energy, participant defaults) were IMMUTABLE after insert; only the
  * agreement frontier (`agreedThrough`) and closing metadata (`closedAt`)
- * advance. Edits close the old revision and append a new one.
+ * advanced, and an edit closed the old revision and appended a new one.
+ * Retained rows since ADR-021: the rule is read from the definition, and
+ * nothing writes a revision any more.
  *
  * @method int getId()
  * @method void setId(int $id)
@@ -64,7 +65,7 @@ use OCP\AppFramework\Db\Entity;
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
-class ScheduleRevision extends Entity implements JsonSerializable {
+class ScheduleRevision extends Entity {
 	public const CADENCE_FIXED = 'fixed';
 	public const CADENCE_INTERVAL = 'interval';
 
@@ -175,52 +176,5 @@ class ScheduleRevision extends Entity implements JsonSerializable {
 		$this->addType('isVoluntary', 'boolean');
 		$this->addType('defaultMembers', 'json');
 		$this->addType('createdAt', 'datetime');
-	}
-
-	/**
-	 * Decoded weekday names of a fixed weekly rule (canonical order).
-	 *
-	 * @return list<string>
-	 */
-	public function weekdayList(): array {
-		if (!is_string($this->weekdays) || $this->weekdays === '') {
-			return [];
-		}
-		$decoded = json_decode($this->weekdays, true);
-		if (!is_array($decoded)) {
-			return [];
-		}
-		$names = [];
-		foreach ($decoded as $day) {
-			if (is_string($day) && $day !== '') {
-				$names[] = strtolower(trim($day));
-			}
-		}
-		return array_values(array_unique($names));
-	}
-
-	public function jsonSerialize(): array {
-		return [
-			'id' => $this->id,
-			'roomTaskId' => $this->roomTaskId,
-			'revision' => $this->revision,
-			'effectiveFrom' => $this->effectiveFrom?->format('c'),
-			'agreedThrough' => $this->agreedThrough?->format('Y-m-d'),
-			'closedAt' => $this->closedAt?->format('c'),
-			'cadenceMode' => $this->cadenceMode,
-			'cadenceUnit' => $this->cadenceUnit,
-			'cadenceInterval' => $this->cadenceInterval,
-			'anchorDate' => $this->anchorDate?->format('Y-m-d'),
-			'weekdays' => $this->weekdayList(),
-			'lifetime' => $this->lifetime,
-			'activeFrom' => $this->activeFrom?->format('Y-m-d'),
-			'activeUntil' => $this->activeUntil?->format('Y-m-d'),
-			'earlyWindowDays' => $this->earlyWindowDays,
-			'lateWindowDays' => $this->lateWindowDays,
-			'timezone' => $this->timezone,
-			'energy' => $this->energy,
-			'isPublic' => $this->isPublic,
-			'isVoluntary' => $this->isVoluntary,
-		];
 	}
 }

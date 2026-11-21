@@ -27,7 +27,7 @@
 				{{ t('chorestrike', 'Daily task digest') }}
 			</NcCheckboxRadioSwitch>
 			<p class="preference-hint">
-				{{ t('chorestrike', 'A daily summary of the agreements for the coming day.') }}
+				{{ t('chorestrike', 'A daily summary of how many of your tasks are planned for the day.') }}
 			</p>
 
 			<NcCheckboxRadioSwitch
@@ -38,7 +38,7 @@
 				{{ t('chorestrike', 'Weekly organization digest') }}
 			</NcCheckboxRadioSwitch>
 			<p class="preference-hint">
-				{{ t('chorestrike', 'A weekly overview of catch-ups and absences.') }}
+				{{ t('chorestrike', 'An overview of household updates: your overdue tasks that someone else did, absences and reward requests.') }}
 			</p>
 
 			<div class="preference-field">

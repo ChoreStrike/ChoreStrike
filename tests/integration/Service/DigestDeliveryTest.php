@@ -19,6 +19,7 @@ use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\DigestScheduleService;
 use OCA\ChoreStrike\Service\DigestService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\StoredTimelineFixtures;
 
 /**
  * Digest delivery lifecycle against the real DB (CS-PLAN-070 WP5 §3.2
@@ -27,6 +28,8 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  * rows, and an opt-out before the claim marks the slot skipped.
  */
 class DigestDeliveryTest extends IntegrationTestCase {
+	use StoredTimelineFixtures;
+
 	private DigestService $digestService;
 	private DigestScheduleService $scheduleService;
 	private DigestSlotMapper $slotMapper;
@@ -76,12 +79,13 @@ class DigestDeliveryTest extends IntegrationTestCase {
 		$this->prefMapper->insertOrGet($pref);
 	}
 
-	private function seedQueuedChange(string $dayKey): void {
+	/** A queued agreement row, as the retired agreement writers left it. */
+	private function seedQueuedChange(string $dayKey, string $objectId = '21'): void {
 		$change = new DigestChange();
 		$change->setHouseId($this->houseId);
 		$change->setHouseUserId($this->memberId);
 		$change->setObjectType('agreement');
-		$change->setObjectId('21');
+		$change->setObjectId($objectId);
 		$change->setCategory(DigestChange::CATEGORY_ORG);
 		$change->setChangeTime(new \DateTime($dayKey . ' 10:00:00'));
 		$change->setTargetSlot($dayKey);
@@ -291,6 +295,31 @@ class DigestDeliveryTest extends IntegrationTestCase {
 
 	private function uuidDgd(): string {
 		return sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
+	}
+
+	/**
+	 * D-091-12 (CS-PLAN-091 WP-B7): nothing queues agreement lines any more.
+	 * A row retained from before the cutover never becomes a summary, even
+	 * while its stored occurrence still stands at the queued revision and
+	 * the member sees the task; it stays queued until its slot expires.
+	 */
+	public function testDispatch_RetainedAgreementRow_NeverBecomesASummary(): void {
+		$this->seedPref();
+		$roomId = $this->createRoom($this->houseId, $this->createFloor($this->houseId));
+		// Planned later, so the member has no task content for the day.
+		$roomTaskId = $this->assignTaskToRoom($this->createTask($this->houseId, 'Agreed work'), $roomId, 'dgd-member', '2026-10-20');
+		$occurrenceId = $this->insertStoredOccurrence($this->houseId, $roomTaskId, '2026-09-30');
+		$this->seedQueuedChange('2026-09-29', (string)$occurrenceId);
+		$this->scheduleService->materializeSlotsForHouse($this->houseId, new \DateTime('2026-09-29 17:00:00 UTC'));
+		$slot = $this->slotMapper->findByHouseUserAndDay($this->houseId, $this->memberId, '2026-09-29');
+
+		$outcome = (new \ReflectionMethod($this->digestService, 'dispatchSlot'))->invoke($this->digestService, $slot, new \DateTime('2026-09-29 18:05:00 UTC'));
+
+		self::assertSame('skipped', $outcome);
+		self::assertNull($this->slotMapper->findById((int)$slot->getId())->getDispatchedAt());
+		$rows = $this->changeMapper->findBySlot($this->memberId, '2026-09-29');
+		self::assertCount(1, $rows);
+		self::assertSame(DigestChange::DISPOSITION_QUEUED, $rows[0]->getDisposition(), 'a retained row is skipped, never consumed');
 	}
 
 	public function testDispatch_CurrentTaskVisibility_DropsBothTaskAndTakeoverContent(): void {

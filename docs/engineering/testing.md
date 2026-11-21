@@ -1434,7 +1434,7 @@ fixtures or lock choreography elsewhere:
 - `tests/integration/Service/EnergyEditTest.php` and
   `SuccessorOwnershipTest.php` — an energy, rule or flex edit reaching open
   work at once while completed work keeps its value; who owns the next cycle
-  after a takeover or a reassignment, and the list/stats/range status rules.
+  after a takeover or a reassignment, and the list/range status rules.
 - `tests/integration/RoleGuardApiTest.php` — the role/visibility matrix on
   the real HTTP surface; fix round: the pinned `GET /pauses` wire response
   proving the field whitelist (personal reason/illness marker are
@@ -1481,8 +1481,8 @@ Unit (mock-based, `phpunit.unit.xml`):
 - `tests/unit/Service/RoomReplayServiceTest.php` — the journal fold: the
   documented clamp example, undo invalidation (the correction time never
   becomes `last_cleaned`), reset authority over earlier corrections,
-  `(effective_at, id)` ordering, batched cursor paging, command-UUID
-  idempotency of the manual/reset writers.
+  `(effective_at, id)` ordering, batched cursor paging, the reset writer's
+  command identity, retained `manual_delta` and `last_done` entries folding.
 - `tests/unit/Service/{WalletService,RhythmService,WeeklyGoalService,
   EffortAllocationService,CommandService}Test.php` — exact minor-unit math,
   safe-integer/negative gates, cached-balance + funding-hold maintenance,
@@ -1507,10 +1507,10 @@ Integration (real Nextcloud + DB, `phpunit.integration.xml`):
   (no 500), and the departed participant's retained wallet is reversed
   exactly (no payout beyond the frozen total).
 - `tests/integration/Service/RoomReplayConcurrencyTest.php` — replay through
-  the real services: completion + undo folds, manual deltas journaling the
-  REQUESTED value with clamps, command-UUID replay no-ops (delta never
-  repeats, reset never re-resets over later work), reset authority after an
-  undone completion.
+  the real services: completion + undo folds, retained manual deltas (seeded
+  as stored rows since CS-PLAN-091 WP-B7) replaying their REQUESTED value with
+  clamps, the reset command's replay no-op (never re-resets over later work),
+  reset authority after an undone completion.
 - `tests/integration/Service/RhythmProjectionTest.php` — streaks and the
   weekly goal re-derive from the valid history inside the aggregates
   (multi-day runs, corrected-record shrinking C3g, neutral pending days,

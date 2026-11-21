@@ -21,15 +21,18 @@ use OCP\AppFramework\Db\Entity;
  *   (`deltaCleanliness = totalEnergy * 10`), independent of the number of
  *   actual participants; undo invalidates the effect (the completion's
  *   `undone_at`), attribution never changes it.
- * - `manual_delta`: a requested cleanliness delta
- *   ({@see RoomService::updateRoomCleanliness}).
+ * - `manual_delta`: a requested cleanliness delta of the retired quick
+ *   clean (CS-PLAN-091 WP-B7): nothing writes it any more, retained
+ *   entries keep replaying.
  * - `reset`: an absolute reset (cleanliness 100, monsters 0,
  *   last_cleaned cleared).
  * - `baseline`: the creation/setup seed baseline of the room.
  * - `last_done`: a recorded "last done on" day of one room task
  *   (FEAT-UX-045, CS-PLAN-088 D-088-20) — stamps `last_cleaned` only, no
  *   cleanliness effect; the newest entry per room task replaces older ones
- *   (stable id `last_done:<roomTaskId>:<commandUuid>`).
+ *   (stable id `last_done:<roomTaskId>:<commandUuid>`). Retired with the
+ *   first date (D-091-19): nothing writes it any more, retained entries
+ *   keep replaying.
  *
  * Replay order is `(effective_at, id)`; correction execution time must
  * never become `last_cleaned` (the completion event freezes its own

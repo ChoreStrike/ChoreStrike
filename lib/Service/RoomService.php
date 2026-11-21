@@ -16,11 +16,9 @@ use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
-use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -43,7 +41,6 @@ class RoomService {
 	private CycleProgressMapper $cycleProgressMapper;
 	private TransactionExecutor $transactions;
 	private RoomReplayService $roomReplayService;
-	private CommandService $commandService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 	private AuthorizationService $authorization;
@@ -59,7 +56,6 @@ class RoomService {
 		CycleProgressMapper $cycleProgressMapper,
 		TransactionExecutor $transactions,
 		RoomReplayService $roomReplayService,
-		CommandService $commandService,
 		IL10N $l10n,
 		AppLogger $appLogger,
 		AuthorizationService $authorization,
@@ -74,7 +70,6 @@ class RoomService {
 		$this->cycleProgressMapper = $cycleProgressMapper;
 		$this->transactions = $transactions;
 		$this->roomReplayService = $roomReplayService;
-		$this->commandService = $commandService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 		$this->authorization = $authorization;
@@ -311,64 +306,6 @@ class RoomService {
 		$this->checklistProgressMapper->deleteByRoomTaskIds($roomTaskIds);
 		$this->cycleProgressMapper->deleteByRoomTaskIds($roomTaskIds);
 		$this->taskAssigneeMapper->deleteByRoomTasks($roomTaskIds);
-	}
-
-	/**
-	 * Update room cleanliness (manual endpoint, RoomController#updateCleanliness).
-	 *
-	 * Deliberately NOT used by the completion path anymore: completion
-	 * journals its effect through the RoomReplayService inside the
-	 * CompletionService aggregate (CS-PLAN-070 WP3). This manual path is
-	 * itself journaled NOW (CR-SVC-63 closure, WP3 §3.5): the REQUESTED
-	 * delta is recorded — never an absolute value, never the observed
-	 * clamped difference — and the derived room cache is rebuilt by the
-	 * chronological replay. House/room locking and event insertion/cache
-	 * update are one transaction; a replayed command UUID never repeats a
-	 * delta.
-	 *
-	 * House-scoping is validated service-side (RF-058-06): the caller
-	 * supplies the acting house id and the room→floor→house chain is
-	 * re-checked here, so a direct service caller cannot mutate a foreign
-	 * house's room.
-	 *
-	 * @param int $roomId The room ID
-	 * @param int $houseId The acting user's house ID
-	 * @param int $cleanlinessChange The REQUESTED change in cleanliness (-100 to 100)
-	 * @param string $commandId Client idempotency UUID (journal identity)
-	 * @param int|null $expectedVersion Displayed house state version (stale → 409)
-	 */
-	public function updateRoomCleanliness(int $roomId, int $houseId, int $cleanlinessChange, string $commandId, ?int $expectedVersion = null): Room {
-		$actor = $this->authorization->assertHouseMember($houseId);
-		$this->validateRoomOwnership($roomId, $houseId);
-		if ($cleanlinessChange < -100 || $cleanlinessChange > 100) {
-			throw new \InvalidArgumentException($this->l10n->t('cleanlinessChange must be between -100 and 100'));
-		}
-
-		$command = $this->commandService->runCommand($houseId, (int)$actor->getId(), $commandId, 'room.manual_delta', [
-			'roomId' => $roomId,
-			'cleanlinessChange' => $cleanlinessChange,
-			'expectedVersion' => $expectedVersion,
-		], function () use ($roomId, $houseId, $cleanlinessChange, $commandId, $expectedVersion): array {
-			// The command holds the house lock. Recheck membership and the
-			// room chain after it to guard a concurrent removal/deletion.
-			$this->authorization->assertHouseMember($houseId);
-			$this->validateRoomOwnership($roomId, $houseId);
-			$house = $this->houseMapper->find($houseId);
-			if ($expectedVersion !== null && $house->getStateVersion() !== $expectedVersion) {
-				throw new ConflictException($this->l10n->t('The house state changed since it was displayed'));
-			}
-			$room = $this->roomMapper->lockForUpdate($roomId);
-			$this->roomReplayService->recordManualDelta($roomId, $cleanlinessChange, $commandId, new \DateTime());
-			$this->roomReplayService->resyncRoomCache($room);
-
-			$house->setStateVersion($house->getStateVersion() + 1);
-			$this->houseMapper->update($house);
-			return ['roomId' => $roomId];
-		});
-		// Replays return the current projection, not a stale receipt snapshot.
-		$this->authorization->assertHouseMember($houseId);
-		$this->validateRoomOwnership($roomId, $houseId);
-		return $this->roomMapper->find((int)$command['result']['roomId']);
 	}
 
 	/**

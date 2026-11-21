@@ -92,16 +92,6 @@ class Room extends Entity implements JsonSerializable {
 	}
 
 	/**
-	 * Apply a cleanliness change (clamped to 0-100) and touch lastCleaned
-	 *
-	 * @param int $cleanlinessChange The change in cleanliness (-100 to 100)
-	 */
-	public function updateCleanliness(int $cleanlinessChange): void {
-		$this->setCleanliness(max(0, min(100, $this->cleanliness + $cleanlinessChange)));
-		$this->setLastCleaned(new \DateTime());
-	}
-
-	/**
 	 * Get cleanliness label
 	 */
 	public function getCleanlinessLabel(): string {

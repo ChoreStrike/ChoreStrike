@@ -63,7 +63,7 @@ class DigestChange extends Entity implements JsonSerializable {
 	/** @var int Recipient membership ID (authorized at write time). */
 	protected $houseUserId;
 
-	/** @var string Bounded organizational object type (e.g. takeover/agreement/pause). */
+	/** @var string Bounded organizational object type (takeover, pause, reward_request; retained `agreement` rows are never counted). */
 	protected $objectType = '';
 
 	/** @var string Immutable object identity (never a task name). */

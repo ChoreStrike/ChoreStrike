@@ -81,18 +81,6 @@ class TaskAccessPolicy {
 	}
 
 	/**
-	 * Assert the single-task visibility check; visibility denials are 404s
-	 * (anti-enumeration, decision D3). Assignees are resolved internally.
-	 *
-	 * @throws NotFoundException when the matrix denies the viewer
-	 */
-	public function assertCanViewTask(Task $task, HouseUser $viewer): void {
-		if (!$this->canViewTask($task, $viewer)) {
-			throw new NotFoundException($this->l10n->t('Task not found'));
-		}
-	}
-
-	/**
 	 * Assert the viewer may see the task; visibility denials are 404s
 	 * (anti-enumeration, decision D3).
 	 *

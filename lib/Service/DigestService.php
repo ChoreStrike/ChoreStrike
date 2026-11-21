@@ -17,7 +17,6 @@ use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MemberPreferenceMapper;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
 use OCA\ChoreStrike\Db\Pause;
 use OCA\ChoreStrike\Db\PauseMapper;
 use OCA\ChoreStrike\Db\RewardRequestMapper;
@@ -44,12 +43,13 @@ use OCA\ChoreStrike\Db\TransactionExecutor;
  * The recheck BEFORE the final claim decides freshness: membership
  * active, category opt-ins still enabled, currently outside personal
  * quiet hours (cross-midnight ranges), and dispatch-time relevance —
- * task content is computed NOW from the occurrence reads (today's
- * planned occurrences plus explicitly agreed catch-up for today; nothing
- * on free or recognized-paused days; no backlog, offers or future work),
- * organizational content comes from the queued rows (rows carry only
- * recipients authorized at write time; the active-membership recheck is
- * the visibility gate for the house-scoped structural facts). If both
+ * task content is computed NOW from the derived windows (the member's
+ * open cycles planned for today, ADR-021; nothing on free days or during
+ * an absence; no backlog, offers or future work), organizational content
+ * comes from the queued rows (rows carry only recipients authorized at
+ * write time; the active-membership recheck is the visibility gate for
+ * the house-scoped structural facts). Queued agreement rows from before
+ * ADR-022 are retained and never counted (D-091-12). If both
  * categories are empty the slot is marked `skipped` — no empty summary
  * is ever sent.
  *
@@ -64,7 +64,6 @@ class DigestService {
 		private MemberPreferenceMapper $prefMapper,
 		private DigestSlotMapper $slotMapper,
 		private DigestChangeMapper $changeMapper,
-		private OccurrenceMapper $occurrenceMapper,
 		private NotificationService $notificationService,
 		private DigestScheduleService $scheduleService,
 		private CalendarService $calendar,
@@ -314,7 +313,11 @@ class DigestService {
 		return $count;
 	}
 
-	/** Current source facts and the existing task visibility policy gate every count. */
+	/**
+	 * Current source facts and the existing task visibility policy gate
+	 * every count. A row of a type nothing queues any more — the retained
+	 * `agreement` rows (D-091-12) — is skipped and stays queued.
+	 */
 	private function relevantOrgRows(DigestSlot $slot, HouseUser $member, array $visibleRoomTaskIds): array {
 		$relevant = [];
 		foreach ($this->changeMapper->findBySlot((int)$member->getId(), $slot->getLocalDay()) as $row) {
@@ -339,11 +342,6 @@ class DigestService {
 			case 'takeover':
 				$completion = $this->completionMapper->find((int)$row->getObjectId());
 				return $completion->getUndoneAt() === null && isset($visibleRoomTaskIds[(int)$completion->getRoomTaskId()]);
-			case 'agreement':
-				$occurrence = $this->occurrenceMapper->find((int)$row->getObjectId());
-				return (int)$occurrence->getHouseId() === (int)$member->getHouseId()
-					&& (int)$occurrence->getVersion() === (int)$row->getObjectRevision()
-					&& isset($visibleRoomTaskIds[(int)$occurrence->getRoomTaskId()]);
 			case 'pause':
 				$pause = $this->pauseMapper->findCurrentByGroup((int)$row->getObjectId());
 				return (int)$pause->getHouseId() === (int)$member->getHouseId()

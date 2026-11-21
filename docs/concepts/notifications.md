@@ -24,8 +24,8 @@ reminder also carries the family's private life. The product decision
 
 Opting into household updates keeps members informed about structural
 changes that concern them: someone took over their overdue task, an
-occurrence agreement was amended (handover, date, work share), or a
-pause was acknowledged/rejected/shortened. Members who made the change
+absence was entered for them or for the household or deleted by an owner,
+or a reward request was decided. Members who made the change
 themselves do not get told about it.
 
 ## Quiet Hours

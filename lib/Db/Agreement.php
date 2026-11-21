@@ -8,7 +8,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Db;
 
-use JsonSerializable;
 use OCP\AppFramework\Db\Entity;
 
 /**
@@ -17,7 +16,8 @@ use OCP\AppFramework\Db\Entity;
  * current-state authority: the occurrence row remains the state, this log
  * records how an agreement changed (date/window/handover/share/catch-up/
  * restart/pause) or what a definition edit did to the occurrence
- * (window/energy) with old/new snapshots.
+ * (window/energy) with old/new snapshots. Retained rows since ADR-022:
+ * nothing records an agreement any more.
  *
  * @method int getId()
  * @method void setId(int $id)
@@ -42,7 +42,7 @@ use OCP\AppFramework\Db\Entity;
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
-class Agreement extends Entity implements JsonSerializable {
+class Agreement extends Entity {
 	public const KIND_DATE = 'date';
 	public const KIND_WINDOW = 'window';
 	public const KIND_HANDOVER = 'handover';
@@ -60,16 +60,6 @@ class Agreement extends Entity implements JsonSerializable {
 		self::KIND_CATCHUP,
 		self::KIND_RESTART,
 		self::KIND_PAUSE,
-		self::KIND_ENERGY,
-	];
-
-	/**
-	 * Evidence of what a definition edit did to an occurrence. Nobody agreed
-	 * anything about this one occurrence, so these rows do not pin it when
-	 * an undo re-derives the open successor.
-	 */
-	public const DEFINITION_KINDS = [
-		self::KIND_WINDOW,
 		self::KIND_ENERGY,
 	];
 
@@ -115,15 +105,5 @@ class Agreement extends Entity implements JsonSerializable {
 		$this->addType('pauseRef', 'integer');
 		$this->addType('consent', 'json');
 		$this->addType('createdAt', 'datetime');
-	}
-
-	public function jsonSerialize(): array {
-		return [
-			'occurrenceId' => $this->occurrenceId,
-			'revision' => $this->revision,
-			'kind' => $this->kind,
-			'affectedWalletIds' => $this->affectedWalletIds ?? [],
-			'createdAt' => $this->createdAt?->format('c'),
-		];
 	}
 }

@@ -2,7 +2,7 @@
 
 ChoreStrike is a household task app inside your own Nextcloud. A family or a
 flat shares one household: the tasks of every room, a fair plan for the week,
-and a calm *Today* page for everyone. Agreed work earns Coins; everything
+and a calm *Today* page for everyone. Finished work earns Coins; everything
 else — rewards, a weekly ranking, an arcade — is optional and can stay off.
 
 ChoreStrike follows your Nextcloud language (English or German). This guide
@@ -21,7 +21,7 @@ owners.
 | Request rewards | ✓ | ✓ | ✓ (an owner approves) |
 | Invite people, change roles, remove members | ✓ | — | — |
 | Set up floors and rooms, house settings, reward catalog | ✓ | — | — |
-| Plan and apply the week, set others' availability and daily limits | ✓ | — | — |
+| Set others' availability and daily limits | ✓ | — | — |
 
 Nobody can change their own role or remove themselves. An owner can remove
 any other person, another owner too (for example the administrator account
@@ -66,8 +66,10 @@ sees "You are not a member of this household yet".
 open work against your energy for the day, the household's shared weekly
 goal, how many days in a row you confirmed, and your Coins. Below it:
 
-- **Overdue** — agreed tasks from earlier days that are still open, in a red
-  block with the date they were planned for and the days since.
+- **Overdue** — tasks whose window has ended and that are still open, in a red
+  block with the day they were planned for and the days since. A task stands
+  there once, however many rounds it missed; a task on fixed days leaves the
+  block when its next window opens.
 - **Due Today** — today's tasks.
 - **Also possible today** — one line that opens the tasks planned for another
   day whose flex days include today; Done counts them on time.
@@ -171,7 +173,7 @@ to everything still open, overdue tasks included. Completed work keeps its value
 
 ### Coins and rewards
 
-Agreed work earns **Coins**: 10 per energy unit of the task, split by the
+Finished work earns **Coins**: 10 per energy unit of the task, split by the
 shares of everyone who did it. Nothing is ever taken away as a punishment; an
 undo or a corrected split adjusts the Coins of that completion.
 
@@ -229,7 +231,8 @@ animation is on.
 Away, ill or simply out for a few days? Open **Absence**, pick the first and
 the last day and choose **Enter**. That is all: no reason and no request, for
 children as well, and it counts at once. Nothing is planned for you during
-that time, and absences and free days never count against anyone.
+that time, and a task whose whole window lies inside your absence never counts
+against you.
 
 Everyone sees all entries. You can delete your own entry as long as it has
 not ended; today stays as it is, and from tomorrow the days count as usual

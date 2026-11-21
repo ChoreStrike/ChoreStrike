@@ -8,7 +8,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Db;
 
-use JsonSerializable;
 use OCP\AppFramework\Db\Entity;
 
 /**
@@ -31,7 +30,7 @@ use OCP\AppFramework\Db\Entity;
  * @method int|null getCheckedByUserId()
  * @method void setCheckedByUserId(?int $checkedByUserId)
  */
-class RoomTaskChecklistProgress extends Entity implements JsonSerializable {
+class RoomTaskChecklistProgress extends Entity {
 	/** @var int */
 	protected $roomTaskId;
 
@@ -72,28 +71,5 @@ class RoomTaskChecklistProgress extends Entity implements JsonSerializable {
 		$this->addType('isChecked', 'boolean');
 		$this->addType('checkedAt', 'datetime');
 		$this->addType('checkedByUserId', 'integer');
-	}
-
-	/**
-	 * The occurrence public key this row belongs to.
-	 */
-	public function occurrenceKey(): string {
-		return $this->scheduleRevId . ':' . $this->ordinal;
-	}
-
-	/**
-	 * Convert checklist progress to JSON representation
-	 */
-	public function jsonSerialize(): array {
-		return [
-			'id' => $this->id,
-			'roomTaskId' => $this->roomTaskId,
-			'occurrenceId' => $this->occurrenceKey(),
-			'revision' => $this->revision,
-			'checklistItemId' => $this->checklistItemId,
-			'isChecked' => $this->isChecked,
-			'checkedAt' => $this->checkedAt?->format('c'),
-			'checkedByUserId' => $this->checkedByUserId,
-		];
 	}
 }

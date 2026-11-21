@@ -96,22 +96,4 @@ class RoomTest extends TestCase {
 
 		self::assertTrue($room->needsCleaning());
 	}
-
-	/**
-	 * UpdateCleanliness_UpdatesCleanlinessAndLastCleaned
-	 */
-	public function testUpdateCleanliness_UpdatesCleanlinessAndLastCleaned(): void {
-		$room = new Room();
-		$room->setCleanliness(40);
-		$room->setLastCleaned(new \DateTime('2026-02-01'));
-
-		$beforeUpdate = new \DateTime();
-		$room->updateCleanliness(50);
-		$afterUpdate = new \DateTime();
-
-		self::assertEquals(90, $room->getCleanliness());
-		$lastCleaned = $room->getLastCleaned();
-		self::assertGreaterThanOrEqual($beforeUpdate->getTimestamp(), $lastCleaned->getTimestamp());
-		self::assertLessThanOrEqual($afterUpdate->getTimestamp(), $lastCleaned->getTimestamp());
-	}
 }

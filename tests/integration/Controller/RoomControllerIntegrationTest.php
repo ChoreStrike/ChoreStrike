@@ -157,38 +157,6 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 		$this->assertTrue($data['success']);
 	}
 
-	/**
-	 * UpdateCleanliness_ValidValue_ReturnsUpdatedCleanliness
-	 */
-	public function testUpdateCleanliness_ValidValue_ReturnsUpdatedCleanliness(): void {
-		$roomId = 1;
-		$change = 10;
-		$room = $this->createMockRoom($roomId, 'Living Room', 1, 95);
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
-		// WP3 §3.5/§3.6: the manual delta is a journalled idempotent
-		// command — the receipt carries commandId + expectedVersion.
-		$receipt = [
-			'commandId' => 'A1B2C3D4-E5F6-4A7B-8C9D-0123456789AB',
-			'expectedVersion' => 0,
-		];
-		$this->request->method('getParams')->willReturn($receipt);
-		$this->request->method('getParam')->willReturnCallback(
-			static fn (string $key, $default = null) => $receipt[$key] ?? $default
-		);
-		$this->roomService->method('updateRoomCleanliness')
-			->with($this->identicalTo($roomId), $this->identicalTo(1), $this->identicalTo($change), $this->anything(), $this->anything())
-			->willReturn($room);
-
-		$response = $this->controller->updateCleanliness($roomId, $change);
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-	}
-
 	// ========== Real-DB owner gate (CR-053-03) ==========
 
 	/**

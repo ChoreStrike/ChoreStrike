@@ -127,9 +127,9 @@ class RoomTaskControllerTest extends TestCase {
 
 	/**
 	 * index must reject a roomId from another house (404) — regression for
-	 * the missing room-ownership validation (CR-053-02, same fix as
-	 * roomStats): membership alone let any member read foreign houses'
-	 * room tasks incl. assignee user ids.
+	 * the missing room-ownership validation (CR-053-02): membership alone
+	 * let any member read foreign houses' room tasks incl. assignee user
+	 * ids.
 	 */
 	public function testIndex_Returns404ForForeignHouseRoom(): void {
 		$house = new House();
@@ -435,57 +435,6 @@ class RoomTaskControllerTest extends TestCase {
 			method_exists($this->controller, 'undo'),
 			'the latest-by-room-task undo endpoint must stay removed'
 		);
-	}
-
-	/**
-	 * roomStats must reject a roomId from another house (404) — regression
-	 * for the missing room-ownership validation (CS-PLAN-040): membership
-	 * alone let any member read foreign houses' room stat counts.
-	 */
-	public function testRoomStats_Returns404ForForeignHouseRoom(): void {
-		$house = new House();
-		$house->setId(1);
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('assertHouseMember');
-		$this->roomTaskService->expects($this->once())
-			->method('validateRoomOwnership')
-			->with(9, 1)
-			->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room not found'));
-
-		$this->roomTaskService->expects($this->never())->method('getRoomTaskStats');
-
-		$response = $this->controller->roomStats(9);
-
-		$this->assertEquals(404, $response->getStatus());
-		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
-	}
-
-	/**
-	 * roomStats returns stats for a same-house room.
-	 */
-	public function testRoomStats_ReturnsStatsForSameHouseRoom(): void {
-		$house = new House();
-		$house->setId(1);
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$houseUser = $this->createHouseUser();
-		$this->authService->method('assertHouseMember')->willReturn($houseUser);
-		$this->roomTaskService->method('validateRoomOwnership');
-
-		$stats = ['totalTasks' => 2, 'completionRate' => 50];
-		$this->roomTaskService->expects($this->once())
-			->method('getRoomTaskStats')
-			->with(3, $this->identicalTo($houseUser))
-			->willReturn($stats);
-
-		$response = $this->controller->roomStats(3);
-
-		$this->assertEquals(200, $response->getStatus());
-		$this->assertTrue($response->getData()['success']);
-		$this->assertEquals($stats, $response->getData()['data']);
 	}
 
 	public function testRange_ReturnsScheduledAndCompleted(): void {

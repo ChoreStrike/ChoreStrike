@@ -219,8 +219,8 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 	}
 
 	// ========== Residual Surface Visibility (CS-PLAN-061 review fixes) ==========
-	// (Controller-level assignees/roomStats coverage lives in
-	// TaskAuthorizationTest — controllers resolve the instance house.)
+	// (Controller-level coverage lives in TaskAuthorizationTest —
+	// controllers resolve the instance house.)
 
 	public function testRangeCompletions_RedactInvisibleTaskNames(): void {
 		// Owner completes the private task, the child completes the public

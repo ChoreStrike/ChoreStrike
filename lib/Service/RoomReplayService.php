@@ -24,13 +24,14 @@ use OCA\ChoreStrike\Db\RoomMapper;
  *  - `completion`: the frozen per-completion effect `totalEnergy * 10`,
  *    one event per completion regardless of the participant count — undo
  *    invalidates exactly this effect, attribution never touches it;
- *  - `manual_delta`: a requested cleanliness delta
- *    ({@see RoomService::updateRoomCleanliness});
+ *  - `manual_delta`: a requested cleanliness delta of the retired quick
+ *    clean — read only, nothing writes it any more (CS-PLAN-091 WP-B7);
  *  - `reset`: absolute cleanliness 100, monsters 0, `last_cleaned` NULL;
  *  - `last_done`: a recorded "last done on" day of one room task — stamps
  *    `last_cleaned` only (FEAT-UX-045); the newest entry per room task
  *    replaces older ones, and an entry recorded after the latest reset
- *    counts even when it names a day before that reset.
+ *    counts even when it names a day before that reset. Read only since
+ *    the first date replaced it (D-091-19).
  *
  * The room cache is rebuilt by folding the VALID events in
  * `(effective_at, id)` order with the saved requested values and clamps:
@@ -104,22 +105,6 @@ class RoomReplayService {
 	}
 
 	/**
-	 * Record a requested manual cleanliness delta. The caller's house-scoped
-	 * command receipt owns idempotency before this writer is reached.
-	 */
-	public function recordManualDelta(int $roomId, int $requestedDelta, string $commandUuid, \DateTime $at): RoomEvent {
-		$event = new RoomEvent();
-		$event->setRoomId($roomId);
-		$event->setKind(RoomEvent::KIND_MANUAL_DELTA);
-		$event->setEffectiveAt($at);
-		$event->setStableId('manual:' . $commandUuid);
-		$event->setDeltaCleanliness($requestedDelta);
-		$event->setCommandUuid($commandUuid);
-		$event->setCreatedAt(new \DateTime());
-		return $this->eventMapper->insert($event);
-	}
-
-	/**
 	 * Record an absolute house reset for one room. The caller's receipt
 	 * protects the entire house reset, including rooms added later.
 	 */
@@ -132,22 +117,6 @@ class RoomReplayService {
 		$event->setBaselineCleanliness(100);
 		$event->setBaselineMonsters(0);
 		$event->setClearsLastCleaned(true);
-		$event->setCommandUuid($commandUuid);
-		$event->setCreatedAt(new \DateTime());
-		return $this->eventMapper->insert($event);
-	}
-
-	/**
-	 * Record the "last done on" day of one room task (FEAT-UX-045,
-	 * CS-PLAN-088 D-088-20): it stamps `last_cleaned` with that day and has
-	 * no cleanliness effect. The caller's receipt owns idempotency.
-	 */
-	public function recordLastDone(int $roomId, int $roomTaskId, string $commandUuid, \DateTime $at): RoomEvent {
-		$event = new RoomEvent();
-		$event->setRoomId($roomId);
-		$event->setKind(RoomEvent::KIND_LAST_DONE);
-		$event->setEffectiveAt($at);
-		$event->setStableId(self::lastDoneStableId($roomTaskId, $commandUuid));
 		$event->setCommandUuid($commandUuid);
 		$event->setCreatedAt(new \DateTime());
 		return $this->eventMapper->insert($event);
@@ -260,15 +229,9 @@ class RoomReplayService {
 	}
 
 	/**
-	 * The persisted stable id of a `last_done` entry,
-	 * `last_done:<roomTaskId>:<commandUuid>` — stored rows keep this format,
-	 * so it never changes; {@see lastDoneRoomTaskKey()} reads it back.
+	 * The room-task part of the stable id of a `last_done` entry,
+	 * `last_done:<roomTaskId>:<commandUuid>` — stored rows keep this format.
 	 */
-	private static function lastDoneStableId(int $roomTaskId, string $commandUuid): string {
-		return self::LAST_DONE_PREFIX . $roomTaskId . ':' . $commandUuid;
-	}
-
-	/** The room-task part of a {@see lastDoneStableId()}. */
 	private static function lastDoneRoomTaskKey(string $stableId): string {
 		return explode(':', substr($stableId, strlen(self::LAST_DONE_PREFIX)), 2)[0];
 	}

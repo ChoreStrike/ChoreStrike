@@ -30,7 +30,7 @@
 				<span>{{ durationLabel(modelValue) }}</span>
 			</div>
 			<p class="energy-hint" data-testid="task-energy-hint">
-				{{ t('chorestrike', 'The planner only places a task on a day when it fits a person\'s energy budget. By default that is {weekday} energy on weekdays and {weekend} at weekends.', { weekday: DEFAULT_ENERGY_BUDGET.monday, weekend: DEFAULT_ENERGY_BUDGET.saturday }) }}
+				{{ t('chorestrike', 'Each person has an energy budget per day; the weekly plan shows when tasks exceed it. By default that is {weekday} energy on weekdays and {weekend} at weekends.', { weekday: DEFAULT_ENERGY_BUDGET.monday, weekend: DEFAULT_ENERGY_BUDGET.saturday }) }}
 			</p>
 		</template>
 	</div>

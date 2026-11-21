@@ -116,7 +116,7 @@ class FixtureCleanupTest extends IntegrationTestCase {
 				$this->insertStoredTick($roomTaskId, $occurrenceId, $item->getId());
 				$replay = \OC::$server->get(RoomReplayService::class);
 				$replay->recordBaseline($room);
-				$replay->recordManualDelta($room->getId(), 1, '00000000-0000-4000-8000-000000000001', new \DateTime());
+				$this->insertStoredManualDelta($room->getId(), 1);
 				$service = \OC::$server->get(CompletionService::class);
 				$this->completeOccurrence($service, $houseId, $actor, $roomTaskId);
 				$this->undoLatestForRoomTask($service, $houseId, $actor, $roomTaskId);

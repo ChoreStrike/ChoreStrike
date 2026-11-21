@@ -21,70 +21,6 @@ class AgreementMapper extends QBMapper {
 	}
 
 	/**
-	 * The next free revision number for an occurrence (max + 1, 1 when
-	 * empty). Callers hold the house lock, so this is race-free inside the
-	 * owning transaction.
-	 */
-	public function nextRevision(int $occurrenceId): int {
-		$qb = $this->db->getQueryBuilder();
-		$result = $qb->select($qb->func()->max('revision'))
-			->from($this->getTableName())
-			->where($qb->expr()->eq('occurrence_id', $qb->createNamedParameter($occurrenceId, IQueryBuilder::PARAM_INT)))
-			->executeQuery();
-		$max = (int)$result->fetchOne();
-		return $max + 1;
-	}
-
-	/**
-	 * Whether an explicit agreement revision exists for an occurrence
-	 * (WP3 §3.4 provenance probe — the undo re-derivation never deletes
-	 * explicitly amended rows). The evidence of a definition edit is no
-	 * such agreement ({@see Agreement::DEFINITION_KINDS}).
-	 */
-	public function hasExplicitAgreementFor(int $occurrenceId): bool {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select($qb->func()->count('*'))
-			->from($this->getTableName())
-			->where($qb->expr()->eq('occurrence_id', $qb->createNamedParameter($occurrenceId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->notIn('kind', $qb->createNamedParameter(Agreement::DEFINITION_KINDS, IQueryBuilder::PARAM_STR_ARRAY)));
-
-		$result = $qb->executeQuery();
-		$count = (int)$result->fetchOne();
-		$result->closeCursor();
-
-		return $count > 0;
-	}
-
-	/**
-	 * Record one agreement revision. Called inside the owning house-first
-	 * transaction. WP2: `$consent` stores the recorded consenting subject
-	 * facts, `$pauseRef` links a pause-effect row to its pause group.
-	 */
-	public function record(
-		int $occurrenceId,
-		string $kind,
-		?int $actorHouseUserId,
-		?array $affectedWalletIds,
-		?array $oldState,
-		?array $newState,
-		?array $consent = null,
-		?int $pauseRef = null,
-	): Agreement {
-		$entity = new Agreement();
-		$entity->setOccurrenceId($occurrenceId);
-		$entity->setRevision($this->nextRevision($occurrenceId));
-		$entity->setKind($kind);
-		$entity->setActorHouseUserId($actorHouseUserId);
-		$entity->setAffectedWalletIds($affectedWalletIds);
-		$entity->setOldState($oldState);
-		$entity->setNewState($newState);
-		$entity->setConsent($consent);
-		$entity->setPauseRef($pauseRef);
-		$entity->setCreatedAt(new \DateTime());
-		return $this->insert($entity);
-	}
-
-	/**
 	 * Null the actor of a membership's agreement rows (account erasure);
 	 * the traceable facts stay.
 	 */
@@ -167,35 +103,5 @@ class AgreementMapper extends QBMapper {
 			}
 		}
 		return $consent;
-	}
-
-	/**
-	 * Delete agreements of the given occurrences (test-mode reset).
-	 *
-	 * @param int[] $occurrenceIds
-	 */
-	public function deleteByOccurrenceIds(array $occurrenceIds): void {
-		$occurrenceIds = array_values(array_map('intval', $occurrenceIds));
-		if ($occurrenceIds === []) {
-			return;
-		}
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete($this->getTableName())
-			->where($qb->expr()->in('occurrence_id', $qb->createNamedParameter($occurrenceIds, IQueryBuilder::PARAM_INT_ARRAY)))
-			->executeStatement();
-	}
-
-	/**
-	 * Delete agreements of a house's occurrences (test-mode reset).
-	 */
-	public function deleteByHouseId(int $houseId): void {
-		$qb = $this->db->getQueryBuilder();
-		$occQb = $this->db->getQueryBuilder();
-		$rows = $occQb->select('id')
-			->from('chorestrike_occurrences')
-			->where($occQb->expr()->eq('house_id', $occQb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->executeQuery()
-			->fetchAll();
-		$this->deleteByOccurrenceIds(array_map(static fn (array $row): int => (int)$row['id'], $rows));
 	}
 }

@@ -56,7 +56,7 @@ msgstr ""
 msgid "A JSON request body is required"
 msgstr ""
 
-msgid "A daily summary of the agreements for the coming day."
+msgid "A daily summary of how many of your tasks are planned for the day."
 msgstr ""
 
 msgid "A deleted category no longer appears; its tasks count as \"Other\" until someone gives them a new category."
@@ -75,9 +75,6 @@ msgid "A maximum of %1$d floors is allowed"
 msgstr ""
 
 msgid "A maximum of %1$d rooms per floor is allowed"
-msgstr ""
-
-msgid "A missed chore stays visible as catch-up with its original date. Completing it now covers the miss — it stays a catch-up."
 msgstr ""
 
 msgid "A new task has no sub-tasks to keep"
@@ -102,6 +99,9 @@ msgid "A subjectUserId is required"
 msgstr ""
 
 msgid "A summary time is required while a summary is enabled"
+msgstr ""
+
+msgid "A task is overdue once its window has ended. It shows as one red entry until it is done; on a fixed day, until the next window opens. Missed rounds do not pile up."
 msgstr ""
 
 msgid "A task takes at most %1$d sub-tasks"
@@ -141,9 +141,6 @@ msgid "A valid reasonCode is required"
 msgstr ""
 
 msgid "A wake date needs a sleeping task"
-msgstr ""
-
-msgid "A weekly overview of catch-ups and absences."
 msgstr ""
 
 msgid "Absence"
@@ -203,15 +200,6 @@ msgstr ""
 msgid "After completion"
 msgstr ""
 
-msgid "Agreement"
-msgstr ""
-
-msgid "Agreements and shares"
-msgstr ""
-
-msgid "Agreements are what the family has planned — responsibility and joint obligations differ from voluntary help. Actual shares split the total work; they never multiply it: a total energy-1 chore earns 10 Coins once, so 34/33/33% give 3.4/3.3/3.3 Coins."
-msgstr ""
-
 msgid "All"
 msgstr ""
 
@@ -245,7 +233,7 @@ msgstr ""
 msgid "All rooms and tasks on this floor will be deleted."
 msgstr ""
 
-msgid "All rooms return to their initial clean state and house health is restored. Setup, structure, tasks, agreements, completion history, finances, reward requests, and achievements are kept."
+msgid "All rooms return to their initial clean state and house health is restored. Setup, structure, tasks, completion history, finances, reward requests, and achievements are kept."
 msgstr ""
 
 msgid "All tasks in this room will be deleted."
@@ -254,7 +242,7 @@ msgstr ""
 msgid "Also possible today · {count}"
 msgstr ""
 
-msgid "An absence is a period in which nothing is planned for you and nothing counts for or against anyone. Everyone enters their own under Absence; no reason and no request are needed."
+msgid "An absence is a period in which nothing is planned for you. A task whose whole window lies inside it counts neither for nor against you. Everyone enters their own under Absence; no reason and no request are needed."
 msgstr ""
 
 msgid "An absence that has ended cannot be deleted"
@@ -267,6 +255,9 @@ msgid "An optional weekly comparison of on-time shares. Participation is volunta
 msgstr ""
 
 msgid "An overdue task cannot be postponed"
+msgstr ""
+
+msgid "An overview of household updates: your overdue tasks that someone else did, absences and reward requests."
 msgstr ""
 
 msgid "An owner can add rewards in the Settings."
@@ -482,9 +473,6 @@ msgstr ""
 msgid "Capacity"
 msgstr ""
 
-msgid "Catch-up"
-msgstr ""
-
 msgid "Categories sort the tasks, and the task list can filter by them. \"Other\" collects every task without a fitting category."
 msgstr ""
 
@@ -579,9 +567,6 @@ msgid "Cleaning level"
 msgstr ""
 
 msgid "Cleanliness"
-msgstr ""
-
-msgid "Cleanliness change must be between -100 and 100"
 msgstr ""
 
 msgid "Clear and wipe desk"
@@ -917,6 +902,9 @@ msgstr ""
 msgid "Due tomorrow"
 msgstr ""
 
+msgid "Due window"
+msgstr ""
+
 msgid "Duplicate"
 msgstr ""
 
@@ -971,10 +959,13 @@ msgstr ""
 msgid "Each category needs a name of 1 to %1$s characters."
 msgstr ""
 
-msgid "Each chore has a completion window around its planned day. Free days and absences are neutral, and catch-up covers a miss without backdating on-time credit. Your contribution share is separate from your Coins: Coins are what you can spend or reserve."
+msgid "Each chore has a due window around its planned day; work done inside it, or earlier, is on time. A window that lies entirely inside your absence is neutral, and finishing an overdue chore clears it without counting as on time. Your contribution share is separate from your Coins: Coins are what you can spend or reserve."
 msgstr ""
 
 msgid "Each game needs a threshold from 0 to %1$s finished chores."
+msgstr ""
+
+msgid "Each person has an energy budget per day; the weekly plan shows when tasks exceed it. By default that is {weekday} energy on weekdays and {weekend} at weekends."
 msgstr ""
 
 msgid "Each person needs an existing Nextcloud account with this email address."
@@ -1083,6 +1074,9 @@ msgid "Every participant needs a user id and a whole percent share"
 msgstr ""
 
 msgid "Every person — including a child — needs their own existing Nextcloud account; creating accounts and signing in belongs to Nextcloud. Wizard invites add members, and an owner sets the child role in the member settings. On a shared device everyone uses their own sign-in — there are no local child profiles."
+msgstr ""
+
+msgid "Every task has a window instead of a single due day: its planned day plus and minus its flex days. Work done inside the window, or earlier, is on time."
 msgstr ""
 
 msgid "Every {n} days"
@@ -2057,6 +2051,9 @@ msgstr ""
 msgid "People ({count})"
 msgstr ""
 
+msgid "People who do a chore together share it. Actual shares split the total work; they never multiply it: a total energy-1 chore earns 10 Coins once, so 34/33/33% give 3.4/3.3/3.3 Coins, before coin factors and bonus days."
+msgstr ""
+
 msgid "Person"
 msgstr ""
 
@@ -2321,7 +2318,7 @@ msgstr ""
 msgid "Reset the arcade progress of {name}"
 msgstr ""
 
-msgid "Resets all rooms to a clean state and restores house health. Setup, tasks, agreements, completion history, finances, reward requests, and achievements are kept. This cannot be undone."
+msgid "Resets all rooms to a clean state and restores house health. Setup, tasks, completion history, finances, reward requests, and achievements are kept. This cannot be undone."
 msgstr ""
 
 msgid "Rests until it is woken, for example in winter"
@@ -2948,7 +2945,7 @@ msgstr ""
 msgid "The list names a category that does not exist."
 msgstr ""
 
-msgid "The number of days in a row you kept your agreements. Today stays pending until the day closes."
+msgid "The number of days in a row on which every task of yours whose window ended was done on time. Days without such a task neither add to it nor break it. Today stays pending until the day closes."
 msgstr ""
 
 msgid "The optional list of family-agreed rewards. Owners enable it for the household and each person decides whether to see it — the two choices are independent. Hiding it never touches existing requests."
@@ -2958,9 +2955,6 @@ msgid "The pause already covers no later date"
 msgstr ""
 
 msgid "The person needs an existing Nextcloud account with this email address."
-msgstr ""
-
-msgid "The planner only places a task on a day when it fits a person's energy budget. By default that is {weekday} energy on weekdays and {weekend} at weekends."
 msgstr ""
 
 msgid "The preferences changed since they were displayed"
@@ -3038,13 +3032,13 @@ msgstr ""
 msgid "The settings could not be saved. Please try again."
 msgstr ""
 
-msgid "The share allocation deviates from the agreement and must be confirmed"
-msgstr ""
-
 msgid "The share allocation deviates from the recorded allocation and must be confirmed"
 msgstr ""
 
 msgid "The shared goal of the whole household for this week."
+msgstr ""
+
+msgid "The shares differ from the suggested split and must be confirmed"
 msgstr ""
 
 msgid "The shortened pause would lose its start date"
@@ -3470,9 +3464,6 @@ msgstr ""
 msgid "What a person’s coins count. With a higher factor, someone with less time can collect as much as the others. It applies to work recorded from now on. Energy, the weekly goal and the streak stay the same."
 msgstr ""
 
-msgid "What the family has agreed for the coming days — nothing more. Work only counts once it is done."
-msgstr ""
-
 msgid "What was done stays in the history."
 msgstr ""
 
@@ -3515,6 +3506,9 @@ msgstr ""
 msgid "Withdraw participation"
 msgstr ""
 
+msgid "Work shares"
+msgstr ""
+
 msgid "Work top to bottom, dust the shelves and decor, and wipe the nightstand and dresser."
 msgstr ""
 
@@ -3536,7 +3530,7 @@ msgstr ""
 msgid "You are not allowed to perform this action on this request"
 msgstr ""
 
-msgid "You are not part of the ranking. Participation is voluntary and only ever shows your on-time share of agreed public tasks — starting next Monday."
+msgid "You are not part of the ranking. Participation is voluntary and only ever shows your on-time share of public tasks — starting next Monday."
 msgstr ""
 
 msgid "You can change or delete your own latest entry. Everything else is for the owner."
@@ -3624,9 +3618,6 @@ msgid "assigneeUserIds must be an array of user IDs"
 msgstr ""
 
 msgid "catalogEnabled must be a boolean"
-msgstr ""
-
-msgid "cleanlinessChange must be between -100 and 100"
 msgstr ""
 
 msgid "counted today"

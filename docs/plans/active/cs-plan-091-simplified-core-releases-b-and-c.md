@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; RF-091-06 open for WP-B7; next: WP-B7)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 open for the operator, RF-091-12 and RF-091-13 open for WP-C; next: WP-C)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -573,6 +573,85 @@ D-091-107 accepted, with D-091-92, D-091-93 and D-091-100 amended as below.
   again (amends D-091-93: the receipt does not replace the operational log line); a created
   task stores an empty text as no text, like an edited one.
 
+### Implementation decisions (WP-B7, for the interim review)
+
+- **D-091-113 What counts as left without a caller:** a method goes when it has no
+  production caller on the branch and had one on `master` before this plan
+  (`2b9efaf2`), or when only a retired route reached it. That covers D-091-38 and
+  RF-091-06 in full and three methods beyond them (`TaskAccessPolicy::assertCanViewTask()`,
+  `CompletedTaskMapper::countDistinctCompletedRoomTasksInSet()`,
+  `RecurrenceCalculator::dayBefore()`). `Room::updateCleanliness()` had no caller on `master`
+  either and went by choice, with the cleanliness delta it belonged to. Methods that had no
+  caller before the plan either stay and are listed in CR-SVC-67.
+- **D-091-114 The history mappers keep what still runs:** `OccurrenceMapper` keeps the
+  one read of the recognitions (`findByHousePlannedBetween()`), `OccurrenceMemberMapper`
+  the member read next to it and the erasure by wallet, `ScheduleRevisionMapper`,
+  `AgreementMapper` and `RoomTaskChecklistProgressMapper` the anonymization of an erased
+  account and the clean-up with a deleted room task. Their entities keep every field and
+  constant: they describe the retained rows.
+- **D-091-115 Retained journal entries are seeded as stored rows:** the writers of
+  `manual_delta` and `last_done` went with their commands, so the replay tests seed such an
+  entry through `StoredTimelineFixtures::insertStoredManualDelta()`, as the occurrence
+  rows are seeded since WP-B1. The reset and replay scenarios of
+  `RoomReplayConcurrencyTest` stay, with a retained delta or a completion as the later
+  work; the four tests of the manual-delta command (receipt replay, changed payload, stale
+  version, clamp of a new request) went with the command.
+- **D-091-116 The frozen dates of the fixed rules moved to the lookup:**
+  `RecurrenceCalculatorTest` pinned the fixed sequences through `enumerate()` and compared
+  `firstFixedDayOnOrAfter()` with it. The same date lists now pin the lookup directly, each
+  shape of the data provider carries its first days, and the from-any-day property stays.
+  The cases of the stored model only (ordinals, a one-time lifetime, a zero interval, a
+  reversed query window, interval revisions) went with the enumeration.
+- **D-091-117 Two pins moved with their code:** the savepoint rule of a first tick
+  (an unexpected insert failure propagates without further SQL) to the new
+  `CycleProgressMapperTest`, and the day bounds of the stored occurrences to the one read
+  that is left. The tests of the two retired routes went with them: the cross-house and
+  visibility refusals of the room statistics, their counts, and the controller and service
+  tests of the cleanliness delta.
+- **D-091-118 Help and settings wording:** the glossary explains *Due window* and *Overdue*
+  where it explained *Agreement* and *Catch-up*; the context topic *Agreements and shares*
+  is *Work shares* (`shares`); the streak is *days in a row on which you did your due
+  tasks on time*. The progress topic and the user guide no longer call free days neutral:
+  only an absence is (D-091-03). The hints of the two digests say what is delivered, the
+  reset texts no longer list agreements, the ranking text says *public tasks*, and the
+  refusal of an unconfirmed split reads *The shares differ from the suggested split and
+  must be confirmed*. The wider help for postponing, sleeping and bonus tasks stays with
+  WP-G.
+- **D-091-119 Retained agreement rows of the digest queue:** the `agreement` case of the
+  relevance check went, so such a row is never counted and never consumed; it stays
+  `queued` until its slot expires with it, as before. BUG-UX-015 closes with that
+  (D-091-12).
+
+Routed while implementing: CR-SVC-67 (methods without a caller from before the plan),
+BUG-UX-017 (the organization digest is called weekly) and TECH-DEV-002 (a rebuilt bundle is
+not fetched on the development stack, operator report of 2026-11-21).
+
+### Review decisions (interim Full review of WP-B7, 2026-11-21)
+
+No question needed the operator; D-091-113 to D-091-119 accepted with these amendments.
+RF-091-11 stays open for the operator.
+
+- **D-091-120 Nothing serializes a retained row** (narrows D-091-114): the five history
+  entities keep their fields and the constants that name stored values. Their
+  `jsonSerialize()`, the key helpers (`Occurrence::toPublicKey()`,
+  `RoomTaskChecklistProgress::occurrenceKey()`), `ScheduleRevision::weekdayList()` and
+  `Agreement::DEFINITION_KINDS` lost their last caller in this plan and went, with
+  `OccurrenceTest` and `RoomTaskChecklistProgressTest`.
+- **D-091-121 The help says what the rules say** (amends D-091-118): an overdue task is one
+  red entry until it is done and, on a fixed day, until the next window opens; a task whose
+  whole window lies inside an absence counts neither for nor against the person, instead of
+  *nothing counts for or against anyone*; the streak counts the days on which every task
+  whose window ended was done on time, and a day without one is neutral; the organization
+  digest names what is queued (overdue tasks someone else did, absences, reward requests);
+  *Work shares* names coin factors and bonus days; the energy hint of the form no longer
+  speaks of a planner that places tasks. German uses *Zeitraum* for the window everywhere,
+  as the labels of the task row do, and *öffentliche Aufgaben* in the ranking text.
+- **D-091-122 What the review added to the tests:** the fixed rules are compared through
+  March 2028 with a per-day reference that shares no code with the calculator; the check
+  that a room-scoped list hides a private task moved from the retired statistics to
+  `GET /room-tasks?roomId=` on a real database; every help topic is checked for the
+  retired words; the three retired-route guards of the route matrix share one body.
+
 ### Positions for the Standard A review
 
 These settle the remaining open points of the concept. They bind once Standard A passes.
@@ -732,7 +811,7 @@ These settle the remaining open points of the concept. They bind once Standard A
 
 - Routes go: `PUT /rooms/{id}/cleanliness` (`RoomController`, D-089-09), whose retained
   journal entries keep replaying, and `room_task#roomStats`, which has had no client since
-  D-090-10.
+  D-090-10. The two other routes of those decisions are RF-091-11.
 - Digest: the agreement lines and their relevance check go; their queue writes went with the
   writers in WP-B1, and retained agreement rows are skipped (D-091-12, BUG-UX-015).
 - Help, glossary and user guide drop catch-up, agreements, *last done on* and the applied plan.
@@ -749,6 +828,8 @@ These settle the remaining open points of the concept. They bind once Standard A
   daily limit keeps limiting what *Today* offers that child.
 - *Today* and the calendar show the suggestion; the remaining planner parts of
   `store/scheduling.js` and `SchedulingView.vue` go.
+- The daily summary counts the member's suggested work for today plus their overdue tasks
+  (D-091-12, RF-091-12), and the *Work shares* help finds its place (RF-091-13).
 
 ### WP-G Release `0.8.0-alpha.5` for A, B and C (RELEASE-002)
 
@@ -784,8 +865,8 @@ approval.
 - **WP-B6:** form specs (atomic save, split on edit, move between rooms keeping history,
   read-only next window), inline row specs, the affected browser specs with their pinned
   scenarios moved, none dropped without a successor or a recorded reason.
-- **WP-B7:** the cleanliness route answers 404 and the route matrix pins it; retained journal
-  entries and agreement queue rows still read or are skipped.
+- **WP-B7:** the cleanliness and the room-statistics route answer 404 and the route matrix
+  pins both; retained journal entries and agreement queue rows still read or are skipped.
 - **WP-C:** `SuggestionServiceTest` (D-091-11 rules, preferred days, absences, team tasks,
   overload, the child limit); the daily snapshot (one per house and day under concurrent first
   reads, the leave and join rules, deletion of old days); request budgets for *Today* and the
@@ -856,6 +937,18 @@ removed:  src/components/Tasks/TaskEditForm.vue, TaskCreateDialog.vue, TaskListI
           TaskListBulkBar.vue, TaskTemplatePicker.vue, OverdueClaimDialog.vue,
           RecurrencePresetSelector.vue, index.js, src/components/Today/TodayTaskRow.vue
           (WP-B6, with their specs)
+new:      tests/unit/Db/Mapper/CycleProgressMapperTest.php (WP-B7)
+modified: lib/Db/AgreementMapper.php, OccurrenceMapper.php, OccurrenceMemberMapper.php,
+          ScheduleRevisionMapper.php, RoomTaskChecklistProgressMapper.php, Occurrence.php,
+          Room.php, RoomEvent.php, DigestChange.php, lib/Service/RecurrenceCalculator.php,
+          RoomReplayService.php, TaskAccessPolicy.php, NotificationService.php,
+          src/components/Settings/DangerZoneSettings.vue, src/components/Insights/RankingPanel.vue,
+          tests/integration/Support/StoredTimelineFixtures.php, lib/Db/Agreement.php,
+          OccurrenceMember.php, ScheduleRevision.php, RoomTaskChecklistProgress.php,
+          src/components/Tasks/TaskEnergyField.vue, docs/engineering/notifications.md,
+          development.md, docs/concepts/notifications.md, ui-use-cases.md (WP-B7 and its review)
+removed:  tests/unit/Db/OccurrenceTest.php, tests/unit/Db/Entity/RoomTaskChecklistProgressTest.php
+          (interim Full review of WP-B7)
 modified: l10n/de.json, l10n/en.json, l10n/templates/chorestrike.pot
 modified: tests named in section 4, tests/e2e/required-scenarios.json, scripts/run-e2e-gate.js
 modified: docs/concepts/*.md named in WP-0, docs/api/README.md, docs/api/notifications.md,
@@ -996,14 +1089,47 @@ the defects now, route refactors, performance and the recovery tooling to WP-B2)
   `CycleRule::UNIT_*` with `TaskService::WEEKDAYS` and `CalendarService::dayKeyOf()`, the
   block through `RoomTaskReadService::cycleFacts()`, the creation day in `HouseService`.
   `CycleService` is at 412 non-blank lines with the postponement and the date seam added.
-- [ ] **RF-091-06 Code without a caller beyond D-091-38** (WP-B1, cleanup; extends D-091-38
+- [x] **RF-091-06 Code without a caller beyond D-091-38** (WP-B1, cleanup; extends D-091-38
   for WP-B7): `RoomTaskMapper::findActiveDueUpToByHouse()` and `findDueWithinDaysByHouse()`,
   `CompletedTaskMapper::findUndoStateByRoomTasks()`, `RoomTaskReadService::rowsForRoomTasks()`
   and `timeZoneForRoom()`, `Occurrence::parsePublicKey()` and `suspensionFacts()`, and the
   readers of the history mappers that lost every production caller (`OccurrenceMapper`,
   `ScheduleRevisionMapper`, `RoomTaskChecklistProgressMapper`, `OccurrenceMemberMapper`,
   `AgreementMapper::hasExplicitAgreementFor()`), each kept only where `RecognitionFactsService`
-  or `DigestService` still reads old rows.
+  or `DigestService` still reads old rows. **Fixed 2026-11-21 (WP-B7):** everything named
+  here and in D-091-38 is gone, with the private helpers and constants only they used
+  (D-091-113, D-091-114); `rowsForRoomTasks()` and `timeZoneForRoom()` had already gone with
+  RF-091-10. `DigestService` reads no stored occurrence any more; the recognitions keep
+  their one read.
+
+Found while implementing WP-B7 (2026-11-21).
+
+- [ ] **RF-091-11 Two more routes without a client are not named by WP-B7** (scope, operator
+  decision): D-090-10 kept `PUT /pauses/{id}` (shortening an absence) and D-090-38
+  `GET /house/health` (which recalculates and stores the house health on a read) *until
+  Release B reworks both surfaces*; the API reference repeats that. WP-B7 names only the
+  cleanliness and the statistics route, and Release B does not rework absences or house
+  health. Neither route has a client (`src/services/api.js`, the stores). Recommended:
+  retire both in this package's follow-up, with `PauseController::update()`, the shortening
+  command of `PauseService` and `HouseController::health()` and their tests, keeping the
+  health calculation that the reset and the statistics use. Alternative: keep them and say
+  so in the API reference without *until Release B*.
+
+Routed by the interim Full review of WP-B7 (2026-11-21); every other finding of that review
+was fixed in it.
+
+- [ ] **RF-091-12 The count of the daily summary has no package** (WP-C, behaviour):
+  D-091-12 and ADR-022 decision 7 make the summary count the member's suggested work for
+  today plus their overdue tasks. `DigestService::countRelevantTasks()` counts the member's
+  own open windows planned for today and nothing overdue; WP-B7 took the agreement lines out
+  and no package named the rest. It needs the suggestion of WP-C. Due with WP-C: the count,
+  the class description, the hint of the task digest in the settings and
+  [`notifications.md`](../../engineering/notifications.md).
+- [ ] **RF-091-13 The *Work shares* help sits on the capacity page** (WP-C, interface): the
+  topic explains how people who did a task together split its coins, and its trigger is in
+  the header of `SchedulingView.vue`, which shows availability and load. It fitted
+  *Agreements and shares* next to the planner. WP-C rebuilds that page; the topic moves next
+  to *Who did the work?* or goes into the glossary.
 
 Routed by the interim Full review of WP-B2 and WP-B3 (2026-11-18); every verified defect of
 that review was fixed in it (D-091-59), these are the structure, performance and
@@ -1278,3 +1404,29 @@ integration 707 on the canonical stack and on PostgreSQL, MariaDB, SQLite and th
 checks; focused browser specs 35 passed on `chromium` (the request budgets among them), 93
 on `chromium-serial-db` and the phone set 11 each on `mobile-chromium` and
 `mobile-webkit`; the preservation proofs passed on the final tree: P1 on PostgreSQL, MariaDB and SQLite, P2, P3 and P4 on PostgreSQL, each with a clean teardown. No schema step. Interim review: the plan stays in `active/`.
+
+**Interim Full review of WP-B7, 2026-11-21: `PASS-WITH-FIXES`.** Scope: the uncommitted WP-B7 package on
+`feat/simplified-core-bc` (base HEAD `f1d9d606`, 66 paths, fingerprint
+`03727d98…599f77`), four reviewer tracks plus the main agent. Record:
+[CODE_REVIEW_2026-11-21](../../backlog/archive/CODE_REVIEW_2026-11-21.md#full-interim---cs-plan-091-wp-b7-retiring-the-rest-of-the-old-surface).
+
+Fixed in the review: the help called an overdue task red until it is done, also on a fixed
+day; the user guide still let owners *plan and apply the week*; the two notification
+documents still described agreed catch-up and agreement recordings; the fixed rules were
+compared with the lookup's own output; the real-database check of a room-scoped list went
+with the statistics route; the retained entities kept serialization nobody calls
+(D-091-120); the hints of the organization digest and of the energy field, the absence and
+streak texts and the German window term (D-091-121). Also stale comments and documents,
+dead test helpers, one body for the retired-route guards. No question needed the operator.
+D-091-113 to D-091-119 accepted, D-091-120 to D-091-122 decided. Routed: RF-091-12 and
+RF-091-13 to WP-C; RF-091-11 stays open for the operator; CR-SVC-67, BUG-UX-017 and
+TECH-DEV-002 went to the backlog while implementing.
+
+Gates: Jest 186 suites / 2658 tests, ESLint, stylelint, build; PHPUnit unit 1846 and
+integration 698 on the canonical stack and on PostgreSQL, MariaDB, SQLite and the AIO row
+(matrix `r91b7c`), no skips; php-cs-fixer, l10n (1283 keys), adapter, docs and backlog
+checks; focused browser specs 126 passed on `chromium-serial-db`, 23 on `chromium`, 30 on
+`chromium-scheduling-owner` and the phone set 11 each on `mobile-chromium` and
+`mobile-webkit`; the preservation proofs passed on the final tree: P1 on PostgreSQL,
+MariaDB and SQLite, P2, P3 and P4 on PostgreSQL, each with a clean teardown. No schema
+step. Interim review: the plan stays in `active/`.

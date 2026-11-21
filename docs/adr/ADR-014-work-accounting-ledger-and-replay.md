@@ -86,7 +86,9 @@ derivations** of that fact.
   `delta` effects from completions, `manual_delta` and absolute `reset` kinds
   (plus `last_done` since CS-PLAN-088 D-088-20: a recorded day that stamps
   `last_cleaned` only, the newest entry per room task recorded after the
-  latest reset counting, whatever day it names),
+  latest reset counting, whatever day it names; since CS-PLAN-091 nothing
+  writes `manual_delta` or `last_done` any more and retained entries keep
+  replaying),
   each with a stable command UUID, `(effective_at, id)` ordering and the saved
   absolute `baseline_*` values for resets. Room cache columns become derived
   projections replayed from the journal.

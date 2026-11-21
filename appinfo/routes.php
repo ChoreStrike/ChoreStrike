@@ -42,7 +42,9 @@ return [
         ['name' => 'room#create', 'url' => '/api/v1/rooms', 'verb' => 'POST'],
         ['name' => 'room#update', 'url' => '/api/v1/rooms/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
         ['name' => 'room#delete', 'url' => '/api/v1/rooms/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
-        ['name' => 'room#updateCleanliness', 'url' => '/api/v1/rooms/{id}/cleanliness', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        // Pruned 2026-11-21 (CS-PLAN-091 WP-B7, D-089-09): `room#updateCleanliness`
+        // (PUT /rooms/{id}/cleanliness) — no client since the quick clean left
+        // the interface; its journal entries stay and keep replaying.
 
         // Task API
         // NOTE: static single-segment routes MUST precede the parameterized
@@ -90,7 +92,9 @@ return [
         // (PUT /room-tasks/{id}/due-date) and `room_task_last_done#update`
         // (PUT /room-tasks/{id}/last-done) — the next window is derived and never
         // edited directly; the first date replaces "last done on" (D-091-19).
-        ['name' => 'room_task#roomStats', 'url' => '/api/v1/room-tasks/room/{roomId}/stats', 'verb' => 'GET', 'requirements' => ['roomId' => '\d+']],
+        // Pruned 2026-11-21 (CS-PLAN-091 WP-B7, D-090-10): `room_task#roomStats`
+        // (GET /room-tasks/room/{roomId}/stats) — no client since the room
+        // view shows the task rows themselves.
 
         // Completion correction API (CS-PLAN-070 WP3 §3.6): versioned,
         // receipt-protected reads of one completion and targeted undo /

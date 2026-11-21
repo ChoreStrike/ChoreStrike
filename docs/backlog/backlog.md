@@ -261,7 +261,7 @@ item and is fixed with it.
 ---
 
 ### [P3] BUG-UX-015 — An energy or flex edit drops queued agreement digest lines
-**Status**: In Progress (CS-PLAN-091 WP-B7, active 2026-11-16); before: Open · **Effort**: S · **Layer**: backend · **Journey stage**: notifications
+**Status**: In Progress (CS-PLAN-091 WP-B7: the agreement queue retired 2026-11-21, interim Full review `PASS-WITH-FIXES` 2026-11-21; ships with `0.8.0-alpha.5`); before: Open · **Effort**: S · **Layer**: backend · **Journey stage**: notifications
 **Owning**: CS-PLAN-091 WP-B7 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of BUG-UX-014, 2026-11-05
 
@@ -272,7 +272,10 @@ participant is dropped without a replacement. Flex widening has done this since 
 BUG-UX-014 adds energy edits and the job pass. The digest is a daily summary and the change
 itself stays visible in the app.
 
-- [ ] A queued agreement line survives an evidence-only version bump, with a regression test.
+- [x] A queued agreement line survives an evidence-only version bump, with a regression test.
+      Closed with the agreement queue instead (D-091-12, WP-B7 2026-11-21): nothing queues or
+      counts such a line any more, and a retained row is skipped and never consumed
+      (`DigestServiceTest`, `DigestDeliveryTest`).
 
 ---
 
@@ -366,6 +369,61 @@ CS-PLAN-091; the review fixed the same gap for the new cycle tables and the sub-
 - [ ] The orphan-wallet sweep removes or anonymizes the wallet in `occ_members`, the
   rule-default and the agreement snapshots, as the membership loop does.
 - [ ] `AccountErasureTest` covers a departed account with stored appointments.
+
+---
+
+### [P3] BUG-UX-017 — The organization digest is called weekly but arrives with the daily summary
+**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: notifications
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-091 WP-B7 implementation, 2026-11-21
+
+The notification settings name the second switch *Weekly organization digest*, and the user
+guide repeats the name. `DigestService` has no weekly pass: household updates (work recorded
+for someone's tasks, absences, reward requests) are queued for the member's next daily slot
+and counted in the one summary of that day. WP-B7 reworded the hint below the switch, which
+had promised *a weekly overview of catch-ups and absences*; the label, the user guide and
+the screenshot text keep the old name. Older than CS-PLAN-091.
+
+- [ ] The switch, its German copy, the user guide and the screenshot alt text name what is
+  delivered, or a weekly delivery is decided and built.
+
+---
+
+### [P3] CR-SVC-67 — Methods without a caller from before CS-PLAN-091
+**Status**: Backlog · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: —
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-091 WP-B7 implementation, 2026-11-21
+
+WP-B7 removed the code that lost its last caller in CS-PLAN-091 (RF-091-06). A scan by name
+found methods that had no production caller on `master` before the plan either; several are
+still called by their own tests. They stayed, because WP-B7 owns only what the plan orphaned
+(D-091-113):
+
+- `CompletedTaskMapper`: `getUserStatsByHouse`, `countByRoomTaskAndUserOnDate`, `countByUserOnDate`,
+  `countByUserOnDateGrouped`, `getMaxRoomCompletionCountByHouse`,
+  `findCompletedRoomTaskIdsBetweenByHouse`, `isValidCompletion`
+- `RoomTaskMapper`: `deactivate`, `findDueOnDate`, `findActiveDueBetweenByHouse`,
+  `findActiveDueIdsBetweenByHouse`; `RoomMapper::resetByHouseId`; `RoomEventMapper`:
+  `findEventsByRoom`, `countByRoom`, `findByRoomIds`, `deleteAll`
+- `TaskAssigneeMapper`: `isAssignee`, `removeAssignee`; `TaskChecklistItemMapper`:
+  `deleteByTaskId`, `countByTaskId`; `HouseUserMapper`: `findByHouseIdAndNextcloudUserId`,
+  `findAllForJobs`; `MemberPreferenceMapper::findAllByHouseUserIds`; `PauseMapper::deleteByHouseId`;
+  `RewardRequestMapper::sumUnfulfilledPriceByWalletId`; `WorkShareMapper`: `sumRevision`,
+  `deleteAll`; `CompletionRevisionMapper`: `maxRevisionOf`, `deleteAll`
+- entities: `Room::getCleanlinessLabel`, `Task` (`getEstimatedTimeRange`, `getPriorityLabel`,
+  `getFrequencyLabel`), `HouseUser` (`addContributionMinor`, `resetStreak`),
+  `MemberPreference::clearRankingConsent`, `RewardRequest::isTerminal`
+- services: `AuthorizationService::isHouseOwner`, `HouseService::hasFloors`,
+  `RoomService::getRoomTask`, `TaskService::getMyPrivateTasks`, `RewardConfigService`
+  (`getAllConfig`, `updateConfig`, `setTitlesEnabled`), `TitleCatalog::isValidPack`
+- frontend: the store members `dismissCelebration` and `clearDismissedCelebrations`
+  (`game.js`), `clearDetail` (`rewards.js`), `activeTasks` (`tasks.js`), `isChild`
+  (`user.js`), and the exports `COIN_MINOR_PER_ENERGY` (`minorUnits.js`), `setMuted`,
+  `isMuted`, `isSoundEnabled` and `preloadSounds` (`sound.js`)
+
+The scan matches names, so each entry needs its callers checked by type before it goes.
+
+- [ ] Each listed method is removed with its tests, or its caller is named.
 
 ---
 
@@ -473,7 +531,9 @@ profile or guardian-consent model should be implied by onboarding copy.
 - [x] Help entry point reachable from the navigation (WP6 delivered one
       nav-level entry; per-view contextual entry points remain WP8).
 - [x] Glossary unifying the core household vocabulary (Agreement,
-      Catch-up, Pause, Streak, Quiet time, Ranking, Arcade, Coins).
+      Catch-up, Pause, Streak, Quiet time, Ranking, Arcade, Coins). Since
+      CS-PLAN-091 WP-B7 *Due window* and *Overdue* stand for *Agreement* and
+      *Catch-up*, and the topic *Agreements and shares* is *Work shares*.
 - [x] Contextual hints for the selected model (accounts/roles, agreements/shares,
       progress/windows, catalog gates, owner pricing) as manually triggered
       context topics — delivered with the WP8 slice 2026-10-02; do not teach
@@ -572,7 +632,7 @@ templates today).
 ---
 
 ### [P2] FEAT-UX-050 — Postpone, direct handover and no separate details view
-**Status**: In Progress (CS-PLAN-091 WP-B3, postpone implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18; the details view went with WP-B6 2026-11-19, the cleanliness route goes in WP-B7); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily execution
+**Status**: In Progress (CS-PLAN-091 WP-B3, postpone implemented 2026-11-18, interim Full review `PASS-WITH-FIXES` 2026-11-18; the details view went with WP-B6 2026-11-19, the cleanliness route with WP-B7 2026-11-21); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily execution
 **Owning**: CS-PLAN-091 WP-B3 · **Depends on**: CS-PLAN-080, FEAT-UX-040, FEAT-UX-051 · **Blocks**: — · **Folded-in**: operator decisions of 2026-11-09 (CONCEPT-002)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-6, G-4, G-5, G-6
 
@@ -610,9 +670,9 @@ needed is for the owning plan to settle. Detail:
 - [x] The details view goes; checklist ticking moves to FEAT-UX-051 and editing to
       FEAT-UX-040 (WP-B6 2026-11-19: `TaskRowDetails` holds the facts, the sub-tasks,
       postpone, record for someone else, edit, sleep and the history).
-- [ ] The routes without a client go: `occurrence#catchUp` with the old writers (WP-B1)
-      and `PUT /rooms/{id}/cleanliness` (WP-B7, D-089-09). Journal replay and read paths
-      stay.
+- [x] The routes without a client go: `occurrence#catchUp` with the old writers (WP-B1)
+      and `PUT /rooms/{id}/cleanliness` (WP-B7 2026-11-21, D-089-09). Journal replay and
+      read paths stay (`RoomReplayConcurrencyTest`, `RouteMatrixTest`).
 
 ---
 
@@ -1067,6 +1127,26 @@ A, B and C reach the family instance as one version: Release A, qualified as
 - [ ] The concept's open points are settled in the owning plans.
 - [ ] Plans drafted with Standard A: Release A (CS-PLAN-090, Standard A 2026-11-10, closed
       2026-11-16) and one plan for B and C; all three share one deployment.
+
+---
+
+### [P3] TECH-DEV-002 — A rebuilt bundle is not fetched on the development stack
+**Status**: Backlog · **Effort**: S · **Layer**: infra · **Journey stage**: —
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator report during CS-PLAN-091 WP-B7, 2026-11-21
+
+After a rebuild on the canonical development stack, an open browser kept the old
+`chorestrike-main.js` and loaded the new lazy chunks next to it: *Tasks* stayed empty until a
+forced reload. Nextcloud serves scripts with a `?v=` cache buster as
+`max-age=15778463, immutable`; the buster follows the app version, which stays
+`0.8.0-alpha.5` through the whole plan (D-091-06), so the URL of the entry bundle never
+changes between builds. A release bumps the version, so installs are not affected. On
+2026-11-21 the theming cache buster of the stack was raised once by hand
+(`occ config:app:set theming cachebuster`), which changes the suffix of every script URL.
+
+- [ ] A build for the development stack changes the URL of the entry bundle, or the stack
+  serves the app's scripts with revalidation; the browser gates keep their behaviour.
+- [ ] [`testing.md`](../engineering/testing.md) names the step for a GUI review.
 
 ---
 

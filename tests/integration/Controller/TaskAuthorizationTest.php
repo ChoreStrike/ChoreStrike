@@ -68,7 +68,7 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 		$this->roomTaskId = $this->assignTaskToRoom($this->taskId, $this->roomId, 'ta_member');
 
 		// Private task of the owner in the same room ” the residual-surface
-		// fixtures (assignees read, room stats) of the review fixes.
+		// fixtures (the list of a room, the form save) of the review fixes.
 		$this->privateTaskId = $this->createTask($this->houseId, 'Private Note', 'Hidden from the house', 2, 5);
 		$this->setTaskVisibility($this->privateTaskId, Task::VISIBILITY_PRIVATE, 'ta_owner');
 		$this->privateRoomTaskId = $this->assignTaskToRoom($this->privateTaskId, $this->roomId, 'ta_owner');
@@ -115,6 +115,23 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 		$response = $controller->index($this->foreignRoomId);
 
 		self::assertSame(404, $response->getStatus());
+	}
+
+	/**
+	 * A room-scoped read hides a private room task from a member who may
+	 * not see it (CS-PLAN-061 review fix). The retired room statistics
+	 * carried this check on a real database; it stays on the list of the
+	 * room (CS-PLAN-091 WP-B7).
+	 */
+	public function testIndexOfRoom_HidesInvisiblePrivateTasks(): void {
+		// The kitchen holds the public room task and the owner's private one.
+		$childResponse = $this->getController(RoomTaskController::class, 'ta_child')->index($this->roomId);
+		self::assertSame(200, $childResponse->getStatus());
+		self::assertCount(1, $childResponse->getData()['data'], 'the child sees the public task only');
+
+		$ownerResponse = $this->getController(RoomTaskController::class, 'ta_owner')->index($this->roomId);
+		self::assertSame(200, $ownerResponse->getStatus());
+		self::assertCount(2, $ownerResponse->getData()['data'], 'its owner sees the private task too');
 	}
 
 	public function testUserCannotCreateRoomTaskInForeignRoom(): void {
@@ -276,21 +293,6 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 
 		self::assertSame(404, $response->getStatus());
 		self::assertSame('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
-	}
-
-	public function testRoomStats_ExcludeInvisibleTasks(): void {
-		// The kitchen holds the public room task and the private one: the
-		// child sees only the public task in the counts; the creator sees
-		// both.
-		$childController = $this->getController(RoomTaskController::class, 'ta_child');
-		$childResponse = $childController->roomStats($this->roomId);
-		self::assertSame(200, $childResponse->getStatus());
-		self::assertSame(1, $childResponse->getData()['data']['totalTasks']);
-
-		$ownerController = $this->getController(RoomTaskController::class, 'ta_owner');
-		$ownerResponse = $ownerController->roomStats($this->roomId);
-		self::assertSame(200, $ownerResponse->getStatus());
-		self::assertSame(2, $ownerResponse->getData()['data']['totalTasks']);
 	}
 
 	// ========== Helpers ==========

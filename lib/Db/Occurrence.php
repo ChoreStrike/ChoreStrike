@@ -8,18 +8,19 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Db;
 
-use JsonSerializable;
 use OCP\AppFramework\Db\Entity;
 
 /**
  * One durable occurrence agreement (CS-PLAN-072 WP1, parent §3.2): the
  * recurring chore's concrete obligation unit with its saved time basis.
  *
- * Public identity is the canonical `<scheduleRevisionId>:<ordinal>` key
- * (see {@see toPublicKey()}/{@see parsePublicKey()}) — NEVER this row's
+ * Read only since ADR-021: windows are derived, nothing writes these rows
+ * any more, and the recognitions still read the ones from before the
+ * cutover. Public identity was the canonical
+ * `<scheduleRevisionId>:<ordinal>` key — NEVER this row's
  * bigint surrogate. A row that was merely materialized (by the timeline
- * job or a completion's virtual-key resolution) keeps `version` 0; domain
- * mutation advances it. Every instant column is UTC; the saved zone is
+ * job or a completion's virtual-key resolution) kept `version` 0; domain
+ * mutation advanced it. Every instant column is UTC; the saved zone is
  * carried separately so later house-zone edits cannot rewrite history.
  *
  * @method int getId()
@@ -67,7 +68,7 @@ use OCP\AppFramework\Db\Entity;
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
-class Occurrence extends Entity implements JsonSerializable {
+class Occurrence extends Entity {
 	public const KIND_SCHEDULED = 'scheduled';
 	public const KIND_VOLUNTARY = 'voluntary';
 
@@ -84,9 +85,6 @@ class Occurrence extends Entity implements JsonSerializable {
 		self::SUSPENSION_NONE,
 		self::SUSPENSION_SUSPENDED,
 	];
-
-	/** Upper bound for ordinal values accepted in public keys. */
-	public const MAX_ORDINAL = 1000000;
 
 	/** @var int */
 	protected $houseId;
@@ -174,77 +172,5 @@ class Occurrence extends Entity implements JsonSerializable {
 		$this->addType('suspensionEvidence', 'json');
 		$this->addType('restartOfId', 'integer');
 		$this->addType('createdAt', 'datetime');
-	}
-
-	/**
-	 * The canonical public occurrence key `<scheduleRevisionId>:<ordinal>`.
-	 *
-	 * Canonical numeric spelling: plain base-10 integers, no leading zeros,
-	 * no signs, no whitespace — the exact string parsePublicKey() accepts.
-	 */
-	public function toPublicKey(): string {
-		return $this->scheduleRevId . ':' . $this->ordinal;
-	}
-
-	/**
-	 * Parse and validate a public occurrence key. Rejects non-canonical
-	 * spelling (leading zeros, signs, whitespace), non-integers and
-	 * out-of-bounds parts.
-	 *
-	 * @return array{0: int, 1: int} [scheduleRevisionId, ordinal]
-	 * @throws \InvalidArgumentException on any malformed key
-	 */
-	public static function parsePublicKey(string $key): array {
-		if (!preg_match('/^(0|[1-9][0-9]*):(0|[1-9][0-9]*)$/', $key)) {
-			throw new \InvalidArgumentException('Invalid occurrenceId format, expected <scheduleRevisionId>:<ordinal>');
-		}
-		[$revId, $ordinal] = explode(':', $key);
-		$revId = (int)$revId;
-		$ordinal = (int)$ordinal;
-		if ($revId < 1 || $ordinal < 1 || $ordinal > self::MAX_ORDINAL) {
-			throw new \InvalidArgumentException('Invalid occurrenceId bounds');
-		}
-		return [$revId, $ordinal];
-	}
-
-	public function jsonSerialize(): array {
-		return [
-			'id' => $this->toPublicKey(),
-			'kind' => $this->kind,
-			'plannedDate' => $this->plannedDate?->format('Y-m-d'),
-			'weekStart' => $this->weekStart?->format('Y-m-d'),
-			'timezone' => $this->timezone,
-			'dayStart' => $this->dayStart?->format('c'),
-			'windowStart' => $this->windowStart?->format('c'),
-			'windowEnd' => $this->windowEnd?->format('c'),
-			'energy' => $this->energy,
-			'isPublic' => $this->isPublic,
-			'version' => $this->version,
-			'fulfilled' => $this->completionId !== null,
-			'covered' => $this->coveredByCompletionId !== null,
-			'suspended' => $this->suspensionState === self::SUSPENSION_SUSPENDED,
-		];
-	}
-
-	/**
-	 * The WP2 neutral suspension facts: state plus the recognized pause
-	 * provenance (CS-PLAN-073 §3.4).
-	 *
-	 * @return array{suspended: bool, evidence: list<array{pauseGroupId: int, revision: int}>}
-	 */
-	public function suspensionFacts(): array {
-		$evidence = [];
-		foreach (is_array($this->suspensionEvidence) ? $this->suspensionEvidence : [] as $entry) {
-			if (is_array($entry) && isset($entry['pauseGroupId'], $entry['revision'])) {
-				$evidence[] = [
-					'pauseGroupId' => (int)$entry['pauseGroupId'],
-					'revision' => (int)$entry['revision'],
-				];
-			}
-		}
-		return [
-			'suspended' => $this->suspensionState === self::SUSPENSION_SUSPENDED,
-			'evidence' => $evidence,
-		];
 	}
 }

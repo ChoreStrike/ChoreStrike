@@ -241,7 +241,7 @@ callable → commit, roll back on any Throwable); they never inject
 primitives (`HouseMapper::findForUpdate`,
 `HouseUserMapper::findForUpdate`, `RoomTaskMapper::lockForUpdate`,
 `TaskMapper::lockForUpdate`, `RoomMapper::lockForUpdate`,
-`RoomTaskChecklistProgressMapper::findForUpdate`,
+`CycleProgressMapper::findForUpdate`,
 `WalletMapper::findForUpdate`) — each must be called inside an open
 transaction.
 
@@ -307,7 +307,7 @@ isolated disposable SQLite environment.
 | `FloorService::deleteFloor` | none (transaction without locks) | house → tombstone cascade |
 | `RoomService::createRoom` / `updateRoomName` | none | house |
 | `RoomService::deleteRoom` | none (transaction without locks) | house → tombstone cascade |
-| `RoomService::updateRoomCleanliness` | none (CR-SVC-63) | house → room (journal is WP3) |
+| `RoomService::updateRoomCleanliness` | none (CR-SVC-63) | house → room (journal is WP3; retired with CS-PLAN-091 WP-B7: the route had no client) |
 | `MinigameService::saveScore` / boost purchase | house_user only | house → score/user writes |
 | `SchedulingService` preference writes | none | house → house_user |
 | `TaskService::updateTask` | none | house → task definition (retired with CS-PLAN-091 WP-B6: the definition changes under the save's locks, `TaskService::applyUnderLock`) |

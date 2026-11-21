@@ -9,7 +9,7 @@
 			<div class="danger-item">
 				<div class="danger-info">
 					<h3>{{ t('chorestrike', 'Reset House') }}</h3>
-					<p>{{ t('chorestrike', 'Resets all rooms to a clean state and restores house health. Setup, tasks, agreements, completion history, finances, reward requests, and achievements are kept. This cannot be undone.') }}</p>
+					<p>{{ t('chorestrike', 'Resets all rooms to a clean state and restores house health. Setup, tasks, completion history, finances, reward requests, and achievements are kept. This cannot be undone.') }}</p>
 				</div>
 				<button
 					class="danger-button"
@@ -27,7 +27,7 @@
 					<Icon name="AlertTriangle" :size="48" />
 				</div>
 				<h3>{{ t('chorestrike', 'Reset House?') }}</h3>
-				<p>{{ t('chorestrike', 'All rooms return to their initial clean state and house health is restored. Setup, structure, tasks, agreements, completion history, finances, reward requests, and achievements are kept.') }}</p>
+				<p>{{ t('chorestrike', 'All rooms return to their initial clean state and house health is restored. Setup, structure, tasks, completion history, finances, reward requests, and achievements are kept.') }}</p>
 				<div class="confirmation-input">
 					<label>{{ t('chorestrike', 'Type "RESET" to confirm') }}</label>
 					<input

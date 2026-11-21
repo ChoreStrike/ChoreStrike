@@ -56,7 +56,7 @@ class NotificationService {
 	 * @param int $houseId The house ID (dedup key part)
 	 * @param int $houseUserId The recipient's membership ID (dedup key part)
 	 * @param string $localDay House-local `Y-m-d` slot day (dedup key part)
-	 * @param int $taskCount Relevant planned/agreed-catch-up work items
+	 * @param int $taskCount The member's open work planned for today
 	 * @param int $orgCount Queued organizational updates
 	 * @throws \Throwable when the notification outcome is UNCERTAIN
 	 *                    (acceptance could not be confirmed) — the caller

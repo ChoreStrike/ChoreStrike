@@ -94,3 +94,92 @@ amended, recorded as D-091-112.
 - Focused browser specs green (see Verification).
 - Checks: php-cs-fixer, `l10n:check-keys`, `agents:check`, `docs:encoding`,
   `backlog:check`, `git diff --check`, LF endings.
+
+## Full (interim) - CS-PLAN-091 WP-B7, retiring the rest of the old surface
+
+**Outcome:** `PASS-WITH-FIXES`. Interim review; the plan stays in `active/` and continues
+with WP-C.
+
+### Scope and capture
+
+- Tier: Full, four read-only `reviewer` tracks (correctness, architecture, security and
+  data flow, performance and code quality with the weight on wording) plus the main agent's
+  own reading of the digest relevance, the replay of retained journal entries and the
+  rewritten tests. Required: the package removes routes.
+- Owning plan: [CS-PLAN-091](../../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md)
+  (WP-B7 retiring the rest of the old surface, with RF-091-06). CS-PLAN-080 is not touched.
+- Branch `feat/simplified-core-bc` in its pinned worktree, base HEAD `f1d9d606` (the
+  committed WP-B6, 4 ahead of `master`, 0 behind), the whole package uncommitted. Captured
+  before the review: 66 paths (65 modified, 1 untracked, nothing staged), combined scope
+  fingerprint `03727d98a1625c7eeb575508325a2d18a8c3f057b05ac1c63b610b3e43599f77` (SHA-256
+  over the staged and unstaged binary diffs and every untracked path with its content hash).
+- Before any change the build gate stood on the captured tree, and the provider matrix ran
+  on it: PHPUnit unit 1847 and integration 697 on PostgreSQL, MariaDB, SQLite and the AIO
+  row (`r91b7`), all green.
+
+### Decisions
+
+No question needed the operator. D-091-113 to D-091-119 accepted; D-091-120 (nothing
+serializes a retained row), D-091-121 (the help says what the rules say) and D-091-122
+(what the review added to the tests) recorded in the plan. RF-091-11 (two more routes
+without a client, `PUT /pauses/{id}` and `GET /house/health`) was found while
+implementing and waits for the operator.
+
+### Findings fixed in the review
+
+| Severity | Where | Finding | Fix |
+|---|---|---|---|
+| major | `HelpGlossary.vue`, user guide | *Overdue* said one red entry until the task is done; on a fixed day the entry ends when the next window opens | Both say so; spec pin |
+| major | `docs/user-guide.md` | The roles table still gave owners *Plan and apply the week* | Row corrected |
+| major | `docs/engineering/notifications.md`, `docs/concepts/notifications.md` | The digest documents still described occurrence reads, agreed catch-up and agreement recordings | Rewritten to the open cycles of today and the three queued kinds; retained agreement rows named |
+| minor | `RecurrenceCalculatorTest` | The lookup of the fixed rules was compared with its own output beyond the first days | A per-day reference from the rule's definition, compared through March 2028 |
+| minor | `TaskAuthorizationTest` | The only real-database check that a room-scoped read hides a private task went with the statistics route | The check moved to `GET /room-tasks?roomId=` |
+| minor | history entities | `jsonSerialize()`, the key helpers, `weekdayList()` and `Agreement::DEFINITION_KINDS` had lost their last caller but stayed, while `Occurrence::MAX_ORDINAL` went | Removed with their two tests (D-091-120) |
+| minor | `NotificationPreferences.vue` | The hint of the organization digest promised every work recorded for one's tasks; only an overdue task someone else did is queued | Hint corrected |
+| minor | `HelpGlossary.vue` | *Absence*: nothing counts for or against anyone; only a window entirely inside the absence is neutral, for that person. *Streak*: read as if early work or a day without tasks broke it | Both reworded (D-091-121) |
+| minor | `TaskEnergyField.vue` | *The planner only places a task on a day…*: there is no planner and nothing is refused | Hint says what the weekly plan shows |
+| minor | `l10n/de.json` | The glossary said *Fenster*, the task row *Zeitraum*; the ranking text said *gemeinsame* for public tasks | *Zeitraum* and *öffentliche Aufgaben* |
+| minor | `architecture.md`, `testing.md`, `development.md` | The notification catalog, three test descriptions and the list of lock primitives named removed code | Corrected |
+| nit | comments, tests | Stale comments in `RoomTaskService`, `ScheduleRevision`, `Occurrence`, `Agreement`, `RoomTaskChecklistProgressMapper` and six tests; dead helpers and a dead stub in `RoomServiceTest` and `RoomTaskServiceTest`; an unused import; the third copy of the retired-route guard; *today's agreements* in the UI use cases; two backlog status lines; D-091-113, the manifest and the test list of the plan | Corrected; `assertRouteStaysRetired()`; the help topics are checked for the retired words |
+
+### Findings routed
+
+- To the plan, for WP-C: RF-091-12 (the daily summary counts neither suggested nor overdue
+  work yet, D-091-12) and RF-091-13 (the *Work shares* help sits on the capacity page). The
+  WP-C scope names both.
+- Open for the operator: RF-091-11.
+- Routed while implementing, before the review: CR-SVC-67 (methods without a caller from
+  before the plan), BUG-UX-017 (the organization digest is called weekly) and TECH-DEV-002
+  (a rebuilt bundle is not fetched on the development stack).
+- Not changed: the test ids `today-section-catchup` and `catchup-planned` keep their names;
+  they are not user-visible. No security finding stays open; BUG-SEC-003 is older and not
+  made worse.
+
+### Verification
+
+- Canonical stack (PostgreSQL 18.6, Nextcloud 35.0.3, this worktree): PHPUnit unit 1846
+  and integration 698, no skips. The same suites on PostgreSQL, MariaDB 11.8.6, SQLite and
+  the AIO row (matrix `r91b7c`, reports under `build/test-reports/`): every suite passed.
+- The new digest test fails on the previous `DigestService` (`uncertain` instead of
+  `skipped`) and passes on the changed one.
+- The preservation proofs passed on the final tree: P1 on PostgreSQL, MariaDB and SQLite,
+  P2, P3 and P4 on PostgreSQL, each with a clean teardown.
+- Jest 186 suites / 2658 tests, ESLint, stylelint, the webpack build, php-cs-fixer (507
+  files clean), `l10n:check-keys` (1283 keys), `agents:check`, `docs:encoding`,
+  `backlog:check`, `git diff --check`, LF endings.
+- Browser, focused on the changed surfaces (no retries, built from the reviewed tree): 126
+  passed on `chromium-serial-db` (`quiet-digest`, `family-rewards`, `calm-core-ui`,
+  `settings`, `today-view`, `task-completion-full-flow`, `release-task-lifecycle`,
+  `core-household-journey`, `insights-flow` among them), 23 on `chromium` (the request
+  budgets and the contrast among them), 30 on `chromium-scheduling-owner`, `mobile-core`
+  11 each on `mobile-chromium` and `mobile-webkit`. No skips, no flaky results. The full
+  five-project gate belongs to the WP-G qualification.
+
+### Gates
+
+- Build gate: Jest 186 suites / 2658 tests, ESLint, stylelint and the build green.
+- PHPUnit, both suites without skips, unit 1846 and integration 698 on the canonical stack
+  and on all four rows of the matrix.
+- Focused browser specs green (see Verification).
+- Checks: php-cs-fixer, `l10n:check-keys`, `agents:check`, `docs:encoding`,
+  `backlog:check`, `git diff --check`, LF endings.

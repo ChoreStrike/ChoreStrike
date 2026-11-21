@@ -13,11 +13,13 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
  * Raw rows of the occurrence timeline that the derived windows replaced
- * (ADR-021 decision 12). Nothing writes these tables any more, but a
- * retained deployment carries them: they stay readable evidence, so the
- * tests of what still reads them seed the rows as they were stored.
+ * (ADR-021 decision 12), and room journal entries of the retired quick
+ * clean. Nothing writes them any more, but a retained deployment carries
+ * them: they stay readable evidence, so the tests of what still reads
+ * them seed the rows as they were stored.
  *
- * The owning test case cleans them with the room task
+ * The owning test case cleans them with the room task, and the journal
+ * entries with the room
  * ({@see \OCA\ChoreStrike\Tests\Integration\IntegrationTestCase}).
  */
 trait StoredTimelineFixtures {
@@ -155,6 +157,25 @@ trait StoredTimelineFixtures {
 			'revision' => 1,
 			'checklist_item_id' => $checklistItemId,
 			'is_checked' => true,
+		]);
+	}
+
+	/**
+	 * A `manual_delta` entry of the room journal, as the retired quick
+	 * clean recorded it: the requested delta under its command identity.
+	 * The room cache follows on the next replay.
+	 */
+	protected function insertStoredManualDelta(int $roomId, int $requestedDelta, ?string $at = null): int {
+		$at ??= date('Y-m-d H:i:s');
+		$commandUuid = sprintf('%08x-0000-4000-8000-%012x', random_int(0, 0xffffffff), random_int(0, 0xffffffffffff));
+		return $this->insertStoredRow('chorestrike_room_events', [
+			'room_id' => $roomId,
+			'kind' => 'manual_delta',
+			'effective_at' => $at,
+			'stable_id' => 'manual:' . $commandUuid,
+			'delta_cleanliness' => $requestedDelta,
+			'command_uuid' => $commandUuid,
+			'created_at' => $at,
 		]);
 	}
 

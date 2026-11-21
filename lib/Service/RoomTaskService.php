@@ -24,7 +24,7 @@ use OCP\IL10N;
 
 /**
  * Service for room task business logic: ownership validation, lifecycle
- * mutations and the room-scoped aggregates (stats, calendar range). The
+ * mutations and the calendar-range projection. The
  * batched READ/enrichment cluster lives in {@see RoomTaskReadService}
  * (CS-PLAN-067 §3.1); this service delegates to it instead of duplicating
  * the assembly. The one form's save ({@see RoomTaskEditService}) owns the
@@ -160,8 +160,7 @@ class RoomTaskService {
 	// fetches, visibility filtering, task/room enrichment, filtered-daily
 	// assembly, cycle blocks, execution-row aggregation) lives
 	// in RoomTaskReadService — callers consume it directly, this service
-	// keeps only the writer/mutation aggregate and the room-scoped stats and
-	// calendar projections.
+	// keeps only the writer/mutation aggregate and the calendar projection.
 
 	// CS-PLAN-063 (CR-WF-03): the former createRoomTask/createFromTemplate
 	// pair — sequential auto-commit writes that could strand an orphan task
@@ -242,67 +241,6 @@ class RoomTaskService {
 			$locked->tombstone(new \DateTime());
 			$this->roomTaskMapper->update($locked);
 		});
-	}
-
-	/**
-	 * Get task statistics for a room, restricted to the viewer's visibility
-	 * (CS-PLAN-061 review fix): counts are computed over the visibility-
-	 * filtered room-task set, so the stats of a room with invisible private
-	 * tasks neither include them nor confirm that they exist.
-	 *
-	 * CR-SVC-31 root fix (CS-PLAN-040): completionRate counts REAL
-	 * completions — the share of the room's current tasks with at least
-	 * one completion row — instead of `(total − active)/total`, which
-	 * counted deactivated/skipped tasks as completed. An empty room
-	 * returns 0 (not 100).
-	 *
-	 * Overdue/due-today counts follow the list rows (CS-PLAN-084 RF-084-02):
-	 * one batched cycle derivation and `statusFor`, so a task inside an
-	 * open window counts as due, not overdue.
-	 *
-	 * @param int $roomId The room ID
-	 * @param HouseUser $viewer The acting user's house membership
-	 */
-	public function getRoomTaskStats(int $roomId, HouseUser $viewer): array {
-		$allTasks = $this->roomTaskMapper->findByRoomId($roomId, false);
-		$visibleTasks = $this->readService->visibleRoomTasks($allTasks, $viewer)->roomTasks;
-		$activeTasks = array_filter($visibleTasks, fn ($task) => $task->getIsActive());
-		$statuses = $this->rowStatuses($roomId, array_values($activeTasks));
-		$overdueTasks = array_filter($statuses, static fn (string $status): bool => $status === 'overdue');
-		$dueTodayTasks = array_filter($statuses, static fn (string $status): bool => $status === 'due_today');
-		$dueSoonTasks = array_filter($activeTasks, fn ($task) => $task->isDueWithinDays(3));
-
-		$visibleIds = array_map(static fn (RoomTask $roomTask): int => $roomTask->getId(), $visibleTasks);
-		$completedCount = $this->completedTaskMapper->countDistinctCompletedRoomTasksInSet($visibleIds);
-
-		return [
-			'totalTasks' => count($visibleTasks),
-			'activeTasks' => count($activeTasks),
-			'overdueTasks' => count($overdueTasks),
-			'dueTodayTasks' => count($dueTodayTasks),
-			'dueSoonTasks' => count($dueSoonTasks),
-			'completionRate' => count($visibleTasks) > 0
-				? round(min($completedCount, count($visibleTasks)) / count($visibleTasks) * 100, 2)
-				: 0
-		];
-	}
-
-	/**
-	 * The list-row status of each active room task (RF-084-02).
-	 *
-	 * @param RoomTask[] $activeTasks
-	 * @return array<int, string> status by room-task id
-	 */
-	private function rowStatuses(int $roomId, array $activeTasks): array {
-		if ($activeTasks === []) {
-			return [];
-		}
-		$facts = $this->readService->cycleFacts($this->readService->houseIdForRoom($roomId), $activeTasks);
-		$statuses = [];
-		foreach ($activeTasks as $roomTask) {
-			$statuses[$roomTask->getId()] = $this->readService->statusFor($roomTask, $facts[$roomTask->getId()]['block'] ?? null);
-		}
-		return $statuses;
 	}
 
 	/**

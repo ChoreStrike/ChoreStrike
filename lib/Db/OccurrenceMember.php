@@ -8,7 +8,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Db;
 
-use JsonSerializable;
 use OCP\AppFramework\Db\Entity;
 
 /**
@@ -39,7 +38,7 @@ use OCP\AppFramework\Db\Entity;
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
-class OccurrenceMember extends Entity implements JsonSerializable {
+class OccurrenceMember extends Entity {
 	public const ROLE_RESPONSIBLE = 'responsible';
 	public const ROLE_JOINT = 'joint';
 	public const ROLE_HELPER = 'helper';
@@ -98,17 +97,5 @@ class OccurrenceMember extends Entity implements JsonSerializable {
 		$this->addType('workZone', 'string');
 		$this->addType('disposition', 'string');
 		$this->addType('createdAt', 'datetime');
-	}
-
-	public function jsonSerialize(): array {
-		return [
-			'walletId' => $this->walletId,
-			'role' => $this->role,
-			'obligated' => $this->obligated,
-			'sharePct' => $this->sharePct,
-			'workDate' => $this->workDate?->format('Y-m-d'),
-			'workZone' => $this->workZone,
-			'disposition' => $this->disposition,
-		];
 	}
 }

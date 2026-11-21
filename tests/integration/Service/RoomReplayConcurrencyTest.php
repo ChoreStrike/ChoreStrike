@@ -15,21 +15,25 @@ use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomReplayService;
-use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
+use OCA\ChoreStrike\Tests\Integration\Support\StoredTimelineFixtures;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
  * Real-DB room journal/replay proofs (CS-PLAN-070 WP3 §3.5; CR-SVC-63):
- * completion effects, manual deltas and the house reset fold through the
- * journaled REQUESTED values with clamps; undo invalidates exactly its own
- * completion effect (the correction time never becomes last_cleaned); the
- * command-UUID identity of the manual/reset writers makes a replayed
- * command a stable no-op that never repeats a delta or re-resets over
- * later work.
+ * completion effects, retained manual deltas and the house reset fold
+ * through the journaled REQUESTED values with clamps; undo invalidates
+ * exactly its own completion effect (the correction time never becomes
+ * last_cleaned); the command-UUID identity of the reset makes a replayed
+ * command a stable no-op that never re-resets over later work.
+ *
+ * The quick clean that wrote manual deltas is retired (CS-PLAN-091 WP-B7):
+ * its entries are seeded as stored rows and keep replaying.
  */
 class RoomReplayConcurrencyTest extends IntegrationTestCase {
+	use StoredTimelineFixtures;
+
 	private array $cleanupRoomTaskIds = [];
 	private array $cleanupRoomIds = [];
 	private array $cleanupHouseIds = [];
@@ -134,82 +138,26 @@ class RoomReplayConcurrencyTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * ManualDelta_RequestedValueIsJournaledAndClamped
+	 * RetainedManualDelta_KeepsReplayingWithItsRequestedValueAndClamp
 	 *
-	 * CR-SVC-63: the journal records the REQUESTED +20 (never the observed
-	 * clamped +10) and the replayed cache clamps at 100.
+	 * CR-SVC-63: the journal holds the REQUESTED +20 (never the observed
+	 * clamped +10). Nothing writes such an entry any more; a retained one
+	 * still folds into the room, clamped at 100, and stamps last_cleaned.
 	 */
-	public function testManualDelta_RequestedValueIsJournaledAndClamped(): void {
+	public function testRetainedManualDelta_KeepsReplayingWithItsRequestedValueAndClamp(): void {
 		$f = $this->seedRoomFixture(baselineCleanliness: 90);
-		$this->actingAs('rr_owner');
+		$this->insertStoredManualDelta($f['roomId'], 20);
+		$this->insertStoredManualDelta($f['roomId'], -15);
 
-		$roomService = \OC::$server->get(RoomService::class);
-		$room = $roomService->updateRoomCleanliness($f['roomId'], $f['houseId'], 20, $this->uuid());
-		self::assertSame(100, (int)$room->getCleanliness(), 'the replay clamps the requested +20 at 100');
+		$room = $this->resyncRoom($f['roomId']);
 
-		$events = $this->roomEvents($f['roomId'], 'manual_delta');
-		self::assertCount(1, $events);
-		self::assertSame(20, (int)$events[0]['delta_cleanliness'], 'the REQUESTED delta is the journaled fact');
-	}
+		self::assertSame(85, (int)$room['cleanliness'], '90 +20 clamps at 100, then the requested -15');
+		self::assertNotNull($room['last_cleaned']);
+		self::assertSame(20, (int)$this->roomEvents($f['roomId'], 'manual_delta')[0]['delta_cleanliness'], 'the REQUESTED delta stays the journaled fact');
 
-	/**
-	 * ManualDelta_CommandReplayDoesNotRepeatTheDelta
-	 *
-	 * Same command UUID + same input replays as a stable no-op; a later
-	 * distinct command folds on top.
-	 */
-	public function testManualDelta_CommandReplayDoesNotRepeatTheDelta(): void {
-		$f = $this->seedRoomFixture();
-		$this->actingAs('rr_owner');
-
-		$commandId = $this->uuid();
-		$roomService = \OC::$server->get(RoomService::class);
-		$roomService->updateRoomCleanliness($f['roomId'], $f['houseId'], 15, $commandId);
-		// Replay: same UUID (the request carries the same idempotency key).
-		$roomService->updateRoomCleanliness($f['roomId'], $f['houseId'], 15, $commandId);
-		// Later distinct work.
-		$roomService->updateRoomCleanliness($f['roomId'], $f['houseId'], 10, $this->uuid());
-
-		$room = $this->roomRow($f['roomId']);
-		self::assertSame(75, (int)$room['cleanliness'], '50 +15 (once) +10 — the replayed delta never repeats');
-
-		$events = $this->roomEvents($f['roomId'], 'manual_delta');
-		self::assertCount(2, $events, 'the journal holds one event per distinct command');
-	}
-
-	public function testManualDelta_ReusedUuidWithChangedDeltaConflictsWithoutBumpingVersion(): void {
-		$f = $this->seedRoomFixture();
-		$this->actingAs('rr_owner');
-		$service = \OC::$server->get(RoomService::class);
-		$uuid = $this->uuid();
-		$service->updateRoomCleanliness($f['roomId'], $f['houseId'], 10, $uuid);
-		$version = \OC::$server->get(HouseMapper::class)->find($f['houseId'])->getStateVersion();
-
-		try {
-			$service->updateRoomCleanliness($f['roomId'], $f['houseId'], 20, $uuid);
-			self::fail('A changed payload must conflict with the original receipt');
-		} catch (ConflictException $e) {
-			self::assertSame(60, (int)$this->roomRow($f['roomId'])['cleanliness']);
-			self::assertSame($version, \OC::$server->get(HouseMapper::class)->find($f['houseId'])->getStateVersion());
-			self::assertSame(1, $this->countRoomEvents($f['roomId'], 'manual_delta'));
-		}
-	}
-
-	public function testManualDelta_ReceiptReplayPrecedesStaleExpectedVersion(): void {
-		$f = $this->seedRoomFixture();
-		$this->actingAs('rr_owner');
-		$service = \OC::$server->get(RoomService::class);
-		$houses = \OC::$server->get(HouseMapper::class);
-		$original = $houses->find($f['houseId'])->getStateVersion();
-		$uuid = $this->uuid();
-		$service->updateRoomCleanliness($f['roomId'], $f['houseId'], 10, $uuid, $original);
-		$service->updateRoomCleanliness($f['roomId'], $f['houseId'], 5, $this->uuid());
-		$version = $houses->find($f['houseId'])->getStateVersion();
-
-		$replayed = $service->updateRoomCleanliness($f['roomId'], $f['houseId'], 10, $uuid, $original);
-		self::assertSame(65, $replayed->getCleanliness());
-		self::assertSame($version, $houses->find($f['houseId'])->getStateVersion());
-		self::assertSame(2, $this->countRoomEvents($f['roomId'], 'manual_delta'));
+		// A later completion replays the retained entries with its own effect.
+		$this->completeOccurrence(\OC::$server->get(CompletionService::class), $f['houseId'], 'rr_owner', $f['roomTaskA']);
+		self::assertSame(100, (int)$this->roomRow($f['roomId'])['cleanliness'], '85 +20 clamps at 100');
 	}
 
 	/**
@@ -218,7 +166,7 @@ class RoomReplayConcurrencyTest extends IntegrationTestCase {
 	 * The production reset journals one absolute event per room
 	 * (cleanliness 100, monsters 0, last_cleaned NULL); replaying the same
 	 * reset command afterwards is a no-op — it never re-resets over the
-	 * later manual work.
+	 * later work.
 	 */
 	public function testReset_CommandReplayPreservesLaterWork(): void {
 		$f = $this->seedRoomFixture();
@@ -233,15 +181,18 @@ class RoomReplayConcurrencyTest extends IntegrationTestCase {
 		self::assertSame(0, (int)$room['monster_count']);
 		self::assertNull($room['last_cleaned']);
 
-		// Later work lands after the reset.
-		$roomService = \OC::$server->get(RoomService::class);
-		$roomService->updateRoomCleanliness($f['roomId'], $f['houseId'], -30, $this->uuid());
-		self::assertSame(70, (int)$this->roomRow($f['roomId'])['cleanliness']);
+		// Later work lands after the reset: a retained -30 and a completion.
+		$this->insertStoredManualDelta($f['roomId'], -30);
+		$this->completeOccurrence(\OC::$server->get(CompletionService::class), $f['houseId'], 'rr_owner', $f['roomTaskA']);
+		self::assertSame(90, (int)$this->roomRow($f['roomId'])['cleanliness'], 'reset 100, -30, then the completion\'s +20');
+		$this->actingAs('rr_owner');
 
 		// The SAME reset command replays (retried request): the idempotent
-		// identity must not re-run the reset over the -30.
+		// identity must not re-run the reset over the later work.
 		$houseService->resetHouse($f['houseId'], $commandId);
-		self::assertSame(70, (int)$this->roomRow($f['roomId'])['cleanliness'], 'the replayed reset never re-resets over later work');
+		$room = $this->roomRow($f['roomId']);
+		self::assertSame(90, (int)$room['cleanliness'], 'the replayed reset never re-resets over later work');
+		self::assertNotNull($room['last_cleaned'], 'the completion after the reset stays the room\'s last cleaning');
 
 		$events = $this->roomEvents($f['roomId'], 'reset');
 		self::assertCount(1, $events, 'one reset event per command identity');
@@ -252,7 +203,6 @@ class RoomReplayConcurrencyTest extends IntegrationTestCase {
 		$this->actingAs('rr_owner');
 		$houses = \OC::$server->get(HouseMapper::class);
 		$service = \OC::$server->get(HouseService::class);
-		$rooms = \OC::$server->get(RoomService::class);
 		$uuid = $this->uuid();
 		$original = $houses->find($f['houseId'])->getStateVersion();
 		$service->resetHouse($f['houseId'], $uuid, $original);
@@ -260,8 +210,10 @@ class RoomReplayConcurrencyTest extends IntegrationTestCase {
 		$newRoomId = $this->createRoom($f['houseId'], $this->roomFloorId($f['roomId']), 'Later room');
 		$this->cleanupRoomIds[] = $newRoomId;
 		\OC::$server->get(RoomReplayService::class)->recordBaseline(\OC::$server->get(RoomMapper::class)->find($newRoomId));
-		$rooms->updateRoomCleanliness($f['roomId'], $f['houseId'], -30, $this->uuid());
-		$rooms->updateRoomCleanliness($newRoomId, $f['houseId'], -10, $this->uuid());
+		$this->insertStoredManualDelta($f['roomId'], -30);
+		$this->insertStoredManualDelta($newRoomId, -10);
+		$this->resyncRoom($f['roomId']);
+		$this->resyncRoom($newRoomId);
 		$health = $service->calculateHouseHealth($f['houseId']);
 		$version = $houses->find($f['houseId'])->getStateVersion();
 
@@ -290,10 +242,10 @@ class RoomReplayConcurrencyTest extends IntegrationTestCase {
 		$this->actingAs('rr_owner');
 		$replay = \OC::$server->get(RoomReplayService::class);
 		for ($i = 0; $i < 80; $i++) {
-			$replay->recordManualDelta($f['roomId'], 1, 'old-' . $i, new \DateTime('2025-01-01 00:00:00'));
+			$this->insertStoredManualDelta($f['roomId'], 1, '2025-01-01 00:00:00');
 		}
 		\OC::$server->get(HouseService::class)->resetHouse($f['houseId'], $this->uuid());
-		\OC::$server->get(RoomService::class)->updateRoomCleanliness($f['roomId'], $f['houseId'], -10, $this->uuid());
+		$this->insertStoredManualDelta($f['roomId'], -10);
 
 		$counter = QueryCounter::attach($this->db);
 		try {
@@ -319,7 +271,8 @@ class RoomReplayConcurrencyTest extends IntegrationTestCase {
 	 * ResetAfterUndo_StaysAuthoritativeOverTheCorrection
 	 *
 	 * A reset after an undone completion remains authoritative: the replay
-	 * folds baseline → completion (undone, skipped) → reset → later manual.
+	 * folds baseline → completion (undone, skipped) → reset → a later
+	 * retained delta.
 	 */
 	public function testResetAfterUndo_StaysAuthoritativeOverTheCorrection(): void {
 		$f = $this->seedRoomFixture();
@@ -330,10 +283,10 @@ class RoomReplayConcurrencyTest extends IntegrationTestCase {
 
 		$this->actingAs('rr_owner');
 		\OC::$server->get(HouseService::class)->resetHouse($f['houseId'], $this->uuid());
-		\OC::$server->get(RoomService::class)->updateRoomCleanliness($f['roomId'], $f['houseId'], -5, $this->uuid());
+		$this->insertStoredManualDelta($f['roomId'], -5);
 
-		$room = $this->roomRow($f['roomId']);
-		self::assertSame(95, (int)$room['cleanliness'], 'reset 100, then the later manual -5');
+		$room = $this->resyncRoom($f['roomId']);
+		self::assertSame(95, (int)$room['cleanliness'], 'reset 100, then the later -5');
 	}
 
 	// ========== Helpers ==========
@@ -369,6 +322,16 @@ class RoomReplayConcurrencyTest extends IntegrationTestCase {
 		$this->cleanupHouseIds = [$houseId];
 
 		return ['houseId' => $houseId, 'roomId' => $roomId, 'roomTaskA' => $roomTaskA, 'roomTaskB' => $roomTaskB];
+	}
+
+	/**
+	 * Rebuild the room cache from its journal, as every room writer does.
+	 *
+	 * @return array<string, mixed> The room row afterwards
+	 */
+	private function resyncRoom(int $roomId): array {
+		\OC::$server->get(RoomReplayService::class)->resyncRoomCache(\OC::$server->get(RoomMapper::class)->find($roomId));
+		return $this->roomRow($roomId);
 	}
 
 	private function uuid(): string {

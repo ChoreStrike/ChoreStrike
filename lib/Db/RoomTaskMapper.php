@@ -208,38 +208,6 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Get tasks due within the next N days for a specific house
-	 * (joins through rooms → floors).
-	 *
-	 * @param int $houseId The house ID
-	 * @param int $days Number of days
-	 * @param int|null $roomId Optional room ID to filter by
-	 * @return RoomTask[]
-	 */
-	public function findDueWithinDaysByHouse(int $houseId, int $days, ?int $roomId = null): array {
-		$today = new \DateTime();
-		$future = clone $today;
-		$future->add(new \DateInterval("P{$days}D"));
-
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('rt.*')
-			->from($this->getTableName(), 'rt');
-		$this->applyHouseScope($qb, 'rt', $houseId);
-		$qb->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($future, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($today, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-
-		if ($roomId !== null) {
-			$qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
-		}
-
-		$qb->orderBy('rt.next_due', 'ASC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * Create a new room task
 	 *
 	 * Assignees are NOT stored here — the canonical assignee store is the
@@ -495,32 +463,6 @@ class RoomTaskMapper extends QBMapper {
 		$qb->innerJoin($roomTaskAlias, 'chorestrike_rooms', 'r', $qb->expr()->eq("{$roomTaskAlias}.room_id", 'r.id'))
 			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
 			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
-	}
-
-	/**
-	 * Find active room tasks whose next_due is on or before a bound, for a house.
-	 *
-	 * The base set for the calendar range endpoint and the planner's
-	 * capacity accounting: every active task that could recur into a
-	 * future window (next_due <= end) — the occurrence authority expands
-	 * each into its in-window agreed occurrences and projections.
-	 * Reuses applyHouseScope for house isolation.
-	 *
-	 * @param int $houseId The house ID
-	 * @param \DateTimeInterface $end Inclusive upper bound for next_due
-	 * @return RoomTask[] Active room tasks due on or before $end
-	 */
-	public function findActiveDueUpToByHouse(int $houseId, \DateTimeInterface $end): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('rt.*')
-			->from($this->getTableName(), 'rt');
-		$this->applyHouseScope($qb, 'rt', $houseId);
-		$qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
-			->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
-			->orderBy('rt.next_due', 'ASC')
-			->addOrderBy('rt.created_at', 'ASC');
-
-		return $this->findEntities($qb);
 	}
 
 	/**

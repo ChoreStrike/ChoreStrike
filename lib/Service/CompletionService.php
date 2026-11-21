@@ -232,7 +232,7 @@ class CompletionService {
 		$allocation = $this->allocations->proposal($assigneeUserIds, $members, $userId);
 		if ($participants !== []) {
 			if (!$allocationReviewed && !$this->allocations->same($participants, $allocation)) {
-				throw new ConflictException($this->l10n->t('The share allocation deviates from the agreement and must be confirmed'));
+				throw new ConflictException($this->l10n->t('The shares differ from the suggested split and must be confirmed'));
 			}
 			$allocation = $this->allocations->fromParticipants($participants, $members);
 		}

@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\HouseController;
-use OCA\ChoreStrike\Controller\RoomTaskController;
 use OCA\ChoreStrike\Controller\UserController;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\WorkShare;
@@ -24,8 +23,8 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 /**
  * Integration tests for the transparency/insights backend (CS-PLAN-040):
  * the /house/activity endpoint (happy path, per-user filter), mapper-level
- * house scoping, the roomStats cross-house fix, and lastFreezeDate
- * surfacing through the serialized users.
+ * house scoping, and lastFreezeDate surfacing through the serialized
+ * users.
  *
  * The controllers resolve the shared instance house (getInstanceId), so
  * controller-level tests run against it (WireStatusAuthDenialTest
@@ -357,29 +356,6 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 
 		$houseACount = $mapper->countActivityByHouse($houseA, $start, $end);
 		self::assertSame(1, $houseACount);
-	}
-
-	/**
-	 * roomStats cross-house regression (CS-PLAN-040): a caller whose house
-	 * membership is valid must still get 404 when the roomId belongs to a
-	 * different house ” membership alone used to leak foreign room counts.
-	 */
-	public function testRoomStats_RejectsForeignHouseRoom(): void {
-		$houseId = $this->sharedHouseId();
-		$this->seedMembership($houseId, self::MEMBER_A);
-
-		$foreignHouse = $this->createHouse('activity_iso_foreign', 'Foreign House');
-		$floorId = $this->createFloor($foreignHouse, 'Foreign Floor');
-		$roomId = $this->createRoom($foreignHouse, $floorId, 'Foreign Room');
-
-		/** @var RoomTaskController $controller */
-		$controller = $this->getController(RoomTaskController::class, self::MEMBER_A);
-		$response = $controller->roomStats($roomId);
-
-		self::assertSame(404, $response->getStatus());
-		$data = $response->getData();
-		self::assertFalse($data['success']);
-		self::assertSame('RESOURCE_NOT_FOUND', $data['error']['code']);
 	}
 
 	/**

@@ -36,7 +36,7 @@ records the thirteen explicit C5 answers. The family evidence (C5j) remains open
 
 | Surface | Approved target |
 |---|---|
-| Entry after setup | Today for adults and children, the one landing page: the own status (open energy against the day, weekly goal, streak, Coins), overdue work first, today's agreements and what is already possible. Keep planning, household and open requests reachable, without making arcade/catalog/rankings the primary area. The Dashboard merged into Today; `/dashboard` redirects (CS-PLAN-090 WP-B). |
+| Entry after setup | Today for adults and children, the one landing page: the own status (open energy against the day, weekly goal, streak, Coins), overdue work first, today's due tasks and what is already possible. Keep planning, household and open requests reachable, without making arcade/catalog/rankings the primary area. The Dashboard merged into Today; `/dashboard` redirects (CS-PLAN-090 WP-B). |
 | Catch-up/overload | Separate catch-up without stacks of identical cards; show overload as a clarification need, not a demand to clear all accumulated work. |
 | Progress | Small confirmed personal streak/shared weekly progress line, with pending/provisional and neutral states distinguished. A free day is a neutral empty view, not an invitation to manufacture work. |
 | Completion | Short visible confirmation with undo access and no interrupting award modal. Sound requires a personal opt-in; the celebration animation is on by default since CS-PLAN-090 (D-090-05) and each person can switch it off. |
@@ -208,11 +208,11 @@ Settings (create, rename, delete); the task list by room shows a room's state.
 | Add room (inline name input per floor row) | Settings structure section | `POST /rooms` | ✅ (CS-PLAN-042; icon defaults, the old FloorList icon-picker modal was removed with the duplicate surface) |
 | Rename room | Settings floor room list, which also counts the room's active tasks (the room page and its header went with CS-PLAN-090 WP-C) | `PUT /rooms/{id}` | ✅ (CS-PLAN-042, FEAT-UX-049) |
 | Delete room (styled confirm) | Settings floor room list | `DELETE /rooms/{id}` | ✅ (CS-PLAN-042) |
-| Cleanliness change (Quick clean +10) | — | `PUT /rooms/{id}/cleanliness` | ⛔ control removed (FEAT-UX-048); the route stays until FEAT-UX-050 (D-089-09), and retained entries keep replaying |
+| Cleanliness change (Quick clean +10) | — | — | ⛔ control removed (FEAT-UX-048), route pruned (CS-PLAN-091 WP-B7, D-089-09); retained journal entries keep replaying |
 | "Rooms needing cleaning" list | — | `GET /rooms/needing-cleaning` | ⛔ pruned (CS-PLAN-055 — route + dead `fetchRoomsNeedingCleaning` wrapper gone) |
 | Open a room | TaskManager → *By room*: floors are headings, rooms collapsible rows; `/room/:id` redirects to `/tasks?group=room&room=:id` (CS-PLAN-090 WP-C) | the house-wide `GET /room-tasks` of the list | ✅ |
 | Room facts (open and overdue counts, cleanliness percentage, *Last cleaned*) | room heading of the list by room | `GET /floors/with-rooms` + the list's rows | ✅ (CS-PLAN-090 WP-C, D-090-19; the room cards went with WP-B) |
-| Task stats card (total/active/overdue/due-today/completion) | — | `GET /room-tasks/room/{roomId}/stats` | ⛔ card removed with the room page (CS-PLAN-090 WP-C, D-090-11); the route stays without a client until Release B (D-090-10) |
+| Task stats card (total/active/overdue/due-today/completion) | — | — | ⛔ card removed with the room page (CS-PLAN-090 WP-C, D-090-11), route pruned (CS-PLAN-091 WP-B7, D-090-10) |
 
 ## UC-05 — Task definitions (catalog)
 

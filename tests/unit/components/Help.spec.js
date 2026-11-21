@@ -69,15 +69,30 @@ describe('Help entry and glossary', () => {
 		expect(wrapper.text()).toContain('reserve the Coins first')
 		expect(wrapper.find('[data-testid="help-glossary"]').exists()).toBe(false)
 
-		// The agreements topic carries the honest share arithmetic
+		// The shares topic carries the honest share arithmetic
 		// (10 Coins once, split — never multiplied per helper).
-		const agreements = mount(HelpEntry, { props: { variant: 'context', topic: 'agreements' } })
-		await agreements.find('button').trigger('click')
-		expect(agreements.text()).toContain('3.4/3.3/3.3')
+		const shares = mount(HelpEntry, { props: { variant: 'context', topic: 'shares' } })
+		await shares.find('button').trigger('click')
+		expect(shares.text()).toContain('3.4/3.3/3.3')
+		expect(shares.text()).toContain('before coin factors and bonus days')
 	})
 
-	it('carries the essential onboarding topics (setup, agreements, progress, catalog, owner pricing)', async () => {
-		for (const topic of ['setup', 'agreements', 'progress', 'catalog', 'owner-pricing']) {
+	// ADR-021 (CS-PLAN-091 WP-B7): windows replaced agreed days and catch-up
+	// in every topic, and early work is on time.
+	it('explains due windows without agreements or catch-up in every topic', async () => {
+		for (const topic of ['setup', 'shares', 'progress', 'catalog', 'owner-pricing']) {
+			const wrapper = mount(HelpEntry, { props: { variant: 'context', topic } })
+			await wrapper.find('button').trigger('click')
+			expect(wrapper.find('.topic-body').text()).not.toMatch(/agreement|catch-up/i)
+		}
+		const progress = mount(HelpEntry, { props: { variant: 'context', topic: 'progress' } })
+		await progress.find('button').trigger('click')
+		expect(progress.text()).toContain('or earlier, is on time')
+		expect(progress.text()).toContain('entirely inside your absence is neutral')
+	})
+
+	it('carries the essential onboarding topics (setup, shares, progress, catalog, owner pricing)', async () => {
+		for (const topic of ['setup', 'shares', 'progress', 'catalog', 'owner-pricing']) {
 			const wrapper = mount(HelpEntry, { props: { variant: 'context', topic } })
 			expect(wrapper.find(`[data-testid="help-context-${topic}"]`).exists()).toBe(true)
 			await wrapper.find('button').trigger('click')
@@ -105,13 +120,20 @@ describe('Help entry and glossary', () => {
 	it('explains the core household terms in plain family language', () => {
 		const wrapper = mount(HelpGlossary)
 
-		for (const term of ['today', 'agreement', 'catch-up', 'absence', 'streak', 'quiet-time']) {
+		for (const term of ['today', 'window', 'overdue', 'absence', 'streak', 'quiet-time']) {
 			expect(wrapper.find(`[data-testid="help-term-${term}"]`).exists()).toBe(true)
 		}
-		// The C1d cover semantics are explained honestly.
-		expect(wrapper.text()).toContain('it stays a catch-up')
+		// Windows replaced agreed days and catch-up (ADR-021, CS-PLAN-091 WP-B7).
+		for (const term of ['agreement', 'catch-up']) {
+			expect(wrapper.find(`[data-testid="help-term-${term}"]`).exists()).toBe(false)
+		}
+		expect(wrapper.get('[data-testid="help-term-overdue"]').text()).toContain('one red entry')
+		// A fixed day's red entry ends with the next window (ADR-021 decision 1).
+		expect(wrapper.get('[data-testid="help-term-overdue"]').text()).toContain('until the next window opens')
+		expect(wrapper.get('[data-testid="help-term-streak"]').text()).toContain('neither add to it nor break it')
+		expect(wrapper.text()).not.toMatch(/agreement|catch-up/i)
 		// The neutral absence semantics (C2b, ADR-020).
-		expect(wrapper.text()).toContain('nothing counts for or against anyone')
+		expect(wrapper.text()).toContain('counts neither for nor against you')
 		expect(wrapper.text()).toContain('no reason and no request are needed')
 		// Today is the one landing page and shows the own balance (WP-B).
 		expect(wrapper.get('[data-testid="help-term-today"]').text()).toContain('what is overdue')

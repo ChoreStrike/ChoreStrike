@@ -29,7 +29,8 @@ import { translate as t } from '@nextcloud/l10n'
 /**
  * The essential help slice (CS-PLAN-070 WP6 §3.7, FEAT-UX-023): a plain
  * glossary of the core household terms, aligned with the delivered
- * semantics (C1/C2). Static content — no backend reads, no tour.
+ * semantics (C1/C2; due windows since ADR-021). Static content — no
+ * backend reads, no tour.
  */
 export default {
 	name: 'HelpGlossary',
@@ -46,19 +47,19 @@ export default {
 					text: t('chorestrike', 'Your day at a glance: your own status, what is overdue, what is due today and what is already possible. Upcoming work is in the calendar.'),
 				},
 				{
-					id: 'agreement',
-					title: t('chorestrike', 'Agreement'),
-					text: t('chorestrike', 'What the family has agreed for the coming days — nothing more. Work only counts once it is done.'),
+					id: 'window',
+					title: t('chorestrike', 'Due window'),
+					text: t('chorestrike', 'Every task has a window instead of a single due day: its planned day plus and minus its flex days. Work done inside the window, or earlier, is on time.'),
 				},
 				{
-					id: 'catch-up',
-					title: t('chorestrike', 'Catch-up'),
-					text: t('chorestrike', 'A missed chore stays visible as catch-up with its original date. Completing it now covers the miss — it stays a catch-up.'),
+					id: 'overdue',
+					title: t('chorestrike', 'Overdue'),
+					text: t('chorestrike', 'A task is overdue once its window has ended. It shows as one red entry until it is done; on a fixed day, until the next window opens. Missed rounds do not pile up.'),
 				},
 				{
 					id: 'absence',
 					title: t('chorestrike', 'Absence'),
-					text: t('chorestrike', 'An absence is a period in which nothing is planned for you and nothing counts for or against anyone. Everyone enters their own under Absence; no reason and no request are needed.'),
+					text: t('chorestrike', 'An absence is a period in which nothing is planned for you. A task whose whole window lies inside it counts neither for nor against you. Everyone enters their own under Absence; no reason and no request are needed.'),
 				},
 				{
 					id: 'category',
@@ -68,7 +69,7 @@ export default {
 				{
 					id: 'streak',
 					title: t('chorestrike', 'Streak'),
-					text: t('chorestrike', 'The number of days in a row you kept your agreements. Today stays pending until the day closes.'),
+					text: t('chorestrike', 'The number of days in a row on which every task of yours whose window ended was done on time. Days without such a task neither add to it nor break it. Today stays pending until the day closes.'),
 				},
 				{
 					id: 'weekly-goal',

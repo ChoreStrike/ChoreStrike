@@ -8,8 +8,8 @@
 
 ChoreStrike sends at most **one Nextcloud notification per person per
 house-local day** — the daily digest. It combines two opt-in categories:
-the **task summary** (your planned/agreed-catch-up work for today) and
-**organizational updates** (takeovers, agreement recordings, pause
+the **task summary** (your open work planned for today) and
+**organizational updates** (takeovers, absence changes, reward-request
 decisions). Awards, titles, streaks and in-app state never dispatch
 anything external. There are no per-event bells.
 
@@ -46,8 +46,9 @@ anything external. There are no per-event bells.
 3. **Dispatch** one due slot at a time:
    - Recheck inside ONE house-first transaction: membership active,
      category opt-ins still enabled, outside personal quiet hours, and
-     dispatch-time relevance (task content computed now from occurrence
-     reads; org rows from the queue). Empty content → `skipped` — no
+     dispatch-time relevance (task content computed now from the derived
+     windows, ADR-021: the member's own open cycles planned for today, none
+     on a free day or during an absence; org rows from the queue). Empty content → `skipped` — no
      empty summary is ever sent.
    - **Claim**: conditional `pending → dispatching` write with a token.
    - Commit. Only then call `IManager::notify` (persist-before-notify).
@@ -59,8 +60,11 @@ anything external. There are no per-event bells.
 ## The Organizational Queue
 
 `chorestrike_digest_changes` holds identity rows only — object type
-(`takeover`/`agreement`/`pause`/`reward_request`), object id, revision,
-category, source time, target slot, disposition. Writers run INSIDE their
+(`takeover`/`pause`/`reward_request`), object id, revision,
+category, source time, target slot, disposition. Rows of the retired type
+`agreement` (ADR-022, CS-PLAN-091 D-091-12) may be left from before the
+cutover: nothing queues them any more, dispatch never counts or consumes one,
+and it expires with its slot like any queued row. Writers run INSIDE their
 existing source transaction (the house lock is already held):
 
 - `CompletionService` — overdue takeover (RF-076-02: the queue write

@@ -803,8 +803,8 @@ callers).
 |---------|--------------|----------------------|
 | `digest` | `DigestService::processDueSlots` (five-minute job; at-most-one per member and day) | `digest` / `{houseId}:{houseUserId}:{Y-m-d}` |
 
-The digest content is category/count-based only (planned/agreed-catch-up
-task count + queued organizational updates) — the notifier resolves no
+The digest content is category/count-based only (the member's open work
+planned for today + queued organizational updates) — the notifier resolves no
 object references that could leak hidden work.
 
 ### Delivery contract (at-most-once)
@@ -1255,7 +1255,9 @@ replay.
   `delta` / `manual_delta` / absolute `reset` / `last_done` (stamp only, newest
   per room task recorded after the latest reset, FEAT-UX-045) events fold in
   `(effective_at, id)` order with
-  clamps; undo invalidates exactly its own completion effect
+  clamps (`manual_delta` and `last_done` are read only since CS-PLAN-091:
+  their writers went with the quick clean and with *last done on*, retained
+  entries keep replaying); undo invalidates exactly its own completion effect
   (the correction execution time never becomes `last_cleaned`); a later reset
   stays authoritative over earlier corrections; the room cache columns are
   derived projections (`resyncRoomCache`), never the source of truth.
@@ -1462,7 +1464,13 @@ task), `RoomTaskMapper` 508 → 544 (the set lock of a shared definition),
 `RoomTaskReadService` 567 → 577 (the one cycle-block read), `HouseSetupService`
 499 → 513 with its seeding extracted from `applySetup`, `RoomTaskService`
 451 → 424 and `RoomTaskController` 639 → 630 (dead code), `TaskForm.vue`
-310 → 315.
+310 → 315. Re-measured on 2026-11-21 after CS-PLAN-091 WP-B7 (the rest of the
+old surface): the two routes without a client and the code that had lost its
+caller with the stored occurrences went. `RoomController` 338 → 269,
+`RecurrenceCalculator` 317 → 148, `RoomTask` 413 → 279 and `OccurrenceMapper`
+333 → 59 fell below the guideline; `RoomTaskController` 630 → 581,
+`RoomTaskService` 424 → 366, `RoomService` 366 → 306, `RoomTaskMapper`
+544 → 494, `CompletedTaskMapper` 716 → 651 and `DigestService` 345 → 343.
 
 Dispositions: **accepted** (cohesive unit or static/data surface — splitting
 would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
@@ -1472,13 +1480,13 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 
 | File | Lines | Cohesive responsibility | Disposition |
 |------|-------|--------------------------|-------------|
-| `Controller/RoomTaskController.php` | 630 | Room-task route surface (selector modes, creation, lifecycle, stats, range, the bonus rows, the cycle receipt of the completion); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
+| `Controller/RoomTaskController.php` | 581 | Room-task route surface (selector modes, creation, lifecycle, range, the bonus rows, the cycle receipt of the completion); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
 | `Controller/SchedulingController.php` | 301 | Scheduling route surface (own preferences, member availability); thin methods | accepted (endpoint breadth, no logic depth) |
 | `Controller/UserController.php` | 367 | Member/profile route surface; thin methods (persistence delegated to HouseService, RF-058-04) | accepted (endpoint breadth) |
 | `Controller/HouseController.php` | 425 | House route surface (read, settings, the catalog and arcade gates, stats, activity, health, reset); every stored house payload adds the app-config arcade flag, the task categories and the bonus period; thin methods | accepted (endpoint breadth) |
-| `Controller/RoomController.php` | 338 | Room route surface incl. the WP3 journal/manual-delta/reset seam; thin methods | accepted (endpoint breadth) |
+| `Controller/RoomController.php` | — | Room route surface; the manual cleanliness delta went with CS-PLAN-091 WP-B7, which took it BELOW the guideline (269 non-blank lines); entry retired | removed from the inventory (2026-11-21) |
 | `Service/CompletionService.php` | 647 | The three WP3 ledger aggregates — completion, undo, attribution — with the WP5 transactional takeover queue and the frozen coin multipliers; the date correction, the correction skeleton, the locks, the evidence, the recognition tail, the read model and the split are collaborators (RF-091-07) | **named** (CS-PLAN-067 §3.5 / ADR-014: one visible ordered aggregate per command; further splitting would hide the lock/order contract) |
-| `Service/RoomTaskService.php` | 424 | Room-task ownership checks, deletion, room stats, calendar-range projection of the cycles | **remainder** (CR-SVC-15: range/stats projection extraction candidate) |
+| `Service/RoomTaskService.php` | 366 | Room-task ownership checks, deletion, calendar-range projection of the cycles (the room stats went with CS-PLAN-091 WP-B7) | **remainder** (CR-SVC-15: range projection extraction candidate) |
 | `Service/RoomTaskReadService.php` | 577 | Batched read/enrichment cluster (house/room/scope/daily/due/bonus + timezone); WP8 product; batched cycle blocks and the status derived from them | accepted (read-surface breadth, one owner per D1) |
 | `Service/HouseSetupService.php` | 513 | WP3 first-run setup transaction aggregate (first-run gate, structure, a definition per room and template, invites; first windows of the seeded tasks, ADR-021) | accepted (transaction aggregate) |
 | `Service/TaskService.php` | 556 | The definition's validation set and its one update path: prepared, applied under lock, the changed fields, and the revision of every mounted room task (a rule, flex or energy edit moves its current cycle) | accepted (one validation authority; the former `createTask` candidate of CR-SVC-15 left with CS-PLAN-063) |
@@ -1489,19 +1497,19 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `Service/CycleService.php` | 316 | Writers of the derived windows: completion target check, closing and reopening a cycle, postponement, the bonus seam, the cycle seam of a date correction, first date and the anchor policy of rule edits (ADR-021); projection, misses and sleep are `CycleProjection`, `CycleMisses` and `CycleSleep` (RF-091-10) | accepted (the writer of cycle rows; every method runs under the caller's lock order) |
 | `Service/WindowService.php` | 336 | The single recurrence authority: the current cycle per mode, flex and postponement, the missed fixed cycles, the calendar range, the row's `cycle` block, the postponability rule and the wake anchor (ADR-021) | accepted (pure derivation; one read path for every consumer) |
 | `Service/RecognitionFactsService.php` | 307 | The one reader of what the recognitions count: stored occurrences before the cutover, closed and open cycles after it, absences neutral on read (ADR-021 §5, §12) | accepted (cohesive read model; splitting the two sources would hide the no-double-count rule) |
-| `Service/RecurrenceCalculator.php` | 317 | Pure calendar math: interval steps, fixed weekdays and month days with clamping, day-key helpers; the enumeration of stored revisions goes with CS-PLAN-091 WP-B7 | accepted (pure functions, data-driven) |
+| `Service/RecurrenceCalculator.php` | — | Pure calendar math: interval steps, fixed weekdays and month days with clamping, day-key helpers; the enumeration of stored revisions went with CS-PLAN-091 WP-B7, which took it BELOW the guideline (148 non-blank lines); entry retired | removed from the inventory (2026-11-21) |
 | `Service/MedalService.php` | 335 | Retained rhythm/weekly recognition, correction reconciliation and in-app weekly receipt; WP5 removes external award bells | accepted (cohesive recognition domain, one award writer) |
-| `Service/RoomService.php` | 366 | Room domain: structure mutations, cleanliness manual-delta command and reset through the WP3 room journal, derived cache updates | accepted (cohesive room domain + the journal writer seam) |
+| `Service/RoomService.php` | 306 | Room domain: structure mutations, the baseline of a new room in the room journal, the dependents cascade of a deleted room task | accepted (cohesive room domain) |
 | `Service/RankingService.php` | 378 | Consent-filtered exact-ratio ranking and next-Monday generations; WP5 preserves delivery settings through every in-place consent transition | accepted (cohesive ranking authority, ADR-015) |
 | `Service/TestDataService.php` | 678 | Test-only seeding/reset tooling, including the WP5 digest table inventory | accepted (test tooling, explicitly classified) |
-| `Service/DigestService.php` | 345 | WP5 five-minute pass, current-source/visibility relevance, house-first claim, commit-before-notify and outcome bookkeeping | accepted (one visible at-most-once delivery choreography; scheduling and persistence remain in their existing owners) |
+| `Service/DigestService.php` | 343 | WP5 five-minute pass, current-source/visibility relevance, house-first claim, commit-before-notify and outcome bookkeeping | accepted (one visible at-most-once delivery choreography; scheduling and persistence remain in their existing owners) |
 | `Service/RewardRequestService.php` | 974 | WP7 C4 request lifecycle: one ordered lock/authorization/receipt/effect/queue sequence per command, the role/departure/erasure hooks and the viewer-safe serialization |
 | `Service/RewardService.php` | 409 | WP7 catalog owner: item CRUD with strict terms, the household-gate command and the scope matrix |
 | `Service/PauseService.php` | 758 | Revisioned pause lifecycle with the ADR-020 deletion, viewer projection, departure and WP5 transactional decision queue writes | accepted (one ordered lock/revision/queue sequence per command) |
-| `Db/RoomTask.php` | 413 | Central entity: domain accessors, the stored inputs of the derived window, JSON serialization (legacy recurrence engine removed by CS-PLAN-072 WP1; its ideal-date helpers go with CS-PLAN-091 WP-B7) | accepted (entity surface; data-driven) |
-| `Db/RoomTaskMapper.php` | 544 | SQL primitives for the central instance table (house/room/scope/daily/locks) | accepted (SQL primitive collection) |
-| `Db/CompletedTaskMapper.php` | 716 | Ledger SQL: stats aggregates, occurrence lookups of old rows, cycle anchors, the neighbours and the history of one room task, weekly windows, completion revisions, the erasure of a wallet from the frozen coin factors | accepted (SQL primitive collection) |
-| `Db/OccurrenceMapper.php` | 333 | SQL primitives for the stored occurrences (lookups by key, task, revision and house; half-open day bounds, RF-090-57); its writer primitives go with CS-PLAN-091 WP-B7 | accepted (SQL primitive collection) |
+| `Db/RoomTask.php` | — | Central entity: domain accessors, the stored inputs of the derived window, JSON serialization; the ideal-date helpers of the legacy recurrence engine went with CS-PLAN-091 WP-B7, which took it BELOW the guideline (279 non-blank lines); entry retired | removed from the inventory (2026-11-21) |
+| `Db/RoomTaskMapper.php` | 494 | SQL primitives for the central instance table (house/room/scope/daily/locks) | accepted (SQL primitive collection) |
+| `Db/CompletedTaskMapper.php` | 651 | Ledger SQL: stats aggregates, occurrence lookups of old rows, cycle anchors, the neighbours and the history of one room task, weekly windows, completion revisions, the erasure of a wallet from the frozen coin factors | accepted (SQL primitive collection) |
+| `Db/OccurrenceMapper.php` | — | The one read of the retained stored occurrences (a house's planned days, half-open day bounds, RF-090-57); every other primitive went with CS-PLAN-091 WP-B7, which took it BELOW the guideline (59 non-blank lines); entry retired | removed from the inventory (2026-11-21) |
 | `Db/TaskMapper.php` | 306 | SQL primitives for the definitions: visibility-scoped reads, the named-argument insert and the copy a split takes (CS-PLAN-091 WP-B6) | accepted (SQL primitive collection) |
 | `Service/FloorService.php` | 330 | Floor domain: structure mutations and their ordering | accepted (cohesive domain) |
 

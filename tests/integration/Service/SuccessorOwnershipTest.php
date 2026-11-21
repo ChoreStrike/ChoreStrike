@@ -108,25 +108,6 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * The RoomDetail stats card counts like the rows (RF-084-02): a cycle
-	 * whose window ended is overdue, today's work and an open flex window
-	 * are due.
-	 */
-	public function testRoomStats_FollowTheListRowBoundary(): void {
-		$cases = [
-			'today' => [$this->fixture((new \DateTime())->format('Y-m-d') . ' 00:00:00'), 0, 1],
-			'missed' => [$this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00'), 1, 0],
-			'open flex window' => [$this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00', 2), 0, 1],
-		];
-		foreach ($cases as $label => [$f, $overdue, $dueToday]) {
-			$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
-			$owner = $this->houseUserMapper->findByNextcloudUserId($f['houseId'], self::OWNER);
-			$stats = \OC::$server->get(RoomTaskService::class)->getRoomTaskStats($roomTask->getRoomId(), $owner);
-			self::assertSame([$overdue, $dueToday], [$stats['overdueTasks'], $stats['dueTodayTasks']], $label);
-		}
-	}
-
-	/**
 	 * CR-084-03: single-row payloads (create, completion, execution rows)
 	 * report the list status — an open flex window after the planned day is
 	 * due.

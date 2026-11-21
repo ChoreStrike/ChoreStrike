@@ -97,8 +97,8 @@ class RoomTaskController extends Controller {
 				$list = $this->roomTaskReadService->getScopeTasksScopedToHouse($scopeId, $house->getId(), $houseUser, $activeOnly);
 			} elseif ($roomId !== null) {
 				// CR-053-02: the roomId is caller-supplied, so it must be
-				// validated against the caller's house (same fix as
-				// roomStats) — membership alone allowed cross-house reads.
+				// validated against the caller's house — membership
+				// alone allowed cross-house reads.
 				$this->roomTaskService->validateRoomOwnership($roomId, $house->getId());
 				$list = $this->roomTaskReadService->getRoomTasks($roomId, $houseUser, $activeOnly);
 			} else {
@@ -539,60 +539,6 @@ class RoomTaskController extends Controller {
 				'success' => false,
 				'error' => [
 					'code' => 'RANGE_TASKS_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Get room task statistics
-	 *
-	 * @NoAdminRequired
-	 */
-	public function roomStats(int $roomId): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->assertHouseMember($house->getId());
-
-			if ($roomId <= 0) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'VALIDATION_ERROR',
-						'message' => $this->l->t('roomId is required')
-					]
-				], 400);
-			}
-
-			// CS-PLAN-040 security fix: the roomId is caller-supplied, so it
-			// must be validated against the caller's house like every sibling
-			// endpoint — membership alone did not stop cross-house reads.
-			$this->roomTaskService->validateRoomOwnership($roomId, $house->getId());
-
-			$stats = $this->roomTaskService->getRoomTaskStats($roomId, $houseUser);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $stats
-			]);
-		} catch (NotFoundException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'RESOURCE_NOT_FOUND',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 404);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('roomStats', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'ROOM_STATS_ERROR',
 					'message' => ControllerErrorFormatter::safeMessage($e)
 				]
 			], 500);

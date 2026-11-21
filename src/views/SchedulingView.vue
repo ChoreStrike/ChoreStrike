@@ -10,9 +10,9 @@
 				{{ t('chorestrike', 'Back to the calendar') }}
 			</router-link>
 			<h1>{{ t('chorestrike', 'Smart Scheduling') }}</h1>
-			<!-- Essential onboarding slice (WP8 §3.6): agreements vs
-			     voluntary help and how actual shares split the work. -->
-			<HelpEntry variant="context" topic="agreements" />
+			<!-- Essential onboarding slice (WP8 §3.6): how actual shares
+			     split the work. -->
+			<HelpEntry variant="context" topic="shares" />
 			<p class="subtitle">
 				{{ t('chorestrike', 'Intelligent task distribution based on member availability and preferences') }}
 			</p>

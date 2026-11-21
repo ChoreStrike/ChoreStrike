@@ -316,15 +316,18 @@ class RouteMatrixTest extends TestCase {
 	 * and retired the editors it replaces: the definition update, the
 	 * template create, the assignee read and write, bulk assignment and the
 	 * four sub-task writers → 96.
+	 * CS-PLAN-091 WP-B7 retired the two routes that had lost their client
+	 * (D-089-09, D-090-10): the manual cleanliness delta and the task
+	 * statistics of a room → 94.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			96,
+			94,
 			$this->routes['routes'],
-			'Route count drifted from the pin (96 after CS-PLAN-091 WP-B6) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (94 after CS-PLAN-091 WP-B7) — add only with a consumer, then update deliberately'
 		);
 	}
 
@@ -502,14 +505,7 @@ class RouteMatrixTest extends TestCase {
 	 * @dataProvider retiredOccurrenceWriterProvider
 	 */
 	public function testRetiredOccurrenceWritersAreNotReintroduced(string $verbAndUrl, string $name): void {
-		$declared = array_map(
-			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
-			$this->routes['routes']
-		);
-		$names = array_column($this->routes['routes'], 'name');
-
-		$this->assertNotContains($verbAndUrl, $declared, 'CS-PLAN-091 WP-B1 retired ' . $verbAndUrl);
-		$this->assertNotContains($name, $names, 'CS-PLAN-091 WP-B1 retired ' . $name);
+		$this->assertRouteStaysRetired($verbAndUrl, $name, 'CS-PLAN-091 WP-B1');
 	}
 
 	public static function retiredOccurrenceWriterProvider(): array {
@@ -532,14 +528,7 @@ class RouteMatrixTest extends TestCase {
 	 * @dataProvider retiredEditorProvider
 	 */
 	public function testRetiredEditorsAreNotReintroduced(string $verbAndUrl, string $name): void {
-		$declared = array_map(
-			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
-			$this->routes['routes']
-		);
-		$names = array_column($this->routes['routes'], 'name');
-
-		$this->assertNotContains($verbAndUrl, $declared, 'CS-PLAN-091 WP-B6 retired ' . $verbAndUrl);
-		$this->assertNotContains($name, $names, 'CS-PLAN-091 WP-B6 retired ' . $name);
+		$this->assertRouteStaysRetired($verbAndUrl, $name, 'CS-PLAN-091 WP-B6');
 	}
 
 	public static function retiredEditorProvider(): array {
@@ -553,6 +542,26 @@ class RouteMatrixTest extends TestCase {
 			'sub-task rename' => ['PUT /api/v1/checklists/item/{itemId}', 'checklist#updateTaskItem'],
 			'sub-task delete' => ['DELETE /api/v1/checklists/item/{itemId}', 'checklist#deleteTaskItem'],
 			'sub-task reorder' => ['POST /api/v1/checklists/reorder', 'checklist#reorderTaskItems'],
+		];
+	}
+
+	/**
+	 * CS-PLAN-091 WP-B7 (D-089-09, D-090-10): the routes without a client
+	 * stay gone — a request to either finds no route and answers 404, and
+	 * no controller method is left behind them. The journal entries of the
+	 * manual delta keep replaying (`RoomReplayConcurrencyTest`).
+	 *
+	 * @dataProvider retiredClientlessRouteProvider
+	 */
+	public function testRetiredClientlessRoutesAreNotReintroduced(string $verbAndUrl, string $name, string $controller, string $method): void {
+		$this->assertRouteStaysRetired($verbAndUrl, $name, 'CS-PLAN-091 WP-B7');
+		$this->assertFalse(method_exists($controller, $method), $controller . '::' . $method . '() went with its route');
+	}
+
+	public static function retiredClientlessRouteProvider(): array {
+		return [
+			'manual cleanliness delta' => ['PUT /api/v1/rooms/{id}/cleanliness', 'room#updateCleanliness', \OCA\ChoreStrike\Controller\RoomController::class, 'updateCleanliness'],
+			'room task statistics' => ['GET /api/v1/room-tasks/room/{roomId}/stats', 'room_task#roomStats', \OCA\ChoreStrike\Controller\RoomTaskController::class, 'roomStats'],
 		];
 	}
 
@@ -610,6 +619,18 @@ class RouteMatrixTest extends TestCase {
 			$declared,
 			'The unconditional game leaderboard route stays pruned'
 		);
+	}
+
+	/** A retired route is declared neither by its verb and URL nor by its name. */
+	private function assertRouteStaysRetired(string $verbAndUrl, string $name, string $package): void {
+		$declared = array_map(
+			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
+			$this->routes['routes']
+		);
+		$names = array_column($this->routes['routes'], 'name');
+
+		$this->assertNotContains($verbAndUrl, $declared, $package . ' retired ' . $verbAndUrl);
+		$this->assertNotContains($name, $names, $package . ' retired ' . $name);
 	}
 
 	/**

@@ -256,17 +256,6 @@ class RoomReplayServiceTest extends TestCase {
 		self::assertNull($this->service->replay(7)['lastCleaned']);
 	}
 
-	/**
-	 * RecordLastDone_ReceiptOwnedWriter_KeysTheEntryByRoomTaskAndCommand
-	 */
-	public function testRecordLastDone_ReceiptOwnedWriter_KeysTheEntryByRoomTaskAndCommand(): void {
-		$this->eventMapper->expects($this->once())->method('insert')->with($this->callback(
-			static fn (RoomEvent $e): bool => $e->getKind() === RoomEvent::KIND_LAST_DONE
-				&& $e->getStableId() === 'last_done:31:uuid-3' && $e->getDeltaCleanliness() === null
-		))->willReturnArgument(0);
-		$this->service->recordLastDone(7, 31, 'uuid-3', new \DateTime('2026-09-25'));
-	}
-
 	private function lastDone(string $at, int $id, int $roomTaskId, string $command): RoomEvent {
 		$event = $this->event(RoomEvent::KIND_LAST_DONE, $at, $id);
 		$event->setStableId('last_done:' . $roomTaskId . ':' . $command);
@@ -324,16 +313,6 @@ class RoomReplayServiceTest extends TestCase {
 		self::assertSame(RoomEventMapper::BATCH_SIZE, $cursors[1]['id'], 'the second read resumes after the last folded event id');
 		self::assertSame(90, $state['cleanliness']);
 		self::assertSame('2026-09-22 08:00:00', $state['lastCleaned']->format('Y-m-d H:i:s'));
-	}
-
-	/**
-	 * RecordManualDelta_ReceiptOwnedWriter_InsertsRequestedEffect
-	 */
-	public function testRecordManualDelta_ReceiptOwnedWriter_InsertsRequestedEffect(): void {
-		$this->eventMapper->expects($this->once())->method('insert')->with($this->callback(
-			static fn (RoomEvent $e): bool => $e->getStableId() === 'manual:uuid-1' && $e->getDeltaCleanliness() === 15
-		))->willReturnArgument(0);
-		$this->service->recordManualDelta(7, 15, 'uuid-1', new \DateTime());
 	}
 
 	/**

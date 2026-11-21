@@ -84,45 +84,6 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Occurrence/undo ledger state for the given room tasks within a
-	 * window (CS-PLAN-065, ADR-012 fingerprint input): total completion
-	 * rows and how many of them carry an `undone_at` mark. Counts — not
-	 * row identity — so the value is stable across identical states.
-	 *
-	 * @param array<int> $roomTaskIds The room task IDs
-	 * @param \DateTimeInterface $start Inclusive window start
-	 * @param \DateTimeInterface $end Exclusive window end
-	 * @return array<int, array{total: int, undone: int}>
-	 */
-	public function findUndoStateByRoomTasks(array $roomTaskIds, \DateTimeInterface $start, \DateTimeInterface $end): array {
-		if (empty($roomTaskIds)) {
-			return [];
-		}
-
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('ct.room_task_id')
-			->selectAlias($qb->createFunction('COUNT(*)'), 'total')
-			->selectAlias($qb->createFunction('COUNT(ct.undone_at)'), 'undone')
-			->from($this->getTableName(), 'ct')
-			->where($qb->expr()->in('ct.room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
-			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
-			->groupBy('ct.room_task_id');
-
-		$result = $qb->executeQuery();
-		$state = [];
-		while ($row = $result->fetch()) {
-			$state[(int)$row['room_task_id']] = [
-				'total' => (int)$row['total'],
-				'undone' => (int)$row['undone'],
-			];
-		}
-		$result->closeCursor();
-
-		return $state;
-	}
-
-	/**
 	 * Count completions of a room task by a house user within a day window.
 	 *
 	 * Used by the duplicate-completion guard to prevent the same user from
@@ -303,40 +264,6 @@ class CompletedTaskMapper extends QBMapper {
 			->set('user_id', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
 			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
 			->executeStatement();
-	}
-
-	/**
-	 * Count distinct room tasks with at least one completion, restricted to
-	 * a caller-supplied room-task id set.
-	 *
-	 * Numerator for the CR-SVC-31 root fix (CS-PLAN-040): the room-stats
-	 * completionRate counts REAL completions — the share of the room's
-	 * tasks with a completion row — instead of `(total − active)/total`,
-	 * which counted deactivated/skipped tasks as completed. The id-set
-	 * restriction is the visibility-aware successor of the old room-scoped
-	 * variant (CS-PLAN-061 review fix): the stats caller passes only the
-	 * room tasks visible to the viewer, so completions of invisible tasks
-	 * can neither inflate the numerator nor confirm hidden tasks exist.
-	 *
-	 * @param int[] $roomTaskIds The room task IDs to count completions in
-	 * @return int Number of distinct completed room tasks in the set
-	 */
-	public function countDistinctCompletedRoomTasksInSet(array $roomTaskIds): int {
-		$roomTaskIds = array_values(array_map('intval', $roomTaskIds));
-		if ($roomTaskIds === []) {
-			return 0;
-		}
-
-		$qb = $this->db->getQueryBuilder();
-		$qb->select($qb->createFunction('COUNT(DISTINCT ct.room_task_id) AS completed_count'))
-			->from($this->getTableName(), 'ct')
-			->where($qb->expr()->in('ct.room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)));
-
-		$result = $qb->executeQuery();
-		$row = $result->fetch();
-		$result->closeCursor();
-
-		return (int)($row['completed_count'] ?? 0);
 	}
 
 	/**

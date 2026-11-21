@@ -20,7 +20,6 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MemberPreference;
 use OCA\ChoreStrike\Db\MemberPreferenceMapper;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
 use OCA\ChoreStrike\Db\Pause;
 use OCA\ChoreStrike\Db\PauseMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -40,8 +39,8 @@ use PHPUnit\Framework\TestCase;
  *
  * Covers: the pre-claim rechecks (departure, opt-out, quiet hours, empty
  * content), the atomic claim with the combined single summary, the
- * dispatch-time task relevance (obligated active planned + agreed
- * catch-up; free days excluded; suspended work neutral), the outcome
+ * dispatch-time task relevance (own open windows planned for today;
+ * free days and absences excluded; retained agreement rows skipped), the outcome
  * contract (accepted → sent + consumed rows; uncertain → uncertain and
  * NEVER resent) and the at-most-once claim bookkeeping.
  *
@@ -53,7 +52,6 @@ class DigestServiceTest extends TestCase {
 	private MemberPreferenceMapper&MockObject $prefMapper;
 	private DigestSlotMapper&MockObject $slotMapper;
 	private DigestChangeMapper&MockObject $changeMapper;
-	private OccurrenceMapper&MockObject $occurrenceMapper;
 	private NotificationService&MockObject $notificationService;
 	private DigestScheduleService&MockObject $scheduleService;
 	private AppLogger&MockObject $appLogger;
@@ -90,7 +88,6 @@ class DigestServiceTest extends TestCase {
 		$this->prefMapper = $this->createMock(MemberPreferenceMapper::class);
 		$this->slotMapper = $this->createMock(DigestSlotMapper::class);
 		$this->changeMapper = $this->createMock(DigestChangeMapper::class);
-		$this->occurrenceMapper = $this->createMock(OccurrenceMapper::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
 		$this->scheduleService = $this->createMock(DigestScheduleService::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
@@ -180,7 +177,6 @@ class DigestServiceTest extends TestCase {
 			$this->prefMapper,
 			$this->slotMapper,
 			$this->changeMapper,
-			$this->occurrenceMapper,
 			$this->notificationService,
 			$this->scheduleService,
 			new CalendarService(),
@@ -438,6 +434,37 @@ class DigestServiceTest extends TestCase {
 		$this->currentCompletion = $undone;
 		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
 		$this->assertNull($this->dispatched);
+	}
+
+	/**
+	 * D-091-12 (CS-PLAN-091 WP-B7): nothing queues agreement lines any more.
+	 * A row retained from before the cutover never becomes a summary and is
+	 * never consumed.
+	 */
+	public function testPass_RetainedAgreementRowAlone_SkipsTheSlotAndConsumesNothing(): void {
+		$this->membersById[7] = $this->member();
+		$this->prefsByKey['1:7'] = $this->pref();
+		$retained = $this->queuedRow(1);
+		$retained->setObjectType('agreement');
+		$this->queuedBySlot['7:2026-09-29'] = [$retained];
+		$this->dueSlots = [$this->slot()];
+		$this->changeMapper->expects($this->never())->method('markConsumed');
+
+		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
+		$this->assertNull($this->dispatched);
+	}
+
+	public function testPass_RetainedAgreementRowNextToATakeover_CountsAndConsumesTheTakeoverOnly(): void {
+		$this->membersById[7] = $this->member();
+		$this->prefsByKey['1:7'] = $this->pref();
+		$retained = $this->queuedRow(1);
+		$retained->setObjectType('agreement');
+		$this->queuedBySlot['7:2026-09-29'] = [$retained, $this->queuedRow(2)];
+		$this->dueSlots = [$this->slot()];
+		$this->changeMapper->expects($this->once())->method('markConsumed')->with([2], $this->anything());
+
+		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['dispatched']);
+		$this->assertSame(['mom', 1, 7, '2026-09-29', 0, 1], $this->dispatched);
 	}
 
 	public function testPass_NoLongerVisibleWork_DropsTaskAndOrgContent(): void {
