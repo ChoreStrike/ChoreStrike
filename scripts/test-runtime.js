@@ -198,7 +198,7 @@ const UPSTREAM_BUILD_CONDITIONS = {
 	aio: {
 		current: {
 			'3rdpartyFailures': [],
-			notificationsWarnings: [STALE_NOTIFICATIONS_LOCK],
+			notificationsWarnings: [],
 		},
 		previous: {
 			'3rdpartyFailures': [],

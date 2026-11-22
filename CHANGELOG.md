@@ -7,33 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### App Version 0.8.0-alpha.5 — Simplified Core, Release A (qualified 2026-11-15, not deployed; ships with Releases B and C)
+### App Version 0.8.0-alpha.5 — Simplified Core, Releases A, B and C (candidate, not deployed)
 
-The first of three releases that answer the family trial: each thing is shown
-once, an absence needs no request, and finishing a task is easier to notice.
-How due dates work does not change. The app metadata moves from
-`0.8.0-alpha.4` to `0.8.0-alpha.5` so the update is detected, and the app now
-requires Nextcloud 35. One data-only migration step runs, the first on the
-retained baseline; no table or column changes, and the 26 applied migrations
-stay unchanged. The three sections after this one ship with it. This section
-gets its own dated version heading once the deployment is verified.
+Three releases that answer the family trial, shipped as one version: Release A
+shows each thing once, lets everyone enter an absence without a request and
+makes finishing a task easier to notice; Release B derives what is due from
+each task's rhythm and last completion and lets every member act without
+asking; Release C suggests a day for every task instead of an applied weekly
+plan. The app metadata moves from `0.8.0-alpha.4` to `0.8.0-alpha.5` so the
+update is detected, and the app now requires Nextcloud 35. Five migration
+steps run, the first on the retained baseline: `1034` switches the animation
+on (Release A); `1035` and `1037` add columns and the tables of closed rounds,
+their sub-task progress and bonus days; `1036` fills only those new columns
+for the cutover; `1038` adds the table of the daily suggestion. Nothing is
+deleted, and the 26 applied migrations stay unchanged. The three sections after
+this one ship with it. The version gets its dated heading once the deployment
+is verified.
+
+- **Qualification:** gates run on the latest upstream Nextcloud (35.0.3) and on
+  the Nextcloud of the current AIO release v15.1.1 (35.0.3 with PHP 8.4.28,
+  Redis for sessions, cache and locking).
+
+#### Release A — one place for everything (qualified 2026-11-15)
 
 - **Today replaces My Day and the Dashboard:** one landing page for every
   role. A status line shows your own work for the day against your energy, the
   weekly goal, your streak and your Coins. Overdue work comes first in its own
-  block, then *Due today*, then *Also possible today* behind one line. The
+  block, then today's work, then *Also possible today* behind one line. The
   Dashboard tiles, the room cards and *Next appointments* are gone; upcoming
   work is in the calendar and house health in Insights.
 - **Tasks by due date, by room or by person:** a switch in Tasks. By room,
   floors are headings and each room opens to its tasks, with its open and
-  overdue counts, its cleanliness and *Last cleaned*. *New* in a room heading
-  offers that room's templates, and *Date* in an opened task sets the due date
-  or *Last done*. By due date lists missed work first. The room page is gone.
+  overdue counts, its cleanliness and *Last cleaned*; *New* in a room heading
+  adds a task to that room. By due date lists missed work first. The room page
+  is gone.
 - **Eight navigation entries:** Today, Tasks, Calendar, Insights, Absence,
-  Rewards, Arcade and Settings, then Help. The weekly plan opens from the
-  calendar, the ranking is a section of Insights, and *My Requests* opens from
-  Rewards and from the personal settings. Old addresses of the Dashboard, a
-  room page and the leaderboard lead to their new place.
+  Rewards, Arcade and Settings, then Help. The ranking is a section of
+  Insights, and *My Requests* opens from Rewards and from the personal
+  settings. Old addresses of the Dashboard, a room page and the leaderboard
+  lead to their new place.
 - **Settings in two areas:** *Personal* and *Household*, each with categories
   that start closed. Your own days and energy are under *Planning*. Members
   who are not owners see the personal area only.
@@ -70,14 +82,99 @@ gets its own dated version heading once the deployment is verified.
   *Standard*.
 - **Fixed:** the reward list no longer moves under a tap when the balance
   arrives; the ranking highlights your own row again; the energy value on an
-  overdue row and the details of a deferred task in the overload warning are
-  legible in the light theme.
+  overdue row is legible in the light theme.
 - **Under the hood:** `fast-xml-parser` 5.12.1 closes its advisory, and two
   unused packages are gone. The PHP test suites load on case-sensitive file
   systems, and a CI suite that runs no test now fails.
-- **Qualification:** gates run on the latest upstream Nextcloud (35.0.3) and on
-  the Nextcloud of the current AIO release v15.0.2 (35.0.2, Redis for sessions,
-  cache and locking).
+
+#### Release B — due windows and trust
+
+What is due follows from each task's rhythm and its last completion; nothing
+is agreed, requested or stored ahead. Contract:
+[ADR-021](docs/adr/ADR-021-derived-due-windows.md).
+
+- **Due windows instead of appointments:** every task has a window, its next
+  day plus and minus its flex days: after completion, on a fixed weekday, on a
+  fixed day of the month, or once. The window follows from the last completion
+  and is never edited directly; until a task is done for the first time, its
+  *First date* sets it. A changed rhythm, flex or energy applies to open work
+  at once, and completed work keeps what it recorded. Future dates are no
+  longer stored, agreed or handed over, and there are no catch-up dates.
+- **One red entry per task:** an overdue task stands on *Today* once, however
+  many rounds it missed. On a fixed day it leaves when the next window opens.
+- **Early completion:** a task can be done at any time before its window,
+  except on the same day as its last completion, and counts as on time. A
+  fixed day keeps its day.
+- **Postpone:** everyone, children included, moves the window of an opened
+  task by half its flex days, up to three times per round; it still counts as
+  on time. Tasks without flex days and overdue tasks cannot be postponed.
+- **Recording for someone else:** a short tap on *Done* opens *Who did the
+  work?*: tick everyone who did it, change their shares if needed, and tick the
+  steps that are done. A private task credits only people who may see it.
+  Partly ticked steps stay saved for the round.
+- **History and corrections:** an opened task lists who did it when. Your own
+  latest entry offers *Change date* and *Delete*; owners change and delete
+  every entry, and only they change its people. *Insights* lists every
+  postponement, changed date, deleted entry and absence between the
+  completions.
+- **Sleeping tasks:** a task can sleep, for example over the winter, until it
+  is woken: on its wake date, with *Wake up*, or by completing it. While
+  asleep it is never due, never overdue and not suggested.
+- **Bonus tasks:** voluntary tasks that are always available and never
+  overdue, in their own section of *Today*. They pay energy and Coins once per
+  person and day and count neither for nor against the weekly goal, the streak
+  or the ranking. Tasks marked voluntary before the update become bonus tasks.
+- **Coin factor and bonus days:** under *Settings → Household → Rewards* an
+  owner gives each person a factor of × 1, × 2 or × 3, and starts bonus days,
+  one to three days in which everyone's Coins count × 1.5; *Today* shows them.
+  Both change Coins only and are frozen with each completion, so an undo takes
+  back exactly what was paid.
+- **One form and one row:** *New Task*, *New* in a room and *Edit* open the
+  same form: name, room, people, energy, how often the task repeats with its
+  flex days, and its sub-tasks, plus *From template* and *More*. It shows the
+  next window read-only, moves a task to another room with its history, asks
+  whether a change to a task several rooms share is for this room or for all,
+  and deletes a task. Every task is one row that opens in place, on *Today*
+  and in *Tasks*. The details view, the due-date and *Last done* editors, the
+  handover of a single date, *Restart* and the bulk assignment are gone. The
+  task list also filters by people and by floor or room.
+- **Capacity never refuses:** a full day no longer blocks an assignment, a
+  date or a new task; Release C shows overload instead.
+- **Streaks and the weekly goal follow the windows:** a round is classified
+  once, when it is done, and counts in the week its window ends; a window that
+  lies entirely inside your absence counts neither for nor against you.
+  Current and longest streaks and every claimed weekly goal stay as they were
+  before the update.
+
+#### Release C — a suggestion instead of a plan
+
+Nobody plans and applies a week any more: ChoreStrike suggests, and
+recalculates when something changes. Contract:
+[ADR-022](docs/adr/ADR-022-live-suggestion.md).
+
+- **Suggested for today:** *Today* shows what is suggested to you for today,
+  where it showed what was due, and each task says how long its window stays
+  open. Every task gets a day inside its window: one of your preferred days
+  first, else the day you have the most energy left. An unassigned task is
+  suggested to one person, a task with several people to all of them on the
+  same day. What was suggested for today stays on today's list, so it does not
+  jump during the day; a task created during the day joins it when its window
+  includes today.
+- **Preferred days:** a star next to a day under *Settings → Planning*. Owners
+  set every member's days, energy and preferred days under *Settings →
+  Household → Planning of the members*. A child's daily task limit still
+  limits what *Today* suggests to that child.
+- **The calendar shows the suggestion:** the week is a list of days, for the
+  next 14 days with the suggestion and each day's suggested energy against the
+  energy you have. A task that fits no day of its window is marked *does not
+  fit*, and an overfull day is highlighted. Further ahead the calendar shows
+  when work is due, and past days show what was done; *Month* shows the grid.
+- **The weekly plan is gone:** with it its preview and apply and the overload
+  warning before applying. An old link to it opens the calendar.
+- **The daily summary** counts the work suggested to you for today and your
+  overdue tasks; the lines about agreements are gone.
+- **Help:** the glossary explains the suggestion, postponing, sleeping and
+  bonus tasks, the coin factor and bonus days.
 
 ### Fixed after 0.8.0-alpha.4
 
@@ -85,13 +182,17 @@ gets its own dated version heading once the deployment is verified.
   overdue and one-time tasks included, and the task list shows it without a
   reload. Before, open tasks kept showing and paying the old value until they
   were done, and a one-time task never took the new one. Completed work keeps
-  its value. After the update the timeline job aligns open tasks that were
-  changed earlier; this fix needs no migration of its own.
+  its value. With the due windows of Release B, open work takes its energy from
+  the task itself, so a task changed before the update shows the new value at
+  once.
 - **A one-time task stays done:** one edited before it was completed stayed
   active and came back with the next job pass, ready to pay again. Editing a
   task shared by several rooms no longer adds work to a room that has finished.
 - **Completing after someone else's edit recovers:** the conflict now rereads
   the list, so the next attempt works without reloading the page.
+- **The second digest switch says what it delivers:** it is called *Daily
+  household updates*, where it said weekly, and its hint says that both
+  switches feed the one daily summary.
 - **The fairness table counts what was recorded:** it adds up each person's
   frozen share of valid work. An energy edit no longer changes past work,
   shared work no longer counts in full for the person who completed it, and
@@ -113,6 +214,13 @@ gets its own dated version heading once the deployment is verified.
   advisories. The bundled callers use default options and no hooks, so the
   affected options were not reached. `follow-redirects`, `fast-uri`, `qs` and
   `body-parser` take their patches in the same lockfile update.
+- **Erasing an account removes it completely:** erasing the account of someone
+  who left the household also removes their links in stored appointments,
+  their own absences, the snapshots that named them and the places that still
+  held their Nextcloud user ID: the creator of a task, the names of a takeover,
+  who assigned a task and the consent records of the old weekly plan. An
+  account created again under the same ID starts without the erased person's
+  private tasks.
 
 ### Changed after 0.8.0-alpha.4
 

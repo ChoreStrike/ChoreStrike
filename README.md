@@ -9,18 +9,19 @@
 [![Status: alpha 0.8.0-alpha.5](https://img.shields.io/badge/status-alpha%200.8.0--alpha.5-orange)](#project-status)
 
 ChoreStrike is a gamified household task management app for Nextcloud.
-Families and flatmates organize their home in floors and rooms, plan fair
-weekly schedules, and recognize agreed work with effort-based Coins, rhythm
+Families and flatmates organize their home in floors and rooms. What is due
+follows from how often a task repeats and when it was last done, ChoreStrike
+suggests a fair day for it, and finished work earns effort-based Coins, rhythm
 medals and an opt-in ranking, all inside their own Nextcloud. Planning comes
 first; using the reward catalog and games is optional.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/my-day.png" alt="Today: a teenager's agreed tasks for today, each with a Done button and an optional checklist"></td>
+    <td width="50%"><img src="docs/screenshots/my-day.png" alt="Today: a teenager's status line and the tasks suggested for today, each with a round Done button"></td>
     <td width="50%"><img src="docs/screenshots/reward-catalog.png" alt="Reward catalog: family rewards with Coin prices and a Request button"></td>
   </tr>
   <tr>
-    <td align="center"><b>Today</b>: your status and today's agreed tasks</td>
+    <td align="center"><b>Today</b>: your status and today's suggested tasks</td>
     <td align="center"><b>Rewards</b>: an optional family catalog</td>
   </tr>
 </table>
@@ -36,36 +37,42 @@ setup, everyday use and planning.
   owner and sets up floors and rooms with a guided wizard. Everyone else
   joins by **invitation** to the email address of their Nextcloud account —
   invite-only, no self-enrollment.
-- **Fair planning**: The owner previews a weekly plan
-  (who does what on which day) against each member's availability and daily
-  energy budget, adjusts it, and applies it once — nothing changes until
-  the plan is applied.
+- **A suggestion, not a plan**: Every task has a due window that follows from
+  its rhythm and its last completion. ChoreStrike spreads the open work over
+  the days by everyone's energy, preferred days and absences, and recalculates
+  whenever something changes. Nothing has to be applied, and a full day
+  refuses nothing.
 - **Recognition without pressure**: Coins reflect actual effort and shared
-  work; rhythm progress reflects on-time agreed chores. Free days and absences
-  are neutral, not missed opportunities to earn a streak.
-- **Built for families**: Adults and children start on *Today*, with their
-  own status, overdue work first and honest catch-up dates. Capacity checks, child
-  limits, absences and owner-recorded handovers support realistic planning.
+  work; rhythm progress reflects chores done within their window. Absences are
+  neutral, not missed opportunities to earn a streak.
+- **Trust instead of requests**: Adults and children start on *Today*, with
+  their own status and overdue work first. Everyone may postpone a task,
+  record work for someone else and correct their own latest entry; the recent
+  activity shows all of it, and owners can correct any entry.
 
 ## Key Features (Implemented)
 
 - **Household structure** — floors and rooms, room cleanliness tracking,
   house health, per-house timezone for correct day boundaries.
-- **Tasks** — daily/weekly/monthly recurrence with flexible windows,
+- **Tasks** — due windows after completion, on fixed weekdays or days of the
+  month, or once, each with flex days; a first date until the first
+  completion; postponing, sleeping tasks and voluntary bonus tasks;
   priorities, energy cost (1–20), step-by-step instructions, sub-task
   checklists, owner-managed categories and per-task visibility (public /
-  private / admins only). The task list groups by due date, by room or by
-  person.
-- **Weekly planner** — availability and energy budgets per member,
-  preview → adjust → apply scheduling, capacity and fairness aware, with
-  child daily-task limits.
-- **Execution** - Today for every member, checklists, shared-work allocation,
-  targeted undo/correction that preserves later work, and agreed catch-up and
-  handover flows.
+  private / admins only). One form creates and edits tasks and moves them
+  between rooms; the task list groups by due date, by room or by person.
+- **Live suggestion** — *Today* and the calendar suggest a day inside each
+  window, 14 days ahead, by each member's energy per day, preferred days and
+  absences; overload is shown, never refused, and a child's daily task limit
+  holds.
+- **Execution** - Today for every member, early completion, recording work for
+  others with shared-work allocation, sub-tasks ticked inside the completion,
+  undo, and history entries whose date the recorder or an owner corrects.
 - **Absence** - everyone enters an absence for themselves without a request;
   the household sees all entries, and the owner can delete any.
-- **Recognition** - effort-only Coins with exact shared accounting, planned-day
-  rhythm streaks, medals, titles, a household weekly goal and voluntary ranking.
+- **Recognition** - effort-only Coins with exact shared accounting, a coin
+  factor per person and owner-started bonus days (Coins only), on-time rhythm
+  streaks, medals, titles, a household weekly goal and voluntary ranking.
 - **Family rewards** - an optional owner-managed catalog, child requests with
   approval, adult requests, reserved balances, fulfillment and cancellation.
   Existing requests remain accessible when catalog browsing is hidden.
@@ -73,7 +80,7 @@ setup, everyday use and planning.
   finished chores open one by one (owners set the thresholds and can open
   all); scores only, with no Coins, boosts or planning advantage.
 - **Insights** — key figures, member fairness, the ranking and an activity
-  list, and overcapacity warnings before a plan is applied.
+  list with completions, postponements, date changes, deletions and absences.
 - **Quiet defaults** - reminders and sound are off by default; the celebration
   animation is on, and each person can switch it off.
   Personal preferences control a bounded daily Nextcloud digest and quiet hours;
@@ -103,15 +110,16 @@ was adopted on 2026-10-17: from it, updates preserve household data — the
 updates to `0.8.0-alpha.2` on 2026-10-19, `0.8.0-alpha.3` on 2026-10-29 and
 `0.8.0-alpha.4` on 2026-11-05 ran without a migration and kept every table.
 `0.8.0-alpha.5` is a candidate that has not been deployed yet; it carries the
-first migration step on that baseline, which changes one preference and no
-table. Disposable development installs remain fresh-install-only; there is no
-upgrade promise for them.
+first five migration steps on that baseline: one switches the animation on in
+every stored preference, the others add columns and four tables and fill only
+the new columns. Nothing is deleted. Disposable development installs remain
+fresh-install-only; there is no upgrade promise for them.
 
 These bounds follow the pinned test runtime (CS-PLAN-082, 2026-10-06;
 Nextcloud 35 only since `0.8.0-alpha.5`): fresh NC35 installations
 and the complete backend suite are verified on all three providers, and the
 canonical Docker test environment provisions this pinned runtime by default
-(Nextcloud 35.0.3 / PHP 8.4.27 / PostgreSQL 18.6; frozen inventory in
+(Nextcloud 35.0.3 / PHP 8.4.28 / PostgreSQL 18.6; frozen inventory in
 `docker/test-runtime.json`). AIO deployment, production rollout and
 retained-baseline adoption remain separate, explicitly approved steps; see
 [CS-PLAN-082](docs/plans/done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
@@ -138,14 +146,16 @@ instance. Installation and retained-baseline adoption are separate decisions.
    child). ChoreStrike sends no email; invited people see the shared household
    the next time they open the app.
 3. **Create tasks** — owners and adult members add tasks per room (or from the
-   template catalog), set recurrence and flexibility, write short
-   instructions, and assign them; owners also maintain checklists.
-4. **Plan the week** — open *Calendar → Weekly plan*, select tasks, preview a
-   fair distribution across the week, adjust person/day per task, and apply.
-5. **Work through Today** — every member sees today's tasks and overdue work,
-   ticks off checklist steps, and completes a task by pressing and holding
-   *Done* for 0.6 seconds (a short tap only explains the hold); undo is
-   available right on the confirmation.
+   template catalog), set how often they repeat with their flex days and
+   when they are first due, write short instructions, and assign them.
+4. **Set your days** — under *Settings → Planning* everyone marks the days
+   they can help, their energy per day and their preferred days; owners can
+   do it for others. The suggestion spreads the work over those days.
+5. **Work through Today** — every member sees overdue work, today's
+   suggestion and the bonus tasks, and completes a task by pressing and
+   holding *Done* for 0.6 seconds; a short tap opens *Who did the work?* to
+   record it for others or tick its steps. Undo is available right on the
+   confirmation.
 
 ## Technical Stack
 
@@ -163,14 +173,15 @@ ChoreStrike is a privately maintained, non-commercial open source project,
 not a hosted service.
 
 **v0.8.0-alpha.5 — alpha pre-release.** The core household workflow (setup wizard,
-invitations, tasks, scheduling, Today, completion/undo, gamification,
-insights, optional rewards and the arcade) is implemented. Cross-database
+invitations, tasks with due windows, the live suggestion, Today,
+completion/undo, gamification, insights, optional rewards and the arcade) is
+implemented. Cross-database
 verification and repeated browser gates have passed. The family trial ran on
 the maintainer's family instance from 2026-10-19 and closed on 2026-11-09;
-`0.8.0-alpha.4` has been installed there since 2026-11-05. This version is the
-first of three [simplified-core](docs/concepts/simplified-core.md) releases
-that answer the trial's feedback, and it is a candidate that has not been
-deployed yet.
+`0.8.0-alpha.4` has been installed there since 2026-11-05. This version carries
+the three [simplified-core](docs/concepts/simplified-core.md) releases that
+answer the trial's feedback, and it is a candidate that has not been deployed
+yet.
 The real-device checklist, voluntary family comprehension,
 the 14-day everyday-use evidence and the final WP9 review remain open.
 Automated passes are not a family-acceptance sign-off. The app is not yet

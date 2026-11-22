@@ -94,6 +94,20 @@ describe('Help entry and glossary', () => {
 		expect(suggestion).toContain('you may do any task on any day')
 	})
 
+	// CS-PLAN-091 WP-G: the terms Release B introduced have a glossary entry each.
+	it('explains postponing, sleeping and bonus tasks and the two coin multipliers', () => {
+		const glossary = mount(HelpGlossary)
+		const term = id => glossary.get(`[data-testid="help-term-${id}"]`).text()
+		expect(term('postpone')).toContain('half its flex days, up to three times')
+		expect(term('postpone')).toContain('already overdue, cannot be postponed')
+		expect(term('sleeping')).toContain('never overdue and is not suggested')
+		expect(term('bonus-task')).toContain('once per person and day')
+		expect(term('bonus-task')).toContain('neither for nor against the weekly goal')
+		expect(term('coin-factor')).toContain('× 1, × 2 or × 3')
+		expect(term('coin-factor')).toContain('× 1.5')
+		expect(term('coin-factor')).toContain('Coins only')
+	})
+
 	// ADR-021 (CS-PLAN-091 WP-B7): windows replaced agreed days and catch-up
 	// in every topic, and early work is on time.
 	it('explains due windows without agreements or catch-up in every topic', async () => {

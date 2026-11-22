@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "qualified",
-  "verifiedAt": "2026-11-12",
+  "verifiedAt": "2026-11-22",
   "platform": "linux/amd64",
   "nextcloud": {
     "version": "35.0.3",
@@ -34,10 +34,10 @@
     }
   },
   "php": {
-    "version": "8.4.27",
-    "image": "php:8.4.27-apache",
-    "digest": "sha256:884f64b47174de2c0e813270fe7b24a18605729fcebe201302d98c38805530d0",
-    "platformDigest": "sha256:7c3d8b9e579e29cdf2fbce05649f8427840798800d4d7c1528e0bf17dec7354c"
+    "version": "8.4.28",
+    "image": "php:8.4.28-apache",
+    "digest": "sha256:3550aedd1c7bdfe26283c7b1550ef76509e6c2b1284aef814e6f2e325b7c9688",
+    "platformDigest": "sha256:053dffe7c9899af07527d1b31e87e27b0d83cfb7f588eb043499c90a76bcdae2"
   },
   "composer": {
     "version": "2.9.5",
@@ -78,38 +78,38 @@
     }
   },
   "aio": {
-    "version": "15.0.2",
-    "nextcloudVersion": "35.0.2"
+    "version": "15.1.1",
+    "nextcloudVersion": "35.0.3"
   },
   "compatibility": {
     "aio": {
       "nextcloud": {
+        "version": "35.0.3",
+        "internalVersion": "35.0.3.2",
+        "ref": "v35.0.3",
+        "revision": "7764ef4927e5f85071e495ce7602ccd247bb6b30"
+      },
+      "previous": {
         "version": "35.0.2",
         "internalVersion": "35.0.2.2",
         "ref": "v35.0.2",
         "revision": "ba900af933e61ffa005315b09d6454bfbbcbcc81"
       },
-      "previous": {
-        "version": "35.0.1",
-        "internalVersion": "35.0.1.1",
-        "ref": "v35.0.1",
-        "revision": "3c012e618ab46ac73c61a96f5bb7168a693ca1fb"
-      },
       "notifications": {
-        "ref": "v35.0.2",
-        "revision": "6490bd9c2d9f19e4f26f42eb8c50a745b6c01a24"
+        "ref": "v35.0.3",
+        "revision": "cd6d2329d5dee2d183ad558fd9a75df822589471"
       },
       "viewer": {
-        "ref": "v35.0.2",
-        "revision": "3509a539e695f21fd872434cbd3ee84d4bc2b605"
+        "ref": "v35.0.3",
+        "revision": "0ca47becdc2aaebb1057e04439d0641966009838"
       },
       "patches": {
         "previousNotifications": {
-          "ref": "v35.0.1",
-          "revision": "0389f40a52d07663efa09de8750a2e26cb528144"
+          "ref": "v35.0.2",
+          "revision": "6490bd9c2d9f19e4f26f42eb8c50a745b6c01a24"
         },
         "previousViewer": {
-          "ref": "v35.0.1",
+          "ref": "v35.0.2",
           "revision": "3509a539e695f21fd872434cbd3ee84d4bc2b605"
         }
       }

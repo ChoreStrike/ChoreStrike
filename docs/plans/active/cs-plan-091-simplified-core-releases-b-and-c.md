@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; RF-091-14 implemented 2026-11-22 (D-091-144 to D-091-152); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-144 to D-091-152 accepted and D-091-153 to D-091-157 decided; the operator added a round before the candidate 2026-11-22 (D-091-158: BUG-UX-017, BUG-SEC-003, TECH-DEV-002 and RF-091-15), implemented 2026-11-22 (D-091-159 to D-091-163); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-159 to D-091-163 accepted and D-091-164 to D-091-167 decided; next: the WP-G candidate)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; RF-091-14 implemented 2026-11-22 (D-091-144 to D-091-152); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-144 to D-091-152 accepted and D-091-153 to D-091-157 decided; the operator added a round before the candidate 2026-11-22 (D-091-158: BUG-UX-017, BUG-SEC-003, TECH-DEV-002 and RF-091-15), implemented 2026-11-22 (D-091-159 to D-091-163); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-159 to D-091-163 accepted and D-091-164 to D-091-167 decided; WP-G: the candidate prepared and committed 2026-11-23 with RF-091-16, the runtime moved to AIO 15.1.1 on the operator's decision (D-091-168 to D-091-171); next: the operator's GUI review of the whole release, then the final Full review)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -1077,6 +1077,33 @@ in four more places; the operator chose the recommended option of each question.
   follow loop into a script of its own (it is ten lines, now tested inside the
   entrypoint, and a separate script would need a mount of its own on every row).
 
+### Decisions of the WP-G candidate (2026-11-22 and 2026-11-23)
+
+- **D-091-168 Runtime of the release (operator, 2026-11-22, RF-091-16):** `0.8.0-alpha.5`
+  is installed on AIO 15.1.1, which ships Nextcloud 35.0.3 with PHP 8.4.28. The inventory
+  follows: PHP 8.4.28 on both rows, and the AIO row moves to Nextcloud 35.0.3 with 35.0.2 as
+  its update source, the patches of the primary row. Both rows now select the same identity
+  per patch; the image names stay row-aware (D-090-59), and the AIO stage still adds Redis
+  for sessions, cache and locking. Nextcloud 35.0.3 ships a current Notifications lock, so
+  the stale-lock condition stays with the update source of both rows only.
+- **D-091-169 Shape of the changelog:** one version section, *Releases A, B and C*, with the
+  qualification line on the version and the three releases as subsections, A first (D-090-76
+  amended). Where B or C replaced what A built (*Date* and *Last done* in an opened task, the
+  weekly plan opening from the calendar, *Due today*, the overload warning), A's lines say
+  what ships and B and C name what they replaced. BUG-UX-017 joins *Fixed after
+  0.8.0-alpha.4* and BUG-SEC-003 *Security after 0.8.0-alpha.4*; the BUG-UX-014 entry no
+  longer promises the timeline job's alignment, which the derived windows replaced
+  (D-091-162).
+- **D-091-170 Help for the terms of Release B:** the glossary gains *Postpone*, *Sleeping
+  task*, *Bonus task* and *Coin factor and bonus days* (the wider help D-091-118 left to
+  WP-G). The user guide's role table names postponing, recording for others and the own
+  latest entry for everyone, and corrections, coin factors and bonus days for owners;
+  *Today* names its bonus section, and *Coins and rewards* explains the two multipliers.
+  The README describes the derived windows, the live suggestion and trust instead of
+  requests, and its status names the five migration steps.
+- **D-091-171 Screenshots:** the six scenes stay and are recaptured from the candidate tree
+  (D-090-77); no new scene for the form or the calendar.
+
 ### Positions for the Standard A review
 
 These settle the remaining open points of the concept. They bind once Standard A passes.
@@ -1270,6 +1297,31 @@ approval. The handoff names the read-only checks of the update (step 1034, the c
 the smoke check that closes BUG-UX-014: a task whose energy was changed before the update
 shows the definition's energy (D-091-162).
 
+- **Candidate prepared and committed 2026-11-23** (D-091-168 to D-091-171). The changelog
+  has one section for the version with A, B and C; README, user guide, glossary and the four
+  screenshots whose scenes changed (*Today* on desktop and phone, the undo, the notification
+  settings) are recaptured on an owned staged row (primary runtime, SQLite, `family` seed)
+  and were compared by eye; the reward catalog and the setup wizard came out unchanged.
+  **Pre-freeze checks:** `test:runtime:check` reported `update-needed` (RF-091-16); after
+  the move it reports `current` (upstream Nextcloud 35.0.3, AIO 15.1.1 with Nextcloud 35.0.3, PHP 8.4.28, APCu 5.1.28, phpredis 6.3.0, Redis 8.10.3, PostgreSQL 18.6). `npm audit --omit=dev` lists only the two bounded advisories
+  of TECH-DEPS-001 (`minimatch` through `webdav` under the dialogs, `elliptic` through
+  `node-polyfill-webpack-plugin`). The limitations of the `0.8.0-alpha.4` handoff hold no
+  promise this round has not kept: the overbooking refusal went with WP-B1 and WP-C, the
+  `dompurify` bump came with RF-089-20, and the tag and the family evidence stay with
+  CS-PLAN-080. Dependabot: #8 and #13 stay with TECH-DEPS-001 (D-091-158, #13 folded in
+  there); #12 is in the lockfile since D-090-78 but still open on GitHub, so it can be
+  closed by hand.
+  **GUI review stack:** the canonical stack serves this tree on the new primary image
+  (PHP 8.4.28) with the `family` profile, checked with a real page load of *Today*, the
+  calendar and the task list.
+  **Test record (candidate):** Jest 186 suites / 2668 tests, ESLint, stylelint, `l10n:check-keys` (1302
+  keys), `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check` and `npm
+  run build` green. The four runtime images of the new inventory are built and pass
+  `verify-image` (`cs082-runtime-35.0.3-local` and `-aio-local` without an upstream limitation, `cs082-runtime-35.0.2-local` and `-aio-local` with the named stale-lock limitation of their Notifications pin); `test:runtime:canonical` passes on the rebuilt stack;
+  PHPUnit unit 1897 and integration 731 on the canonical stack, no skips. The complete qualification (PHPUnit
+  on PostgreSQL, MariaDB, SQLite and the AIO row, P2 to P4, both browser gates, package build
+  and smoke) runs on the frozen candidate after the final Full review.
+
 ## 4. Tests
 
 - **WP-B1:** `WindowServiceTest` (each mode, flex, month-end clamp, first date, sleep, one-time,
@@ -1337,6 +1389,9 @@ shows the definition's energy (D-091-162).
   skipped without a bundle, followed through a rebuild while the stack runs, a failed
   write reported), `NotificationPreferences.spec.js` (no switch or hint says weekly).
   Each new regression test failed on the code before the round.
+- **WP-G candidate:** `Help.spec.js` (the four new glossary terms); the runtime specs pin
+  both rows on one identity per patch, the stale-lock condition on the update source only,
+  and PHP 8.4.28 (`testRuntime.spec.js`, `testRuntimeStage.spec.js`).
 - **WP-G:** the complete gates of the qualification: PHPUnit on PostgreSQL, MySQL, SQLite and the
   AIO row, both browser gates, package build and smoke, the preservation proofs.
 
@@ -1463,6 +1518,10 @@ modified: lib/Service/AccountErasureService.php, docker/test-entrypoint.sh,
 modified: lib/Db/AgreementMapper.php, TaskMapper.php, RoomTaskMapper.php,
           TaskAssigneeMapper.php, docs/adr/ADR-010 (note), docs/concepts/task-model-and-sync.md
           (interim Full review of the D-091-158 round)
+modified: docker/test-runtime.json, docker/Dockerfile.test, docker/compose.test.yml,
+          docker/README.md, scripts/test-runtime.js, src/components/Help/HelpGlossary.vue,
+          docs/engineering/development.md, docs/standards/ai/skills/docker-dev/SKILL.md
+          (WP-G candidate, RF-091-16)
 modified: l10n/de.json, l10n/en.json, l10n/templates/chorestrike.pot
 modified: tests named in section 4, tests/e2e/required-scenarios.json, scripts/run-e2e-gate.js
 modified: docs/concepts/*.md named in WP-0, docs/api/README.md, docs/api/notifications.md,
@@ -1841,6 +1900,17 @@ performance work it deferred (D-091-79).
   read-only check of the cutover beside the one of step 1034, what the first job pass
   realigns, and BUG-UX-014 as a property of the derived windows with a smoke check
   instead of the count.
+- [x] **RF-091-16 The runtime inventory names an AIO that is no longer current** (WP-G,
+  runtime currency; found by the pre-freeze check, 2026-11-22): `npm run
+  test:runtime:check` reported `update-needed` with `aio-bundle` and `aio-php`: upstream
+  AIO is 15.1.1 and ships Nextcloud 35.0.3 with PHP 8.4.28, while the inventory named AIO
+  15.0.2 with Nextcloud 35.0.2 and PHP 8.4.27. Which AIO production runs at the deployment
+  is the operator's to state (as RF-090-12). *Resolved 2026-11-23 (D-091-168):* the operator
+  named AIO 15.1.1. The inventory, the `Dockerfile.test` defaults, the canonical compose
+  file, the upstream build conditions, the runtime specs and the runtime documents moved;
+  the four images are built and verified, the canonical stack runs the new primary image,
+  and the check reports `current` (upstream Nextcloud 35.0.3, AIO 15.1.1 with Nextcloud 35.0.3, PHP 8.4.28, APCu 5.1.28, phpredis 6.3.0, Redis 8.10.3, PostgreSQL 18.6). The requalification on every row is the WP-G
+  qualification.
 
 ## Review Outcome
 

@@ -110,6 +110,9 @@ msgstr ""
 msgid "A task takes at most %1$d sub-tasks"
 msgstr ""
 
+msgid "A task that rests, for example over the winter: it has no window, is never overdue and is not suggested. It wakes on its wake date, with Wake up, or when someone completes it."
+msgstr ""
+
 msgid "A task without flex days cannot be postponed"
 msgstr ""
 
@@ -141,6 +144,9 @@ msgid "A valid expectedVersion is required"
 msgstr ""
 
 msgid "A valid reasonCode is required"
+msgstr ""
+
+msgid "A voluntary task that is always available and never overdue, such as cooking. It earns energy and Coins once per person and day and counts neither for nor against the weekly goal, the streak or the ranking."
 msgstr ""
 
 msgid "A wake date needs a sleeping task"
@@ -267,6 +273,9 @@ msgid "An owner can add rewards in the Settings."
 msgstr ""
 
 msgid "An owner can enable it in the Settings, and each person can show or hide it in their own notification settings. Your existing requests stay reachable under My Requests."
+msgstr ""
+
+msgid "An owner gives each person a coin factor of × 1, × 2 or × 3, so that someone with less time can collect as many Coins as the others. On bonus days, which an owner starts for one to three days, everyone's Coins count × 1.5 on top. Both change Coins only, never energy, the weekly goal or the streak."
 msgstr ""
 
 msgid "Apartment"
@@ -609,6 +618,9 @@ msgid "Close"
 msgstr ""
 
 msgid "Coin factor"
+msgstr ""
+
+msgid "Coin factor and bonus days"
 msgstr ""
 
 msgid "Coin factor of {name}"
@@ -1709,6 +1721,9 @@ msgstr ""
 msgid "Move “{label}” up"
 msgstr ""
 
+msgid "Moves the window of a task by half its flex days, up to three times per round. A postponed task still counts as on time. A task without flex days, or one that is already overdue, cannot be postponed."
+msgstr ""
+
 msgid "My Availability"
 msgstr ""
 
@@ -2550,6 +2565,9 @@ msgid "Slate"
 msgstr ""
 
 msgid "Sleeping"
+msgstr ""
+
+msgid "Sleeping task"
 msgstr ""
 
 msgid "Smooth the fitted sheet, tuck in the flat sheet, fluff the pillows, and straighten the blanket."

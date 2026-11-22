@@ -16,11 +16,13 @@ owners.
 | | Owner | Member (adult) | Child |
 |---|:-:|:-:|:-:|
 | Complete tasks and tick checklist steps | ✓ | ✓ | ✓ |
+| Record work for others, postpone, change or delete your own latest entry | ✓ | ✓ | ✓ |
 | Own availability, absences and notification settings | ✓ | ✓ | ✓ |
 | Create, edit and assign tasks | ✓ | ✓ | — |
 | Request rewards | ✓ | ✓ | ✓ (an owner approves) |
 | Invite people, change roles, remove members | ✓ | — | — |
 | Set up floors and rooms, house settings, reward catalog | ✓ | — | — |
+| Correct any entry, set coin factors, start bonus days | ✓ | — | — |
 | Set others' availability and daily limits | ✓ | — | — |
 
 Nobody can change their own role or remove themselves. An owner can remove
@@ -74,6 +76,9 @@ goal, how many days in a row you confirmed, and your Coins. Below it:
   names how long its window stays open (*only today*, *until Wed*).
 - **Also possible today** — one line that opens the other tasks whose window
   is open today; Done counts them on time.
+- **Bonus** — voluntary tasks that are always there and never overdue, such as
+  cooking; each counts once per person and day. While bonus days run, a line at
+  the top says so.
 
 ChoreStrike suggests a day inside its window for every task: one of your
 **preferred days** first, else the day you have the most energy left. The
@@ -90,7 +95,7 @@ stays about you.
 
 | | |
 |:-:|:-:|
-| <img src="screenshots/guide-my-day-phone.png" alt="Today on a phone: today's tasks, each with a Done button and a checklist" width="300"> | <img src="screenshots/guide-undo-phone.png" alt="After completing a task: a Task completed message with an Undo button" width="300"> |
+| <img src="screenshots/guide-my-day-phone.png" alt="Today on a phone: the status line and the tasks suggested for today, each with a round Done button" width="300"> | <img src="screenshots/guide-undo-phone.png" alt="After completing a task: a Task completed message with an Undo button" width="300"> |
 | Today on a phone | Right after completing: undo |
 
 **Tasks** is the one list of everything. Its switch groups it *By due date*, *By room* or
@@ -198,6 +203,15 @@ to everything still open, overdue tasks included. Completed work keeps its value
 Finished work earns **Coins**: 10 per energy unit of the task, split by the
 shares of everyone who did it. Nothing is ever taken away as a punishment; an
 undo or a corrected split adjusts the Coins of that completion.
+
+**Coin factor and bonus days.** Under **Settings → Household → Rewards** an
+owner gives each person a **coin factor** of × 1, × 2 or × 3, so that someone
+with less time can collect as many Coins as the others, and can start **bonus
+days**: for one to three days everyone's Coins count × 1.5, on top of the
+factor. Both apply to work recorded from then on and change Coins only; energy,
+the weekly goal, the streak, the ranking and the arcade stay as they are. An
+undo takes back exactly what was paid, and a corrected split keeps the factors
+of the moment the work was recorded.
 
 <img src="screenshots/reward-catalog.png" alt="Reward catalog: family rewards with Coin prices and a Request button" width="720">
 

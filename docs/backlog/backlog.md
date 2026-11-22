@@ -387,7 +387,7 @@ CS-PLAN-091; the review fixed the same gap for the new cycle tables and the sub-
 ---
 
 ### [P3] BUG-UX-017 — The organization digest is called weekly but arrives with the daily summary
-**Status**: In Progress (CS-PLAN-091, D-091-158: fixed on `feat/simplified-core-bc` 2026-11-22, D-091-161; ships with `0.8.0-alpha.5`, the screenshot with WP-G); before: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: notifications
+**Status**: In Progress (CS-PLAN-091, D-091-158: fixed on `feat/simplified-core-bc` 2026-11-22, D-091-161; ships with `0.8.0-alpha.5`, the screenshot recaptured with the WP-G candidate 2026-11-23); before: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: notifications
 **Owning**: CS-PLAN-091 (round before the candidate) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-091 WP-B7 implementation, 2026-11-21
 
@@ -1374,7 +1374,7 @@ TECH-TRANSPORT-001 as unattributed.
 
 ### [P3] TECH-DEPS-001 — Major updates Dependabot cannot land
 **Status**: Backlog · **Effort**: L · **Layer**: infra · **Journey stage**: —
-**Owning**: unassigned (the in-range slice was delivered with CS-PLAN-090 WP-H) · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PRs #8 and #11 (2026-11-05); `fast-xml-parser` 5.11.2 advisory (2026-11-13, resolved in range); Dependabot PR #12, `follow-redirects` 1.16.3, taken in range (2026-11-15, with the candidate of CS-PLAN-090)
+**Owning**: unassigned (the in-range slice was delivered with CS-PLAN-090 WP-H) · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PRs #8 and #11 (2026-11-05); `fast-xml-parser` 5.11.2 advisory (2026-11-13, resolved in range); Dependabot PR #12, `follow-redirects` 1.16.3, taken in range (2026-11-15, with the candidate of CS-PLAN-090); Dependabot PR #13 (2026-11-15: `@nextcloud/vue` 9.14.1, `@playwright/test` 1.65, `node-polyfill-webpack-plugin` 4.1, `@axe-core/playwright` 4.14, rows of the table below; kept out of `0.8.0-alpha.5`, CS-PLAN-091 D-091-158)
 **Source**: Dependabot triage of 2026-11-05
 
 PR #11 groups 29 npm updates and stops at `npm ci` with ERESOLVE, so its compatible part landed
@@ -1404,7 +1404,7 @@ build and test chains:
 - `elliptic` 6.6.1 (low) through `node-polyfill-webpack-plugin` 4.0.0.
 
 - [ ] Each row above lands in its own slice, or is declined with a reason.
-- [ ] PR #8 and the rest of PR #11 are closed by those slices or declined.
+- [ ] PR #8, PR #13 and the rest of PR #11 are closed by those slices or declined.
 - [x] `lucide-vue-next` and `ajv` have no importer in tracked code: remove them after a peer
       check instead of updating them (2026-11-13, CS-PLAN-090 WP-H; `ajv` 8 stays installed
       through `schema-utils`).

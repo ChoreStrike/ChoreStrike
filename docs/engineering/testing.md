@@ -70,13 +70,14 @@ concurrent changes; the measured actions run in the UI.
 inventory. CS-PLAN-082 promoted the current-stable baseline on 2026-10-06: the
 canonical `docker/compose.test.yml` stack now provisions **Nextcloud 35.0.3
 (internal 35.0.3.2, source revision
-`7764ef4927e5f85071e495ce7602ccd247bb6b30`) / PHP 8.4.27 / PostgreSQL 18.6**
+`7764ef4927e5f85071e495ce7602ccd247bb6b30`) / PHP 8.4.28 / PostgreSQL 18.6**
 (was: Nextcloud 31 / PHP 8.2 / MariaDB 10.6; PHP 8.4.25 → 8.4.26 with AIO
 v14.3.0, CS-PLAN-084 D-084-09; NC 35.0.1 → 35.0.2, D-084-11; PHP 8.4.26 → 8.4.27 with
 AIO v14.4.2, CS-PLAN-088 RF-088-11; AIO v14.4.3 keeps Nextcloud 34.0.5 and its components,
 CS-PLAN-089; NC 35.0.2 → 35.0.3, and the AIO row to Nextcloud 35.0.2 and Redis
-8.10.3 with AIO v15.0.2, CS-PLAN-090 RF-090-12). `docker/Dockerfile.test` build
-defaults are pinned to the inventory (PHP image `php:8.4.27-apache` by digest,
+8.10.3 with AIO v15.0.2, CS-PLAN-090 RF-090-12; PHP 8.4.27 → 8.4.28, and the AIO row to
+Nextcloud 35.0.3 with AIO v15.1.1, CS-PLAN-091 RF-091-16). `docker/Dockerfile.test` build
+defaults are pinned to the inventory (PHP image `php:8.4.28-apache` by digest,
 Composer 2.9.5 by digest, pinned server/notifications/viewer git revisions), so
 a plain `docker compose -f docker/compose.test.yml up --build` always builds
 this pinned runtime. The old disposable NC31 canonical stack was retired on
@@ -419,7 +420,7 @@ node scripts/run-tests.js --matrix --run-id <id> `
   cs082-<run>-mysql:mysql:cs082-runtime-35.0.3-local:8183 `
   cs082-<run>-pgsql:pgsql:cs082-runtime-35.0.3-local:8182 `
   cs082-<run>-sqlite:sqlite:cs082-runtime-35.0.3-local:8184 `
-  cs082-<run>-aio:pgsql:cs082-runtime-35.0.2-aio-local:8185:aio
+  cs082-<run>-aio:pgsql:cs082-runtime-35.0.3-aio-local:8185:aio
 ```
 
 - Targets are `project:provider:runtime:port[:primary|aio]`. Every target first
@@ -474,7 +475,10 @@ resources remain historical evidence, not the default. The staging procedure
 below stays the way to run isolated, exclusively owned staging targets against
 the frozen inventory. `docker/test-runtime.json` pins the primary row (the latest upstream stable
 Nextcloud) and the separate AIO row (the Nextcloud release of the operator's
-AIO, 35.0.2 since AIO v15.0.2; Nextcloud 34 until then). `test-runtime.js check` checks
+AIO, 35.0.3 since AIO v15.1.1, 35.0.2 with AIO v15.0.2, Nextcloud 34 before). Since
+AIO v15.1.1 both rows hold the same patches, so their selections share one
+identity; the image names stay row-aware, and the AIO stage adds Redis.
+`test-runtime.js check` checks
 upstream, the AIO bundle and every row's source/image identity without
 rewriting anything. Exit 2 means update-needed; malformed/unavailable metadata
 exits 3, never green.
@@ -551,9 +555,9 @@ cache factory, the Redis session handler and the owned, pinned, healthy Redis
 peer. The primary row and the canonical stack stay APCu-only.
 
 ```powershell
-node scripts/test-runtime.js build cs082-runtime-35.0.2-aio-local --runtime=aio
-node scripts/test-runtime.js verify-image cs082-runtime-35.0.2-aio-local --runtime=aio
-node scripts/test-runtime-stage.js up cs082-<run-id>-aio pgsql cs082-runtime-35.0.2-aio-local 8185 aio
+node scripts/test-runtime.js build cs082-runtime-35.0.3-aio-local --runtime=aio
+node scripts/test-runtime.js verify-image cs082-runtime-35.0.3-aio-local --runtime=aio
+node scripts/test-runtime-stage.js up cs082-<run-id>-aio pgsql cs082-runtime-35.0.3-aio-local 8185 aio
 docker exec cs082-<run-id>-aio-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.unit.xml --fail-on-skipped --do-not-cache-result
 docker exec cs082-<run-id>-aio-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped --order-by=default --do-not-cache-result
 ```
@@ -567,12 +571,12 @@ The frozen rows retain one explicitly reviewed upstream limitation rather than
 silently changing upstream vendor trees. `verify-image` reports it as
 `upstreamLimitations`, never as a clean dependency gate:
 
-- The Notifications pins of Nextcloud 35.0.2 and 35.0.1 emit exactly one
-  stale-root-lock warning. That covers the AIO row (35.0.2 with its update
-  source 35.0.1) and the primary row's update source (35.0.2). Their upstream
-  revisions had no fixed artifact at review; the operator approved keeping the
-  original source/lock. Nextcloud 35.0.3, the primary row, ships a current
-  lock: its dry run must stay free of warnings. Installed production packages
+- The Notifications pin of Nextcloud 35.0.2 emits exactly one
+  stale-root-lock warning. That covers the update source of both rows
+  (35.0.2). Its upstream revision had no fixed artifact at review; the operator
+  approved keeping the original source/lock. Nextcloud 35.0.3, the current
+  patch of both rows since AIO v15.1.1, ships a current lock: its dry run must
+  stay free of warnings. Installed production packages
   must equal the lock (19 on every row), and production dry-run warning sets
   must match exactly.
 

@@ -62,6 +62,26 @@ export default {
 					text: t('chorestrike', 'A task is overdue once its window has ended. It shows as one red entry until it is done; on a fixed day, until the next window opens. Missed rounds do not pile up.'),
 				},
 				{
+					id: 'postpone',
+					title: t('chorestrike', 'Postpone'),
+					text: t('chorestrike', 'Moves the window of a task by half its flex days, up to three times per round. A postponed task still counts as on time. A task without flex days, or one that is already overdue, cannot be postponed.'),
+				},
+				{
+					id: 'sleeping',
+					title: t('chorestrike', 'Sleeping task'),
+					text: t('chorestrike', 'A task that rests, for example over the winter: it has no window, is never overdue and is not suggested. It wakes on its wake date, with Wake up, or when someone completes it.'),
+				},
+				{
+					id: 'bonus-task',
+					title: t('chorestrike', 'Bonus task'),
+					text: t('chorestrike', 'A voluntary task that is always available and never overdue, such as cooking. It earns energy and Coins once per person and day and counts neither for nor against the weekly goal, the streak or the ranking.'),
+				},
+				{
+					id: 'coin-factor',
+					title: t('chorestrike', 'Coin factor and bonus days'),
+					text: t('chorestrike', 'An owner gives each person a coin factor of × 1, × 2 or × 3, so that someone with less time can collect as many Coins as the others. On bonus days, which an owner starts for one to three days, everyone\'s Coins count × 1.5 on top. Both change Coins only, never energy, the weekly goal or the streak.'),
+				},
+				{
 					id: 'shares',
 					title: t('chorestrike', 'Work shares'),
 					text: t('chorestrike', 'People who do a chore together share it. Actual shares split the total work; they never multiply it: a total energy-1 chore earns 10 Coins once, so 34/33/33% give 3.4/3.3/3.3 Coins, before coin factors and bonus days.'),
