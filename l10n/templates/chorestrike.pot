@@ -263,9 +263,6 @@ msgstr ""
 msgid "An overdue task cannot be postponed"
 msgstr ""
 
-msgid "An overview of household updates: your overdue tasks that someone else did, absences and reward requests."
-msgstr ""
-
 msgid "An owner can add rewards in the Settings."
 msgstr ""
 
@@ -749,6 +746,9 @@ msgstr ""
 msgid "Could not wake the task up"
 msgstr ""
 
+msgid "Counted in your daily summary: your overdue tasks that someone else did, absences and reward requests."
+msgstr ""
+
 msgid "Counted today for {names}"
 msgstr ""
 
@@ -777,6 +777,9 @@ msgid "Daily Energy Budget"
 msgstr ""
 
 msgid "Daily Task Limit"
+msgstr ""
+
+msgid "Daily household updates"
 msgstr ""
 
 msgid "Daily summary"
@@ -3453,9 +3456,6 @@ msgid "Weekly goal"
 msgstr ""
 
 msgid "Weekly goal reached! {percent}% of target {target}%"
-msgstr ""
-
-msgid "Weekly organization digest"
 msgstr ""
 
 msgid "Weekly ranking"

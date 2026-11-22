@@ -445,6 +445,28 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Account erasure: the room tasks of the house no longer name the erased
+	 * account as the member who took them over or as the assignee before the
+	 * takeover (both hold raw Nextcloud user ids, D-091-166).
+	 */
+	public function forgetTakeoverUserInHouse(int $houseId, string $userId): void {
+		foreach (['claimed_by_user', 'original_assignee'] as $column) {
+			$qb = $this->db->getQueryBuilder();
+			// Scoped through the rooms: MySQL refuses a subquery on the updated table.
+			$roomsInHouse = $this->db->getQueryBuilder();
+			$roomsInHouse->select('r.id')
+				->from('chorestrike_rooms', 'r')
+				->innerJoin('r', 'chorestrike_floors', 'f', $roomsInHouse->expr()->eq('r.floor_id', 'f.id'))
+				->where($roomsInHouse->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+			$qb->update($this->getTableName())
+				->set($column, $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+				->where($qb->expr()->eq($column, $qb->createNamedParameter($userId)))
+				->andWhere($qb->expr()->in('room_id', $qb->createFunction($roomsInHouse->getSQL())))
+				->executeStatement();
+		}
+	}
+
+	/**
 	 * Apply the house-scope JOIN chain to a room_tasks query.
 	 *
 	 * chorestrike_room_tasks has no denormalized house_id column, so every

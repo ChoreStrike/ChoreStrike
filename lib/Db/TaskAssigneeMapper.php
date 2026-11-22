@@ -248,6 +248,27 @@ class TaskAssigneeMapper extends QBMapper {
 		$qb->executeStatement();
 	}
 
+	/**
+	 * Account erasure: assignment rows of the house no longer name the erased
+	 * account as the member who made them (a raw Nextcloud user id,
+	 * D-091-166); the assignments themselves stay.
+	 */
+	public function forgetAssignerInHouse(string $ncUserId, int $houseId): void {
+		$qb = $this->db->getQueryBuilder();
+		$roomTasksInHouse = $this->db->getQueryBuilder();
+		$roomTasksInHouse->select('rt.id')
+			->from('chorestrike_room_tasks', 'rt')
+			->innerJoin('rt', 'chorestrike_rooms', 'r', $roomTasksInHouse->expr()->eq('rt.room_id', 'r.id'))
+			->innerJoin('r', 'chorestrike_floors', 'f', $roomTasksInHouse->expr()->eq('r.floor_id', 'f.id'))
+			->where($roomTasksInHouse->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+
+		$qb->update($this->getTableName())
+			->set('assigned_by', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+			->where($qb->expr()->eq('assigned_by', $qb->createNamedParameter($ncUserId)))
+			->andWhere($qb->expr()->in('room_task_id', $qb->createFunction($roomTasksInHouse->getSQL())))
+			->executeStatement();
+	}
+
 	// CS-PLAN-063: the former self-transactional replaceAssignees() was
 	// removed — assignee replacement now runs under the owning service's
 	// room_task lock (RoomTaskService::replaceAssigneesUnderLock / the

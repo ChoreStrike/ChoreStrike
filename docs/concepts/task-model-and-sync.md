@@ -540,7 +540,10 @@ Domain behavior of the WP0 substrate (mechanism detail in
 - **Account deletion erases the person, not the shared history.** When the
   Nextcloud account is deleted, ChoreStrike removes every personal reference
   (memberships, assignments, medals, minigame scores, the wallet with its
-  ledger) and nulls actor references on receipts and completions. The
+  ledger), nulls actor references on receipts and completions, and drops the
+  person's name from what others keep: the creator of a definition (a private
+  one stays private for its remaining assignees), a takeover and an
+  assignment it made (CS-PLAN-091 D-091-165, D-091-166). The
   anonymous shared work facts (when, what, room effects) remain visible in
   the activity feed rendered as "Former member". An ordinary departure keeps
   the wallet as dormant financial identity; a re-invitation reattaches it; a

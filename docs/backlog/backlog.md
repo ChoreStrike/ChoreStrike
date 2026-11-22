@@ -255,8 +255,15 @@ item and is fixed with it.
 - [x] Fairness adds up the frozen shares of valid work.
 - [x] ADR-013, concepts, API and user guide updated.
 - [x] Reviewed and merged ([review](archive/CODE_REVIEW_2026-11-05.md#full---bug-ux-014-energy-edits-and-open-work)).
-- [ ] The read-only count before and after that deployment ([deployment.md](../engineering/deployment.md#updates-on-the-retained-baseline)).
-- [ ] Released with the next planned release and verified on the deployed version.
+- [x] ~~The read-only count before and after that deployment.~~ Superseded (CS-PLAN-091
+      RF-091-15, D-091-162): the deployment that carries the fix is `0.8.0-alpha.5`, whose
+      derived windows read the definition's energy for open work; no job pass aligns stored
+      occurrences any more, so the count would never reach 0. The production smoke checks a
+      task whose energy was changed before the update instead
+      ([deployment.md](../engineering/deployment.md#updates-on-the-retained-baseline)).
+- [ ] Released with `0.8.0-alpha.5` and verified on the deployed version: the production smoke
+      shows a task whose energy was changed before the update with the definition's energy
+      (CS-PLAN-091 WP-G handoff, D-091-162).
 
 ---
 
@@ -290,7 +297,10 @@ generation and replaces the list when it lands, without the new row. The gate sh
 on a cold server: a task created right after a room page opened was missing from the room's
 list. That page offered no creation while it loaded from then on, and went with
 CS-PLAN-090 WP-C; the task list never offered creation before its first read. So no surface
-triggers it today. The store rule itself, that an accepted mutation supersedes
+triggers it today. Checked again against the one form of CS-PLAN-091 WP-B6 (2026-11-22,
+D-091-163): *New Task* stays disabled while the task list loads, a room's add button exists
+only on loaded groups and *Today* offers no creation; what remains is a refresh read started
+by an earlier write that lands after a creation. The store rule itself, that an accepted mutation supersedes
 earlier reads of its slice, is not applied to creations, and a superseded initial read must be
 repeated, not only dropped.
 
@@ -356,8 +366,8 @@ Older than CS-PLAN-090; the household has a small history today.
 ---
 
 ### [P3] BUG-SEC-003 — Erasing an already-departed account leaves its links in stored appointments
-**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: —
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-091, D-091-158: fixed on `feat/simplified-core-bc` 2026-11-22, D-091-159; ships with `0.8.0-alpha.5`); before: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: —
+**Owning**: CS-PLAN-091 (round before the candidate) · **Depends on**: — · **Blocks**: — · **Folded-in**: the departed account's personal absences, which the sweep kept too (2026-11-22)
 **Source**: Review of CS-PLAN-091 WP-0 and WP-B1 (interim Full review, 2026-11-18)
 
 `AccountErasureService::eraseAccount()` removes an erased member's wallet links from stored
@@ -366,15 +376,19 @@ snapshots) only in its membership loop. The final sweep for an account that had 
 every house deletes the wallet but leaves those rows naming the deleted wallet id. Older than
 CS-PLAN-091; the review fixed the same gap for the new cycle tables and the sub-task ticks.
 
-- [ ] The orphan-wallet sweep removes or anonymizes the wallet in `occ_members`, the
-  rule-default and the agreement snapshots, as the membership loop does.
-- [ ] `AccountErasureTest` covers a departed account with stored appointments.
+- [x] The orphan-wallet sweep removes or anonymizes the wallet in `occ_members`, the
+  rule-default and the agreement snapshots, as the membership loop does: both paths share
+  one wallet step, which also removes the personal absences (D-091-159).
+- [x] `AccountErasureTest` covers a departed account with stored appointments, and
+  `AccountErasureServiceTest` pins that both paths remove the same wallet links. The
+  interim review extended the erasure in this plan: plain user-id consent subjects, the
+  creator of definitions, takeover names and the assigner (CS-PLAN-091 D-091-164 to D-091-166).
 
 ---
 
 ### [P3] BUG-UX-017 — The organization digest is called weekly but arrives with the daily summary
-**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: notifications
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-091, D-091-158: fixed on `feat/simplified-core-bc` 2026-11-22, D-091-161; ships with `0.8.0-alpha.5`, the screenshot with WP-G); before: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: notifications
+**Owning**: CS-PLAN-091 (round before the candidate) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-091 WP-B7 implementation, 2026-11-21
 
 The notification settings name the second switch *Weekly organization digest*, and the user
@@ -384,8 +398,10 @@ and counted in the one summary of that day. WP-B7 reworded the hint below the sw
 had promised *a weekly overview of catch-ups and absences*; the label, the user guide and
 the screenshot text keep the old name. Older than CS-PLAN-091.
 
-- [ ] The switch, its German copy, the user guide and the screenshot alt text name what is
-  delivered, or a weekly delivery is decided and built.
+- [x] The switch, its German copy, the user guide and the screenshot alt text name what is
+  delivered, or a weekly delivery is decided and built: *Daily household updates* /
+  *Tägliche Haushaltsupdates*, counted in the one daily summary (D-091-161).
+- [ ] The guide's screenshot shows the new label (recaptured with WP-G).
 
 ---
 
@@ -1140,8 +1156,8 @@ A, B and C reach the family instance as one version: Release A, qualified as
 ---
 
 ### [P3] TECH-DEV-002 — A rebuilt bundle is not fetched on the development stack
-**Status**: Backlog · **Effort**: S · **Layer**: infra · **Journey stage**: —
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-091, D-091-158: fixed on `feat/simplified-core-bc` 2026-11-22, D-091-160; before the GUI review of the whole release); before: Backlog · **Effort**: S · **Layer**: infra · **Journey stage**: —
+**Owning**: CS-PLAN-091 (round before the candidate) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator report during CS-PLAN-091 WP-B7, 2026-11-21
 
 After a rebuild on the canonical development stack, an open browser kept the old
@@ -1153,9 +1169,14 @@ changes between builds. A release bumps the version, so installs are not affecte
 2026-11-21 the theming cache buster of the stack was raised once by hand
 (`occ config:app:set theming cachebuster`), which changes the suffix of every script URL.
 
-- [ ] A build for the development stack changes the URL of the entry bundle, or the stack
-  serves the app's scripts with revalidation; the browser gates keep their behaviour.
-- [ ] [`testing.md`](../engineering/testing.md) names the step for a GUI review.
+- [x] A build for the development stack changes the URL of the entry bundle, or the stack
+  serves the app's scripts with revalidation; the browser gates keep their behaviour. The
+  test entrypoint holds the theming cache buster at the entry bundle's build time
+  (D-091-160); verified live on the canonical stack (a rebuild moved the page's address
+  to `?v=…-<build time>`); the full browser gate passed on its first run (`run-MfpeVt`,
+  2026-11-22).
+- [x] [`testing.md`](../engineering/testing.md#rebuilt-bundles-and-gui-reviews-tech-dev-002)
+  names the step for a GUI review.
 
 ---
 

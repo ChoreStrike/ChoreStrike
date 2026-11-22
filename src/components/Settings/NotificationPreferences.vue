@@ -35,10 +35,10 @@
 				type="switch"
 				data-testid="org-digest-switch"
 				@update:modelValue="onOrgDigestChange">
-				{{ t('chorestrike', 'Weekly organization digest') }}
+				{{ t('chorestrike', 'Daily household updates') }}
 			</NcCheckboxRadioSwitch>
 			<p class="preference-hint">
-				{{ t('chorestrike', 'An overview of household updates: your overdue tasks that someone else did, absences and reward requests.') }}
+				{{ t('chorestrike', 'Counted in your daily summary: your overdue tasks that someone else did, absences and reward requests.') }}
 			</p>
 
 			<div class="preference-field">

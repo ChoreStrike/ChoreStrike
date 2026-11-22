@@ -386,6 +386,46 @@ if [ "$TEST_RUNTIME_PRESERVATION" != true ]; then
     bash "$SEED_SCRIPT"
 fi
 
+# TECH-DEV-002: Nextcloud serves app scripts as immutable for half a year
+# under a `?v=` that follows the app version, which stays the same between
+# builds on a development stack, so an open browser kept a rebuilt entry
+# bundle's old copy. The theming cache buster is part of every script URL:
+# holding it at the bundle's build time makes a normal reload fetch each new
+# build. Disposable stacks only; a release changes the app version instead.
+TEST_APP_BUNDLE="${TEST_APP_BUNDLE:-/var/www/html/custom_apps/chorestrike/js/chorestrike-main.js}"
+bundle_build_time() {
+    # Empty while nothing is built yet: there is no bundle to follow.
+    stat -c %Y "$TEST_APP_BUNDLE" 2>/dev/null || true
+}
+set_script_cache_buster() {
+    if occ config:app:set theming cachebuster "--value=$1" >/dev/null; then
+        echo "Script cache buster follows the bundle build ($1)."
+    else
+        echo "Could not set the script cache buster to the bundle build $1; trying again." >&2
+        return 1
+    fi
+}
+follow_bundle_builds() {
+    # A failed write keeps the build unseen, so the next pass tries again.
+    local seen="$1" built
+    while kill -0 "$APACHE_PID" 2>/dev/null; do
+        sleep 2
+        built="$(bundle_build_time)"
+        if [ -n "$built" ] && [ "$built" != "$seen" ] && set_script_cache_buster "$built"; then
+            seen="$built"
+        fi
+    done
+}
+BUNDLE_SEEN=""
+BUNDLE_BUILT="$(bundle_build_time)"
+if [ -n "$BUNDLE_BUILT" ]; then
+    if [ "$(occ config:app:get theming cachebuster 2>/dev/null || true)" = "$BUNDLE_BUILT" ] \
+        || set_script_cache_buster "$BUNDLE_BUILT"; then
+        BUNDLE_SEEN="$BUNDLE_BUILT"
+    fi
+fi
+follow_bundle_builds "$BUNDLE_SEEN" &
+
 # Health must include app enablement and required seed completion, not just HTTP.
 touch /tmp/chorestrike-ready
 

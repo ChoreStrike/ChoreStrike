@@ -1046,6 +1046,14 @@ on; the domain behavior stays dormant until its owning package lands.
   `AccountErasureService` deletes memberships/assignees/medals/scores and
   the wallet with its ledger per house (house-first), nulls receipt actors
   and completion actor references, and sweeps already-departed wallets.
+  Two steps serve both paths under the house lock, so a departed account
+  loses the same links as a member (BUG-SEC-003): the wallet step
+  (appointment members, the account binding in rule-default, agreement and
+  consent snapshots including the planner's plain user-id subjects,
+  personal absences, closed-cycle members, frozen coin factors, work-share
+  bindings) and the user-id step (the creator of definitions, the takeover
+  names of room tasks, the assigner of assignments; D-091-164 to D-091-166).
+  The agreement scan pages by id through the house's occurrences.
   WP7 (CS-PLAN-078): the same house-first aggregate first releases/cancels
   the person's reward holds, purges their reward wishes/requests/events,
   removes queued `reward_request` references from ALL recipients and

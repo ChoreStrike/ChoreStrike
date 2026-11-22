@@ -54,15 +54,9 @@ class TestEnvironmentProvisioningTest extends TestCase {
 
 	/** @dataProvider redisOutcomes */
 	public function testProvisioning_RedisRow_ConfiguresSessionsCacheAndLocking(string $scenario, int $expectedExit, string $message): void {
-		$directory = sys_get_temp_dir() . '/cs-provision-' . bin2hex(random_bytes(8));
-		self::assertTrue(mkdir($directory . '/conf.d', 0700, true));
-		$commands = ['php', 'su', 'composer', 'apache2-foreground', 'curl', 'sleep', 'rm', 'touch', 'bash'];
-		$ini = $directory . '/conf.d/zz-chorestrike-redis-session.ini';
-		try {
-			foreach ($commands as $command) {
-				self::assertTrue(copy(__DIR__ . '/../../fixtures/provision-command.sh', $directory . '/' . $command));
-				self::assertTrue(chmod($directory . '/' . $command, 0700));
-			}
+		$this->withCommandDoubles(function (string $directory) use ($scenario, $expectedExit, $message): void {
+			self::assertTrue(mkdir($directory . '/conf.d', 0700));
+			$ini = $directory . '/conf.d/zz-chorestrike-redis-session.ini';
 			[$exit, $output] = $this->runEntrypoint([
 				'PATH' => $directory . ':' . getenv('PATH'),
 				'PHP_INI_DIR' => $directory,
@@ -84,16 +78,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 				self::assertStringNotContainsString('READY_MARKER', $output);
 				self::assertStringNotContainsString('SEED_SUCCEEDED', $output);
 			}
-		} finally {
-			foreach ($commands as $command) {
-				unlink($directory . '/' . $command);
-			}
-			if (file_exists($ini)) {
-				unlink($ini);
-			}
-			rmdir($directory . '/conf.d');
-			rmdir($directory);
-		}
+		});
 	}
 
 	public static function redisOutcomes(): array {
@@ -106,14 +91,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 
 	/** @dataProvider provisioningOutcomes */
 	public function testProvisioning_RequiredStages_ControlReadiness(string $scenario, int $expectedExit, string $message): void {
-		$directory = sys_get_temp_dir() . '/cs-provision-' . bin2hex(random_bytes(8));
-		self::assertTrue(mkdir($directory));
-		$commands = ['php', 'su', 'composer', 'apache2-foreground', 'curl', 'sleep', 'rm', 'touch', 'bash'];
-		try {
-			foreach ($commands as $command) {
-				self::assertTrue(copy(__DIR__ . '/../../fixtures/provision-command.sh', $directory . '/' . $command));
-				self::assertTrue(chmod($directory . '/' . $command, 0700));
-			}
+		$this->withCommandDoubles(function (string $directory) use ($scenario, $expectedExit, $message): void {
 			[$exit, $output] = $this->runEntrypoint([
 				'PATH' => $directory . ':' . getenv('PATH'),
 				'PROVISION_SCENARIO' => $scenario,
@@ -157,12 +135,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 					self::assertStringNotContainsString('APPS_PATHS_IMPORTED', $output);
 				}
 			}
-		} finally {
-			foreach ($commands as $command) {
-				unlink($directory . '/' . $command);
-			}
-			rmdir($directory);
-		}
+		});
 	}
 
 	public static function provisioningOutcomes(): array {
@@ -191,14 +164,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 
 	/** @dataProvider preservationOutcomes */
 	public function testProvisioning_PreservationMode_NeverReseedsOrInstalls(string $scenario, array $settings, int $expectedExit, string $message): void {
-		$directory = sys_get_temp_dir() . '/cs-provision-' . bin2hex(random_bytes(8));
-		self::assertTrue(mkdir($directory));
-		$commands = ['php', 'su', 'composer', 'apache2-foreground', 'curl', 'sleep', 'rm', 'touch', 'bash'];
-		try {
-			foreach ($commands as $command) {
-				self::assertTrue(copy(__DIR__ . '/../../fixtures/provision-command.sh', $directory . '/' . $command));
-				self::assertTrue(chmod($directory . '/' . $command, 0700));
-			}
+		$this->withCommandDoubles(function (string $directory) use ($scenario, $settings, $expectedExit, $message): void {
 			[$exit, $output] = $this->runEntrypoint([
 				'PATH' => $directory . ':' . getenv('PATH'),
 				'PROVISION_SCENARIO' => $scenario,
@@ -233,15 +199,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			if ($scenario !== 'preserve-upgrade') {
 				self::assertStringNotContainsString('UPGRADE_RAN', $output);
 			}
-		} finally {
-			foreach ($commands as $command) {
-				unlink($directory . '/' . $command);
-			}
-			if (file_exists($directory . '/upgraded')) {
-				unlink($directory . '/upgraded');
-			}
-			rmdir($directory);
-		}
+		});
 	}
 
 	public static function preservationOutcomes(): array {
@@ -255,6 +213,65 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			['preserve-same-build', ['TEST_RUNTIME_PRESERVATION' => 'true', 'TEST_RUNTIME_UPGRADE_FROM' => '35.0.1.1'], 1,
 				'a same-build reinstall is not a runtime update'],
 			['preserve-uninstalled', ['TEST_RUNTIME_PRESERVATION' => 'true'], 1, 'Preservation mode requires an already installed Nextcloud'],
+		];
+	}
+
+	/**
+	 * TECH-DEV-002: the theming cache buster, part of every script URL,
+	 * follows the build time of the entry bundle: before the stack reports
+	 * ready, and for a rebuild while it runs. Nothing is written when it
+	 * already follows the build or when nothing is built yet; a failed write
+	 * is reported and never stops the provisioning.
+	 *
+	 * @param list<int> $written The build times written
+	 * @dataProvider cacheBusterStates
+	 */
+	public function testProvisioning_ScriptCacheBuster_FollowsTheBundleBuild(?int $builtAt, string $stored, ?int $rebuiltAt, array $written, bool $failure): void {
+		$this->withCommandDoubles(function (string $directory) use ($builtAt, $stored, $rebuiltAt, $written, $failure): void {
+			$bundle = $directory . '/chorestrike-main.js';
+			if ($builtAt !== null) {
+				self::assertTrue(touch($bundle, $builtAt));
+			}
+			[$exit, $output] = $this->runEntrypoint([
+				'PATH' => $directory . ':' . getenv('PATH'),
+				'PROVISION_SCENARIO' => 'success',
+				'PROVISION_STATE' => $directory,
+				'PROVISION_CACHE_BUSTER' => $stored,
+				'PROVISION_REBUILT_AT' => (string)($rebuiltAt ?? ''),
+				'TEST_APP_BUNDLE' => $bundle,
+				'TEST_RUNTIME_INTERNAL_VERSION' => '35.0.1.1',
+				'TEST_RUNTIME_PHP_VERSION' => '8.4.25',
+				'TEST_SEED_SCRIPT' => __DIR__ . '/../../fixtures/provision-command.sh',
+			], []);
+			self::assertSame(0, $exit, $output);
+			self::assertSame(count($written), substr_count($output, 'CACHE_BUSTER_SET'), $output);
+			foreach ($written as $value) {
+				self::assertStringContainsString('--value=' . $value, $output);
+				// stderr follows stdout in the captured output: order by the notice.
+				$notice = strpos($output, 'Script cache buster follows the bundle build (' . $value . ')');
+				self::assertNotFalse($notice, $output);
+				if ($value === $rebuiltAt) {
+					self::assertGreaterThan(strpos($output, 'READY_MARKER'), $notice, 'a rebuild while the stack runs');
+				} else {
+					self::assertLessThan(strpos($output, 'READY_MARKER'), $notice, 'set before the stack reports ready');
+				}
+			}
+			if ($failure) {
+				self::assertStringContainsString('Could not set the script cache buster to the bundle build ' . $builtAt, $output);
+				self::assertStringContainsString('READY_MARKER', $output);
+			} else {
+				self::assertStringNotContainsString('Could not set the script cache buster', $output);
+			}
+		});
+	}
+
+	public static function cacheBusterStates(): array {
+		return [
+			'a new build' => [1763800000, '1763700000', null, [1763800000], false],
+			'already following the build' => [1763800000, '1763800000', null, [], false],
+			'nothing built yet' => [null, '0', null, [], false],
+			'a rebuild while the stack runs' => [1763800000, '1763800000', 1763900000, [1763900000], false],
+			'a failed write' => [1763800000, 'fail', null, [], true],
 		];
 	}
 
@@ -296,6 +313,38 @@ class TestEnvironmentProvisioningTest extends TestCase {
 		}
 	}
 
+	/**
+	 * Run a test with a fresh directory of command doubles for everything the
+	 * entrypoint may call that must not touch the container, and remove the
+	 * directory with whatever the test or the entrypoint left in it.
+	 *
+	 * @param callable(string): void $test Receives the directory.
+	 */
+	private function withCommandDoubles(callable $test): void {
+		$directory = sys_get_temp_dir() . '/cs-provision-' . bin2hex(random_bytes(8));
+		self::assertTrue(mkdir($directory));
+		try {
+			foreach (['php', 'su', 'composer', 'apache2-foreground', 'curl', 'sleep', 'rm', 'touch', 'bash'] as $command) {
+				self::assertTrue(copy(__DIR__ . '/../../fixtures/provision-command.sh', $directory . '/' . $command));
+				self::assertTrue(chmod($directory . '/' . $command, 0700));
+			}
+			$test($directory);
+		} finally {
+			$entries = new \RecursiveIteratorIterator(
+				new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
+				\RecursiveIteratorIterator::CHILD_FIRST,
+			);
+			foreach ($entries as $entry) {
+				if ($entry->isDir()) {
+					rmdir($entry->getPathname());
+				} else {
+					unlink($entry->getPathname());
+				}
+			}
+			rmdir($directory);
+		}
+	}
+
 	private function runEntrypoint(array $settings, array $arguments): array {
 		$environment = array_merge(getenv(), [
 			'TEST_DB_TYPE' => 'mysql', 'TEST_DB_PROFILE' => 'family',
@@ -306,6 +355,8 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			'REDIS_HOST' => '', 'REDIS_PORT' => '',
 			'TEST_RUNTIME_INTERNAL_VERSION' => '', 'TEST_RUNTIME_PHP_VERSION' => '',
 			'TEST_RUNTIME_PRESERVATION' => 'false', 'TEST_RUNTIME_UPGRADE_FROM' => '',
+			// No bundle to follow unless a test builds one (TECH-DEV-002).
+			'TEST_APP_BUNDLE' => '/nonexistent/chorestrike-main.js',
 		], $settings);
 		$process = proc_open(['/bin/bash', dirname(__DIR__, 3) . '/docker/test-entrypoint.sh', ...$arguments],
 			[0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $environment);

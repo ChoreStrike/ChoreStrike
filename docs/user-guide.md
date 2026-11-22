@@ -220,7 +220,7 @@ share of public tasks, and only of people who joined.
 
 ### Notifications, sounds and celebrations
 
-<img src="screenshots/guide-settings.png" alt="Notification settings: daily task digest, weekly organization digest, delivery time, quiet time and feedback effects" width="720">
+<img src="screenshots/guide-settings.png" alt="Notification settings: daily task digest, daily household updates, delivery time, quiet time and feedback effects" width="720">
 
 **Settings** has two areas. *Personal* is what you decide for yourself: your
 title, notifications and feedback, the appearance, your planning, and the way
@@ -239,10 +239,11 @@ Everything under *Notifications & feedback* is personal — owners cannot change
 it for others. The digests and sounds are off by default; the celebration
 animation is on.
 
-- **Daily task digest** and **Weekly organization digest** arrive as a
-  Nextcloud notification at your delivery time (and by email if your Nextcloud
-  forwards notifications), at most once a day. They contain counts, never task
-  details.
+- **Daily task digest** and **Daily household updates** arrive together as one
+  daily summary: a Nextcloud notification at your delivery time (and by email
+  if your Nextcloud forwards notifications), at most once a day. It contains
+  counts, never task details. Household updates are your overdue tasks that
+  someone else did, absences and reward requests.
 - **Quiet time** holds deliveries back during the hours you choose.
 - **Sounds** can be switched on, and the **celebration animation** can be
   switched off; your device's reduced-motion setting always wins. Finishing a

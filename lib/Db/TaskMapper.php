@@ -333,4 +333,31 @@ class TaskMapper extends QBMapper {
 
 		return $this->findEntities($qb);
 	}
+
+	/**
+	 * Account erasure: the definitions the erased account created lose their
+	 * creator, in the house and where no room links them. A private one stays
+	 * private, so only its remaining assignees see it, and a recreated
+	 * account with the same Nextcloud user id never does (D-091-165).
+	 */
+	public function forgetOwnerInHouse(int $houseId, string $ownerUserId): void {
+		$qb = $this->db->getQueryBuilder();
+		$inHouse = $this->db->getQueryBuilder();
+		$inHouse->select('rt.task_id')
+			->from('chorestrike_room_tasks', 'rt')
+			->innerJoin('rt', 'chorestrike_rooms', 'r', $inHouse->expr()->eq('rt.room_id', 'r.id'))
+			->innerJoin('r', 'chorestrike_floors', 'f', $inHouse->expr()->eq('r.floor_id', 'f.id'))
+			->where($inHouse->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+		$linked = $this->db->getQueryBuilder();
+		$linked->select('lrt.task_id')->from('chorestrike_room_tasks', 'lrt');
+
+		$qb->update($this->getTableName())
+			->set('owner_user_id', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+			->where($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($ownerUserId)))
+			->andWhere($qb->expr()->orX(
+				$qb->expr()->in('id', $qb->createFunction($inHouse->getSQL())),
+				$qb->expr()->notIn('id', $qb->createFunction($linked->getSQL())),
+			))
+			->executeStatement();
+	}
 }

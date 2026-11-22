@@ -116,6 +116,19 @@ describe('NotificationPreferences', () => {
 		expect(stored.get('[data-testid="animation-toggle"]').element.checked).toBe(true)
 	})
 
+	// BUG-UX-017: household updates arrive with the one daily summary, so no
+	// switch or hint promises a weekly delivery.
+	it('names the household updates as part of the daily summary, never as weekly', async () => {
+		const wrapper = mount(NotificationPreferences, {
+			global: { stubs: { NcCheckboxRadioSwitch: { template: '<label><slot /></label>' } } },
+		})
+		await flushPromises()
+
+		expect(wrapper.text()).toContain('Daily household updates')
+		expect(wrapper.text()).toContain('Counted in your daily summary: your overdue tasks that someone else did')
+		expect(wrapper.text()).not.toMatch(/weekly/i)
+	})
+
 	it('renders the full delivered field set with stable testids', async () => {
 		const wrapper = await mountComponent()
 

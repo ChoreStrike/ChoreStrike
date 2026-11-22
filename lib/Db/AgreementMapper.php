@@ -33,37 +33,42 @@ class AgreementMapper extends QBMapper {
 	}
 
 	/**
-	 * Anonymize a wallet's user references inside every agreement state
+	 * Anonymize an erased account's references inside every agreement
 	 * snapshot of a house (account erasure): the numeric wallet fact stays
-	 * (non-reidentifiable), the account binding is stripped. Mirrors
-	 * ScheduleRevisionMapper::anonymizeDefaultMembers.
+	 * (non-reidentifiable), the account binding is stripped, and so is the
+	 * plain user id the weekly planner's apply recorded as a consent subject.
+	 * Mirrors ScheduleRevisionMapper::anonymizeDefaultMembers. The agreements
+	 * are read through their occurrences in pages of 500, so no list grows
+	 * with the retained history.
 	 */
-	public function anonymizeMemberSnapshots(int $houseId, int $walletId): void {
-		$occQb = $this->db->getQueryBuilder();
-		$rows = $occQb->select('id')
-			->from('chorestrike_occurrences')
-			->where($occQb->expr()->eq('house_id', $occQb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->executeQuery()
-			->fetchAll();
-		$occurrenceIds = array_map(static fn (array $row): int => (int)$row['id'], $rows);
-		if ($occurrenceIds === []) {
-			return;
-		}
-
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->in('occurrence_id', $qb->createNamedParameter($occurrenceIds, IQueryBuilder::PARAM_INT_ARRAY)));
-		foreach ($this->findEntities($qb) as $agreement) {
-			$oldState = self::scrubMemberUserIds($agreement->getOldState(), $walletId);
-			$newState = self::scrubMemberUserIds($agreement->getNewState(), $walletId);
-			$consent = self::scrubConsentUserIds($agreement->getConsent(), $walletId);
-			if ($oldState !== $agreement->getOldState() || $newState !== $agreement->getNewState() || $consent !== $agreement->getConsent()) {
-				$agreement->setOldState($oldState);
-				$agreement->setNewState($newState);
-				$agreement->setConsent($consent);
-				$this->update($agreement);
+	public function anonymizeMemberSnapshots(int $houseId, int $walletId, string $userId): void {
+		$afterId = 0;
+		do {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('a.*')
+				->from($this->getTableName(), 'a')
+				->innerJoin('a', 'chorestrike_occurrences', 'o', $qb->expr()->eq('o.id', 'a.occurrence_id'))
+				->where($qb->expr()->eq('o.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+				->andWhere($qb->expr()->gt('a.id', $qb->createNamedParameter($afterId, IQueryBuilder::PARAM_INT)))
+				->orderBy('a.id', 'ASC')
+				->setMaxResults(500);
+			$page = $this->findEntities($qb);
+			foreach ($page as $agreement) {
+				$afterId = (int)$agreement->getId();
+				$this->scrubAgreement($agreement, $walletId, $userId);
 			}
+		} while (count($page) === 500);
+	}
+
+	private function scrubAgreement(Agreement $agreement, int $walletId, string $userId): void {
+		$oldState = self::scrubMemberUserIds($agreement->getOldState(), $walletId);
+		$newState = self::scrubMemberUserIds($agreement->getNewState(), $walletId);
+		$consent = self::scrubConsentUserIds($agreement->getConsent(), $walletId, $userId);
+		if ($oldState !== $agreement->getOldState() || $newState !== $agreement->getNewState() || $consent !== $agreement->getConsent()) {
+			$agreement->setOldState($oldState);
+			$agreement->setNewState($newState);
+			$agreement->setConsent($consent);
+			$this->update($agreement);
 		}
 	}
 
@@ -88,18 +93,21 @@ class AgreementMapper extends QBMapper {
 
 	/**
 	 * Null the `userId` of the erased wallet inside recorded consent
-	 * snapshots (WP2 erasure); the numeric wallet fact stays.
+	 * snapshots (WP2 erasure); the numeric wallet fact stays. A subject the
+	 * planner recorded as a plain user id is nulled in place.
 	 *
 	 * @param array<string, mixed>|null $consent
 	 * @return array<string, mixed>|null
 	 */
-	private static function scrubConsentUserIds(?array $consent, int $walletId): ?array {
+	private static function scrubConsentUserIds(?array $consent, int $walletId, string $userId): ?array {
 		if ($consent === null || !isset($consent['subjects']) || !is_array($consent['subjects'])) {
 			return $consent;
 		}
 		foreach ($consent['subjects'] as $index => $subject) {
 			if (is_array($subject) && (int)($subject['walletId'] ?? 0) === $walletId) {
 				$consent['subjects'][$index]['userId'] = null;
+			} elseif (is_string($subject) && $subject === $userId) {
+				$consent['subjects'][$index] = null;
 			}
 		}
 		return $consent;

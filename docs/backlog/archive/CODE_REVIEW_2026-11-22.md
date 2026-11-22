@@ -206,3 +206,98 @@ D-091-156 records what the review added without a question.
 - Preservation proofs P1 to P4 green; the full browser gate green (`run-LPQb6u`).
 - Checks: php-cs-fixer, `l10n:check-keys`, `agents:check`, `docs:encoding`,
   `backlog:check`, `git diff --check`, LF endings.
+
+## Full (interim) - CS-PLAN-091 the round before the candidate (D-091-158)
+
+**Outcome:** `PASS-WITH-FIXES`. Interim review; the plan stays in `active/` and continues
+with the WP-G candidate.
+
+### Scope and capture
+
+- Tier: Full, four read-only `reviewer` tracks (correctness, architecture, security and
+  data flow, performance and code quality) plus the main agent's own checks of the
+  reviewers' claims against the code. Required: the round changes the account erasure
+  (privacy, data integrity) and the test provisioning of every runtime row.
+- Owning plan: [CS-PLAN-091](../../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md)
+  (D-091-158 to D-091-163, RF-091-15): BUG-UX-017, BUG-SEC-003, TECH-DEV-002 and the
+  deployment guide.
+- Branch `feat/simplified-core-bc` in its pinned worktree, base HEAD `8d6323c4` (the
+  committed RF-091-14 review, 8 ahead of `master`, 0 behind), the whole round uncommitted.
+  Captured before the review: 19 modified paths, no untracked or staged path, diff
+  fingerprint `0aa480d87e398e0f13aa5f4a586ef698096a16a15c751b3784390a67da807a62` (SHA-256
+  of the unstaged diff).
+- Before the review the gates of the implementation round stood on the captured tree:
+  Jest 186 suites / 2667 tests, ESLint, stylelint, the zero-noise gate, php-cs-fixer,
+  l10n, adapter, docs and backlog checks, PHPUnit unit 1895 and integration 730 on the
+  canonical stack; the cache buster was seen following a rebuild on the live stack.
+
+### Decisions
+
+| Question | Decision |
+|---|---|
+| The planner's consent subjects are plain user ids the agreement scrub skips; the scrub binds every occurrence id of the house in one list | **D-091-164 (operator):** fix now: null a plain subject equal to the erased user id; read the agreements through their occurrences in pages of 500 |
+| A private definition keeps the erased creator's user id, which decides its visibility | **D-091-165 (operator):** erasure clears the creator; the definition stays private for its remaining assignees |
+| Takeover names and the assigner keep the erased user id | **D-091-166 (operator):** fix now, in the same erasure step |
+
+D-091-159 to D-091-163 are accepted, with D-091-159, D-091-160 and D-091-161 corrected
+as the findings below say. D-091-167 records what the review fixed without a question.
+
+### Findings fixed in the review
+
+| Severity | Where | Finding | Fix |
+|---|---|---|---|
+| major (privacy) | `AgreementMapper::scrubConsentUserIds()` | Consent subjects the weekly planner recorded as plain user ids kept the erased id, on both paths | Nulled in place; the erased user id reaches the scrub from the wallet (D-091-164); integration test with the planner shape |
+| major (security, authorization) | `tasks.owner_user_id` | Erasure kept the creator of private definitions, which decides their visibility | The user-id step clears it in the house and on unlinked definitions (D-091-165); a test proves a recreated same-id account no longer sees the definition while its assignee still does |
+| major (privacy) | `room_tasks.claimed_by_user`, `original_assignee`; `task_assignees.assigned_by` | Raw user ids survived erasure, two of them sent to clients | Nulled per house under the lock (D-091-166); integration test on both paths |
+| minor (perf) | `AgreementMapper::anonymizeMemberSnapshots()` | One unchunked list of every occurrence id of the house: an error log from 1000 entries, a failed bind from 65535 | Joined and paged by id, 500 per page (D-091-164) |
+| minor (test) | `TestEnvironmentProvisioningTest` | The follow loop of TECH-DEV-002 never ran in a test | A case keeps the Apache double alive through a rebuild after readiness; it fails without the loop |
+| minor | `test-entrypoint.sh` | A failed write marked the build as followed; followed builds left no log line | A failed write is retried on the next pass; each followed build logs one line; a failure case is tested |
+| minor (test) | `TestEnvironmentProvisioningTest` | Four copies of the command-double setup | One `withCommandDoubles()` helper |
+| minor (docs) | `AccountErasureService` | The class docblock claimed the sweep runs the membership loop's steps, listed the dropped `combo_with_user_id` and missed most of the wallet step | Rewritten around the two shared steps |
+| minor (docs) | `BUG-UX-014`, plan §4 | The smoke check that replaces the count had no open owner; the round's tests were not in the plan | An open box in the item and a sentence in WP-G; a §4 entry |
+| minor (i18n) | `l10n/de.json` | *Zählt in deiner täglichen Zusammenfassung* did not agree with its list | *In deiner Tageszusammenfassung gezählt* |
+| minor (docs) | `testing.md`, docker-dev skill | `watch` misses every changed lazy chunk, not only some; a restart reseeds the stack | Both said |
+| nit (docs) | `deployment.md` | The other new columns' defaults and the revision anchor of the cutover were missing; the cutover query was to run before the update and after cron resumed | Named; the query runs only after the update, before cron and the writers |
+| nit | `eraseWalletUnderLock()` | The house came in separately from the wallet that carries it | Taken from the wallet |
+| nit (test) | `AccountErasureServiceTest` | Mocks in a string-keyed array; the order of nine calls was pinned | Typed mocks; the set of links is compared |
+| nit (docs) | plan D-091-159 to D-091-161 | The wallet row now goes last; debug mode as an alternative; only the second hint names the one summary | Corrected |
+| nit (docs) | `testing.md` | The P4 paragraph named two new tables, the fixture checks four | Four |
+
+Not taken: moving the follow loop into its own script (ten lines, now tested inside the
+entrypoint; a separate script would need a mount of its own on every row).
+
+### Findings routed
+
+- None. The exploitable detail of D-091-165 was fixed in this round, so nothing goes to
+  `private/` or `backlog.md`.
+
+### Verification
+
+- Each new regression test failed against the code before the round and passes now: the
+  erasure unit and integration tests against the old service and mappers, the follow
+  loop's test against an entrypoint without the loop.
+- Canonical stack (PostgreSQL 18.6, Nextcloud 35.0.3, this worktree): PHPUnit unit 1897
+  and integration 731, no skips.
+- The same suites on MariaDB, PostgreSQL, SQLite and the AIO row (matrix `r91d158`):
+  every suite passed (unit 1897, integration 731 each), so the new updates with a
+  subquery hold on every provider, MariaDB's restriction on the updated table included;
+  the owned rows were removed afterwards.
+- Full browser gate, five projects in sequence without retries, green on its first run
+  (`run-MfpeVt`): `chromium` 104, `chromium-serial-db` 193, `chromium-scheduling-owner`
+  33, `mobile-chromium` 16 and `mobile-webkit` 16, no skipped, failed or flaky test; the
+  recreated stack had set its cache buster to the bundle's build time before it reported
+  ready.
+- Jest 186 suites / 2667 tests, the zero-noise gate, ESLint, stylelint, build,
+  php-cs-fixer (529 files clean), `l10n:check-keys`, `agents:check`, `docs:encoding`,
+  `backlog:check`, `git diff --check`, LF endings.
+
+### Gates
+
+- Build gate: Jest 186 suites / 2667 tests, ESLint, stylelint and the build green.
+- PHPUnit, both suites without skips: unit 1897 and integration 731 on the canonical stack
+  and on all four rows of the matrix.
+- Preservation proof P1 on PostgreSQL green through the changed entrypoint (34 app table
+  snapshots equal, clean teardown); no schema step, so P2 to P4 were not rerun. The full
+  browser gate green (`run-MfpeVt`).
+- Checks: php-cs-fixer, `l10n:check-keys`, `agents:check`, `docs:encoding`,
+  `backlog:check`, `git diff --check`, LF endings.

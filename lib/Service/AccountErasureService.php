@@ -25,9 +25,12 @@ use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\PauseMapper;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
+use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\ScheduleRevisionMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
+use OCA\ChoreStrike\Db\Wallet;
 use OCA\ChoreStrike\Db\WalletEntryMapper;
 use OCA\ChoreStrike\Db\WalletMapper;
 use OCA\ChoreStrike\Db\WorkShareMapper;
@@ -39,46 +42,32 @@ use OCA\ChoreStrike\Db\WorkShareMapper;
  * `Application::register`); never exposed through an app API. For every
  * membership of the deleted UID, one house-first transaction per house:
  *
- *  - delete `task_assignees`, `medals`, `minigame_scores` rows,
- *  - delete the wallet with its `wallet_entries` (personal finances
- *    removed; WP7 first releases/cancels outstanding reward holds and
- *    purges the person's reward wishes/requests/events plus every other
- *    recipient's queued reference to them),
- *  - null the actor on `commands` receipts (the receipts survive as
- *    anonymous facts),
- *  - null `completed_tasks.user_id` / `combo_with_user_id` (the anonymous
- *    shared work facts — time, energy, coins-earned totals, room effects —
- *    are retained),
- *  - CS-PLAN-072 WP1: delete the account's `occ_members` links (the
- *    occurrences themselves stay as shared facts), null the account
- *    binding inside `schedule_revs` default-member snapshots (the numeric
- *    wallet fact is non-reidentifiable) and null the actor on
- *    `agreements` evidence rows,
- *  - CS-PLAN-070 WP4 (Q-075-01 A): delete the account's
- *    `member_prefs` consent row (ranking consent is purged with the
- *    membership; a recreated same-UID account starts unconsented),
- *  - CS-PLAN-070 WP5 (CS-PLAN-076 §3.7): purge the account's digest
- *    rows (`digest_changes` queued history + `digest_slots` delivery
- *    history) — membership-keyed, never rebound,
- *  - delete the `house_users` row (scheduling preferences die with it),
- *  - CS-PLAN-090 WP-J: delete the account's arcade start point,
- *  - CS-PLAN-090 WP-K: delete the account's colour scheme.
+ *  - delete the account's `task_assignees`, `medals` and `minigame_scores`
+ *    rows, its `member_prefs` consent row (CS-PLAN-070 WP4), its digest
+ *    queue and slot history (WP5) and last the `house_users` row,
+ *  - null the actor on receipts, ledger entries, agreements, completions
+ *    (`completed_tasks.user_id`), correction audit rows, sub-task ticks and
+ *    shared pauses; the anonymous shared facts stay,
+ *  - the user-id step ({@see eraseUserReferencesUnderLock()}): definitions
+ *    lose their creator, room tasks their takeover names, assignments
+ *    their assigner,
+ *  - the wallet step ({@see eraseWalletUnderLock()}): reward holds,
+ *    requests, events and wishes (WP7), the wallet with its ledger,
+ *    appointment members, the account binding in rule-default, agreement
+ *    and consent snapshots, closed-cycle members, frozen coin factors,
+ *    personal absences and work-share bindings.
  *
  * Ordinary departure NEVER runs this path (decision D3): removal keeps the
- * wallet as dormant financial identity. Erasure of an already-departed
- * account (wallet without membership) is covered by the final sweep over
- * every wallet still bound to the UID.
+ * wallet as dormant financial identity. The final sweep erases every wallet
+ * still bound to the UID (an already-departed account) with the same two
+ * steps under that wallet's house lock (BUG-SEC-003). Minigame scores, the
+ * arcade start point and the colour scheme are swept by UID for every
+ * account (CS-PLAN-090 WP-J, WP-K).
  *
- * No rebinding: history references internal bigint IDs only (never raw
- * UIDs), so a recreated same-name account gets a fresh `house_users.id` /
- * `wallets.id` and cannot recover prior data. Anonymized activity rows
- * render through the localized "Former member" placeholder in
- * {@see ActivityService}.
- *
- * Later-package surfaces extend this service in WP5/WP7 (digest records,
- * reward wishes, requests/events via the WP7 erase hooks); WP2's
- * pause/consent surfaces are covered above, the complete cross-domain
- * gate is WP9 (parent §4).
+ * No rebinding: history references internal bigint IDs only, so a recreated
+ * same-name account gets a fresh `house_users.id` / `wallets.id` and cannot
+ * recover prior data. Anonymized activity rows render through the localized
+ * "Former member" placeholder in {@see ActivityService}.
  */
 class AccountErasureService {
 	public function __construct(
@@ -109,6 +98,8 @@ class AccountErasureService {
 		private AppLogger $appLogger,
 		private ArcadeStartPointStore $arcadeStartPoints,
 		private ColorSchemeService $colorSchemes,
+		private TaskMapper $taskMapper,
+		private RoomTaskMapper $roomTaskMapper,
 	) {
 	}
 
@@ -153,22 +144,10 @@ class AccountErasureService {
 			try {
 				$this->transactions->run(function () use ($wallet): void {
 					$this->houseMapper->findForUpdate($wallet->getHouseId());
-					// CS-PLAN-070 WP7 (CS-PLAN-078 §3.4): the departed
-					// actor's reward data goes with the wallet — holds are
-					// released, requests/events/wishes purged and queued
-					// references removed from ALL recipients, before the
-					// wallet row dies (actor-wallet provenance finds them).
-					$this->rewardRequestService->eraseActorUnderLock((int)$wallet->getHouseId(), null, (int)$wallet->getId());
-					$this->rewardService->eraseActorItemsUnderLock(null, (int)$wallet->getId());
-					$this->walletEntryMapper->deleteByWalletIds([$wallet->getId()]);
-					$this->walletEntryMapper->anonymizeActorWallet((int)$wallet->getId());
-					$this->workShareMapper->anonymizeWallet((int)$wallet->getId());
-					// ADR-021: closed cycles and the coin factors frozen on
-					// completions of an already-departed account stop naming its
-					// wallet too (D-091-73).
-					$this->cycleMapper->forgetWallet((int)$wallet->getHouseId(), (int)$wallet->getId());
-					$this->completedTaskMapper->forgetCoinFactorWallet((int)$wallet->getHouseId(), (int)$wallet->getId());
-					$this->walletMapper->delete($wallet);
+					// The departed actor has no membership row: the wallet id
+					// and its user id are the provenance that still finds their data.
+					$this->eraseUserReferencesUnderLock((int)$wallet->getHouseId(), $wallet->getNextcloudUserId());
+					$this->eraseWalletUnderLock(null, $wallet);
 				});
 			} catch (\Throwable $e) {
 				$failedWalletIds[] = $wallet->getId();
@@ -210,7 +189,7 @@ class AccountErasureService {
 
 	/**
 	 * Erase one membership of the deleted account as one house-first
-	 * aggregate (house → membership deletes → wallet delete → receipts/
+	 * aggregate (house → membership deletes → the wallet step → receipts/
 	 * completions anonymization).
 	 */
 	private function eraseMembership(HouseUser $membership): void {
@@ -223,6 +202,7 @@ class AccountErasureService {
 			$this->houseMapper->findForUpdate($houseId);
 
 			$this->taskAssigneeMapper->deleteByUserForHouse($ncUserId, $houseId);
+			$this->eraseUserReferencesUnderLock($houseId, $ncUserId);
 			$this->medalMapper->deleteByUserIds([$houseUserId]);
 			$this->minigameScoreMapper->deleteByUserIds([$ncUserId]);
 
@@ -230,32 +210,7 @@ class AccountErasureService {
 			// WP7 releases holds and purges the reward data first).
 			$wallet = $this->walletMapper->findByHouseAndUser($houseId, $ncUserId);
 			if ($wallet !== null) {
-				// CS-PLAN-070 WP7 (CS-PLAN-078 §3.4): release/cancel holds,
-				// purge that person's requests/events/wishes, remove queued
-				// references to those requests from ALL recipients and
-				// anonymize the actor on other retained records.
-				$this->rewardRequestService->eraseActorUnderLock($houseId, $houseUserId, (int)$wallet->getId());
-				$this->rewardService->eraseActorItemsUnderLock($houseUserId, (int)$wallet->getId());
-				$this->walletEntryMapper->deleteByWalletIds([$wallet->getId()]);
-				$this->walletEntryMapper->anonymizeActorWallet((int)$wallet->getId());
-				$this->walletMapper->delete($wallet);
-
-				// CS-PLAN-072 WP1 (T0): purge the account's occurrence
-				// member links; the shared occurrence facts stay (only the
-				// person's links go), and rule-default snapshots keep the
-				// numeric wallet fact while losing the account binding.
-				$this->occMemberMapper->deleteByWalletId((int)$wallet->getId());
-				$this->scheduleRevisionMapper->anonymizeDefaultMembers($houseId, (int)$wallet->getId());
-				$this->agreementMapper->anonymizeMemberSnapshots($houseId, (int)$wallet->getId());
-				// ADR-021: closed cycles stay as shared facts and stop
-				// naming the erased wallet among their responsible members.
-				$this->cycleMapper->forgetWallet($houseId, (int)$wallet->getId());
-				// The coin factors frozen on completions are keyed by wallet too.
-				$this->completedTaskMapper->forgetCoinFactorWallet($houseId, (int)$wallet->getId());
-				// CS-PLAN-073 WP2 (§3.6): personal pause rows of the wallet
-				// go; shared pause facts keep their non-reidentifiable
-				// content and lose the account references below.
-				$this->pauseMapper->deletePersonalByWalletId((int)$wallet->getId());
+				$this->eraseWalletUnderLock($houseUserId, $wallet);
 			}
 			$this->pauseMapper->anonymizeActor($houseUserId);
 
@@ -283,18 +238,68 @@ class AccountErasureService {
 			$this->cycleProgressMapper->anonymizeChecker($houseUserId);
 			$this->checklistProgressMapper->anonymizeChecker($houseUserId);
 
-			// CS-PLAN-070 WP3 (§3.6): the new evidence tables anonymize
-			// their actor references too — correction audit rows lose the
-			// actor (bounded facts stay), work shares lose the wallet
-			// binding (only non-identifying shared work remains). The room
-			// journal carries no actor references.
+			// CS-PLAN-070 WP3 (§3.6): correction audit rows lose the actor
+			// (bounded facts stay); the work shares lost their wallet binding
+			// with the wallet above. The room journal carries no actor
+			// references.
 			$this->completionRevisionMapper->anonymizeActor($houseUserId);
-			if ($wallet !== null) {
-				$this->workShareMapper->anonymizeWallet((int)$wallet->getId());
-			}
 
 			// The membership row (and its scheduling preferences) dies last.
 			$this->houseUserMapper->delete($membership);
 		});
+	}
+
+	/**
+	 * Remove the erased account's raw Nextcloud user id from the house's
+	 * other rows under the held house lock (D-091-165, D-091-166): the
+	 * creator of definitions (a private one stays private and visible only
+	 * to its remaining assignees), the takeover names of room tasks and the
+	 * assigner of assignments.
+	 */
+	private function eraseUserReferencesUnderLock(int $houseId, string $ncUserId): void {
+		$this->taskMapper->forgetOwnerInHouse($houseId, $ncUserId);
+		$this->roomTaskMapper->forgetTakeoverUserInHouse($houseId, $ncUserId);
+		$this->taskAssigneeMapper->forgetAssignerInHouse($ncUserId, $houseId);
+	}
+
+	/**
+	 * Erase one wallet of the deleted account under the held house lock.
+	 *
+	 * The membership loop and the sweep of an already-departed account run
+	 * the same steps, so neither leaves a wallet-keyed link behind
+	 * (BUG-SEC-003: the sweep used to keep the appointment members, both
+	 * snapshot kinds and the personal absences).
+	 *
+	 * @param int|null $houseUserId The membership, null for a departed account
+	 * @param Wallet $wallet The wallet; its house is the one whose lock is held
+	 */
+	private function eraseWalletUnderLock(?int $houseUserId, Wallet $wallet): void {
+		$houseId = (int)$wallet->getHouseId();
+		$walletId = (int)$wallet->getId();
+		// CS-PLAN-070 WP7 (CS-PLAN-078 §3.4): release/cancel holds, purge the
+		// person's requests/events/wishes, remove queued references to them
+		// from ALL recipients and anonymize the actor on other retained
+		// records, before the wallet row dies (wallet provenance finds them).
+		$this->rewardRequestService->eraseActorUnderLock($houseId, $houseUserId, $walletId);
+		$this->rewardService->eraseActorItemsUnderLock($houseUserId, $walletId);
+		$this->walletEntryMapper->deleteByWalletIds([$walletId]);
+		$this->walletEntryMapper->anonymizeActorWallet($walletId);
+		// CS-PLAN-072 WP1 (T0): the shared appointment facts stay, the
+		// person's member links go; rule-default and agreement snapshots keep
+		// the numeric wallet fact and lose the account binding.
+		$this->occMemberMapper->deleteByWalletId($walletId);
+		$this->scheduleRevisionMapper->anonymizeDefaultMembers($houseId, $walletId);
+		$this->agreementMapper->anonymizeMemberSnapshots($houseId, $walletId, $wallet->getNextcloudUserId());
+		// ADR-021: closed cycles stay as shared facts and stop naming the
+		// wallet; the coin factors frozen on completions are keyed by it too.
+		$this->cycleMapper->forgetWallet($houseId, $walletId);
+		$this->completedTaskMapper->forgetCoinFactorWallet($houseId, $walletId);
+		// CS-PLAN-073 WP2 (§3.6): personal absences of the wallet go; shared
+		// pause facts keep their content and lose the account references.
+		$this->pauseMapper->deletePersonalByWalletId($walletId);
+		// CS-PLAN-070 WP3 (§3.6): work shares lose the wallet binding (only
+		// non-identifying shared work remains).
+		$this->workShareMapper->anonymizeWallet($walletId);
+		$this->walletMapper->delete($wallet);
 	}
 }

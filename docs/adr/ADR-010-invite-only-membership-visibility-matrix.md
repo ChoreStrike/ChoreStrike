@@ -89,6 +89,12 @@ a shared private definition never edits the others: the save splits off a copy
 for the member's room task and neither asks nor names them (D-091-110). A task
 that becomes private is owned by the member who saves it (D-091-95).
 
+**Account erasure (CS-PLAN-091, operator 2026-11-22):** erasing an account
+clears the creator of every definition it created (`owner_user_id`). A private
+one stays private, so only its remaining assignees see it; a recreated account
+with the same Nextcloud user id never does (D-091-165). An assignee who saves
+such a task as private becomes its owner, as for any private task without one.
+
 **The live suggestion (CS-PLAN-091 WP-C, operator 2026-11-22):** a private task
 is suggested only to members who may see it, and every entry of the suggestion
 is filtered by this matrix. The placement itself counts all work, so energy

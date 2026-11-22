@@ -830,6 +830,185 @@ class AccountErasureTest extends IntegrationTestCase {
 	}
 
 	/**
+	 * Review regression (BUG-SEC-003): erasing an already-departed account
+	 * removes the stored-appointment links a member's erasure removes — the
+	 * appointment member rows, the raw UID in rule-default, agreement and
+	 * consent snapshots, and the personal absences. The shared facts stay.
+	 */
+	public function testDepartedAccount_ErasureScrubsItsStoredAppointmentLinks(): void {
+		$houseId = $this->createHouse('ae_ds_owner', 'AE Departed Links House');
+		$this->cleanupPauseHouseIds[] = $houseId;
+		$this->addHouseMember($houseId, 'ae_ds_member', 'AE Departed Member', 'member');
+		$memberId = $this->findHouseUserId($houseId, 'ae_ds_member');
+		$walletId = $this->createWallet($houseId, 'ae_ds_member');
+		$this->bindWallet($memberId, $walletId);
+		$roomTaskId = $this->assignTaskToRoom(
+			$this->createTask($houseId, 'AE departed links task'),
+			$this->createRoom($houseId, $this->createFloor($houseId, 'AE Floor', 1), 'AE Room'),
+			'ae_ds_owner'
+		);
+		$member = ['userId' => 'ae_ds_member', 'walletId' => $walletId, 'sharePct' => 100];
+		$this->insertStoredRevision($roomTaskId, '2026-09-21', ['default_members' => json_encode([$member])]);
+		$occurrenceId = $this->insertStoredOccurrence($houseId, $roomTaskId, '2026-09-21');
+		$this->insertStoredMember($occurrenceId, $walletId);
+		$this->insertStoredAgreement($occurrenceId, 'share', ['members' => [$member]], ['members' => [$member]], ['subjects' => [$member]]);
+		$refs = $this->seedUserIdReferences($houseId, 'ae_ds_member', 'ae_ds_owner');
+		$todayKey = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
+		\OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class)->requestForSelf($houseId, 'ae_ds_member', [
+			'commandId' => '33333333-3333-4333-8333-333333333333',
+			'startDate' => $todayKey,
+			'endDate' => (new \DateTime($todayKey))->modify('+3 days')->format('Y-m-d'),
+			'reasonCode' => \OCA\ChoreStrike\Db\Pause::REASON_TRAVEL,
+		]);
+
+		// Depart first: the wallet and everything keyed by it stay.
+		$this->actingAs('ae_ds_owner');
+		\OC::$server->get(HouseService::class)->removeHouseMember($memberId);
+		self::assertSame(1, $this->countIntBy('chorestrike_occ_members', 'wallet_id', $walletId), 'departure keeps the appointment link');
+		self::assertGreaterThan(0, $this->countIntBy('chorestrike_pauses', 'subject_wallet_id', $walletId), 'departure keeps the personal absence');
+
+		\OC::$server->get(AccountErasureService::class)->eraseAccount('ae_ds_member');
+
+		self::assertSame(0, $this->countIntBy('chorestrike_wallets', 'id', $walletId), 'the preserved wallet is swept');
+		self::assertSame(1, $this->countIntBy('chorestrike_occurrences', 'id', $occurrenceId), 'the shared appointment stays');
+		self::assertSame(0, $this->countIntBy('chorestrike_occ_members', 'wallet_id', $walletId), 'its member link goes');
+		self::assertSame(0, $this->countIntBy('chorestrike_pauses', 'subject_wallet_id', $walletId), 'its personal absences go');
+		$snapshots = (string)json_encode([$this->fetchAgreementStates($roomTaskId), $this->fetchConsents($roomTaskId), $this->fetchDefaultMembers($roomTaskId)]);
+		self::assertStringNotContainsString('ae_ds_member', $snapshots, 'no snapshot keeps the erased UID');
+		self::assertSame(4, substr_count($snapshots, '"walletId":' . $walletId), 'each snapshot keeps the anonymous wallet fact');
+		$this->assertUserIdReferencesForgotten($refs, 'ae_ds_owner');
+	}
+
+	/**
+	 * Review regression (D-091-165, D-091-166): erasing a member removes its
+	 * raw Nextcloud user id from the house's other rows — the creator of
+	 * definitions, the takeover names of room tasks, the assigner of
+	 * assignments — and a recreated account with the same user id no longer
+	 * sees the private definition the erased member created.
+	 */
+	public function testErasure_ForgetsTheRawUserIdOnDefinitionsTakeoversAndAssignments(): void {
+		$f = $this->seedHouseWithTarget();
+		$this->cleanupPauseHouseIds[] = $f['houseId'];
+		$refs = $this->seedUserIdReferences($f['houseId'], 'ae_target', 'ae_owner');
+
+		\OC::$server->get(AccountErasureService::class)->eraseAccount('ae_target');
+
+		$this->assertUserIdReferencesForgotten($refs, 'ae_owner');
+		$this->addHouseMember($f['houseId'], 'ae_target', 'AE Target again', 'member');
+		$visible = \OC::$server->get(\OCA\ChoreStrike\Db\TaskMapper::class)
+			->findVisibleByHouse($f['houseId'], $this->houseUserFor($f['houseId'], 'ae_target'));
+		$visibleIds = array_map(static fn ($task): int => (int)$task->getId(), $visible);
+		self::assertNotContains($refs['ownTask'], $visibleIds, 'a recreated account never sees the erased member\'s private definition');
+		self::assertContains($refs['ownTask'], array_map(
+			static fn ($task): int => (int)$task->getId(),
+			\OC::$server->get(\OCA\ChoreStrike\Db\TaskMapper::class)->findVisibleByHouse($f['houseId'], $this->houseUserFor($f['houseId'], 'ae_owner'))
+		), 'its remaining assignee still sees it');
+	}
+
+	/**
+	 * The raw-user-id references an account leaves in a house, next to the
+	 * same references of another member, which stay: a private definition it
+	 * created (in a room, assigned to the other member), one no room links, a
+	 * room task it took over, one it had before someone took it over, an
+	 * assignment it made and a weekly-planner consent naming it as a plain
+	 * subject.
+	 *
+	 * @return array<string, int>
+	 */
+	private function seedUserIdReferences(int $houseId, string $uid, string $other): array {
+		$roomId = $this->createRoom($houseId, $this->createFloor($houseId, 'AE Uid Floor', 9), 'AE Uid Room');
+		$refs = [
+			'ownTask' => $this->createTask($houseId, 'AE private of the erased'),
+			'unlinkedTask' => $this->createTask($houseId, 'AE unlinked private'),
+			'otherTask' => $this->createTask($houseId, 'AE private of the other'),
+		];
+		foreach (['ownTask' => $uid, 'unlinkedTask' => $uid, 'otherTask' => $other] as $key => $owner) {
+			$this->updateRow('chorestrike_tasks', $refs[$key], ['visibility_type' => 'private', 'owner_user_id' => $owner]);
+		}
+		$refs['taken'] = $this->assignTaskToRoom($refs['ownTask'], $roomId, $other);
+		$refs['lost'] = $this->assignTaskToRoom($refs['otherTask'], $roomId, $other);
+		$this->updateRow('chorestrike_room_tasks', $refs['taken'], ['claimed_by_user' => $uid, 'original_assignee' => $other]);
+		$this->updateRow('chorestrike_room_tasks', $refs['lost'], ['claimed_by_user' => $other, 'original_assignee' => $uid]);
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_task_assignees')
+			->set('assigned_by', $qb->createNamedParameter($uid))
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($refs['taken'], IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_task_assignees')
+			->set('assigned_by', $qb->createNamedParameter($other))
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($refs['lost'], IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		$refs['consent'] = $this->insertStoredAgreement(
+			$this->insertStoredOccurrence($houseId, $refs['taken'], '2026-09-21'),
+			'share',
+			null,
+			null,
+			['attestedBy' => 1, 'subjects' => [$uid, $other]]
+		);
+		return $refs;
+	}
+
+	/** @param array<string, int> $refs From {@see seedUserIdReferences()} */
+	private function assertUserIdReferencesForgotten(array $refs, string $other): void {
+		$owners = [];
+		foreach (['ownTask', 'unlinkedTask', 'otherTask'] as $key) {
+			$owners[$key] = $this->fetchColumn('chorestrike_tasks', $refs[$key], 'owner_user_id');
+		}
+		self::assertSame(['ownTask' => null, 'unlinkedTask' => null, 'otherTask' => $other], $owners, 'only the erased creator goes');
+		self::assertNull($this->fetchColumn('chorestrike_room_tasks', $refs['taken'], 'claimed_by_user'));
+		self::assertSame($other, $this->fetchColumn('chorestrike_room_tasks', $refs['taken'], 'original_assignee'));
+		self::assertSame($other, $this->fetchColumn('chorestrike_room_tasks', $refs['lost'], 'claimed_by_user'));
+		self::assertNull($this->fetchColumn('chorestrike_room_tasks', $refs['lost'], 'original_assignee'));
+		$assigners = [];
+		foreach (['taken', 'lost'] as $key) {
+			$result = $this->db->executeQuery('SELECT assigned_by FROM *PREFIX*chorestrike_task_assignees WHERE room_task_id = ?', [$refs[$key]]);
+			$assigners[$key] = $result->fetchOne();
+			$result->closeCursor();
+		}
+		self::assertSame(['taken' => null, 'lost' => $other], $assigners, 'only the erased assigner goes');
+		$result = $this->db->executeQuery('SELECT consent FROM *PREFIX*chorestrike_agreements WHERE id = ?', [$refs['consent']]);
+		$consent = json_decode((string)$result->fetchOne(), true);
+		$result->closeCursor();
+		self::assertSame([null, $other], $consent['subjects'] ?? null, 'the planner consent keeps its other subject');
+	}
+
+	/** @param array<string, mixed> $values */
+	private function updateRow(string $table, int $id, array $values): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update($table)->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+		foreach ($values as $column => $value) {
+			$qb->set($column, $qb->createNamedParameter($value));
+		}
+		$qb->executeStatement();
+	}
+
+	private function fetchColumn(string $table, int $id, string $column): mixed {
+		$qb = $this->db->getQueryBuilder();
+		$result = $qb->select($column)->from($table)
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->executeQuery();
+		$value = $result->fetchOne();
+		$result->closeCursor();
+		return $value;
+	}
+
+	/**
+	 * Decoded rule-default member snapshots of a room task's schedule revisions.
+	 *
+	 * @return list<mixed>
+	 */
+	private function fetchDefaultMembers(int $roomTaskId): array {
+		$qb = $this->db->getQueryBuilder();
+		$result = $qb->select('default_members')->from('chorestrike_schedule_revs')
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->executeQuery();
+		$snapshots = array_map(static fn (array $row): mixed => json_decode((string)$row['default_members'], true), $result->fetchAll());
+		$result->closeCursor();
+		return $snapshots;
+	}
+
+	/**
 	 * UndoAfterErasure_OwnerCorrectionSucceeds_NeverATypeError500
 	 *
 	 * WP3 §3.4: an erased completer (NULL actor) leaves the OWNER route —

@@ -265,43 +265,35 @@ verified against the local qualification run, Git and the pinned inventory.
 File and directory counts belong to one package, so before/after checks pin the
 installed and the new tree separately.
 
-**Expected data change after the first update that carries BUG-UX-014.** That
-update is the one to `0.8.0-alpha.5`. The fix itself needs no migration: inside
-the maintenance window only the step of the next paragraph changes data, so the
-before/after comparison expects exactly that difference. Afterwards the first
-`TimelineJob` pass aligns open occurrences with
-the current energy: `occurrences.energy` and `version` change on those rows and
-`agreements` gains one `energy` row each, without an actor. Each room task logs
-`timeline_energy_aligned` at info level. Completed and covered occurrences, work
-shares and ledger entries stay identical. It also ends one-time tasks that were
-edited before completion and are still active. The operator counts the affected
-open rows before the update and again after the first job pass, when the count
-must be 0 (check the table prefix of the instance):
+**Expected data change of the update to `0.8.0-alpha.5`.** It carries
+Releases A, B and C (CS-PLAN-090, CS-PLAN-091), and with them the first five
+migration steps on the retained baseline; the applied list grows from 26 to 31:
 
-```sql
-SELECT count(*) AS occurrences, count(DISTINCT o.room_task_id) AS tasks
-FROM oc_chorestrike_occurrences o
-JOIN oc_chorestrike_room_tasks t
-  ON t.id = o.room_task_id AND t.is_active AND t.deleted_at IS NULL
-JOIN oc_chorestrike_schedule_revs r
-  ON r.room_task_id = o.room_task_id AND r.closed_at IS NULL
-WHERE o.completion_id IS NULL
-  AND o.covered_by_completion_id IS NULL
-  AND o.energy <> r.energy;
-```
+| Step | Kind | Change |
+|------|------|--------|
+| `1034Date20261111000000` | data (CS-PLAN-090 D-090-16, D-090-20) | `member_prefs`: `animation_enabled` true in every row, `version` raised by one |
+| `1035Date20261117000000` | schema ([ADR-021](../adr/ADR-021-derived-due-windows.md)) | new columns: `room_tasks` (`anchor_on`, `cycle_key`, `postpone_count`, `postpone_days`, `cycle_version`, `sleeping_since`, `wake_on`), `tasks.fixed_month_day`, `completed_tasks` (`cycle_key`, `window_start_on`, `window_end_on`), `houses.cycles_from`, `house_users` (`streak_base`, `longest_streak_base`); new tables `cycles` and `cycle_progress` |
+| `1036Date20261117000000` | data: the cutover (ADR-021 decision 12) | fills only those new columns: `houses.cycles_from` is the house-local day of the update; `streak_base` and `longest_streak_base` copy the stored current and longest streak; `room_tasks.anchor_on` is set for room tasks with a live schedule (a fixed rule keeps its anchor; an after-completion or one-time task that was never validly completed starts from its earliest open occurrence, or from its revision's anchor without one, and stays empty once it was completed); `tasks.fixed_month_day` is set for fixed monthly definitions |
+| `1037Date20261118000000` | schema (ADR-021 decision 11) | new columns `house_users.coin_factor` (1), `completed_tasks.bonus_percent` and `coin_factors` (empty); new table `bonus_periods` |
+| `1038Date20261121000000` | schema ([ADR-022](../adr/ADR-022-live-suggestion.md) decision 3) | new table `suggestion_days` |
 
-**Expected data change of the update to `0.8.0-alpha.5`.** One migration step
-runs, the first on the retained baseline: `1034Date20261111000000`, data only
-(CS-PLAN-090 D-090-16, D-090-20). In `member_prefs` it sets `animation_enabled`
-to true in every row and raises `version` by one. The row count and every other
-column stay as they are, and a member without a row still has none; an empty
-table stays empty. Every other app table and the app config except
-`installed_version` are identical before and after, so the before/after
-comparison of the maintenance window expects exactly this one table to differ.
-The applied migration list grows from 26 to 27. The step also overrides a
-deliberate "off"; members can switch the animation off again in their settings,
-and the handoff says so. The operator runs this before and after (check the
-table prefix of the instance):
+Inside the maintenance window the before/after comparison therefore expects:
+the same row count in every existing table; four new, empty tables (34 app
+tables instead of 30); the change of step 1034 in `member_prefs`; in `houses`,
+`house_users`, `room_tasks`, `tasks` and `completed_tasks` the new columns with
+the values above and every other new column at its default (`postpone_count`,
+`postpone_days` and `cycle_version` 0, `coin_factor` 1, the rest empty), while
+every column the installed build had keeps its content; every other app table
+and the app config except `installed_version` identical.
+Stored occurrences, agreements, schedule revisions, occurrence members, sub-task
+ticks, completions, work shares, ledger entries, streaks and claimed weeks are
+not rewritten (D-091-04); they stay as read-only history. Step 1034 also
+overrides a deliberate "off" of the animation; members can switch it off again
+in their settings, and the handoff says so. Inside the maintenance window the
+operator runs the first query before and after the update, and the second one
+only after it, before cron and the writers resume: its columns do not exist
+before the update, and afterwards the rhythm job rewrites the current streaks
+(check the table prefix of the instance):
 
 ```sql
 SELECT count(*) AS total_rows,
@@ -310,12 +302,40 @@ SELECT count(*) AS total_rows,
 FROM oc_chorestrike_member_prefs;
 ```
 
+```sql
+SELECT (SELECT count(*) FROM oc_chorestrike_houses WHERE cycles_from IS NULL) AS houses_without_start,
+       (SELECT count(*) FROM oc_chorestrike_house_users
+         WHERE streak_base IS NULL OR streak_base <> current_streak
+            OR longest_streak_base IS NULL OR longest_streak_base <> longest_streak) AS streaks_not_carried;
+```
+
 Afterwards `total_rows` is unchanged, `animation_on` equals `total_rows` and
-`version_sum` is the earlier value plus `total_rows`. The P4 proof of the
+`version_sum` is the earlier value plus `total_rows`; the second query returns
+0 and 0.
+The P4 proof of the
 [preservation runner](testing.md#isolated-supported-database-matrix) runs this
-update from the installed build on all three providers. Once the deployment is
-verified, the step joins `tests/migrations/applied-migrations.json` with the
-SHA-256 from the operator's report and is immutable from then on.
+update from the installed build on all three providers and checks the cutover
+values against the stored rows (`tests/recovery/upgrade-cycles.php`). Once the
+deployment is verified, the five steps join
+`tests/migrations/applied-migrations.json` with the SHA-256 from the operator's
+report and are immutable from then on.
+
+**After the update.** The first `TimelineJob` pass realigns `room_tasks.next_due`
+and `ideal_due_date`, the projection the lists filter by, with the derived
+windows where they differ; on the update day it records no missed cycle,
+because the derived model starts that day (D-091-41). From then on completions
+write `cycles` rows, the first read of each house-local day writes one
+`suggestion_days` row (the job deletes old days), and postponing, sleeping, coin
+factors and bonus days write their own columns and rows.
+
+**BUG-UX-014 on this update.** The fix ships with it, but not as an alignment of
+stored occurrences: since step 1036 open work is the derived current window,
+which reads the definition's energy, rhythm and flex on every read (ADR-021).
+Stored open occurrences keep the energy they had as history; no job pass aligns
+them and no `timeline_energy_aligned` entry is logged, so the count of
+misaligned occurrences planned for this update no longer applies (CS-PLAN-091
+RF-091-15). The production smoke checks instead that a task whose energy was
+changed before the update shows the definition's energy on its row.
 
 #### Update to 0.8.0-alpha.4 (2026-11-05)
 

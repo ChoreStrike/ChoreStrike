@@ -1,10 +1,10 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; RF-091-14 implemented 2026-11-22 (D-091-144 to D-091-152); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-144 to D-091-152 accepted and D-091-153 to D-091-157 decided; next: the WP-G candidate)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; RF-091-14 implemented 2026-11-22 (D-091-144 to D-091-152); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-144 to D-091-152 accepted and D-091-153 to D-091-157 decided; the operator added a round before the candidate 2026-11-22 (D-091-158: BUG-UX-017, BUG-SEC-003, TECH-DEV-002 and RF-091-15), implemented 2026-11-22 (D-091-159 to D-091-163); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-159 to D-091-163 accepted and D-091-164 to D-091-167 decided; next: the WP-G candidate)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
-> **Related backlog items:** WP-B1 FEAT-UX-068 (new) · WP-B2 FEAT-UX-041, FEAT-UX-051 · WP-B3 FEAT-UX-050, FEAT-UX-052 · WP-B4 FEAT-UX-069 (new) · WP-B5 FEAT-UX-070 (new) · WP-B6 FEAT-UX-040, FEAT-UX-043 (form part) · WP-C FEAT-UX-059 · WP-G RELEASE-002 (`0.8.0-alpha.5` slice) · closes BUG-UX-015 · retires the route of the archived FEAT-UX-045 (D-091-19) · umbrella CONCEPT-002 · **not in scope:** the catalog content of FEAT-UX-043 (new sets, Putzteufel as a superset), Round 3 items, TECH-TEST-005 and CONCEPT-001 (CS-PLAN-080)
+> **Related backlog items:** WP-B1 FEAT-UX-068 (new) · WP-B2 FEAT-UX-041, FEAT-UX-051 · WP-B3 FEAT-UX-050, FEAT-UX-052 · WP-B4 FEAT-UX-069 (new) · WP-B5 FEAT-UX-070 (new) · WP-B6 FEAT-UX-040, FEAT-UX-043 (form part) · WP-C FEAT-UX-059 · before the candidate BUG-UX-017, BUG-SEC-003, TECH-DEV-002 (D-091-158) · WP-G RELEASE-002 (`0.8.0-alpha.5` slice) · closes BUG-UX-015 · retires the route of the archived FEAT-UX-045 (D-091-19) · umbrella CONCEPT-002 · **not in scope:** the catalog content of FEAT-UX-043 (new sets, Putzteufel as a superset), Round 3 items, TECH-TEST-005 and CONCEPT-001 (CS-PLAN-080)
 
 ## 1. Problem Summary
 
@@ -983,6 +983,100 @@ D-091-151 amended as below.
   (`useTaskFormState::subTasksSettled()`). A read that failed still leaves the sub-tasks
   as they are, with its retry. Completes D-091-93 and D-091-112.
 
+### A round before the candidate (operator, 2026-11-22)
+
+- **D-091-158 Three backlog items and RF-091-15 join before the WP-G candidate
+  (operator):** asked which open items are worth taking before the release, the operator
+  chose the recommended round: BUG-UX-017 (the digest switch named weekly), BUG-SEC-003
+  (erasure of a departed account) and TECH-DEV-002 (stale bundles on the development
+  stack, which the GUI review of the whole release needs) join the plan with RF-091-15,
+  under one interim Full review because the erasure touches privacy. BUG-I18N-002 and
+  BUG-API-002 stay in the backlog: the household's names and Nextcloud user IDs use the
+  plain alphabet only. FEAT-UX-071, the deferred add-ons, TECH-DEPS-001 with Dependabot
+  #13, the refactors CR-SVC-65 to CR-SVC-67 and the flaky-gate items stay out (scope and
+  release risk). BUG-UX-016 was checked against the WP-B6 form and stays in the backlog
+  (D-091-163).
+
+### Implementation decisions (D-091-158 round, for the interim review)
+
+Gates of the implementation round are recorded with its review.
+
+- **D-091-159 One wallet step for both erasure paths (BUG-SEC-003):** the membership loop
+  and the sweep of an already-departed account call the same
+  `AccountErasureService::eraseWalletUnderLock()`, so neither can drift again. Besides the
+  appointment members and both snapshot kinds the item named, the sweep had also kept the
+  account's personal absences (`deletePersonalByWalletId`), which a departure leaves in
+  place; they go too. The snapshots carried the raw Nextcloud user ID, so this was more
+  than a dangling wallet id. In both paths the wallet row is now deleted last, after every
+  wallet-keyed link, and the step takes the house from the wallet (review); otherwise the
+  membership path is unchanged.
+- **D-091-160 The development stack follows bundle builds through the theming cache
+  buster (TECH-DEV-002):** the test entrypoint sets the cache buster, part of every script
+  URL, to the build time of `js/chorestrike-main.js` before the stack reports ready, and a
+  background loop follows every later build within about two seconds. Every build rewrites
+  the entry bundle, because the chunk addresses it holds carry the build time; `npm run
+  watch` keeps its first build time, so a rebuild there that changed only a lazy chunk
+  still needs a forced reload (documented, not worth a second mechanism). Serving the
+  scripts with revalidation was rejected: Nextcloud's own `.htaccess` sets the immutable
+  header inside an `<If>` section, which Apache merges after any server-level setting.
+  Nextcloud's debug mode was rejected too: it drops the `?v=` suffix, but the `.htaccess`
+  then still caches scripts for half a year, and debug mode changes what the gates
+  qualify. A failed write keeps the build unseen, so the loop tries again, and each
+  followed build logs one line. The entrypoint is bind-mounted, so a running container
+  needs one restart, which re-runs the entrypoint and reseeds the stack; no image build.
+  Installs are unaffected.
+- **D-091-161 The second switch is called *Daily household updates* (BUG-UX-017):** it
+  names what is delivered: household updates counted in the one daily summary. No weekly
+  delivery is built. The German *Tägliche Haushaltsupdates* matches the notification's
+  *Haushaltsupdate*; the second switch's hint (*In deiner Tageszusammenfassung gezählt*)
+  and the user guide say that both switches feed one summary.
+  The guide's screenshot keeps the old label until WP-G recaptures the screenshots.
+- **D-091-162 The deployment guide describes the joint update (RF-091-15):** see the
+  finding in §9. BUG-UX-014 ships with `0.8.0-alpha.5` as a property of the derived
+  windows; its count before and after the deployment is replaced by a smoke check of a
+  task whose energy was changed before the update.
+- **D-091-163 BUG-UX-016 stays in the backlog:** the one form of WP-B6 opens only after
+  the task list loaded (*New Task* is disabled while it loads, a room's add button exists
+  only on loaded groups), and *Today* offers no creation. What remains is a narrow window:
+  a refresh read started by an earlier write that lands after a creation. The item says so.
+
+### Review decisions (interim Full review of the D-091-158 round, 2026-11-22)
+
+The security track found that an erasure left the erased account's raw Nextcloud user id
+in four more places; the operator chose the recommended option of each question.
+
+- **D-091-164 The agreement scrub also strips plain user-id subjects and pages
+  (operator: fix now):** the weekly planner's apply recorded its consent subjects as plain
+  user ids, which the scrub skipped. `AgreementMapper::anonymizeMemberSnapshots()` takes
+  the erased user id and nulls such a subject in place; it reads the house's agreements
+  through their occurrences in pages of 500 instead of one list of every occurrence id,
+  which logged an error from 1000 entries on and failed from 65535.
+- **D-091-165 Erasure clears the creator of definitions (operator):** `owner_user_id`,
+  which decides who sees a private task, kept the erased user id, so a recreated account
+  with the same id, invited again, would have seen the erased member's private tasks. The
+  user-id step clears it in the house and on definitions no room links; a private
+  definition stays private for its remaining assignees (ADR-010 note). An assignee who
+  saves it as private becomes its owner, as for any private task without one.
+- **D-091-166 Erasure clears the takeover names and the assigner (operator: fix now):**
+  `room_tasks.claimed_by_user` and `original_assignee`, which reach the clients, and
+  `task_assignees.assigned_by` are nulled where they hold the erased user id; no right
+  depends on them.
+- **D-091-167 What the review fixed without a question:** the user-id step
+  (`eraseUserReferencesUnderLock()`) runs for a membership and in the sweep, like the
+  wallet step; the provisioning tests share one helper for their command doubles instead
+  of four copies; a test keeps the stack running through a rebuild and proves the follow
+  loop writes the new build, failing without it; a failed write is retried and reported;
+  the erasure test uses typed mocks and compares the set of links, not their order; the
+  class docblock lists the two steps and no longer names the dropped
+  `combo_with_user_id`; the German hint reads *In deiner Tageszusammenfassung gezählt*;
+  the deployment guide names the defaults of the other new columns and the revision
+  anchor of the cutover, and runs the cutover query only after the update, before cron
+  and the writers resume; testing.md places the bundle section after the debugging
+  snippet, says that a restart reseeds the stack and that `watch` misses every changed
+  lazy chunk, and its P4 paragraph names all four new tables. Not taken: moving the
+  follow loop into a script of its own (it is ten lines, now tested inside the
+  entrypoint, and a separate script would need a mount of its own on every row).
+
 ### Positions for the Standard A review
 
 These settle the remaining open points of the concept. They bind once Standard A passes.
@@ -1172,7 +1266,9 @@ the qualification pipeline on the joint candidate; export of one selected smoke 
 deployment; verified record in the deployment guide, including `tests/migrations/applied-migrations.json`
 with `Version1034` and every new step; the dated changelog heading, roadmap and documentation
 map. These carry the three criteria CS-PLAN-090 handed over (D-090-81). Each step needs its own
-approval.
+approval. The handoff names the read-only checks of the update (step 1034, the cutover) and
+the smoke check that closes BUG-UX-014: a task whose energy was changed before the update
+shows the definition's energy (D-091-162).
 
 ## 4. Tests
 
@@ -1231,6 +1327,16 @@ approval.
   *Today*, the forgotten load and a failed suggestion read beyond the horizon; Jest for a
   form saved before its sub-tasks were read and for a list cached by another reader
   (D-091-157).
+- **The D-091-158 round:** `AccountErasureTest` (a departed account with stored
+  appointments, absences, snapshots and the raw-user-id references, all gone after
+  erasure; a member's erasure clearing the creator, the takeover names, the assigner and
+  the planner's plain consent subject, and a recreated same-id account not seeing the
+  private definition), `AccountErasureServiceTest` (both paths remove the same set of
+  wallet links and run the user-id step in their own house),
+  `TestEnvironmentProvisioningTest` (the cache buster set before readiness, left alone,
+  skipped without a bundle, followed through a rebuild while the stack runs, a failed
+  write reported), `NotificationPreferences.spec.js` (no switch or hint says weekly).
+  Each new regression test failed on the code before the round.
 - **WP-G:** the complete gates of the qualification: PHPUnit on PostgreSQL, MySQL, SQLite and the
   AIO row, both browser gates, package build and smoke, the preservation proofs.
 
@@ -1351,6 +1457,12 @@ new:      tests/unit/Service/SuggestionServiceTest.php (interim Full review of R
 modified: lib/Service/RecurrenceCalculator.php, src/components/Tasks/CalendarDayCell.vue,
           TaskForm.vue, src/composables/useTaskFormState.js (interim Full review of RF-091-14)
 renamed:  tests/unit/Service/RoomTaskServiceDailyTest.php to TodayRowsTest.php (RF-091-14)
+modified: lib/Service/AccountErasureService.php, docker/test-entrypoint.sh,
+          src/components/Settings/NotificationPreferences.vue, tests/fixtures/provision-command.sh,
+          docs/standards/ai/skills/docker-dev/SKILL.md (D-091-158)
+modified: lib/Db/AgreementMapper.php, TaskMapper.php, RoomTaskMapper.php,
+          TaskAssigneeMapper.php, docs/adr/ADR-010 (note), docs/concepts/task-model-and-sync.md
+          (interim Full review of the D-091-158 round)
 modified: l10n/de.json, l10n/en.json, l10n/templates/chorestrike.pot
 modified: tests named in section 4, tests/e2e/required-scenarios.json, scripts/run-e2e-gate.js
 modified: docs/concepts/*.md named in WP-0, docs/api/README.md, docs/api/notifications.md,
@@ -1371,6 +1483,7 @@ modified: appinfo/info.xml (unchanged version), CHANGELOG.md, README.md, docs/sc
 7. WP-B7; interim review.
 8. WP-C; the operator's GUI review of *Today* and the calendar; interim review.
 8a. RF-091-14 (structure and performance of WP-C); its interim review.
+8b. The round of D-091-158 (BUG-UX-017, BUG-SEC-003, TECH-DEV-002, RF-091-15); its interim review.
 9. WP-G candidate; the operator's GUI review of the whole release; final Full review.
 10. WP-G release steps, each with its own approval.
 
@@ -1715,6 +1828,19 @@ performance work it deferred (D-091-79).
   skips the histories of a task without cycles, and the sleep answer comes from
   `RoomTaskCommand`'s one fresh read. `CycleService` fell to 316 non-blank lines with
   `CycleProjection`, `CycleMisses` and `CycleSleep`.
+- [x] **RF-091-15 The deployment guide describes an update that no longer exists**
+  (WP-B1, documentation; found while preparing the WP-G candidate, 2026-11-22):
+  `deployment.md` expected one migration step for `0.8.0-alpha.5` (`Version1034`), 30 app
+  tables and a first `TimelineJob` pass that aligns the energy of open occurrences
+  (BUG-UX-014), with a count the operator runs until it reads 0. WP-B1 retired that
+  alignment with materialization, and the update carries five steps and four new tables;
+  the count would never reach 0, and the before/after comparison of the maintenance
+  window would have expected the wrong tables to differ. *Fixed 2026-11-22 (D-091-162):*
+  the guide names the five steps, what each changes, the four new empty tables, the
+  tables whose new columns differ while every installed column keeps its content, a
+  read-only check of the cutover beside the one of step 1034, what the first job pass
+  realigns, and BUG-UX-014 as a property of the derived windows with a smoke check
+  instead of the count.
 
 ## Review Outcome
 
@@ -1959,3 +2085,31 @@ SQLite, P2, P3 and P4 on PostgreSQL, each with a clean teardown; the full five-p
 browser gate without retries (`run-LPQb6u`: `chromium` 104, `chromium-serial-db` 193,
 `chromium-scheduling-owner` 33 and the phone projects 16 each), after a first run that
 failed on the form defect of D-091-157. Interim review: the plan stays in `active/`.
+
+**Interim Full review of the round before the candidate (D-091-158), 2026-11-22:
+`PASS-WITH-FIXES`.** Scope: the whole uncommitted round on `feat/simplified-core-bc` (base
+HEAD `8d6323c4`, 19 paths, diff fingerprint `0aa480d8…a807a62`), four reviewer tracks
+plus the main agent. Record:
+[CODE_REVIEW_2026-11-22](../../backlog/archive/CODE_REVIEW_2026-11-22.md#full-interim---cs-plan-091-the-round-before-the-candidate-d-091-158).
+
+The security track found four more places where an erasure kept the erased account's raw
+Nextcloud user id; the operator chose to fix all of them now: the planner's plain consent
+subjects, with the agreement scan paged instead of one list of every occurrence id
+(D-091-164); the creator of definitions, which decides who sees a private task, so a
+recreated account with the same id no longer sees the erased member's private tasks
+(D-091-165, ADR-010 note); the takeover names and the assigner (D-091-166). Both erasure
+paths run one user-id step and one wallet step under the house lock. Fixed without a
+question (D-091-167): a tested follow loop that retries a failed write and logs each build,
+one helper for the provisioning tests' command doubles, typed mocks comparing the set of
+links, the erasure docblock, the German hint, the open BUG-UX-014 smoke check, the plan's
+§4 entry and the deployment and testing documents. D-091-159 to D-091-163 accepted, with
+D-091-159 to D-091-161 corrected. Nothing routed.
+
+Gates: Jest 186 suites / 2667 tests with the zero-noise gate, ESLint, stylelint, build;
+PHPUnit unit 1897 and integration 731 on the canonical stack and on MariaDB, PostgreSQL,
+SQLite and the AIO row (matrix `r91d158`), no skips; php-cs-fixer, l10n (1296 keys),
+adapter, docs and backlog checks; proof P1 on PostgreSQL through the changed entrypoint in preservation mode (34 app table snapshots equal, clean teardown; no schema step, so P2 to P4 were not rerun); the full five-project browser gate
+without retries, green on its first run (`run-MfpeVt`: `chromium` 104,
+`chromium-serial-db` 193, `chromium-scheduling-owner` 33 and the phone projects 16 each).
+Each new regression test failed on the code before the round. Interim review: the plan
+stays in `active/` and continues with the WP-G candidate.

@@ -50,6 +50,12 @@ case "${0##*/}" in
                 if [ -n "${PROVISION_STATE:-}" ]; then : > "$PROVISION_STATE/upgraded"; fi
                 echo UPGRADE_RAN ;;
             *'config:system:set'*) echo CONFIG_MUTATION ;;
+            # TECH-DEV-002: the theming cache buster that follows the bundle build
+            # (the entrypoint discards the command's stdout).
+            *'config:app:get theming cachebuster'*) echo "${PROVISION_CACHE_BUSTER:-}" ;;
+            *'config:app:set theming cachebuster'*)
+                if [ "${PROVISION_CACHE_BUSTER:-}" = fail ]; then exit 1; fi
+                echo "CACHE_BUSTER_SET $*" >&2 ;;
             *'app:enable chorestrike'*)
                 if [ "$PROVISION_SCENARIO" = enable-failure ]; then echo ENABLE_FAILED; exit 1; fi ;;
             *app:list*)
@@ -62,6 +68,19 @@ case "${0##*/}" in
     bash)
         if [ "$PROVISION_SCENARIO" = seed-failure ]; then echo SEED_FAILED; exit 1; fi
         echo SEED_SUCCEEDED ;;
-    touch) echo READY_MARKER ;;
+    touch)
+        echo READY_MARKER
+        if [ -n "${PROVISION_STATE:-}" ]; then : > "$PROVISION_STATE/ready"; fi ;;
+    apache2-foreground)
+        # TECH-DEV-002: stay up through a rebuild after readiness, so the
+        # entrypoint's follow loop has a build to follow (real sleep/touch).
+        if [ -n "${PROVISION_REBUILT_AT:-}" ]; then
+            for _ in $(seq 1 100); do
+                if [ -e "$PROVISION_STATE/ready" ]; then break; fi
+                /usr/bin/sleep 0.1
+            done
+            /usr/bin/touch -d "@$PROVISION_REBUILT_AT" "$TEST_APP_BUNDLE"
+            /usr/bin/sleep 1
+        fi ;;
 esac
 exit 0

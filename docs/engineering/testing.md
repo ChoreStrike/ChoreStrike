@@ -645,11 +645,12 @@ before the update, and afterwards find the expected changes and nothing else:
 the 30 app tables of the source build and the app config (except
 `installed_version`) are compared row by row in every column that build had.
 The expected changes are the animation default (CS-PLAN-090) and the cutover
-to derived due windows (CS-PLAN-091 WP-B1, `upgrade-cycles.php`): two new,
-empty cycle tables, and the new columns holding exactly the cutover values
-worked out from the stored rows — the day of the update per house, the
-streak bases, the anchor of every room task by its rule and the day of a
-fixed monthly rule; completions carry no cycle facts and every other new
+to derived due windows (CS-PLAN-091 WP-B1, `upgrade-cycles.php`): four new,
+empty tables (cycles and their sub-task ticks, bonus periods and suggestion
+days; WP-B5 and WP-C added the latter two), and the new columns holding
+exactly the cutover values worked out from the stored rows — the day of the
+update per house, the streak bases, the anchor of every room task by its rule
+and the day of a fixed monthly rule; completions carry no cycle facts and every other new
 column its default. A second `occ upgrade` finds no work and changes nothing,
 the read-only schema parity cases pass on the upgraded database, and the
 candidate's services read the default, take a first save that switches the
@@ -742,6 +743,26 @@ docker exec -it chorestrike-test bash
 # Then inside the container:
 vendor/bin/phpunit --filter testCreate_ValidData_ReturnsCreatedTask
 ```
+
+#### Rebuilt Bundles and GUI Reviews (TECH-DEV-002)
+
+Nextcloud serves app scripts as immutable for half a year under a `?v=` made of
+the app version and the theming cache buster. The app version stays the same
+between builds on a development stack, so an open browser used to keep the old
+entry bundle and load the new lazy chunks next to it. The test entrypoint holds
+the theming cache buster at the build time of `js/chorestrike-main.js`: it sets
+it before the stack reports ready and follows every later build within about
+two seconds (`npm run build` or `npm run dev`), each with a line in the
+container log, so a normal reload fetches the new bundle. Under
+`npm run watch` the lazy chunks keep the address of the first build, so any
+rebuild that changes a lazy chunk needs a forced reload or a fresh
+`npm run dev`. The rule runs in the entrypoint: if the address does not follow
+a build, the container predates it, and `docker restart chorestrike-test`
+re-runs the entrypoint, which reprovisions and reseeds the disposable stack.
+For a GUI review: build, wait until the stack is healthy, seed, and check that
+the page's `chorestrike-main.js?v=` ends with the bundle's build time
+(`stat -c %Y js/chorestrike-main.js` in the container); no forced reload is
+needed. Installs are not affected: a release changes the app version.
 
 ## Platform-Specific Notes
 

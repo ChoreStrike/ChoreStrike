@@ -147,6 +147,7 @@ configuration path.
 | First build or test run hits a tool timeout | Expected (~3–5 min): raise shell timeout ≥ 300 s or run as background process, then retry |
 | `chorestrike-db` unhealthy | Inspect logs/health first; recreate volumes only with explicit ownership of that disposable environment, never as an unqualified shared-environment recovery step |
 | Tests fail with "connection refused" | Wait for DB healthcheck: `docker inspect --format='{{.State.Health.Status}}' chorestrike-db` |
+| An open browser shows the old bundle after a rebuild | The entrypoint holds the theming cache buster at the bundle's build time and follows each `npm run build`/`dev` (not lazy chunks under `watch`; [testing.md](../../../../engineering/testing.md#rebuilt-bundles-and-gui-reviews-tech-dev-002)). A container that predates the rule needs `docker restart chorestrike-test`, which re-runs the entrypoint and reseeds the stack's app data |
 | Stale vendor/ in container | Rebuild: `docker compose -f docker/compose.test.yml build --no-cache` |
 | A route added in `appinfo/routes.php` answers 404 on a running stack, or a removed one answers 500 | Nextcloud caches the routes in APCu while the app version stays the same: `docker exec chorestrike-test apache2ctl -k restart` (data and container stay); PHPUnit is not affected. A release bumps the version, so installs are not affected either |
 | A new `composer.json` autoload mapping is not found | `docker exec -w /var/www/html/custom_apps/chorestrike chorestrike-test composer dump-autoload` |
