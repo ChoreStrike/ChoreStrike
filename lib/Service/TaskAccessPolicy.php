@@ -99,15 +99,17 @@ class TaskAccessPolicy {
 	 * @param RoomTask[] $roomTasks The fetched room tasks
 	 * @param Task[] $tasksById Map of task ID → Task for the batch
 	 * @param HouseUser $viewer The acting user's house membership
+	 * @param array<int, string[]>|null $assigneesByRoomTask The assignees of the batch when the caller already read them
 	 * @return RoomTask[] Only the room tasks visible to the viewer, input order
 	 */
-	public function filterVisibleRoomTasks(array $roomTasks, array $tasksById, HouseUser $viewer): array {
+	public function filterVisibleRoomTasks(array $roomTasks, array $tasksById, HouseUser $viewer, ?array $assigneesByRoomTask = null): array {
 		if ($roomTasks === []) {
 			return [];
 		}
 
-		$roomTaskIds = array_map(static fn (RoomTask $roomTask): int => $roomTask->getId(), $roomTasks);
-		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks($roomTaskIds);
+		$assigneesByRoomTask ??= $this->taskAssigneeMapper->findUserIdsByRoomTasks(
+			array_map(static fn (RoomTask $roomTask): int => $roomTask->getId(), $roomTasks)
+		);
 
 		// Group room tasks by their task definition so a private task's
 		// creator sees ALL its room tasks through one visibility decision

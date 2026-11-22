@@ -77,6 +77,13 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// separate so Today items never bleed into the shared flat list
 		// consumed by TaskManager.
 		dailyTasks: [],
+		// The viewer's load of today as the daily read answers it
+		// (`budget`, `placed`, `doneMinor`); null until it is read and
+		// again once Today is left, so only a shown Today reads it again.
+		dailyLoad: null,
+		// The load's own read generation: a full daily read and a load
+		// refresh each take one, and only the newest may set the load.
+		dailyLoadSeq: 0,
 		// CS-PLAN-091 WP-B4: the bonus tasks of Today — never due, so apart
 		// from the daily list. Each row says whom it paid today.
 		bonusTasks: [],
@@ -1023,8 +1030,12 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			if (this.overdueLoaded) {
 				attempts.push(() => this.fetchOverdueTasks())
 			}
-			if (rows && this.dailyTasks.length > 0) {
+			// A shown Today holds its load, also while it has no rows.
+			if (rows && (this.dailyTasks.length > 0 || this.dailyLoad !== null)) {
 				attempts.push(() => this.fetchFilteredDailyTasks())
+			} else if (this.dailyLoad !== null) {
+				// A write changes what the plan booked on the viewer's day.
+				attempts.push(() => this.refreshDailyLoad())
 			}
 			// `bonus`: only whom the bonus rows paid today changed (a correction of a bonus entry).
 			if ((rows || bonus) && this.bonusLoaded) {
@@ -1068,9 +1079,40 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Fetch filtered daily tasks for the current user.
-		 * Child users receive a filtered view based on assignment
-		 * eligibility (D4), weekdayAvailability and maxDailyTasks.
+		 * Read the viewer's load of today again after a write. The daily
+		 * read answers it with the rows, and only the load is taken: the
+		 * rows keep their place — today's list is stable (ADR-022 decision
+		 * 3), and a completed row stays for its undo. Only the newest read
+		 * of the load lands, whether a full read or a refresh.
+		 */
+		async refreshDailyLoad() {
+			const seq = ++this.dailyLoadSeq
+			try {
+				const data = await api.get('/api/v1/room-tasks/filtered-daily')
+				if (seq === this.dailyLoadSeq) {
+					this.dailyLoad = data.load ?? null
+				}
+			} catch (error) {
+				logger.error('Failed to refresh the load of today', error, { store: 'roomTasks', action: 'refreshDailyLoad' })
+				throw error
+			}
+		},
+
+		/**
+		 * Forget the load when Today is left: a write in another view then
+		 * reads no daily load, and a read still in flight never sets it.
+		 */
+		forgetDailyLoad() {
+			this.dailyLoadSeq++
+			this.dailyLoad = null
+		},
+
+		/**
+		 * Fetch the daily read of Today for the current user: the rows and
+		 * the viewer's load of the day, which the server placed together
+		 * (ADR-022). Child users receive a filtered view based on
+		 * assignment eligibility (D4), weekdayAvailability and
+		 * maxDailyTasks.
 		 * @return {Promise<Array>} Filtered daily tasks with task and room details.
 		 */
 		async fetchFilteredDailyTasks() {
@@ -1080,6 +1122,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			// CS-PLAN-065 §3.4: only the latest request may land — a
 			// superseded in-flight read must not overwrite a newer one.
 			const seq = ++this.dailyRequestSeq
+			const loadSeq = ++this.dailyLoadSeq
 
 			try {
 				const data = await api.get('/api/v1/room-tasks/filtered-daily')
@@ -1092,8 +1135,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				// Dedicated slice: the shared `roomTasks` list must stay
 				// scoped to room fetches, or Today items bleed into the
 				// TaskManager flat list.
-				this.dailyTasks = data
-				return data
+				this.dailyTasks = data.rows
+				if (loadSeq === this.dailyLoadSeq) {
+					this.dailyLoad = data.load ?? null
+				}
+				return this.dailyTasks
 			} catch (error) {
 				if (seq === this.dailyRequestSeq) {
 					this.error = error.message
@@ -1175,6 +1221,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 			this.rangeTasks = { scheduled: [], completed: [], from: null, to: null }
 			this.dailyTasks = []
+			this.dailyLoad = null
 			this.bonusTasks = []
 			this.bonusLoaded = false
 			this.dueTodayTasks = []
@@ -1199,6 +1246,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			// Invalidate in-flight reads so a stale response cannot land
 			// after the reset (house/user change).
 			this.dailyRequestSeq++
+			this.dailyLoadSeq++
 			this.bonusRequestSeq++
 			this.rangeRequestSeq++
 			this.dueTodayRequestSeq++

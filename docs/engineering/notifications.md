@@ -49,7 +49,17 @@ anything external. There are no per-event bells.
      dispatch-time relevance (task content computed now from the live
      suggestion, ADR-022 decision 7: what `SuggestionService` places on the
      member for today plus their overdue tasks, none on a free day or
-     during an absence; org rows from the queue). The digest can be the
+     during an absence — `SuggestionView::countFor()` gates both from the
+     budgets of the plan; org rows from the queue). The suggestion of the
+     house is computed once per pass, by the first slot that needs it under
+     its own house lock, and every summary of the pass counts that plan; the
+     visibility of a takeover's task is asked of the same read. The pass
+     shares the plan only once the transaction that built it committed, so a
+     rolled-back or retried attempt builds it again. A later summary of the
+     pass therefore counts absences, free days, assignees and visibility as
+     read seconds earlier, as if it had been dispatched with the first one
+     (D-091-153); a write that lands during the pass counts from the next
+     summary on. The digest can be the
      day's first read of the suggestion and then stores today's list
      (ADR-022 decision 3). Empty content → `skipped` — no empty summary is
      ever sent.

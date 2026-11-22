@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals'
-import { buildTodaySections, isSuggestedToday, openEnergy, viewerFilters } from '../../../src/utils/todaySections.js'
+import { buildTodaySections, isSuggestedToday, viewerFilters } from '../../../src/utils/todaySections.js'
 
 const dayKey = (days) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
 /** The cycle block of a row of Today: planned `planned` days from today, the window ends `end` days from today. */
@@ -169,22 +169,6 @@ describe('todaySections (CS-PLAN-090 WP-B, CS-PLAN-091 WP-C)', () => {
 			})
 
 			expect(ids(sections.due)).toEqual([2, 1, 4])
-		})
-	})
-
-	describe('openEnergy', () => {
-		it('adds up the active suggested and overdue rows with the energy of their definition', () => {
-			const sections = {
-				due: [row(1), row(2, { isActive: false }), { ...row(3), task: { id: 3, name: 'Task 3', energyCost: 5 } }],
-				overdue: [row(4)],
-				possible: [row(5)],
-			}
-
-			expect(openEnergy(sections)).toBe(9)
-		})
-
-		it('is zero for a free day', () => {
-			expect(openEnergy({ due: [], overdue: [], possible: [] })).toBe(0)
 		})
 	})
 })

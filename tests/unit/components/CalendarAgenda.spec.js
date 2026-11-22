@@ -143,7 +143,10 @@ describe('CalendarAgenda (CS-PLAN-091 WP-C)', () => {
 	it('explains the days beyond the suggestion only where the week holds one', () => {
 		expect(mountAgenda([day()]).find('[data-testid="calendar-agenda-beyond"]').exists()).toBe(false)
 
-		const note = mountAgenda([day(), day({ day: '2026-12-09', beyond: true })]).get('[data-testid="calendar-agenda-beyond"]')
-		expect(note.text()).toContain('14 days ahead')
+		// The number of days is the server's (RF-091-14), never a copy in the client.
+		const beyond = [day(), day({ day: '2026-12-09', beyond: true })]
+		const note = mountAgenda(beyond, { horizonDays: 10 }).get('[data-testid="calendar-agenda-beyond"]')
+		expect(note.text()).toContain('10 days ahead')
+		expect(mountAgenda(beyond).find('[data-testid="calendar-agenda-beyond"]').exists()).toBe(false)
 	})
 })

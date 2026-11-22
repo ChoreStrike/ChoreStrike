@@ -21,7 +21,7 @@
 
 <script>
 import { useHouseStore } from '../../store/house.js'
-import { todayKeyInZone } from '../../utils/dateKeys.js'
+import { formatShortDayKey, todayKeyInZone } from '../../utils/dateKeys.js'
 
 export default {
 	name: 'CalendarDayCell',
@@ -46,9 +46,7 @@ export default {
 		},
 
 		dayLabel() {
-			const [y, m, d] = this.day.split('-').map(Number)
-			const date = new Date(y, m - 1, d)
-			return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })
+			return formatShortDayKey(this.day)
 		},
 
 		isToday() {

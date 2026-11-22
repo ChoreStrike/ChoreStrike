@@ -318,20 +318,7 @@ class SchedulingService {
 	 * @throws \InvalidArgumentException When an energy value is not an integer in 1-20 or the limit is not null/1-100
 	 */
 	private function prepareMemberUpdates(HouseUser $user, array $updates): array {
-		$preferences = $user->getSchedulingPreferences();
-
-		if (isset($updates['energyBudget'])) {
-			foreach ($updates['energyBudget'] as $day => $energy) {
-				$this->assertValidEnergyBudget($energy);
-				$preferences['energyBudget'][strtolower((string)$day)] = $energy;
-			}
-		}
-
-		if (isset($updates['weekdayAvailability'])) {
-			foreach ($updates['weekdayAvailability'] as $day => $available) {
-				$preferences['weekdayAvailability'][strtolower((string)$day)] = (bool)$available;
-			}
-		}
+		$preferences = $this->mergeWeekdaySections($user->getSchedulingPreferences() ?? [], $updates);
 
 		if (array_key_exists('preferredWeekdays', $updates)) {
 			$preferences['preferredWeekdays'] = $this->normalizePreferredWeekdays($updates['preferredWeekdays']);
@@ -348,6 +335,26 @@ class SchedulingService {
 			}
 		}
 
+		return $preferences;
+	}
+
+	/**
+	 * Merge the per-weekday sections of an owner update into a preference
+	 * set, day by day: a day the update does not name keeps its value.
+	 *
+	 * @param array $preferences The stored preferences
+	 * @param array $updates Updates that may carry `energyBudget` and `weekdayAvailability`
+	 * @return array The preferences with both sections merged
+	 * @throws \InvalidArgumentException When an energy value is not an integer in 1-20
+	 */
+	private function mergeWeekdaySections(array $preferences, array $updates): array {
+		foreach ($updates['energyBudget'] ?? [] as $day => $energy) {
+			$this->assertValidEnergyBudget($energy);
+			$preferences['energyBudget'][strtolower((string)$day)] = $energy;
+		}
+		foreach ($updates['weekdayAvailability'] ?? [] as $day => $available) {
+			$preferences['weekdayAvailability'][strtolower((string)$day)] = (bool)$available;
+		}
 		return $preferences;
 	}
 

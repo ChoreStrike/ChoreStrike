@@ -10,7 +10,6 @@ namespace OCA\ChoreStrike\Tests\Integration\Service;
 
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\TaskCreationService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
@@ -30,7 +29,6 @@ class ChildDailyLimitTest extends IntegrationTestCase {
 	private const KID = 'cdl_kid';
 
 	private TaskCreationService $creation;
-	private RoomTaskReadService $readService;
 	private HouseUserMapper $houseUserMapper;
 	private int $houseId;
 	private int $roomId;
@@ -39,7 +37,6 @@ class ChildDailyLimitTest extends IntegrationTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->creation = \OC::$server->get(TaskCreationService::class);
-		$this->readService = \OC::$server->get(RoomTaskReadService::class);
 		$this->houseUserMapper = \OC::$server->get(HouseUserMapper::class);
 
 		$this->houseId = $this->createHouse(self::OWNER, 'Limit House');
@@ -126,7 +123,7 @@ class ChildDailyLimitTest extends IntegrationTestCase {
 	 */
 	private function myDayNames(bool $suggestedOnly = false): array {
 		$kid = $this->houseUserMapper->findByHouseAndUser($this->houseId, self::KID);
-		$rows = $this->readService->getFilteredDailyTasksForUser($this->houseId, $kid, new \DateTime());
+		$rows = $this->todayRowsOf($this->houseId, $kid);
 		if ($suggestedOnly) {
 			$rows = array_values(array_filter($rows, static fn (array $row): bool => isset($row['suggestedFor'])));
 		}

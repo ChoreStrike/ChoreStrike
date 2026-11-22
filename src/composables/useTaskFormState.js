@@ -58,24 +58,49 @@ export function useTaskFormState(item, prefill) {
 
 	const valid = computed(() => details.name.trim() !== '' && roomId.value !== null && rhythmProblem(rhythm.value, storedRhythm) === null)
 
+	// The read of the sub-tasks while it runs: a save waits for it.
+	let pendingRead = null
+
 	/**
-	 * Load the sub-tasks of the task being edited, unless they are cached.
-	 * Sub-tasks added while they load stay after the loaded ones; a failed
-	 * read shows its retry instead of the list (the store logs it).
+	 * Load the sub-tasks of the task being edited, unless the form knows
+	 * them; another reader (the opened row) may have cached them since the
+	 * form opened. Sub-tasks added while they load stay after the loaded
+	 * ones; a failed read shows its retry instead of the list (the store
+	 * logs it).
 	 * @return {Promise<void>}
 	 */
 	async function loadSubTasks() {
-		if (!task || checklistStore.items[task.id]) {
+		if (!task || subTasksKnown) {
 			return
 		}
+		pendingRead ??= readSubTasks()
+		try {
+			await pendingRead
+		} finally {
+			pendingRead = null
+		}
+	}
+
+	async function readSubTasks() {
 		subTasksFailed.value = false
 		try {
-			const items = await checklistStore.fetchTaskItems(task.id)
+			const items = checklistStore.items[task.id] ?? await checklistStore.fetchTaskItems(task.id)
 			const added = subTasks.value.filter((entry) => entry.id === undefined)
 			subTasks.value = [...items.map((entry) => ({ id: entry.id, label: entry.label, key: `item-${entry.id}` })), ...added]
 			subTasksKnown = true
 		} catch {
 			subTasksFailed.value = true
+		}
+	}
+
+	/**
+	 * Wait for a read of the sub-tasks that is still under way, so a save
+	 * sends the sub-tasks added meanwhile instead of leaving them unknown.
+	 * @return {Promise<void>}
+	 */
+	async function subTasksSettled() {
+		if (pendingRead) {
+			await pendingRead
 		}
 	}
 
@@ -127,6 +152,7 @@ export function useTaskFormState(item, prefill) {
 		sharedRooms,
 		valid,
 		loadSubTasks,
+		subTasksSettled,
 		fill,
 		fields,
 	}

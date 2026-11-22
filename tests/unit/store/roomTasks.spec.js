@@ -149,7 +149,7 @@ describe('RoomTasks Store', () => {
 			it('the child-limited daily list can never overwrite count sources', async () => {
 				store.dueTodayTasks = [{ roomTask: { id: 1, isActive: true } }]
 				store.overdueTasks = [{ roomTask: { id: 2, isActive: true } }]
-				api.get.mockResolvedValue([{ roomTask: { id: 1, isActive: true } }])
+				api.get.mockResolvedValue({ rows: [{ roomTask: { id: 1, isActive: true } }], load: null })
 
 				await store.fetchFilteredDailyTasks()
 
@@ -535,7 +535,7 @@ describe('RoomTasks Store', () => {
 				conflict.status = 409
 				api.post.mockRejectedValueOnce(conflict)
 				api.get.mockImplementation((path) => Promise.resolve(path.endsWith('filtered-daily')
-					? [{ roomTask: { id: 1 }, task: { id: 5 }, cycle: cycleFixture({ expectedVersion: 1 }) }]
+					? { rows: [{ roomTask: { id: 1 }, task: { id: 5 }, cycle: cycleFixture({ expectedVersion: 1 }) }], load: null }
 					: [{ id: 1, roomId: 12, isActive: true, cycle: cycleFixture({ expectedVersion: 1 }) }]))
 
 				await expect(store.completeRoomTask(1)).rejects.toBe(conflict)
@@ -1051,7 +1051,7 @@ describe('RoomTasks Store', () => {
 				{ roomTask: { id: 1, roomId: 10 }, task: { id: 1, name: 'Task 1' }, room: { id: 10, name: 'Kitchen' } },
 				{ roomTask: { id: 2, roomId: 10 }, task: { id: 2, name: 'Task 2' }, room: { id: 10, name: 'Kitchen' } },
 			]
-			api.get.mockResolvedValue(mockTasks)
+			api.get.mockResolvedValue({ rows: mockTasks, load: null })
 
 			const result = await store.fetchFilteredDailyTasks()
 
@@ -1060,12 +1060,30 @@ describe('RoomTasks Store', () => {
 			expect(store.dailyTasks[0].roomTask.id).toBe(1)
 		})
 
+		it('keeps the viewer\'s load of the day that the read answers with its rows (RF-091-14)', async () => {
+			const load = { userId: 'mom', day: '2026-11-25', budget: 6, placed: 4, doneMinor: 150, preferred: false, absent: false }
+			expect(store.dailyLoad).toBeNull()
+			api.get.mockResolvedValueOnce({ rows: [], load })
+
+			await store.fetchFilteredDailyTasks()
+			expect(store.dailyLoad).toEqual(load)
+
+			// A viewer the plan does not know has none; a reset forgets it.
+			api.get.mockResolvedValueOnce({ rows: [], load: null })
+			await store.fetchFilteredDailyTasks()
+			expect(store.dailyLoad).toBeNull()
+
+			store.dailyLoad = load
+			store.reset()
+			expect(store.dailyLoad).toBeNull()
+		})
+
 		it('keeps the shared roomTasks list untouched (no Today bleed)', async () => {
 			store.roomTasks = [{ id: 5, name: 'Room task' }]
 			const mockTasks = [
 				{ roomTask: { id: 1, name: 'Today task' }, task: { id: 1 }, room: { id: 10 } },
 			]
-			api.get.mockResolvedValue(mockTasks)
+			api.get.mockResolvedValue({ rows: mockTasks, load: null })
 
 			await store.fetchFilteredDailyTasks()
 
@@ -1082,21 +1100,22 @@ describe('RoomTasks Store', () => {
 		it('a superseded older daily response never overwrites the newer result (§3.4)', async () => {
 			let resolveFirst
 			api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
-			api.get.mockResolvedValueOnce([{ roomTask: { id: 2 } }])
+			api.get.mockResolvedValueOnce({ rows: [{ roomTask: { id: 2 } }], load: { placed: 2, budget: 6 } })
 
 			const first = store.fetchFilteredDailyTasks()
 			await store.fetchFilteredDailyTasks()
-			resolveFirst([{ roomTask: { id: 1 } }])
+			resolveFirst({ rows: [{ roomTask: { id: 1 } }], load: { placed: 9, budget: 6 } })
 			await first
 
 			expect(store.dailyTasks).toEqual([{ roomTask: { id: 2 } }])
+			expect(store.dailyLoad.placed).toBe(2)
 		})
 
 		it('embedded assignees ride the payload (D4: My Day keeps canonical sets)', async () => {
 			const mockTasks = [
 				{ roomTask: { id: 1 }, task: { id: 1 }, room: { id: 10 }, assignees: ['dad'] },
 			]
-			api.get.mockResolvedValue(mockTasks)
+			api.get.mockResolvedValue({ rows: mockTasks, load: null })
 
 			await store.fetchFilteredDailyTasks()
 
@@ -1169,7 +1188,7 @@ describe('RoomTasks Store', () => {
 			store.dailyTasks = [{ roomTask: { id: 2, roomId: 13 }, task: { id: 5, name: 'Dishes' }, cycle: cycleFixture({ expectedVersion: 1 }) }]
 			// An all-rooms rule edit moved the cycle of the other room too.
 			api.get.mockImplementation((path) => Promise.resolve(path.endsWith('filtered-daily')
-				? [{ roomTask: { id: 2, roomId: 13 }, task: { id: 5, name: 'Wash up' }, cycle: cycleFixture({ expectedVersion: 2 }) }]
+				? { rows: [{ roomTask: { id: 2, roomId: 13 }, task: { id: 5, name: 'Wash up' }, cycle: cycleFixture({ expectedVersion: 2 }) }], load: null }
 				: (path.endsWith('/room-tasks')
 					? [1, 2].map((id) => ({ id, roomId: 11 + id, taskId: 5, assignees: [], cycle: cycleFixture({ expectedVersion: 2 }) }))
 					: [])))
@@ -1537,10 +1556,98 @@ describe('RoomTasks Store', () => {
 				expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks/due-today', {})
 			})
 
+			it('reads the load of Today again after a write and leaves its rows in place (RF-091-14)', async () => {
+				const rows = [{ roomTask: { id: 1, isActive: false } }]
+				store.dailyTasks = rows
+				store.dailyLoad = { budget: 6, placed: 5, doneMinor: 0 }
+				// The server no longer lists the finished row; the list keeps it for its undo.
+				api.get.mockResolvedValue({ rows: [], load: { budget: 6, placed: 2, doneMinor: 300 } })
+
+				const ok = await store.refreshDerivedProjections()
+
+				expect(ok).toBe(true)
+				expect(api.get.mock.calls).toEqual([['/api/v1/room-tasks/filtered-daily']])
+				expect(store.dailyLoad).toEqual({ budget: 6, placed: 2, doneMinor: 300 })
+				expect(store.dailyTasks).toEqual(rows)
+			})
+
+			it('reads no load while Today has none, and one daily read serves rows and load', async () => {
+				store.dailyTasks = [{ roomTask: { id: 1 } }]
+				api.get.mockResolvedValue({ rows: [], load: { budget: 6, placed: 0, doneMinor: 0 } })
+
+				await store.refreshDerivedProjections()
+				expect(api.get).not.toHaveBeenCalled()
+
+				store.dailyLoad = { budget: 6, placed: 5, doneMinor: 0 }
+				await store.refreshDerivedProjections({ rows: true })
+				expect(api.get.mock.calls).toEqual([['/api/v1/room-tasks/filtered-daily']])
+				expect(store.dailyTasks).toEqual([])
+			})
+
+			it('drops a load that a full daily read overtook, and reports a failed load read', async () => {
+				store.dailyLoad = { budget: 6, placed: 5, doneMinor: 0 }
+				let resolveLoad
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveLoad = resolve }))
+				api.get.mockResolvedValueOnce({ rows: [], load: { budget: 6, placed: 1, doneMinor: 0 } })
+
+				const refresh = store.refreshDerivedProjections()
+				await store.fetchFilteredDailyTasks()
+				resolveLoad({ rows: [], load: { budget: 6, placed: 9, doneMinor: 0 } })
+				await refresh
+				expect(store.dailyLoad.placed).toBe(1)
+
+				api.get.mockRejectedValueOnce(new Error('offline'))
+				expect(await store.refreshDerivedProjections()).toBe(false)
+				expect(store.refreshFailed).toBe(true)
+				expect(store.dailyLoad.placed).toBe(1)
+			})
+
+			it('keeps a refreshed load that an older full daily read answers after (RF-091-14 review)', async () => {
+				let resolveFull
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFull = resolve }))
+				api.get.mockResolvedValueOnce({ rows: [], load: { budget: 6, placed: 1, doneMinor: 300 } })
+
+				const full = store.fetchFilteredDailyTasks()
+				store.dailyLoad = { budget: 6, placed: 4, doneMinor: 0 }
+				await store.refreshDerivedProjections()
+				resolveFull({ rows: [{ roomTask: { id: 1 } }], load: { budget: 6, placed: 4, doneMinor: 0 } })
+				await full
+
+				expect(store.dailyTasks).toEqual([{ roomTask: { id: 1 } }])
+				expect(store.dailyLoad.placed).toBe(1)
+			})
+
+			it('takes the requested rows of a shown Today that has none (RF-091-14 review)', async () => {
+				store.dailyTasks = []
+				store.dailyLoad = { budget: 6, placed: 0, doneMinor: 0 }
+				api.get.mockResolvedValue({ rows: [{ roomTask: { id: 7 } }], load: { budget: 6, placed: 2, doneMinor: 0 } })
+
+				await store.refreshDerivedProjections({ rows: true })
+
+				expect(api.get.mock.calls).toEqual([['/api/v1/room-tasks/filtered-daily']])
+				expect(store.dailyTasks).toEqual([{ roomTask: { id: 7 } }])
+				expect(store.dailyLoad.placed).toBe(2)
+			})
+
+			it('reads no load once Today is left, and a read in flight does not set it (RF-091-14 review)', async () => {
+				let resolveLoad
+				store.dailyLoad = { budget: 6, placed: 4, doneMinor: 0 }
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveLoad = resolve }))
+
+				const refresh = store.refreshDerivedProjections()
+				store.forgetDailyLoad()
+				resolveLoad({ rows: [], load: { budget: 6, placed: 1, doneMinor: 0 } })
+				await refresh
+				expect(store.dailyLoad).toBeNull()
+
+				await store.refreshDerivedProjections()
+				expect(api.get).toHaveBeenCalledTimes(1)
+			})
+
 			it('rereads the loaded row lists on request, and leaves them alone otherwise', async () => {
 				store.houseLoaded = true
 				store.dailyTasks = [{ roomTask: { id: 1 } }]
-				api.get.mockResolvedValue([])
+				api.get.mockImplementation((path) => Promise.resolve(path.endsWith('filtered-daily') ? { rows: [], load: null } : []))
 
 				await store.refreshDerivedProjections()
 				expect(api.get).not.toHaveBeenCalled()

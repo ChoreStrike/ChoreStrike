@@ -386,6 +386,57 @@ class WindowServiceTest extends TestCase {
 	}
 
 	/**
+	 * ADR-022 decision 2: the cycle the suggestion places after one. A
+	 * fixed rule continues on its next rule day whatever day the work is
+	 * done; an after-completion rule hangs the next window on that day.
+	 *
+	 * @dataProvider successors
+	 */
+	public function testSuccessorOf_FollowsTheRule(array $rule, string $anchor, string $centre, string $doneOn, ?array $expected): void {
+		$next = $this->windows->successorOf($this->roomTask($anchor), $this->task($rule), new \DateTimeZone(self::ZONE));
+
+		$cycle = $next(new CurrentCycle('d' . $centre, $centre, $centre, $centre), $doneOn);
+
+		$this->assertSame($expected, $cycle === null ? null : [$cycle->key, $cycle->startOn, $cycle->endOn]);
+	}
+
+	public static function successors(): array {
+		return [
+			// 2026-11-16 is a Monday.
+			'after completion: a week after the day it is done' => [['flex' => 1], '2026-11-16', '2026-11-16', '2026-11-18', ['p2026-11-25', '2026-11-24', '2026-11-26']],
+			'fixed weekday: the next rule day, also when done late' => [
+				['mode' => Task::SCHEDULING_STATIC, 'weekdays' => ['monday'], 'flex' => 1], '2026-11-16', '2026-11-16', '2026-11-19', ['d2026-11-23', '2026-11-22', '2026-11-24'],
+			],
+			'fortnightly: the parity of the anchor' => [
+				['mode' => Task::SCHEDULING_STATIC, 'value' => 2, 'weekdays' => ['monday']], '2026-11-02', '2026-11-16', '2026-11-16', ['d2026-11-30', '2026-11-30', '2026-11-30'],
+			],
+			'fixed day of month: clamped into a short month' => [
+				['mode' => Task::SCHEDULING_STATIC, 'type' => 'monthly', 'monthDay' => 31], '2026-08-31', '2026-10-31', '2026-10-31', ['d2026-11-30', '2026-11-30', '2026-11-30'],
+			],
+			'fixed day of month: its own day again after a clamped month' => [
+				['mode' => Task::SCHEDULING_STATIC, 'type' => 'monthly', 'monthDay' => 31], '2026-08-31', '2026-11-30', '2026-11-30', ['d2026-12-31', '2026-12-31', '2026-12-31'],
+			],
+			'a bounded rule that ended' => [['activeUntil' => '2026-11-20'], '2026-11-16', '2026-11-16', '2026-11-16', null],
+			'a one-time task' => [['recurrence' => Task::RECURRENCE_ONCE], '2026-11-16', '2026-11-16', '2026-11-16', null],
+			'a bonus task' => [['bonus' => true], '2026-11-16', '2026-11-16', '2026-11-16', null],
+		];
+	}
+
+	/** The answer serves every cycle of the room task: the suggestion asks it once per placed cycle. */
+	public function testSuccessorOf_OneAnswerWalksTheHorizon(): void {
+		$next = $this->windows->successorOf($this->roomTask('2026-11-16'), $this->task(['type' => 'daily']), new \DateTimeZone(self::ZONE));
+		$cycle = new CurrentCycle('d2026-11-16', '2026-11-16', '2026-11-16', '2026-11-16');
+
+		$centres = [];
+		for ($day = 0; $day < 3; $day++) {
+			$cycle = $next($cycle, $cycle->centreOn);
+			$centres[] = $cycle->centreOn;
+		}
+
+		$this->assertSame(['2026-11-17', '2026-11-18', '2026-11-19'], $centres);
+	}
+
+	/**
 	 * Decision 7, D-091-28: a woken task hangs on its wake day; a fixed
 	 * rule continues on its next rule day and keeps its parity.
 	 *

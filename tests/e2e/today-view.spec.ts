@@ -344,9 +344,17 @@ test.describe('Release: the live suggestion on Today and in the calendar', () =>
 
 			const firstRead = page.waitForResponse((response) => response.url().includes('/room-tasks/filtered-daily'))
 			await openToday(page)
-			const rows = (await (await firstRead).json()).data as Array<{ roomTask: { id: number }, openWindow: boolean, suggestedFor?: string[] }>
+			const daily = (await (await firstRead).json()).data as {
+				rows: Array<{ roomTask: { id: number }, openWindow: boolean, suggestedFor?: string[] }>
+				load: { budget: number, placed: number }
+			}
+			const rows = daily.rows
 			expect(rows.find((row) => row.roomTask.id === dishes.id)).toMatchObject({ openWindow: false, suggestedFor: ['mom'] })
 			expect(rows.find((row) => row.roomTask.id === later)).toMatchObject({ openWindow: true })
+			// The status tile shows the load the server booked with these rows (RF-091-14).
+			expect(daily.load.budget).toBe(6)
+			expect(daily.load.placed).toBeGreaterThanOrEqual(3)
+			await expect(page.getByTestId('today-energy').locator('.status-value')).toHaveText(`${daily.load.placed} of 6`, { timeout: 15000 })
 			await expect(page.getByTestId(`today-complete-button-${dishes.id}`)).toBeVisible({ timeout: 20000 })
 			await expect(page.getByTestId('today-section-open-window')).toBeVisible()
 			await expect(page.getByTestId(`today-complete-button-${later}`)).toHaveCount(0)

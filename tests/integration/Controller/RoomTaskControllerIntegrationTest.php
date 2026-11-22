@@ -57,7 +57,8 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 			$this->authService,
 			$l10n,
 			new CalendarService(),
-			\OC::$server->get(AppLogger::class)
+			\OC::$server->get(AppLogger::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\TodayRows::class),
 		);
 	}
 

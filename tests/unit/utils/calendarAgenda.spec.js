@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals'
-import { buildAgendaDays, SUGGESTION_HORIZON_DAYS } from '../../../src/utils/calendarAgenda.js'
+import { buildAgendaDays } from '../../../src/utils/calendarAgenda.js'
 
 const TODAY = '2026-11-25' // A Wednesday
 const WEEK = ['2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26', '2026-11-27', '2026-11-28', '2026-11-29']
@@ -32,13 +32,15 @@ const suggestion = (over = {}) => ({
 		'2026-11-25': { mom: { userId: 'mom', day: '2026-11-25', budget: 6, placed: 8, preferred: false, absent: false } },
 		'2026-11-26': { mom: { userId: 'mom', day: '2026-11-26', budget: 6, placed: 2, preferred: true, absent: false } },
 	},
+	// The server names the horizon with every suggestion.
+	horizonDays: 14,
+	horizonEndOn: '2026-12-08',
 	...over,
 })
 
 const build = (input = {}) => buildAgendaDays({
 	days: WEEK,
 	todayKey: TODAY,
-	horizonEndKey: '2026-12-08',
 	suggestion: suggestion(),
 	rangeByDay: {},
 	userId: 'mom',
@@ -49,8 +51,26 @@ const byDay = (days) => Object.fromEntries(days.map((day) => [day.day, day]))
 const names = (rows) => rows.map((row) => row.name)
 
 describe('calendarAgenda (CS-PLAN-091 WP-C)', () => {
-	it('looks as far ahead as the server\'s suggestion', () => {
-		expect(SUGGESTION_HORIZON_DAYS).toBe(14)
+	it('looks as far ahead as the server\'s suggestion says', () => {
+		const days = byDay(build({ days: [...WEEK, '2026-12-01'], suggestion: suggestion({ horizonEndOn: '2026-11-26' }) }))
+
+		expect(days['2026-11-26'].beyond).toBe(false)
+		expect(names(days['2026-11-26'].entries)).toEqual(['Task 4'])
+		expect(days['2026-11-27'].beyond).toBe(true)
+		expect(days['2026-12-01'].beyond).toBe(true)
+	})
+
+	it('knows no horizon before a suggestion is read: nothing is placed and nothing lies beyond', () => {
+		const rangeByDay = { '2026-12-09': { scheduled: [{ roomTask: { id: 5 }, task: { name: 'Due', energyCost: 1 }, room: null, assignees: [], dueDate: '2026-12-09' }], completed: [] } }
+		const days = byDay(build({
+			days: [...WEEK, '2026-12-09'],
+			rangeByDay,
+			suggestion: { days: {}, overdue: [], loads: {}, horizonDays: null, horizonEndOn: null },
+		}))
+
+		expect(Object.values(days).map((day) => day.beyond)).not.toContain(true)
+		expect(days['2026-11-25'].entries).toEqual([])
+		expect(days['2026-12-09'].entries).toEqual([])
 	})
 
 	it('marks today, the past and what lies beyond the horizon', () => {

@@ -2,7 +2,7 @@
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
  */
-import { cycleOf, taskEnergy } from './taskDisplay.js'
+import { cycleOf, namesViewer } from './taskDisplay.js'
 
 /**
  * Whether a row is today's work: the live suggestion placed it on today
@@ -24,10 +24,7 @@ export function isSuggestedToday(item) {
  * @return {{isMine: (item: object) => boolean, isSuggested: (item: object) => boolean}}
  */
 export function viewerFilters(userId) {
-	const isMine = (item) => {
-		const assignees = item.assignees ?? item.roomTask.assignees ?? []
-		return !userId || assignees.length === 0 || assignees.includes(userId)
-	}
+	const isMine = (item) => namesViewer(item.assignees ?? item.roomTask.assignees ?? [], userId)
 	return {
 		isMine,
 		isSuggested: (item) => (userId && Array.isArray(item.suggestedFor) ? item.suggestedFor.includes(userId) : isMine(item)),
@@ -78,17 +75,4 @@ export function buildTodaySections({ daily, overdue, isVisible, isSuggested = ()
 		rows.splice(Math.min(entry.index, rows.length), 0, entry.item)
 	}
 	return sections
-}
-
-/**
- * Energy of the work that is still open today: the active rows that are
- * suggested for today or overdue. Rows that are only possible today are
- * not today's work and do not count.
- * @param {{overdue: object[], due: object[]}} sections Sections of one viewer.
- * @return {number}
- */
-export function openEnergy(sections) {
-	return [...sections.overdue, ...sections.due]
-		.filter((item) => item.roomTask.isActive)
-		.reduce((sum, item) => sum + taskEnergy(item), 0)
 }

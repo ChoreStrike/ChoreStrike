@@ -101,34 +101,51 @@ export function addDaysToKey(dateKey, days) {
 }
 
 /**
+ * The label of a `YYYY-MM-DD` key in the browser's locale. The key is read
+ * as a civil date, never as an instant, so no zone can shift it.
+ *
+ * @param {string} dateKey House-local `YYYY-MM-DD` key.
+ * @param {Intl.DateTimeFormatOptions} options The parts the label shows.
+ * @return {string} The label, or `'—'` without a key.
+ */
+function formatKey(dateKey, options) {
+	if (!dateKey) {
+		return '—'
+	}
+	const [year, month, day] = dateKey.split('-').map(Number)
+	return new Date(year, month - 1, day).toLocaleDateString(undefined, options)
+}
+
+/**
  * Short display label of a `YYYY-MM-DD` key ("Tue, 10 Nov" in the
- * browser's locale). The key is read as a civil date, never as an
- * instant, so no zone can shift it.
+ * browser's locale).
  *
  * @param {string} dateKey House-local `YYYY-MM-DD` key.
  * @return {string} The label, or `'—'` without a key.
  */
 export function formatDayKey(dateKey) {
-	if (!dateKey) {
-		return '—'
-	}
-	const [year, month, day] = dateKey.split('-').map(Number)
-	return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+	return formatKey(dateKey, { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
 /**
- * Short weekday of a `YYYY-MM-DD` key ("Tue" in the browser's locale),
- * read as a civil date like `formatDayKey`.
+ * Short weekday of a `YYYY-MM-DD` key ("Tue" in the browser's locale).
  *
  * @param {string} dateKey House-local `YYYY-MM-DD` key.
  * @return {string} The label, or `'—'` without a key.
  */
 export function formatWeekdayKey(dateKey) {
-	if (!dateKey) {
-		return '—'
-	}
-	const [year, month, day] = dateKey.split('-').map(Number)
-	return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short' })
+	return formatKey(dateKey, { weekday: 'short' })
+}
+
+/**
+ * Weekday and day of the month of a `YYYY-MM-DD` key ("Tue 10" in the
+ * browser's locale): the heading of a day in a list of days.
+ *
+ * @param {string} dateKey House-local `YYYY-MM-DD` key.
+ * @return {string} The label, or `'—'` without a key.
+ */
+export function formatShortDayKey(dateKey) {
+	return formatKey(dateKey, { weekday: 'short', day: 'numeric' })
 }
 
 /**
@@ -143,23 +160,18 @@ export function formatPastDayKey(dateKey, todayKey) {
 	if (!dateKey || dateKey.slice(0, 4) === (todayKey ?? '').slice(0, 4)) {
 		return formatDayKey(dateKey)
 	}
-	const [year, month, day] = dateKey.split('-').map(Number)
-	return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+	return formatKey(dateKey, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 /**
  * Full display label of a `YYYY-MM-DD` key ("Tuesday, 10 November" in the
- * browser's locale), read as a civil date like `formatDayKey`.
+ * browser's locale).
  *
  * @param {string} dateKey House-local `YYYY-MM-DD` key.
  * @return {string} The label, or `'—'` without a key.
  */
 export function formatLongDayKey(dateKey) {
-	if (!dateKey) {
-		return '—'
-	}
-	const [year, month, day] = dateKey.split('-').map(Number)
-	return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+	return formatKey(dateKey, { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
 /**

@@ -9,8 +9,9 @@ import { createUserContext } from './fixtures/auth-contexts.ts'
  * grouped by room or person. Today reads its own three projections once
  * each (the day, the overdue work and the bonus tasks of CS-PLAN-091 WP-B4)
  * and no instance list at all; its daily read carries the live suggestion
- * (WP-C, ADR-022). The calendar's week reads the range and the suggestion
- * once each per shown week.
+ * and the viewer's load of the day (WP-C, ADR-022, RF-091-14). The
+ * calendar's week reads the range and the suggestion once each per shown
+ * week.
  *
  * Read-only spec: it only navigates and counts XHRs, so it stays in the
  * default (non-serial) Playwright pool.
@@ -87,9 +88,10 @@ test.describe('Workflow request budgets (CS-PLAN-067)', () => {
 			// (their own read, D-091-69) — no due-today count, no house-wide or
 			// per-room list, no range read.
 			expect([...roomTaskRequests].sort()).toEqual(['/bonus', '/filtered-daily', '/overdue'])
-			// The daily read carries today's suggestion (ADR-022): Today asks
-			// for no suggestion of its own, only for the viewer's energy.
-			expect(schedulingRequests).toEqual(['/preferences'])
+			// The daily read carries today's suggestion and the viewer's load
+			// (ADR-022, RF-091-14): Today asks for no suggestion and for no
+			// preferences of its own.
+			expect(schedulingRequests).toEqual([])
 		} finally {
 			await context.close()
 		}

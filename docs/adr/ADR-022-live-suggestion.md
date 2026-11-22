@@ -131,12 +131,18 @@ against today, and the placed energy against the budget: the viewer's own,
 and every member's for the owner, who manages the budgets. A projected cycle
 carries `cycleKey: null`. The calendar reads the range. *Today* needs no
 second request: its daily read (`GET /room-tasks/filtered-daily`) marks each
-row the suggestion placed on today with `suggestedFor` and `overload`.
+row the suggestion placed on today with `suggestedFor` and `overload`, and
+answers the viewer's load of today next to the rows. The overload line of
+*Today* is therefore the server's booking, not a sum the client makes of its
+rows: a team task counts for the member who carries it, overdue work for the
+one member it counts against (RF-091-14).
 Visibility filtering follows the task reads (ADR-010); a member's load is a
 sum of energy and names no task. The range is cut to the horizon before
 anything is read or stored, so a client whose day ran over midnight still
 gets the remaining days; a range wholly outside yields no days, and a last
-day before the first is refused (`400`).
+day before the first is refused (`400`). Every answer names the horizon
+(`horizonDays`, `horizonEndOn`), also for a range wholly outside it, so no
+client copies the number of days.
 
 **What the loads and the overload marks reveal (operator, D-091-140).** The
 placement counts all work, private tasks included. A load, the owner's read
@@ -153,6 +159,19 @@ The digest counts the member's suggested work for today plus their overdue
 tasks. The agreement lines and their relevance check go (BUG-UX-015); retained
 agreement rows in the queue are skipped. The pause-request lines went with
 ADR-020.
+
+The count carries its own gate: nothing on a weekday the member is not
+available on and nothing during an absence, decided by the budgets the plan
+was placed with — the same absence rule as the placement, where an overdue
+task keeps naming its absent assignee. One pass of the digest computes the
+suggestion of the house once, however many summaries are due, and asks the
+same read whether a member may still see the task of a takeover (RF-091-14).
+The first summary that needs it reads it under its own house lock, and the
+pass shares it only once that transaction committed. A later summary of the
+pass thus counts absences, free days, assignees and visibility as they stood
+seconds earlier — as if it had been dispatched together with the first one;
+a write that lands during the pass counts from the next summary on
+(D-091-153).
 
 ### 8. Retired surface
 

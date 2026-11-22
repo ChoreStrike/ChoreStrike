@@ -215,7 +215,7 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 	private function visibleTo(array $f, string $viewerId, \DateTime $date): bool {
 		$viewer = $this->houseUserMapper->findByNextcloudUserId($f['houseId'], $viewerId);
 		self::assertTrue($viewer->isChild(), 'visibility is asserted from a child, adults see every house task');
-		foreach ($this->readService->getFilteredDailyTasksForUser($f['houseId'], $viewer, $date) as $row) {
+		foreach ($this->todayRowsOf($f['houseId'], $viewer, $date) as $row) {
 			if ((int)$row['roomTask']->getId() === $f['roomTaskId']) {
 				return true;
 			}

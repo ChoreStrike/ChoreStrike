@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\DayKey;
+
 /**
  * Pure recurrence date arithmetic (CS-PLAN-072 WP1, C1a/C1b; ADR-021).
  *
@@ -130,10 +132,11 @@ class RecurrenceCalculator {
 	}
 
 	/**
-	 * The local day key after the given one (`Y-m-d`).
+	 * The local day key after the given one (`Y-m-d`); the one helper is
+	 * {@see DayKey::after()}, which the mappers use too.
 	 */
 	public static function dayAfter(string $dayKey): string {
-		return self::offsetDays($dayKey, 1);
+		return DayKey::after($dayKey);
 	}
 
 	/**

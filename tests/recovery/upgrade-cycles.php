@@ -200,11 +200,11 @@ function postcheckSuggestion(int $houseId, array $before): string {
 	$first = $service->view($house, new DateTime());
 	$second = $service->view($house, new DateTime());
 	check(countRows('chorestrike_suggestion_days') === 1, 'The first read did not store today exactly once');
-	check($first->plan->placements !== [] && $first->today() == $second->today(), 'The list of today did not hold between two reads');
+	check($first->plan->placements() !== [] && $first->today() == $second->today(), 'The list of today did not hold between two reads');
 	foreach (['chorestrike_occurrences', 'chorestrike_occ_members', 'chorestrike_agreements', 'chorestrike_schedule_revs'] as $table) {
 		check(countRows($table) === count($before[$table]), 'The suggestion changed the stored timeline in ' . $table);
 	}
-	return count($first->plan->placements) . ' cycles placed over the horizon, today stored once';
+	return count($first->plan->placements()) . ' cycles placed over the horizon, today stored once';
 }
 
 /**

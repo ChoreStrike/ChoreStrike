@@ -152,25 +152,31 @@ class WindowService {
 	}
 
 	/**
-	 * The cycle that follows a cycle once it is done on a day — a
-	 * projection for the live suggestion (ADR-022 decision 2). A fixed rule
+	 * The cycles that follow the cycles of a room task — projections for
+	 * the live suggestion (ADR-022 decision 2), which asks once per placed
+	 * cycle: the rule and the anchor are read once per room task. The
+	 * answer takes a cycle and the day it is done on. A fixed rule
 	 * continues on its next rule day whatever day the work is done; an
 	 * after-completion rule hangs the next window on that day. Null for a
 	 * one-time task, a bonus task and a bounded rule that ended.
 	 *
-	 * @return CurrentCycle|null A projected after-completion cycle carries a `p<Y-m-d>` key, which is no target
+	 * @return \Closure(CurrentCycle, string): ?CurrentCycle A projected after-completion cycle carries a
+	 *                                                       `p<Y-m-d>` key, which is no target
 	 */
-	public function cycleAfter(RoomTask $roomTask, Task $task, CurrentCycle $cycle, string $doneOn, \DateTimeZone $timeZone): ?CurrentCycle {
+	public function successorOf(RoomTask $roomTask, Task $task, \DateTimeZone $timeZone): \Closure {
 		$rule = CycleRule::fromTask($task);
 		if ($rule->once || $rule->bonus) {
-			return null;
+			return static fn (): ?CurrentCycle => null;
 		}
-		$centre = $rule->fixed
-			? $this->calculator->firstFixedDayOnOrAfter($rule, $this->anchorKey($roomTask, $timeZone), RecurrenceCalculator::dayAfter($cycle->centreOn))
-			: $this->nextAfterCompletion($rule, $doneOn);
-		return $centre === null
-			? null
-			: $this->window($rule->fixed ? CurrentCycle::keyOn($centre) : CurrentCycle::keyProjected($centre), $centre, $rule->flexDays, $roomTask);
+		$anchor = $rule->fixed ? $this->anchorKey($roomTask, $timeZone) : '';
+		return function (CurrentCycle $cycle, string $doneOn) use ($roomTask, $rule, $anchor): ?CurrentCycle {
+			$centre = $rule->fixed
+				? $this->calculator->firstFixedDayOnOrAfter($rule, $anchor, RecurrenceCalculator::dayAfter($cycle->centreOn))
+				: $this->nextAfterCompletion($rule, $doneOn);
+			return $centre === null
+				? null
+				: $this->window($rule->fixed ? CurrentCycle::keyOn($centre) : CurrentCycle::keyProjected($centre), $centre, $rule->flexDays, $roomTask);
+		};
 	}
 
 	/**

@@ -9,7 +9,6 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\House;
-use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
@@ -21,26 +20,31 @@ use OCA\ChoreStrike\Service\RecurrenceCalculator;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\SuggestionContext;
 use OCA\ChoreStrike\Service\SuggestionJob;
+use OCA\ChoreStrike\Service\SuggestionMember;
 use OCA\ChoreStrike\Service\SuggestionPlan;
 use OCA\ChoreStrike\Service\SuggestionService;
 use OCA\ChoreStrike\Service\SuggestionView;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
+use OCA\ChoreStrike\Service\TaskService;
+use OCA\ChoreStrike\Service\TodayRows;
 use OCA\ChoreStrike\Service\WindowService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The daily read of RoomTaskReadService (CS-PLAN-067 §3.1; CS-PLAN-091
- * WP-C): the live suggestion decides which open rows are today's work
- * (ADR-022), every other open row is also possible, and a child is offered
- * its own and the unassigned work up to the daily limit. The rows are built
- * from the inputs the suggestion read, so the read issues no second query
- * for room tasks, definitions, assignees or completions.
+ * The daily read of *Today* (CS-PLAN-091 WP-C, RF-091-14): the live
+ * suggestion decides which open rows are today's work (ADR-022), every
+ * other open row is also possible, and a child is offered its own and the
+ * unassigned work up to the daily limit. The rows are built from the
+ * inputs the suggestion read, so the read issues no second query for room
+ * tasks, definitions, assignees or completions, and a child's
+ * availability and limit are the ones the plan was placed with.
  */
-class RoomTaskServiceDailyTest extends TestCase {
+class TodayRowsTest extends TestCase {
 	private const DATE = '2026-03-07'; // A Saturday
+	private const VIEWER_ID = 1;
 
-	private RoomTaskReadService $service;
+	private TodayRows $service;
 	private RoomMapper|MockObject $roomMapper;
 	private \OCA\ChoreStrike\Db\TaskChecklistItemMapper|MockObject $checklistItemMapper;
 	/** @var array<int, RoomTask> The active room tasks of the house, as the suggestion read them. */
@@ -53,23 +57,23 @@ class RoomTaskServiceDailyTest extends TestCase {
 	private array $closed = [];
 	/** @var array<int, array{cycleKey: string, userIds: list<string>, overload: bool}> Today's suggestion by room task. */
 	private array $suggested = [];
+	/** @var array<int, HouseUser> The members the suggestion read. */
+	private array $members = [];
+	/**
+	 * @var array<int, array{available?: bool, limit?: int}> The budgets the plan was placed with, by member:
+	 *                                                       available today unless set, without a limit unless set,
+	 *                                                       whatever the member's stored preferences say
+	 */
+	private array $planned = [];
 
 	protected function setUp(): void {
-		$this->roomTasks = $this->tasks = $this->assignees = $this->closed = $this->suggested = [];
+		$this->roomTasks = $this->tasks = $this->assignees = $this->closed = $this->suggested = $this->members = $this->planned = [];
 		$this->roomMapper = $this->createMock(RoomMapper::class);
 		$this->checklistItemMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class);
-		// CS-PLAN-057: day windows resolve the house timezone (UTC here).
-		$utcHouse = new House();
-		$utcHouse->setTimezone('UTC');
-		$houseMapper = $this->createMock(HouseMapper::class);
-		$houseMapper->method('find')->willReturn($utcHouse);
-
-		// "Everything visible": the matrix is covered in TaskAccessPolicyTest.
-		$taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
-		$taskAccessPolicy->method('canView')->willReturn(true);
 
 		// The suggestion is stubbed: its rules are pinned in SuggestionPlannerTest.
 		// Its inputs are the room tasks of the house with their current cycle.
+		// "Everything visible": the matrix is covered in TaskAccessPolicyTest.
 		$suggestions = $this->createMock(SuggestionService::class);
 		$suggestions->method('view')->willReturnCallback(function (): SuggestionView {
 			$context = $this->context();
@@ -80,6 +84,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 			$view->method('today')->willReturn($this->suggested);
 			return $view;
 		});
+		$suggestions->method('visibleRoomTasks')->willReturnCallback(fn (SuggestionContext $context): array => $context->roomTasks);
 
 		// No mapper but the rooms' and the sub-task counts' may be asked: the rest is the suggestion's.
 		$roomTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
@@ -90,22 +95,25 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$assigneeMapper->expects($this->never())->method($this->anything());
 		$completions = $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class);
 		$completions->expects($this->never())->method($this->anything());
+		// The House comes with the call: it is not read again.
+		$houseMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class);
+		$houseMapper->expects($this->never())->method($this->anything());
 
-		$this->service = new RoomTaskReadService(
+		$windows = new WindowService(new RecurrenceCalculator(), $completions);
+		$this->service = new TodayRows($suggestions, new RoomTaskReadService(
 			$roomTaskMapper,
 			$taskMapper,
 			$this->roomMapper,
 			$this->createMock(\OCA\ChoreStrike\Db\FloorMapper::class),
 			$houseMapper,
 			$assigneeMapper,
-			$taskAccessPolicy,
+			$this->createMock(TaskAccessPolicy::class),
 			new CalendarService(),
-			new WindowService(new RecurrenceCalculator(), $completions),
+			$windows,
 			$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class),
 			$this->checklistItemMapper,
 			$this->createMock(\OCA\ChoreStrike\Service\CreditPolicy::class),
-			$suggestions,
-		);
+		), $windows);
 	}
 
 	private static function key(): string {
@@ -114,7 +122,8 @@ class RoomTaskServiceDailyTest extends TestCase {
 
 	/**
 	 * What the suggestion read: every room task has an open window around
-	 * today unless the test closes it.
+	 * today unless the test closes it, and the members are the viewers the
+	 * test made.
 	 */
 	private function context(): SuggestionContext {
 		$jobs = [];
@@ -128,7 +137,19 @@ class RoomTaskServiceDailyTest extends TestCase {
 				$jobs[$id] = new SuggestionJob($id, 1, [], false, false, $cycle);
 			}
 		}
-		return new SuggestionContext(1, new \DateTimeZone('UTC'), self::DATE, [], [], [], [], $this->roomTasks, $this->tasks, $this->assignees, $jobs);
+		// The plan's budgets come from the test, never from the stored preferences: *Today* must follow the plan.
+		$plannerMembers = array_values(array_map(function (HouseUser $member): SuggestionMember {
+			$plan = $this->planned[(int)$member->getId()] ?? [];
+			return new SuggestionMember(
+				(int)$member->getId(),
+				(string)$member->getNextcloudUserId(),
+				array_fill_keys(TaskService::WEEKDAYS, 6),
+				['saturday' => $plan['available'] ?? true],
+				[],
+				$plan['limit'] ?? null,
+			);
+		}, $this->members));
+		return new SuggestionContext(1, new \DateTimeZone('UTC'), self::DATE, $this->members, $plannerMembers, [], [self::VIEWER_ID => 250], $this->roomTasks, $this->tasks, $this->assignees, $jobs);
 	}
 
 	/**
@@ -166,21 +187,25 @@ class RoomTaskServiceDailyTest extends TestCase {
 		}
 	}
 
+	/** A member of the house, as the suggestion read them. */
 	private function viewer(string $userId, string $role, array $preferences = []): HouseUser {
 		$viewer = new HouseUser();
-		$viewer->setId(1);
+		$viewer->setId(self::VIEWER_ID);
 		$viewer->setNextcloudUserId($userId);
 		$viewer->setRole($role);
 		$viewer->setSchedulingPreferences($preferences);
+		$this->members[self::VIEWER_ID] = $viewer;
 		return $viewer;
 	}
 
+	/** @return list<array<string, mixed>> */
+	private function rows(HouseUser $viewer): array {
+		return $this->service->forViewer(new House(), $viewer, new \DateTime(self::DATE))['rows'];
+	}
+
 	/** @return list<int> */
-	private function daily(HouseUser $viewer): array {
-		return array_map(
-			static fn (array $item): int => $item['roomTask']->getId(),
-			$this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime(self::DATE))
-		);
+	private static function ids(array $rows): array {
+		return array_values(array_map(static fn (array $item): int => $item['roomTask']->getId(), $rows));
 	}
 
 	public function testDaily_Adult_SuggestedRowsFirstThenEveryOtherOpenRowAsAlsoPossible(): void {
@@ -188,10 +213,10 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->closed = [4 => 'late', 5 => 'none'];
 		$this->suggest([2 => ['mom'], 3 => ['dad', 'mom']], [3]);
 
-		$result = $this->service->getFilteredDailyTasksForUser(1, $this->viewer('mom', 'owner'), new \DateTime(self::DATE));
+		$result = $this->rows($this->viewer('mom', 'owner'));
 
 		// 4 is overdue and 5 has no cycle: neither is a daily row.
-		$this->assertSame([2, 3, 1], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
+		$this->assertSame([2, 3, 1], self::ids($result));
 		$this->assertSame(['mom'], $result[0]['suggestedFor']);
 		$this->assertFalse($result[0]['overload']);
 		$this->assertArrayNotHasKey('openWindow', $result[0], 'a suggested row is a plain due row');
@@ -205,9 +230,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->wireHouse(1);
 		$this->suggested[1] = ['cycleKey' => 'c99', 'userIds' => ['mom'], 'overload' => false];
 
-		$result = $this->service->getFilteredDailyTasksForUser(1, $this->viewer('mom', 'owner'), new \DateTime(self::DATE));
-
-		$this->assertTrue($result[0]['openWindow']);
+		$this->assertTrue($this->rows($this->viewer('mom', 'owner'))[0]['openWindow']);
 	}
 
 	/**
@@ -219,16 +242,40 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->wireHouse(2);
 		$this->checklistItemMapper->expects($this->once())->method('countByTaskIds')->with([11, 12])->willReturn([11 => 3]);
 
-		$result = $this->service->getFilteredDailyTasksForUser(1, $this->viewer('mom', 'owner'), new \DateTime(self::DATE));
-
-		$this->assertSame([3, 0], array_column($result, 'checklistItemCount'));
+		$this->assertSame([3, 0], array_column($this->rows($this->viewer('mom', 'owner')), 'checklistItemCount'));
 	}
 
-	public function testDaily_ChildOnADayItIsNotAvailable_SeesNothing(): void {
+	/**
+	 * RF-091-14: *Today* compares the viewer's work with the load the plan
+	 * booked, not with a budget the client resolved on its own.
+	 */
+	public function testDaily_CarriesTheViewersLoadOfToday(): void {
+		$this->wireHouse(1);
+		$viewer = $this->viewer('mom', 'owner');
+
+		$load = $this->service->forViewer(new House(), $viewer, new \DateTime(self::DATE))['load'];
+
+		$this->assertSame(
+			['userId' => 'mom', 'day' => self::DATE, 'budget' => 6, 'placed' => 0, 'doneMinor' => 250, 'preferred' => false, 'absent' => false],
+			$load
+		);
+	}
+
+	/** D-091-148: the availability is the plan's, not a second reading of the stored preferences. */
+	public function testDaily_ChildOnADayThePlanHasItUnavailable_SeesNothing(): void {
+		$this->wireHouse(2);
+		$this->suggest([1 => ['teen']]);
+		$viewer = $this->viewer('teen', 'child', ['weekdayAvailability' => ['saturday' => true]]);
+		$this->planned[self::VIEWER_ID] = ['available' => false];
+
+		$this->assertSame([], $this->rows($viewer));
+	}
+
+	public function testDaily_ChildThePlanHasAvailable_SeesItsRowsWhateverItsStoredWeekSays(): void {
 		$this->wireHouse(2);
 		$this->suggest([1 => ['teen']]);
 
-		$this->assertSame([], $this->daily($this->viewer('teen', 'child', ['weekdayAvailability' => ['saturday' => false]])));
+		$this->assertSame([1, 2], self::ids($this->rows($this->viewer('teen', 'child', ['weekdayAvailability' => ['saturday' => false]]))));
 	}
 
 	/**
@@ -240,11 +287,11 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->wireHouse(6, [1 => ['teen'], 2 => ['sibling'], 4 => ['sibling'], 5 => ['teen']]);
 		$this->suggest([1 => ['teen'], 2 => ['sibling'], 3 => ['mom']]);
 
-		$result = $this->service->getFilteredDailyTasksForUser(1, $this->viewer('teen', 'child'), new \DateTime(self::DATE));
+		$result = $this->rows($this->viewer('teen', 'child'));
 
 		// 2 and 4 are the sibling's; 3 is unassigned work that today suggests to mom;
 		// 5 is the child's own open row and 6 an unassigned one.
-		$this->assertSame([1, 5, 6], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
+		$this->assertSame([1, 5, 6], self::ids($result));
 		$this->assertSame(['teen'], $result[0]['suggestedFor']);
 		$this->assertTrue($result[1]['openWindow']);
 		$this->assertArrayNotHasKey('suggestedFor', $result[1], 'a row that is only possible names no suggestion');
@@ -263,12 +310,14 @@ class RoomTaskServiceDailyTest extends TestCase {
 	public function testDaily_ChildLimit_CapsTheSuggestionAndHidesNothing(int $limit, array $suggested, array $possible): void {
 		$this->wireHouse(4, [1 => ['teen'], 2 => ['teen'], 3 => ['teen']]);
 		$this->suggest([1 => ['teen'], 2 => ['teen'], 3 => ['teen']], [1]);
+		// The stored limit would cut nothing: the plan's limit is the one that holds (D-091-148).
+		$viewer = $this->viewer('teen', 'child', ['maxDailyTasks' => 99]);
+		$this->planned[self::VIEWER_ID] = ['limit' => $limit];
 
-		$result = $this->service->getFilteredDailyTasksForUser(1, $this->viewer('teen', 'child', ['maxDailyTasks' => $limit]), new \DateTime(self::DATE));
+		$result = $this->rows($viewer);
 
-		$ids = static fn (array $rows): array => array_values(array_map(static fn (array $item): int => $item['roomTask']->getId(), $rows));
-		$this->assertSame($suggested, $ids(array_filter($result, static fn (array $item): bool => isset($item['suggestedFor']))));
-		$this->assertSame($possible, $ids(array_filter($result, static fn (array $item): bool => $item['openWindow'] ?? false)));
+		$this->assertSame($suggested, self::ids(array_filter($result, static fn (array $item): bool => isset($item['suggestedFor']))));
+		$this->assertSame($possible, self::ids(array_filter($result, static fn (array $item): bool => $item['openWindow'] ?? false)));
 	}
 
 	/** @return array<string, array{int, list<int>, list<int>}> */
@@ -280,5 +329,20 @@ class RoomTaskServiceDailyTest extends TestCase {
 			// CS-PLAN-065 (decision D5): a stale PHP_INT_MAX from before D5 means unlimited.
 			'a non-finite limit' => [PHP_INT_MAX, [1, 2, 3], [4]],
 		];
+	}
+
+	/**
+	 * The limit belongs to a child: *Today* never cuts an adult's list, not
+	 * even with a limit in the plan's budgets (the plan gives adults none).
+	 */
+	public function testDaily_AdultWithALimit_IsNotLimited(): void {
+		$this->wireHouse(2);
+		$this->suggest([1 => ['mom'], 2 => ['mom']]);
+		$viewer = $this->viewer('mom', 'member', ['maxDailyTasks' => 1]);
+		$this->planned[self::VIEWER_ID] = ['limit' => 1, 'available' => false];
+
+		$result = $this->rows($viewer);
+
+		$this->assertCount(2, array_filter($result, static fn (array $item): bool => isset($item['suggestedFor'])));
 	}
 }

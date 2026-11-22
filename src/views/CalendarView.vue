@@ -38,7 +38,8 @@
 			v-else-if="mode === 'week'"
 			:days="agendaDays"
 			:members="userStore.houseUsers || []"
-			:userId="myUserId" />
+			:userId="myUserId"
+			:horizonDays="schedulingStore.suggestion.horizonDays" />
 		<TaskCalendar
 			v-else
 			:mode="mode"
@@ -47,7 +48,7 @@
 			@selectDay="selectedDay = $event" />
 
 		<div v-if="selectedDay" class="day-detail" data-testid="calendar-day-list">
-			<h3>{{ formatDate(selectedDay) }}</h3>
+			<h3>{{ formatDayKey(selectedDay) }}</h3>
 			<ul class="day-task-list">
 				<li
 					v-for="item in dayDetail.scheduled"
@@ -89,8 +90,8 @@ import { useHouseStore } from '../store/house.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useSchedulingStore } from '../store/scheduling.js'
 import { useUserStore } from '../store/user.js'
-import { buildAgendaDays, SUGGESTION_HORIZON_DAYS } from '../utils/calendarAgenda.js'
-import { addDaysToKey, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
+import { buildAgendaDays } from '../utils/calendarAgenda.js'
+import { addDaysToKey, formatDayKey, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
 import { logger } from '../utils/logger.js'
 import { isOverdue as isRowOverdue } from '../utils/taskDisplay.js'
 
@@ -151,9 +152,7 @@ export default {
 		},
 
 		rangeLabel() {
-			const start = this.formatDate(this.rangeStart)
-			const end = this.formatDate(this.rangeEnd)
-			return `${start} – ${end}`
+			return `${formatDayKey(this.rangeStart)} – ${formatDayKey(this.rangeEnd)}`
 		},
 
 		filterOptions() {
@@ -167,11 +166,6 @@ export default {
 			return todayKeyInZone(this.houseStore.timezone)
 		},
 
-		/** The last day the suggestion covers. */
-		horizonEndKey() {
-			return addDaysToKey(this.todayKey, SUGGESTION_HORIZON_DAYS - 1)
-		},
-
 		myUserId() {
 			return this.userStore.currentUser?.nextcloudUserId || null
 		},
@@ -180,7 +174,6 @@ export default {
 			return buildAgendaDays({
 				days: this.visibleDays,
 				todayKey: this.todayKey,
-				horizonEndKey: this.horizonEndKey,
 				suggestion: this.schedulingStore.suggestion,
 				rangeByDay: this.roomTasksStore.rangeTasksByDay,
 				userId: this.myUserId,
@@ -211,35 +204,38 @@ export default {
 
 	methods: {
 		t,
+		formatDayKey,
 
 		async fetchData() {
 			this.loading = true
 			this.error = null
-			try {
-				await Promise.all([
-					this.roomTasksStore.fetchRangeTasks(this.rangeStart, this.rangeEnd),
-					this.fetchSuggestion(),
-				])
-			} catch (e) {
-				this.error = e.message
-				logger.error('Calendar fetch failed', e, { view: 'CalendarView' })
-			} finally {
-				this.loading = false
+			const [range, suggestion] = await Promise.allSettled([
+				this.roomTasksStore.fetchRangeTasks(this.rangeStart, this.rangeEnd),
+				this.fetchSuggestion(),
+			])
+			// A week wholly beyond the last known horizon shows the due windows of the range read without a suggestion.
+			const horizonEndOn = this.schedulingStore.suggestion.horizonEndOn
+			const beyond = horizonEndOn !== null && this.rangeStart > horizonEndOn
+			const failure = range.status === 'rejected' ? range.reason : (suggestion.status === 'rejected' && !beyond ? suggestion.reason : null)
+			if (failure) {
+				this.error = failure.message
+				logger.error('Calendar fetch failed', failure, { view: 'CalendarView' })
 			}
+			this.loading = false
 		},
 
 		/**
-		 * The suggestion for the shown days of the week that lie inside its
-		 * horizon; a week outside it, and the month, show none.
+		 * The suggestion for the shown week. The server cuts the range to
+		 * its horizon and names it, so a week beyond it still learns where
+		 * the suggestion ends; a week that is over, and the month, show
+		 * none.
 		 */
 		async fetchSuggestion() {
-			const from = this.rangeStart > this.todayKey ? this.rangeStart : this.todayKey
-			const to = this.rangeEnd < this.horizonEndKey ? this.rangeEnd : this.horizonEndKey
-			if (this.mode !== 'week' || from > to) {
+			if (this.mode !== 'week' || this.rangeEnd < this.todayKey) {
 				this.schedulingStore.clearSuggestion()
 				return
 			}
-			await this.schedulingStore.fetchSuggestion(from, to)
+			await this.schedulingStore.fetchSuggestion(this.rangeStart, this.rangeEnd)
 		},
 
 		navigate(direction) {
@@ -255,12 +251,6 @@ export default {
 			}
 			const index = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(dayName)
 			return addDaysToKey(key, index === 0 ? -6 : 1 - index)
-		},
-
-		formatDate(ymd) {
-			const [y, m, d] = ymd.split('-').map(Number)
-			const date = new Date(y, m - 1, d)
-			return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 		},
 
 		isOverdue(item) {

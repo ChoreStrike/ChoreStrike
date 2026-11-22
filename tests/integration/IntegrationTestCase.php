@@ -307,6 +307,16 @@ abstract class IntegrationTestCase extends TestCase {
 	}
 
 	/**
+	 * The daily rows of *Today* as a member reads them.
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	protected function todayRowsOf(int $houseId, \OCA\ChoreStrike\Db\HouseUser $viewer, ?\DateTimeInterface $now = null): array {
+		$house = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($houseId);
+		return \OC::$server->get(\OCA\ChoreStrike\Service\TodayRows::class)->forViewer($house, $viewer, $now ?? new \DateTime())['rows'];
+	}
+
+	/**
 	 * Complete a fixture room task's current cycle through the full
 	 * receipt contract.
 	 */

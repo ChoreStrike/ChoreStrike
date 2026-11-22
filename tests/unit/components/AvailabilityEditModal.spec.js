@@ -22,6 +22,11 @@ jest.mock('../../../src/services/api.js', () => ({
 	},
 }))
 
+// The failed reads and saves below are deliberate: their log lines stay out of the output.
+jest.mock('../../../src/utils/logger.js', () => ({
+	logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
+}))
+
 jest.mock('../../../src/utils/currentUser.js', () => ({
 	resolveCurrentUser: jest.fn(() => ({ uid: 'alice', displayName: 'Alice', userId: 'alice' })),
 }))

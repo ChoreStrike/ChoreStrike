@@ -1283,9 +1283,19 @@ limit and the open rows that are its own or unassigned (decision D4). The limit
 never hides what the child owes (BUG-UX-013). Unassigned work that today's
 suggestion places on someone else is not offered to the child.
 
-**Response `data`:** list of `{ roomTask, task, room, assignees, cycle,
-openWindow, checklistItemCount }` objects, with `suggestedFor` and `overload`
-on the rows of today's suggestion.
+**Response `data`:** `{ rows, load }`.
+
+- **`rows`**: list of `{ roomTask, task, room, assignees, cycle, openWindow,
+  checklistItemCount }` objects, with `suggestedFor` and `overload` on the rows
+  of today's suggestion.
+- **`load`**: the viewer's load of today, as the suggestion that placed the
+  rows booked it — one `members` row of `GET /scheduling/suggestion`
+  (`{ userId, day, budget, placed, doneMinor, preferred, absent }`), or `null`
+  for a viewer the plan does not know. *Today* shows `placed` against `budget`
+  and says so when more is placed than the day holds. A team task counts for
+  the member who carries it, overdue work for the one member it counts against.
+  After a write the client reads the route again while *Today* is shown and
+  takes only the load: the rows of today's list keep their place.
 
 **Checklist count (BUG-UX-003, CS-PLAN-088 D-088-19):** the filtered-daily,
 due-today and overdue rows carry `checklistItemCount`, the number of checklist
@@ -1579,7 +1589,8 @@ The live suggestion for a range of house-local days: both real `Y-m-d` days,
 `to` not before `from` (`400 VALIDATION_ERROR` otherwise). The range is cut to
 the days from today to 13 days after today before anything is read, so a
 client whose day ran over midnight still gets the days that remain; a range
-wholly outside answers empty `days`, `overdue` and `members`. Member-gated
+wholly outside answers empty `days`, `overdue` and `members`. Every answer
+names the horizon, so no client copies it. Member-gated
 (`403 FORBIDDEN`). Nothing is written except today's per-house snapshot on the
 day's first read (ADR-022 decision 3). The calendar reads it; *Today* reads `GET /room-tasks/filtered-daily`.
 
@@ -1601,7 +1612,9 @@ day's first read (ADR-022 decision 3). The calendar reads it; *Today* reads `GET
   ],
   "members": [
     { "userId": "kid", "day": "2026-11-23", "budget": 6, "placed": 5, "doneMinor": 0, "preferred": false, "absent": false }
-  ]
+  ],
+  "horizonDays": 14,
+  "horizonEndOn": "2026-12-06"
 }
 ```
 
@@ -1619,6 +1632,9 @@ day's first read (ADR-022 decision 3). The calendar reads it; *Today* reads `GET
   rows, and every member's for the owner. `placed` on today includes the
   overdue work, `doneMinor` is today's valid work in energy hundredths,
   `budget` is 0 on a weekday the member is not available on.
+- **`horizonDays`**, **`horizonEndOn`**: how many house-local days the
+  suggestion looks ahead, today included, and the last of them. Present in
+  every answer, also for a range wholly outside the horizon.
 
 Entries and overdue cycles are filtered by task visibility (ADR-010); a load is
 a sum of energy and names no task. Loads and the `overload` mark of an entry

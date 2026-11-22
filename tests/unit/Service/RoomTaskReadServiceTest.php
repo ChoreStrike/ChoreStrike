@@ -78,7 +78,6 @@ class RoomTaskReadServiceTest extends TestCase {
 			$this->logger,
 			$this->checklistItems,
 			$this->creditPolicy,
-			$this->createMock(\OCA\ChoreStrike\Service\SuggestionService::class),
 		);
 	}
 

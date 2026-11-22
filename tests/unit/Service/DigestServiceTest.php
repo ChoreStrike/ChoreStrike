@@ -20,7 +20,6 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MemberPreference;
 use OCA\ChoreStrike\Db\MemberPreferenceMapper;
-use OCA\ChoreStrike\Db\Pause;
 use OCA\ChoreStrike\Db\PauseMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\TransactionExecutor;
@@ -29,7 +28,10 @@ use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\DigestScheduleService;
 use OCA\ChoreStrike\Service\DigestService;
 use OCA\ChoreStrike\Service\NotificationService;
-use OCA\ChoreStrike\Service\RoomTaskReadService;
+use OCA\ChoreStrike\Service\SuggestionContext;
+use OCA\ChoreStrike\Service\SuggestionPlan;
+use OCA\ChoreStrike\Service\SuggestionService;
+use OCA\ChoreStrike\Service\SuggestionView;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -70,10 +72,13 @@ class DigestServiceTest extends TestCase {
 	private ?array $dispatched = null;
 	private ?\Throwable $dispatchThrowable = null;
 	private int $claimsWon = 1;
+	/** @var list<\Throwable> Failures the next claims throw, in order (test seam). */
+	private array $claimFailures = [];
 	/** What the live suggestion counts for the member today (test seam). */
 	private int $suggestedCount = 0;
 	private CompletedTaskMapper&MockObject $completionMapper;
-	private RoomTaskReadService&MockObject $readService;
+	/** How often the pass computed the suggestion. */
+	private int $views = 0;
 	private CompletedTask $currentCompletion;
 	private array $visibleRoomTasks = [];
 	private PauseMapper&MockObject $pauseMapper;
@@ -96,17 +101,13 @@ class DigestServiceTest extends TestCase {
 		$completion->setRoomTaskId(11);
 		$this->currentCompletion = $completion;
 		$this->completionMapper->method('find')->willReturnCallback(fn (): CompletedTask => $this->currentCompletion);
-		$this->readService = $this->createMock(RoomTaskReadService::class);
 		$visible = [];
 		foreach ([11, 12] as $id) {
 			$roomTask = new RoomTask();
 			$roomTask->setId($id);
-			$visible[] = $roomTask;
+			$visible[$id] = $roomTask;
 		}
 		$this->visibleRoomTasks = $visible;
-		$this->readService->method('getHouseRoomTasks')->willReturnCallback(
-			fn (): \OCA\ChoreStrike\Service\RoomTaskList => new \OCA\ChoreStrike\Service\RoomTaskList($this->visibleRoomTasks, [])
-		);
 
 		$this->house = new House();
 		$this->house->setId(1);
@@ -122,6 +123,7 @@ class DigestServiceTest extends TestCase {
 		$this->dispatchThrowable = null;
 		$this->claimsWon = 1;
 		$this->suggestedCount = 0;
+		$this->views = 0;
 
 		$this->houseUserMapper->method('find')->willReturnCallback(
 			function (int $id): HouseUser {
@@ -146,9 +148,15 @@ class DigestServiceTest extends TestCase {
 			}
 		);
 		$this->slotMapper->method('findDuePending')->willReturnCallback(fn (): array => $this->dueSlots);
-		$this->slotMapper->method('findById')->willReturnCallback(fn (): ?DigestSlot => $this->freshSlot ?? ($this->dueSlots[0] ?? null));
+		$this->slotMapper->method('findById')->willReturnCallback(function (int $id): ?DigestSlot {
+			$due = array_values(array_filter($this->dueSlots, static fn (DigestSlot $slot): bool => (int)$slot->getId() === $id));
+			return $this->freshSlot ?? $due[0] ?? $this->dueSlots[0] ?? null;
+		});
 		$this->slotMapper->method('claimPending')->willReturnCallback(
 			function (int $slotId, string $token, \DateTimeInterface $now): ?DigestSlot {
+				if ($this->claimFailures !== []) {
+					throw array_shift($this->claimFailures);
+				}
 				if ($this->claimsWon < 1) {
 					return null;
 				}
@@ -156,11 +164,21 @@ class DigestServiceTest extends TestCase {
 				return $this->dueSlots[0];
 			}
 		);
-		// The count is the suggestion's (ADR-022 decision 7); its rules are pinned in LiveSuggestionTest.
-		$view = $this->createMock(\OCA\ChoreStrike\Service\SuggestionView::class);
+		// The count is the suggestion's (ADR-022 decision 7); its rules and its free-day and
+		// absence gate are pinned in SuggestionViewTest and LiveSuggestionTest.
+		$context = new SuggestionContext(1, new \DateTimeZone('UTC'), '2026-09-29', [], [], [], [], [], [], [], []);
+		$view = $this->getMockBuilder(SuggestionView::class)
+			->setConstructorArgs([$context, new SuggestionPlan($context->ledger())])
+			->onlyMethods(['countFor'])
+			->getMock();
 		$view->method('countFor')->willReturnCallback(fn (): int => $this->suggestedCount);
-		$suggestions = $this->createMock(\OCA\ChoreStrike\Service\SuggestionService::class);
-		$suggestions->method('view')->willReturn($view);
+		$suggestions = $this->createMock(SuggestionService::class);
+		$suggestions->method('view')->willReturnCallback(function () use ($view): SuggestionView {
+			$this->views++;
+			return $view;
+		});
+		// The takeover of a task counts only while the member may see it: asked of the same read.
+		$suggestions->method('visibleRoomTasks')->with($context)->willReturnCallback(fn (): array => $this->visibleRoomTasks);
 
 		$this->scheduleService->method('materializeSlotsForJobs')->willReturn(['materialized' => 0, 'reResolved' => 0]);
 		$this->scheduleService->method('expireMissedSlots')->willReturn(['expiredSlots' => 0]);
@@ -179,7 +197,6 @@ class DigestServiceTest extends TestCase {
 			$this->completionMapper,
 			$this->pauseMapper,
 			$this->rewardRequestMapper,
-			$this->readService,
 			$suggestions,
 		);
 	}
@@ -325,22 +342,78 @@ class DigestServiceTest extends TestCase {
 		$this->assertSame(['mom', 1, 7, '2026-09-29', 1, 2], $this->dispatched, 'ONE combined summary with both counts');
 	}
 
-	public function testPass_FreeDay_NoTaskContentCounts(): void {
+	/**
+	 * RF-091-14: the summaries of one pass count the same plan. The
+	 * suggestion of the house is computed by the first slot that needs it,
+	 * and the visibility of a takeover is asked of that read.
+	 */
+	public function testPass_SeveralSummaries_ComputeTheSuggestionOnce(): void {
 		$this->membersById[7] = $this->member();
-		$member = $this->membersById[7];
-		$member->setWalletId(500);
-		$member->setSchedulingPreferences(['weekdayAvailability' => ['tuesday' => false]]);
+		$this->membersById[8] = $this->member(8);
 		$this->prefsByKey['1:7'] = $this->pref();
-		$this->queuedBySlot['7:2026-09-29'] = [$this->queuedRow(1)];
-		$this->dueSlots = [$this->slot()];
-		// 2026-09-29 is a Tuesday; the task is planned today — but a free
-		// day contributes NOTHING to the task content.
+		$this->prefsByKey['1:8'] = $this->pref();
+		$this->queuedBySlot['8:2026-09-29'] = [$this->queuedRow(1)];
+		$second = $this->slot('2026-09-29', 51);
+		$second->setHouseUserId(8);
+		$this->dueSlots = [$this->slot(), $second];
+		$this->claimsWon = 2;
 		$this->ownWorkPlannedToday();
 
 		$stats = $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'));
 
+		$this->assertSame(2, $stats['dispatched']);
+		$this->assertSame(['mom', 1, 8, '2026-09-29', 1, 1], $this->dispatched, 'the second summary: its work and its takeover');
+		$this->assertSame(1, $this->views);
+	}
+
+	/**
+	 * D-091-153: a retried attempt never reuses the view of the attempt the
+	 * executor rolled back — that attempt's stored list went with it.
+	 */
+	public function testPass_RetriedAttempt_BuildsTheSuggestionAgain(): void {
+		$this->membersById[7] = $this->member();
+		$this->prefsByKey['1:7'] = $this->pref();
+		$this->dueSlots = [$this->slot()];
+		$this->ownWorkPlannedToday();
+		$this->claimFailures = [new \RuntimeException('Deadlock found when trying to get lock')];
+
+		$stats = $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'));
+
 		$this->assertSame(1, $stats['dispatched']);
-		$this->assertSame(['mom', 1, 7, '2026-09-29', 0, 1], $this->dispatched, 'free day: task count is zero, only org rides along');
+		$this->assertSame(2, $this->views, 'the retry built its own view');
+	}
+
+	/**
+	 * D-091-153: the pass shares a view only once the transaction that
+	 * built it committed; after a failed attempt the next slot builds it.
+	 */
+	public function testPass_FailedAttempt_DoesNotShareItsSuggestion(): void {
+		$this->membersById[7] = $this->member();
+		$this->membersById[8] = $this->member(8);
+		$this->prefsByKey['1:7'] = $this->pref();
+		$this->prefsByKey['1:8'] = $this->pref();
+		$second = $this->slot('2026-09-29', 51);
+		$second->setHouseUserId(8);
+		$this->dueSlots = [$this->slot(), $second];
+		$this->ownWorkPlannedToday();
+		$this->claimFailures = [new \RuntimeException('connection lost')];
+
+		$stats = $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'));
+
+		$this->assertSame(1, $stats['uncertain']);
+		$this->assertSame(1, $stats['dispatched']);
+		$this->assertSame(2, $this->views, 'the second slot did not count the rolled-back plan');
+	}
+
+	public function testPass_OnlyTheOrganizationDigest_NeedsNoSuggestionWithoutATakeover(): void {
+		$this->membersById[7] = $this->member();
+		$pref = $this->pref();
+		$pref->setTaskDigestEnabled(false);
+		$this->prefsByKey['1:7'] = $pref;
+		$this->dueSlots = [$this->slot()];
+
+		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
+		$this->assertSame(0, $this->views);
 	}
 
 	/**
@@ -468,25 +541,6 @@ class DigestServiceTest extends TestCase {
 		$this->queuedBySlot['7:2026-09-29'] = [$this->queuedRow(1)];
 		$this->dueSlots = [$this->slot()];
 		$this->visibleRoomTasks = [];
-		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
-		$this->assertNull($this->dispatched);
-	}
-
-	public function testPass_AbsentToday_HasNoTaskContent(): void {
-		$this->membersById[7] = $this->member();
-		$this->membersById[7]->setWalletId(500);
-		$this->prefsByKey['1:7'] = $this->pref();
-		$this->dueSlots = [$this->slot()];
-		$this->ownWorkPlannedToday();
-		$pause = new Pause();
-		$pause->setPauseGroupId(1);
-		$pause->setScope(Pause::SCOPE_HOUSE);
-		$pause->setState(Pause::STATE_ACKNOWLEDGED);
-		$pause->setStartDate(new \DateTime('2026-09-29'));
-		$pause->setEndDate(new \DateTime('2026-09-29'));
-		$pause->setCreatedAt(new \DateTime('2026-09-28 10:00:00 UTC'));
-		$pause->setUpdatedAt(new \DateTime('2026-09-28 10:00:00 UTC'));
-		$this->pauseMapper->method('findByHouseId')->willReturn([$pause]);
 		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
 		$this->assertNull($this->dispatched);
 	}

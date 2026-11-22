@@ -14,25 +14,21 @@ use OCA\ChoreStrike\Db\PauseMapper;
 /**
  * Lower pause evaluator of the WP2 pause lifecycle (CS-PLAN-073 §3.1).
  *
- * Resolves the effective recognized revisions/excuses for the
- * recognitions and the digest. Deliberately LOW in the dependency graph —
- * mappers and pure date helpers only, never a command service. Merely
- * reading a projection writes nothing. Since ADR-021 a pause writes
- * nothing onto tasks: {@see walletsAbsentThroughout} decides on read
- * whether a window was neutral for a member.
+ * Resolves the effective recognized revisions for the recognitions and
+ * the live suggestion, whose budgets the daily summary counts with
+ * (D-091-147). Deliberately LOW in the
+ * dependency graph — mappers and pure date helpers only, never a command
+ * service. Merely reading a projection writes nothing. Since ADR-021 a
+ * pause writes nothing onto tasks: {@see walletsAbsentThroughout} decides
+ * on read whether a window, or a single day, was neutral for a member.
+ * It is the one absence derivation; the per-occurrence excuse with its
+ * timeliness rule went with the stored occurrences (RF-091-14).
  *
- * Frozen Q-073-02 comparison rules (Standard A 2026-09-23):
- * 1. A candidate work day D in saved zone Z is the half-open UTC interval
- *    [D 00:00 Z, D+1 00:00 Z); completed instants are tested as instants.
- * 2. A saved work appointment counts against a candidate day iff the two
- *    half-open day intervals intersect (within one zone this degenerates
- *    to exact date-label equality; across zones it conservatively
- *    constrains both boundary days).
- * 3. Every fact keeps its historical date/week labels — no device-zone or
- *    current-zone re-bucketing.
- * 4. A recognized pause covers an unfulfilled obligation iff the
- *    occurrence's saved planned-date label lies within the pause's
- *    inclusive saved date labels (civil comparison, no zone translation).
+ * Comparison rules that stay (Q-073-02, Standard A 2026-09-23): every
+ * fact keeps its historical date labels — no device-zone or current-zone
+ * re-bucketing — and a recognized pause covers a day iff the day lies
+ * within the pause's inclusive saved date labels (civil comparison, no
+ * zone translation).
  */
 class PauseProjectionService {
 	public function __construct(
@@ -65,87 +61,22 @@ class PauseProjectionService {
 	}
 
 	// ------------------------------------------------------------------
-	// Pure derivation (frozen rules — unit-testable without a database)
+	// Pure derivation (unit-testable without a database)
 	// ------------------------------------------------------------------
-
-	/**
-	 * The wallet ids excused by a recognized pause on the given planned
-	 * date: personal pauses for that wallet (current member only) plus
-	 * house-scope pauses (every current member).
-	 *
-	 * R2/RF-073-WP2-23: within each pause group ONLY the governing
-	 * acknowledged revision ({@see governingRevisionsOn}) contributes —
-	 * a shortening removes its superseded future coverage instead of
-	 * letting the retained old revision keep it alive, while dates before
-	 * the decision boundary stay covered by the revision that recognized
-	 * them. Pending/rejected revisions never govern (an undecided
-	 * shortening leaves acknowledged coverage unchanged). A governing
-	 * CANCELLED revision means no coverage (ADR-020).
-	 *
-	 * R3/RF-073-WP2-25: an ordinary recognition excuses only when its
-	 * decision predates the given exclusive `$deadline` (the occurrence's
-	 * original window end); without an explicit deadline the day-level
-	 * rule applies (the decision must predate the end of the candidate day
-	 * in the pause's own saved zone). The explicit retrospective-illness
-	 * marker is the sole exception that can neutralize a qualifying old
-	 * miss. Both facts are persisted, so a later read/job never
-	 * reinterprets a timely decision as late or vice versa.
-	 *
-	 * RF-073-WP2-03: pauses of DIFFERENT groups compose as a UNION —
-	 * every wallet maps to the LIST of all covering pause provenances
-	 * (a wallet under both a personal and a house pause, or under two
-	 * personal groups, keeps every entry). Shortening one group removes
-	 * only its own superseded coverage, never another group's excuse.
-	 *
-	 * @param Pause[] $recognized Revision history (governing revisions are selected internally)
-	 * @param array<int, bool> $currentWallets
-	 * @param \DateTime|null $deadline Original exclusive obligation deadline (occurrence window end) or null for the day-level rule
-	 * @return array<int, list<array{pauseGroupId: int, revision: int, reasonCode: string}>> walletId => covering pause provenance list
-	 */
-	public static function excusedWalletsOn(array $recognized, string $plannedDateKey, array $currentWallets, ?\DateTime $deadline = null): array {
-		$excused = [];
-		$append = static function (int $walletId, array $provenance) use (&$excused): void {
-			foreach ($excused[$walletId] ?? [] as $existing) {
-				if ($existing['pauseGroupId'] === $provenance['pauseGroupId']
-					&& $existing['revision'] === $provenance['revision']) {
-					return;
-				}
-			}
-			$excused[$walletId][] = $provenance;
-		};
-		foreach (self::governingRevisionsOn($recognized, $plannedDateKey) as $pause) {
-			if (!$pause->isRecognized() || !$pause->coversDate($plannedDateKey)
-				|| !self::isEffectiveFor($pause, $plannedDateKey, $deadline)) {
-				continue;
-			}
-			$provenance = [
-				'pauseGroupId' => $pause->getPauseGroupId(),
-				'revision' => $pause->getRevision(),
-				'reasonCode' => $pause->getReasonCode(),
-			];
-			if ($pause->getScope() === Pause::SCOPE_HOUSE) {
-				foreach (array_keys($currentWallets) as $walletId) {
-					$append((int)$walletId, $provenance);
-				}
-				continue;
-			}
-			$subjectId = $pause->getSubjectWalletId();
-			if ($subjectId !== null && isset($currentWallets[(int)$subjectId])) {
-				$append((int)$subjectId, $provenance);
-			}
-		}
-		return $excused;
-	}
 
 	/**
 	 * ADR-021 decision 5 (D-091-03): the wallets for which a window lies
 	 * entirely inside an absence — covered on every day from its first to
 	 * its last. Such a window is neutral for that member: neither kept nor
 	 * missed. Decided on read from the governing revisions, so an absence
-	 * entered or deleted later is honoured; the timeliness rule of
-	 * {@see isEffectiveFor} belonged to stored occurrences and does not
-	 * apply. Asked for the members responsible for the window, so a closed
-	 * window keeps its neutrality when the member later leaves the house.
+	 * entered or deleted later is honoured. Asked for the members
+	 * responsible for the window, so a closed window keeps its neutrality
+	 * when the member later leaves the house. One day is a window too: the
+	 * live suggestion asks per day of its horizon.
+	 *
+	 * Different pause groups compose as a UNION: shortening or deleting one
+	 * group removes only its own superseded coverage, never another
+	 * group's.
 	 *
 	 * @param Pause[] $recognized Revision history (governing revisions are selected per day)
 	 * @param array<int, bool> $wallets The wallets asked about (walletId => true)
@@ -185,7 +116,7 @@ class PauseProjectionService {
 	 * dates before the boundary stay governed by the revision that was
 	 * authoritative when the decision was made. A date before EVERY
 	 * decision boundary (e.g. a mid-range approval) stays governed by the
-	 * group's first acknowledged revision, subject to the timeliness gate.
+	 * group's first acknowledged revision.
 	 * Different groups stay independent — the caller unions their
 	 * governed coverage.
 	 *
@@ -251,53 +182,5 @@ class PauseProjectionService {
 		$zone = new \DateTimeZone($pause->getTimezone() ?: 'UTC');
 		$decisionDay = (clone $decision)->setTimezone($zone)->format('Y-m-d');
 		return (new \DateTime($decisionDay . ' 12:00:00', $zone))->modify('+1 day')->format('Y-m-d');
-	}
-
-	/**
-	 * The recognition-eligibility gate of R3 (plan §3.4): an ORDINARY
-	 * recognition excuses an obligation only when its decision predates
-	 * the original exclusive `$deadline` (the occurrence's saved window
-	 * end — range inclusion alone is not eligibility). A pending/rejected
-	 * request stays ineffective and crossing the deadline neither
-	 * approves, rejects nor extends it; the decision time is the ACTUAL
-	 * recognition decision, not a child's earlier request time. Only the
-	 * explicit retrospective-illness marker can neutralize a qualifying
-	 * unfulfilled historical obligation. Without an explicit deadline
-	 * (day-level capacity flags) the decision must predate the end of the
-	 * candidate day in the pause's own saved zone.
-	 */
-	public static function isEffectiveFor(Pause $pause, string $dateKey, ?\DateTime $deadline): bool {
-		if ($pause->getIsRetrospectiveIllness()) {
-			return true;
-		}
-		$decision = $pause->decisionTime();
-		if ($decision === null) {
-			// Defensive: a row without any decision fact cannot be proven
-			// late; production rows always carry both NOT NULL timestamps.
-			return true;
-		}
-		if ($deadline !== null) {
-			return $decision < $deadline;
-		}
-		[, $dayEnd] = self::candidateDayInterval($dateKey, $pause->getTimezone() ?: 'UTC');
-		return $decision < $dayEnd;
-	}
-
-	// ------------------------------------------------------------------
-	// Frozen Q-073-02 day-interval mapping (pure)
-	// ------------------------------------------------------------------
-
-	/**
-	 * The half-open UTC interval `[D 00:00 Z, D+1 00:00 Z)` of a candidate
-	 * work day (Q-073-02 rule 1; DST-correct wall-clock resolution).
-	 *
-	 * @return array{\DateTime, \DateTime} UTC-normalized [start, end)
-	 */
-	public static function candidateDayInterval(string $dateKey, string $zone): array {
-		$tz = new \DateTimeZone($zone);
-		$start = new \DateTime($dateKey . ' 00:00:00', $tz);
-		$end = (new \DateTime($dateKey . ' 00:00:00', $tz))->modify('+1 day');
-		$utc = new \DateTimeZone('UTC');
-		return [$start->setTimezone($utc), $end->setTimezone($utc)];
 	}
 }

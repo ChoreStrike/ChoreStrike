@@ -79,9 +79,9 @@ class SuggestionPlannerTest extends TestCase {
 	/** @return array<int, string> Room task id to the day it was placed on */
 	private static function daysOf(SuggestionPlan $plan): array {
 		$days = [];
-		foreach ($plan->placements as $placement) {
-			if ($placement['current']) {
-				$days[$placement['roomTaskId']] = $placement['day'];
+		foreach ($plan->placements() as $placement) {
+			if ($placement->current) {
+				$days[$placement->roomTaskId] = $placement->day;
 			}
 		}
 		return $days;
@@ -95,7 +95,7 @@ class SuggestionPlannerTest extends TestCase {
 			$this->job(1, 1, [1], 0, 1),
 		]);
 
-		self::assertSame([2, 1, 3, 4], array_column($plan->placements, 'roomTaskId'));
+		self::assertSame([2, 1, 3, 4], array_column($plan->placements(), 'roomTaskId'));
 	}
 
 	public function testPlan_OneAssignee_SpreadsOverTheDaysWithTheMostRemainingEnergy(): void {
@@ -107,7 +107,7 @@ class SuggestionPlannerTest extends TestCase {
 
 		self::assertSame([1 => self::day(0), 2 => self::day(1), 3 => self::day(2)], self::daysOf($plan));
 		self::assertSame(4, $plan->ledger->placed(1, self::day(1)));
-		self::assertSame([false, false, false], array_column($plan->placements, 'overload'));
+		self::assertSame([false, false, false], array_column($plan->placements(), 'overload'));
 	}
 
 	public function testPlan_PreferredDay_IsFilledFirstWhileItFits(): void {
@@ -132,7 +132,7 @@ class SuggestionPlannerTest extends TestCase {
 		$absent = [1 => [self::day(0) => true, self::day(1) => true]];
 		$plan = $this->plan([$this->member(1)], [$this->job(1, 2, [1], 0, 1)], ['absent' => $absent]);
 
-		self::assertSame([], $plan->placements);
+		self::assertSame([], $plan->placements());
 	}
 
 	public function testPlan_NoDayFits_LastDayOfTheWindowAsOverload(): void {
@@ -140,7 +140,7 @@ class SuggestionPlannerTest extends TestCase {
 
 		// The last day the member is available on, never an earlier one.
 		self::assertSame([1 => self::day(1)], self::daysOf($plan));
-		self::assertTrue($plan->placements[0]['overload']);
+		self::assertTrue($plan->placements()[0]->overload);
 	}
 
 	public function testPlan_Unassigned_GoesToTheMemberWithTheMostRemainingEnergyTiesByLowerId(): void {
@@ -152,7 +152,7 @@ class SuggestionPlannerTest extends TestCase {
 		]);
 
 		// 3 has the most; then 1 and 2 tie at 6 above 3's remaining 5; then 2 leads.
-		self::assertSame([[3], [1], [2]], array_column($plan->placements, 'memberIds'));
+		self::assertSame([[3], [1], [2]], array_column($plan->placements(), 'memberIds'));
 	}
 
 	public function testPlan_NobodyFits_AMemberWhoIsAvailableComesBeforeOneWithTheDayOff(): void {
@@ -164,8 +164,8 @@ class SuggestionPlannerTest extends TestCase {
 			$this->job(3, 3, [1, 2], 0, 0, ['team' => true]),
 		]);
 
-		self::assertSame([[2], [2], [2, 1]], array_column($plan->placements, 'memberIds'));
-		self::assertSame([true, true, true], array_column($plan->placements, 'overload'));
+		self::assertSame([[2], [2], [2, 1]], array_column($plan->placements(), 'memberIds'));
+		self::assertSame([true, true, true], array_column($plan->placements(), 'overload'));
 		self::assertSame(0, $plan->ledger->placed(1, self::TODAY), 'nothing lands on a free day while someone available can take it');
 	}
 
@@ -177,17 +177,17 @@ class SuggestionPlannerTest extends TestCase {
 			$this->job(3, 2, [1, 2], 0, 0, ['assigned' => false]),
 		]);
 
-		$carriers = array_column($plan->placements, 'memberIds', 'roomTaskId');
+		$carriers = array_column($plan->placements(), 'memberIds', 'roomTaskId');
 		// The child still has energy left, but its one slot is taken: the unassigned work goes to someone else.
 		self::assertSame([1], $carriers[3]);
-		self::assertSame([false, true, true], array_column($plan->placements, 'overload'));
+		self::assertSame([false, true, true], array_column($plan->placements(), 'overload'));
 	}
 
 	public function testPlan_TeamTask_IsCarriedByOneBudgetAndShownToEveryAssignee(): void {
 		$members = [$this->member(1), $this->member(2, ['budget' => 12])];
 		$plan = $this->plan($members, [$this->job(1, 4, [1, 2], 0, 0, ['team' => true])]);
 
-		self::assertSame([2, 1], $plan->placements[0]['memberIds']);
+		self::assertSame([2, 1], $plan->placements()[0]->memberIds);
 		self::assertSame(4, $plan->ledger->placed(2, self::TODAY));
 		self::assertSame(0, $plan->ledger->placed(1, self::TODAY), 'the other assignee\'s budget neither blocks nor counts it');
 	}
@@ -201,7 +201,7 @@ class SuggestionPlannerTest extends TestCase {
 		]);
 
 		self::assertSame([1 => self::day(0), 2 => self::day(1), 3 => self::day(1)], self::daysOf($plan));
-		self::assertSame([false, false, true], array_column($plan->placements, 'overload'), 'the third fits no day of the window');
+		self::assertSame([false, false, true], array_column($plan->placements(), 'overload'), 'the third fits no day of the window');
 	}
 
 	public function testPlan_OverdueCycle_IsNotPlacedAndTakesTodaysEnergy(): void {
@@ -211,15 +211,15 @@ class SuggestionPlannerTest extends TestCase {
 		]);
 
 		self::assertSame([2 => self::day(1)], self::daysOf($plan), 'nothing more is piled onto today');
-		self::assertSame([1], array_column($plan->overdue, 'roomTaskId'));
-		self::assertSame([1], $plan->overdue[0]['memberIds']);
+		self::assertSame([1], array_column($plan->overdue(), 'roomTaskId'));
+		self::assertSame([1], $plan->overdue()[0]->memberIds);
 		self::assertSame(4, $plan->ledger->placed(1, self::TODAY));
 	}
 
 	public function testPlan_OverdueUnassignedWhileEveryoneIsAbsent_CountsForNobody(): void {
 		$plan = $this->plan([$this->member(1)], [$this->job(1, 4, [1], -5, -2, ['assigned' => false])], ['absent' => [1 => [self::TODAY => true]]]);
 
-		self::assertSame([], $plan->overdue[0]['memberIds']);
+		self::assertSame([], $plan->overdue()[0]->memberIds);
 		self::assertSame(0, $plan->ledger->placed(1, self::TODAY));
 	}
 
@@ -247,7 +247,7 @@ class SuggestionPlannerTest extends TestCase {
 		$plan = $this->plan([$this->member(1, ['budget' => 2])], [$this->job(1, 3, [1], 0, 4)], ['pinned' => [], 'joiners' => [1 => true]]);
 
 		self::assertSame([1 => self::day(0)], self::daysOf($plan));
-		self::assertTrue($plan->placements[0]['overload'], 'it joins today also when today has no room for it');
+		self::assertTrue($plan->placements()[0]->overload, 'it joins today also when today has no room for it');
 	}
 
 	public function testPlan_JoinerNobodyCanTakeToday_KeepsTheRestOfItsWindow(): void {
@@ -255,7 +255,7 @@ class SuggestionPlannerTest extends TestCase {
 		$plan = $this->plan([$this->member(1)], [$this->job(1, 2, [1], 0, 3)], $options);
 
 		self::assertSame([1 => self::day(1)], self::daysOf($plan));
-		self::assertFalse($plan->placements[0]['overload']);
+		self::assertFalse($plan->placements()[0]->overload);
 	}
 
 	public function testPlan_NotBefore_SkipsTheDayOfTheWorkItFollows(): void {
@@ -272,10 +272,10 @@ class SuggestionPlannerTest extends TestCase {
 		};
 		$plan = $this->plan([$this->member(1)], [$this->job(1, 2, [1], 0, 0)], ['successor' => $successor]);
 
-		self::assertCount(SuggestionPlanner::HORIZON_DAYS, $plan->placements);
-		self::assertSame('d' . self::TODAY, $plan->placements[0]['cycleKey']);
-		self::assertSame([null], array_values(array_unique(array_column(array_slice($plan->placements, 1), 'cycleKey'))));
-		self::assertSame(self::day(13), $plan->placements[13]['day']);
+		self::assertCount(SuggestionPlanner::HORIZON_DAYS, $plan->placements());
+		self::assertSame('d' . self::TODAY, $plan->placements()[0]->cycleKey);
+		self::assertSame([null], array_values(array_unique(array_column(array_slice($plan->placements(), 1), 'cycleKey'))));
+		self::assertSame(self::day(13), $plan->placements()[13]->day);
 		self::assertSame(2, $plan->ledger->placed(1, self::day(7)));
 	}
 
@@ -311,6 +311,6 @@ class SuggestionPlannerTest extends TestCase {
 			$this->job(4, 1, [1], -3, -1),
 		];
 
-		self::assertSame($this->plan($members, $jobs)->placements, $this->plan($members, array_reverse($jobs))->placements);
+		self::assertEquals($this->plan($members, $jobs)->placements(), $this->plan($members, array_reverse($jobs))->placements());
 	}
 }

@@ -813,7 +813,7 @@ Open points for the concept (first assessment, 2026-11-21):
 ---
 
 ### [P3] FEAT-UX-059 — Planned date and scheduler rules
-**Status**: In Progress (CS-PLAN-091 WP-C, implemented 2026-11-21, GUI review and interim Full review passed 2026-11-22; RF-091-14 open); before: Backlog (later, D-089-01; the operator wants the scheduler discussed separately) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: scheduling
+**Status**: In Progress (CS-PLAN-091 WP-C, implemented 2026-11-21, GUI review and interim Full review passed 2026-11-22; RF-091-14 implemented and its interim Full review passed 2026-11-22); before: Backlog (later, D-089-01; the operator wants the scheduler discussed separately) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: scheduling
 **Owning**: CS-PLAN-091 WP-C · **Depends on**: FEAT-UX-050 · **Blocks**: — · **Folded-in**: refused assignments and date moves after creation (operator decision, 2026-11-04); live suggestion, preferred days and team placement (operator, 2026-11-09, CONCEPT-002)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-7
 
@@ -845,7 +845,9 @@ shapes the suggestion instead of refusing (confirmed by the operator, 2026-11-10
       child's limit as a second budget (ADR-022, D-091-126 to D-091-135; 2026-11-21).
 - [x] The operator's GUI review of *Today* and the calendar (accepted as it is, D-091-136)
       and the interim Full review (`PASS-WITH-FIXES`, 2026-11-22).
-- [ ] RF-091-14: structure and performance of the live suggestion, before the WP-G candidate.
+- [x] RF-091-14: structure and performance of the live suggestion, before the WP-G candidate
+      (implemented 2026-11-22, D-091-144 to D-091-152; interim Full review `PASS-WITH-FIXES`
+      2026-11-22, D-091-153 to D-091-157).
 
 ---
 

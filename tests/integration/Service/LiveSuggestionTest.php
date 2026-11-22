@@ -30,6 +30,8 @@ use OCA\ChoreStrike\Service\SuggestionService;
 use OCA\ChoreStrike\Service\SuggestionView;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCA\ChoreStrike\Service\TaskCreationService;
+use OCA\ChoreStrike\Service\TaskService;
+use OCA\ChoreStrike\Service\TodayRows;
 use OCA\ChoreStrike\Service\WindowService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
@@ -146,9 +148,9 @@ class LiveSuggestionTest extends IntegrationTestCase {
 
 	/** @return list<int> Who carries the current cycle of a room task, and who sees it with them */
 	private static function carriersOf(SuggestionView $view, int $roomTaskId): array {
-		foreach ($view->plan->placements as $placement) {
-			if ($placement['current'] && $placement['roomTaskId'] === $roomTaskId) {
-				return $placement['memberIds'];
+		foreach ($view->plan->placements() as $placement) {
+			if ($placement->current && $placement->roomTaskId === $roomTaskId) {
+				return $placement->memberIds;
 			}
 		}
 		return [];
@@ -172,9 +174,9 @@ class LiveSuggestionTest extends IntegrationTestCase {
 	/** @return array<int, string> Room task id to the day its current cycle is placed on */
 	private function daysOf(?SuggestionView $view = null): array {
 		$days = [];
-		foreach (($view ?? $this->view())->plan->placements as $placement) {
-			if ($placement['current']) {
-				$days[$placement['roomTaskId']] = $placement['day'];
+		foreach (($view ?? $this->view())->plan->placements() as $placement) {
+			if ($placement->current) {
+				$days[$placement->roomTaskId] = $placement->day;
 			}
 		}
 		ksort($days);
@@ -280,7 +282,7 @@ class LiveSuggestionTest extends IntegrationTestCase {
 		$view = $this->view();
 		$ownerId = (int)$this->member(self::OWNER)->getId();
 
-		self::assertSame([$overdue], array_column($view->plan->overdue, 'roomTaskId'));
+		self::assertSame([$overdue], array_column($view->plan->overdue(), 'roomTaskId'));
 		// Six a day, three overdue and two done: the open task takes tomorrow.
 		self::assertSame($this->day(1), $this->daysOf($view)[$open]);
 		self::assertSame(200, $view->plan->ledger->doneMinor($ownerId));
@@ -588,8 +590,8 @@ class LiveSuggestionTest extends IntegrationTestCase {
 		$adultsOwn = $this->task('Adult private, own', [self::ADULT], 0, 0, ['visibilityType' => 'private'], false, self::ADULT);
 		$forKid = $this->task('Owner private, for the kid', [self::KID], 0, 0, ['visibilityType' => 'private']);
 		$adminOnly = $this->task('Admin only, assigned to the adult', [self::ADULT], 0, 0, ['visibilityType' => 'admin-only']);
-		$read = \OC::$server->get(RoomTaskReadService::class);
-		$rows = fn (string $userId): array => $read->getFilteredDailyTasksForUser($this->houseId, $this->member($userId), clone $this->now);
+		$today = \OC::$server->get(TodayRows::class);
+		$rows = fn (string $userId): array => $today->forViewer($this->house, $this->member($userId), clone $this->now)['rows'];
 		$ids = static fn (array $list): array => array_map(static fn (array $row): int => (int)$row['roomTask']->getId(), $list);
 
 		$expected = [
@@ -604,6 +606,44 @@ class LiveSuggestionTest extends IntegrationTestCase {
 			foreach ($list as $row) {
 				self::assertTrue(isset($row['suggestedFor']) || ($row['openWindow'] ?? false), 'every row carries its mark');
 			}
+		}
+	}
+
+	/**
+	 * *Today* takes the viewer's load from the same read as its rows
+	 * (RF-091-14): a team task counts for the member who carries it, and
+	 * unassigned overdue work for the one member the plan counts it
+	 * against — here the kid, who has the most energy left once today's
+	 * stored list took its share.
+	 */
+	public function testDailyLoad_IsTheViewersLoadOfTheRangeRead(): void {
+		$this->setPreferences(self::ADULT, ['energyBudget' => array_fill_keys(TaskService::WEEKDAYS, 2)]);
+		$team = $this->task('Team', [self::OWNER, self::ADULT], 0, 0, ['energyCost' => 4]);
+		$this->task('Unassigned overdue', [], -3, 0, ['energyCost' => 2]);
+		$today = \OC::$server->get(TodayRows::class);
+		$loadOf = fn (string $userId): array => $today->forViewer($this->house, $this->member($userId), clone $this->now)['load'];
+
+		$owner = $loadOf(self::OWNER);
+
+		self::assertSame([(int)$this->member(self::OWNER)->getId(), (int)$this->member(self::ADULT)->getId()], self::carriersOf($this->view(), $team));
+		self::assertSame(
+			['userId' => self::OWNER, 'day' => $this->today, 'budget' => 6, 'placed' => 4, 'doneMinor' => 0, 'preferred' => false, 'absent' => false],
+			$owner,
+			'the team task, and nothing of the unassigned overdue work'
+		);
+		self::assertSame(0, $loadOf(self::ADULT)['placed'], 'a team task takes only its carrier\'s energy');
+		self::assertSame(2, $loadOf(self::KID)['placed'], 'the overdue work counts once');
+		$ownRow = static fn (array $rows): array => array_values(array_filter($rows, fn (array $row): bool => $row['day'] === $owner['day']))[0];
+		self::assertSame($owner, $ownRow($this->range(self::OWNER, 0, 0)['members']), 'Today and the calendar read one load');
+	}
+
+	public function testRange_NamesTheHorizon(): void {
+		$last = $this->day(SuggestionPlanner::HORIZON_DAYS - 1);
+
+		foreach ([[0, 2], [SuggestionPlanner::HORIZON_DAYS, SuggestionPlanner::HORIZON_DAYS + 3]] as [$from, $to]) {
+			$range = $this->range(self::KID, $from, $to);
+			self::assertSame(SuggestionPlanner::HORIZON_DAYS, $range['horizonDays']);
+			self::assertSame($last, $range['horizonEndOn'], 'also when the range lies outside it');
 		}
 	}
 
@@ -652,7 +692,8 @@ class LiveSuggestionTest extends IntegrationTestCase {
 	public function testRange_WhollyOutsideOrReversed_ReadsAndStoresNothing(): void {
 		$this->task('Today', [self::OWNER], 0);
 
-		self::assertSame(['days' => [], 'overdue' => [], 'members' => []], $this->range(self::OWNER, SuggestionPlanner::HORIZON_DAYS, SuggestionPlanner::HORIZON_DAYS + 3));
+		$outside = $this->range(self::OWNER, SuggestionPlanner::HORIZON_DAYS, SuggestionPlanner::HORIZON_DAYS + 3);
+		self::assertSame([[], [], []], [$outside['days'], $outside['overdue'], $outside['members']]);
 		try {
 			$this->range(self::OWNER, 3, 2);
 			self::fail('a reversed range is refused');

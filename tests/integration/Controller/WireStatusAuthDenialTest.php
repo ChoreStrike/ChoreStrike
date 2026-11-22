@@ -94,6 +94,7 @@ class WireStatusAuthDenialTest extends IntegrationTestCase {
 			$l10n,
 			\OC::$server->get(\OCA\ChoreStrike\Service\CalendarService::class),
 			\OC::$server->get(\OCA\ChoreStrike\Service\AppLogger::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\TodayRows::class),
 		);
 
 		$response = $controller->create();

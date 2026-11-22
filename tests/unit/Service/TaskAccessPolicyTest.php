@@ -161,6 +161,26 @@ class TaskAccessPolicyTest extends TestCase {
 		self::assertSame([$visible], $result);
 	}
 
+	/**
+	 * RF-091-14: a caller that already holds the assignees of the batch —
+	 * a read of the live suggestion — hands them in and costs no query.
+	 */
+	public function testFilterVisibleRoomTasks_WithAssigneesAlreadyRead_AsksNoMapper(): void {
+		$own = new \OCA\ChoreStrike\Db\RoomTask();
+		$own->setId(10);
+		$own->setTaskId(1);
+		$foreign = new \OCA\ChoreStrike\Db\RoomTask();
+		$foreign->setId(11);
+		$foreign->setTaskId(1);
+		$tasksById = [1 => $this->task(Task::VISIBILITY_PRIVATE, 'creator', 1)];
+		$this->taskAssigneeMapper->expects(self::never())->method('findUserIdsByRoomTasks');
+
+		$result = $this->policy->filterVisibleRoomTasks([$own, $foreign], $tasksById, $this->houseUser('member'), [10 => ['member']]);
+
+		self::assertSame([$own], $result, 'the private room task the member is assigned to, not its sibling');
+		self::assertSame([], $this->policy->filterVisibleRoomTasks([$own], $tasksById, $this->houseUser('member'), []), 'an empty batch of assignees is a read, too');
+	}
+
 	public function testFilterVisibleRoomTasksDropsOrphanedRows(): void {
 		$orphan = new \OCA\ChoreStrike\Db\RoomTask();
 		$orphan->setId(12);

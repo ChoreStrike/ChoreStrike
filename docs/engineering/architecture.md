@@ -773,10 +773,7 @@ room-task, definition and checklist stores.
     energyBudget: {},         // current user's weekly budgets
     weekdayAvailability: {},  // current user's weekly availability
     preferredWeekdays: [],    // current user's preferred days (ADR-022 §5)
-    suggestion: { days: {}, overdue: [], loads: {} } // the last range read of the live suggestion
-  },
-  getters: {
-    getOwnCapacityForDay()         // the viewer's energy of a weekday (Today's status line)
+    suggestion: { days: {}, overdue: [], loads: {}, horizonDays: null, horizonEndOn: null } // the last range read; the server names the horizon
   },
   actions: {
     fetchUserPreferences(),
@@ -796,7 +793,10 @@ room-task, definition and checklist stores.
 > and the store no longer reads the room tasks. The calendar reads
 > `suggestion`; *Today* gets today's suggestion with its daily read. The
 > room-task store keeps per-resource request sequences on the filtered-daily
-> and range readers so an older response can never overwrite a newer one.
+> and range readers so an older response can never overwrite a newer one. The
+> load of *Today* has a generation of its own, taken by the full daily read
+> and by the load refresh after a write; *Today* forgets the load when it is
+> left, so a write in another view reads no daily load.
 
 ## Notifications (Nextcloud bell + mobile push)
 
@@ -1295,10 +1295,15 @@ replay.
   house-/room-/scope-wide fetches, the visibility matrix (batched task +
   assignee reads), `{roomTask, task, room}` row assembly (the single owner of
   the daily enrichment), the batched `cycle` blocks and the status derived
-  from them, filtered-daily ("My Day"), due-today/overdue rows, the bonus rows
+  from them, due-today/overdue rows, the bonus rows
   of *Today* with `creditedToday` and the house timezone resolution
   (CS-PLAN-066 D1 one-owner rule). A list read answers a `RoomTaskList`, the
   room tasks with the definitions its visibility decision read.
+- **`TodayRows`** — the daily read of *Today* (`GET /room-tasks/filtered-daily`,
+  RF-091-14): the rows and the viewer's load of the day from one
+  `SuggestionView`, with the House handed in by the controller. It reuses
+  `RoomTaskReadService` for row assembly, assignees and sub-task counts; see
+  the live-suggestion idiom below.
 - **`CompletionPostCommitService`** — the guarded post-commit boundary:
   weekly-goal read and notification dispatches; failures are logged and
   failure-isolated, never failing a committed aggregate. A completion runs
@@ -1345,7 +1350,9 @@ replay and commits domain facts, versions and the receipt in ONE transaction.
   neither kept nor missed (D-091-03) — also when the absence was entered
   after the window ended. It is asked for the members the window counted
   for, so a closed cycle keeps its neutrality after a departure (D-091-33).
-  `excusedWalletsOn` keeps the timeliness rule for the digest's day view.
+  One day is a window too: the live suggestion and the daily summary ask per
+  day through the same derivation. The per-occurrence excuse with its
+  timeliness rule (`excusedWalletsOn`) went with its last caller (RF-091-14).
 - **Capacity** refuses nothing (ADR-022): the live suggestion shows overload
   instead, and the day limit of a child is its second budget (next section).
 
@@ -1372,10 +1379,13 @@ read, and only today's list is kept for the day.
   A `SuggestionLedger` keeps the budgets in energy hundredths, the unit of the
   work shares, with the child's limit as a count per day. An overdue cycle is
   not placed and takes today's energy. After a cycle the planner queues the one
-  its rule yields next (`WindowService::cycleAfter()`), as if the work were
-  done on the suggested day, so the 14 days carry their recurring work; only a
-  current cycle is a completion target. A task with several assignees is a team
-  task: one budget carries it, every assignee sees it.
+  its rule yields next (`WindowService::successorOf()`: the rule and the anchor
+  of a room task are read once, however many of its cycles a run places), as
+  if the work were done on the suggested day, so the 14 days carry their
+  recurring work; only a current cycle is a completion target. A task with
+  several assignees is a team task: one budget carries it, every assignee sees
+  it. The plan holds `SuggestionPlacement` values, grouped by day as they are
+  placed.
 - **`SuggestionService`** keeps today's list stable. The day's first read plans
   with today open and stores what it placed on today
   (`SuggestionDayMapper::storeOnce()`: insert-or-ignore on the unique key, then
@@ -1388,16 +1398,30 @@ read, and only today's list is kept for the day.
   whose window ends today (a joiner nobody can take today keeps the rest of its
   window), and plans everything else from tomorrow on. A plan that stops at
   its step bound logs `suggestion_plan_truncated`. `view()` returns the
-  house-wide `SuggestionView`; `range()` is the read contract of
-  `GET /scheduling/suggestion`, cut to the horizon before anything is read,
-  filtered by the viewer's task visibility, with the viewer's load (every
-  member's for the owner).
-- **Consumers.** `RoomTaskReadService::getFilteredDailyTasksForUser()` builds
-  the rows of *Today* from the inputs the suggestion already read and marks the
-  ones on today's list (`suggestedFor`, `overload`); a child gets at most its
-  limit of them, and its own work above the limit stays visible as also
-  possible. `DigestService` counts `SuggestionView::countFor()` — suggested for
-  today plus overdue. `TimelineJob` deletes snapshots older than a week.
+  house-wide `SuggestionView`.
+- **`SuggestionView`** is one read with what its readers take from it:
+  today's list, the count of the daily summary with its free-day and absence
+  gate, a member's availability and limit as the plan was placed with them
+  (`isAvailableToday()`, `limitOf()`), a member's load (`loadOf()`) and the
+  read contract of a range. Readers ask the view, never its ledger.
+  `SuggestionService::range()` cuts the request to the horizon before anything
+  is read, decides visibility once per room task (`visibleRoomTasks()`, from
+  the definitions and assignees the read already holds), reads the rooms of
+  the visible room tasks in one statement (`RoomMapper::findByIds()`) and
+  names the horizon in every answer.
+- **Consumers.** `TodayRows` builds the daily read of *Today* from one view:
+  the rows from the inputs the suggestion already read, marked when they are on
+  today's list (`suggestedFor`, `overload`), and the viewer's load of the day.
+  A child gets at most its limit of suggested rows, and its own work above the
+  limit stays visible as also possible; on a day the plan has it unavailable
+  it gets nothing, before any room is read. The House comes from the
+  controller. `DigestService` shares one view per house among the summaries of
+  a pass: the first slot that needs it builds it under its own house lock, and
+  the pass takes it over only once that transaction committed, so a
+  rolled-back or retried attempt never hands on a plan whose stored list went
+  with it. Later summaries of the pass count facts read seconds earlier
+  (D-091-153). Each counts `SuggestionView::countFor()` — suggested for today
+  plus overdue. `TimelineJob` deletes snapshots older than a week.
 - **Budgets** (`WorkflowQueryBudgetTest`): the daily read of *Today* with the
   suggestion and the range read of the calendar cost the same statements for
   10 and for 100 tasks.
@@ -1557,6 +1581,19 @@ Re-measured on 2026-11-22 after the interim Full review of WP-C:
 `RoomTaskReadService` 602 → 601 and `TestDataService` 678 → 679 (the snapshot
 table in its reset list). The structure findings of that review are
 RF-091-14.
+Re-measured on 2026-11-22 after RF-091-14 and its interim Full review:
+`RoomTaskReadService` 601 → 487 (the *Today* block is `TodayRows`, 146);
+`SuggestionService` 296 → 262 and `SuggestionView` 48 → 157 (the read
+contract moved); `PauseProjectionService` 288 → 175 (the per-occurrence
+excuse went); `TodayView.vue` 565 → 557, `CalendarAgenda.vue` 261 → 254 and
+`store/scheduling.js` 232 → 220 shrank. `store/roomTasks.js` 1116 → 1162 (the
+load of *Today* with its own read generation and its refresh),
+`DigestService` 332 → 334 (a pass shares only committed suggestions),
+`TaskForm.vue` 315 → 319 (a save waits for the sub-tasks still being read),
+`RoomTaskController` 583 → 587, `SchedulingService` 347 → 355,
+`WindowService` 357 → 363, `SuggestionPlanner` 232 → 238 and
+`SuggestionInputs` 173 → 191 grew by the methods their long ones were split
+into; `CalendarView.vue` stays below the guideline.
 
 Dispositions: **accepted** (cohesive unit or static/data surface — splitting
 would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
@@ -1566,29 +1603,29 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 
 | File | Lines | Cohesive responsibility | Disposition |
 |------|-------|--------------------------|-------------|
-| `Controller/RoomTaskController.php` | 583 | Room-task route surface (selector modes, creation, lifecycle, range, the bonus rows, the cycle receipt of the completion); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
+| `Controller/RoomTaskController.php` | 587 | Room-task route surface (selector modes, creation, lifecycle, range, the daily read of *Today*, the bonus rows, the cycle receipt of the completion); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
 | `Controller/SchedulingController.php` | 345 | Scheduling route surface (own preferences, member availability, the live suggestion); thin methods | accepted (endpoint breadth, no logic depth) |
 | `Controller/UserController.php` | 367 | Member/profile route surface; thin methods (persistence delegated to HouseService, RF-058-04) | accepted (endpoint breadth) |
 | `Controller/HouseController.php` | 394 | House route surface (read, settings, the catalog and arcade gates, stats, activity, reset); every stored house payload adds the app-config arcade flag, the task categories and the bonus period; thin methods | accepted (endpoint breadth) |
 | `Controller/RoomController.php` | — | Room route surface; the manual cleanliness delta went with CS-PLAN-091 WP-B7, which took it BELOW the guideline (269 non-blank lines); entry retired | removed from the inventory (2026-11-21) |
 | `Service/CompletionService.php` | 647 | The three WP3 ledger aggregates — completion, undo, attribution — with the WP5 transactional takeover queue and the frozen coin multipliers; the date correction, the correction skeleton, the locks, the evidence, the recognition tail, the read model and the split are collaborators (RF-091-07) | **named** (CS-PLAN-067 §3.5 / ADR-014: one visible ordered aggregate per command; further splitting would hide the lock/order contract) |
 | `Service/RoomTaskService.php` | 366 | Room-task ownership checks, deletion, calendar-range projection of the cycles (the room stats went with CS-PLAN-091 WP-B7) | **remainder** (CR-SVC-15: range projection extraction candidate) |
-| `Service/RoomTaskReadService.php` | 601 | Batched read/enrichment cluster (house/room/scope/daily/due/bonus + timezone); WP8 product; batched cycle blocks and the status derived from them | accepted (read-surface breadth, one owner per D1) |
+| `Service/RoomTaskReadService.php` | 487 | Batched read/enrichment cluster (house/room/scope/due/bonus + timezone); WP8 product; batched cycle blocks and the status derived from them; the daily rows of *Today* are `TodayRows` (RF-091-14) | accepted (read-surface breadth, one owner per D1) |
 | `Service/HouseSetupService.php` | 513 | WP3 first-run setup transaction aggregate (first-run gate, structure, a definition per room and template, invites; first windows of the seeded tasks, ADR-021) | accepted (transaction aggregate) |
 | `Service/TaskService.php` | 556 | The definition's validation set and its one update path: prepared, applied under lock, the changed fields, and the revision of every mounted room task (a rule, flex or energy edit moves its current cycle) | accepted (one validation authority; the former `createTask` candidate of CR-SVC-15 left with CS-PLAN-063) |
 | `Service/HouseService.php` | 663 | House aggregate: membership, stats with the computed house health, timezone revision passes, ranking flag and consent-only reset, membership-keyed preference/digest cleanup | accepted (cohesive aggregate) |
-| `Service/SchedulingService.php` | 347 | Scheduling preferences domain surface: availability, energy, preferred days, a child's limit | accepted (cohesive domain) |
+| `Service/SchedulingService.php` | 355 | Scheduling preferences domain surface: availability, energy, preferred days, a child's limit | accepted (cohesive domain) |
 | `Service/TemplateService.php` | 314 | Task catalog templates + level presets | accepted (catalog surface) |
 | `Service/RewardConfigService.php` | — | Static reward configuration registry — the WP4 retirement of the weekly-goal/threshold override keys dropped it BELOW the guideline (164 non-blank lines); entry retired | removed from the inventory (2026-09-27) |
 | `Service/CycleService.php` | 316 | Writers of the derived windows: completion target check, closing and reopening a cycle, postponement, the bonus seam, the cycle seam of a date correction, first date and the anchor policy of rule edits (ADR-021); projection, misses and sleep are `CycleProjection`, `CycleMisses` and `CycleSleep` (RF-091-10) | accepted (the writer of cycle rows; every method runs under the caller's lock order) |
-| `Service/WindowService.php` | 357 | The single recurrence authority: the current cycle per mode, flex and postponement, the missed fixed cycles, the calendar range, the row's `cycle` block, the postponability rule, the wake anchor (ADR-021) and the cycle after a done one for the suggestion (`cycleAfter()`, ADR-022) | accepted (pure derivation; one read path for every consumer) |
+| `Service/WindowService.php` | 363 | The single recurrence authority: the current cycle per mode, flex and postponement, the missed fixed cycles, the calendar range, the row's `cycle` block, the postponability rule, the wake anchor (ADR-021) and the cycles after a done one for the suggestion (`successorOf()`, ADR-022) | accepted (pure derivation; one read path for every consumer) |
 | `Service/RecognitionFactsService.php` | 307 | The one reader of what the recognitions count: stored occurrences before the cutover, closed and open cycles after it, absences neutral on read (ADR-021 §5, §12) | accepted (cohesive read model; splitting the two sources would hide the no-double-count rule) |
 | `Service/RecurrenceCalculator.php` | — | Pure calendar math: interval steps, fixed weekdays and month days with clamping, day-key helpers; the enumeration of stored revisions went with CS-PLAN-091 WP-B7, which took it BELOW the guideline (148 non-blank lines); entry retired | removed from the inventory (2026-11-21) |
 | `Service/MedalService.php` | 335 | Retained rhythm/weekly recognition, correction reconciliation and in-app weekly receipt; WP5 removes external award bells | accepted (cohesive recognition domain, one award writer) |
 | `Service/RoomService.php` | 306 | Room domain: structure mutations, the baseline of a new room in the room journal, the dependents cascade of a deleted room task | accepted (cohesive room domain) |
 | `Service/RankingService.php` | 378 | Consent-filtered exact-ratio ranking and next-Monday generations; WP5 preserves delivery settings through every in-place consent transition | accepted (cohesive ranking authority, ADR-015) |
 | `Service/TestDataService.php` | 679 | Test-only seeding/reset tooling, including the WP5 digest table inventory | accepted (test tooling, explicitly classified) |
-| `Service/DigestService.php` | 332 | WP5 five-minute pass, current-source/visibility relevance, house-first claim, commit-before-notify and outcome bookkeeping | accepted (one visible at-most-once delivery choreography; scheduling and persistence remain in their existing owners) |
+| `Service/DigestService.php` | 334 | WP5 five-minute pass with one suggestion per house, current-source/visibility relevance, house-first claim, commit-before-notify and outcome bookkeeping | accepted (one visible at-most-once delivery choreography; scheduling and persistence remain in their existing owners) |
 | `Service/RewardRequestService.php` | 974 | WP7 C4 request lifecycle: one ordered lock/authorization/receipt/effect/queue sequence per command, the role/departure/erasure hooks and the viewer-safe serialization |
 | `Service/RewardService.php` | 409 | WP7 catalog owner: item CRUD with strict terms, the household-gate command and the scope matrix |
 | `Service/PauseService.php` | 683 | Revisioned pause lifecycle with the ADR-020 deletion, viewer projection, departure and WP5 transactional decision queue writes | accepted (one ordered lock/revision/queue sequence per command) |
@@ -1606,8 +1643,8 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Settings/StructureSettings.vue` | 574 | Floors and rooms, the single surface that edits the house structure, with its dialogs; one category of Settings since the split per category (CS-PLAN-090 WP-D; `Settings.vue` itself has 296 lines with the categories of WP-I to WP-K, was 1,238) | accepted (one cohesive editing surface; template and CSS dominant) |
 | `components/Insights/RankingPanel.vue` | 540 | The consent-filtered ranking with its medals as a section of Insights (the Leaderboard page it was, CS-PLAN-090 WP-E), with a loading and an error state of its own | accepted (presentational; CSS dominant) |
 | `components/Setup/SetupWizard.vue` | 872 | WP3 setup journey step machine | accepted (cohesive step machine; step extraction only with a reviewed UI contract) |
-| `views/TodayView.vue` | 565 | The landing page (CS-PLAN-090 WP-B): composes status line, the bonus-days banner, overdue block, due and possible rows and the bonus section (CS-PLAN-091 WP-B4/WP-B5; its length is the GUI review's of WP-B6, D-091-74); the rows, the status line, the section rules (`utils/todaySections.js`) and the completion flow (`useTaskCompletion`) are extracted units (was 1,084) | accepted (composition root; template and CSS dominant) |
-| `components/Tasks/TaskForm.vue` | 315 | The one form for a new and an existing task (CS-PLAN-091 WP-B6): the fields' composition, the save with the scope question, the delete with its confirmation; the state is `useTaskFormState`, the model `utils/taskFormModel.js`, the field groups are components | accepted (one form contract; template dominant) |
+| `views/TodayView.vue` | 553 | The landing page (CS-PLAN-090 WP-B): composes status line, the bonus-days banner, overdue block, due and possible rows and the bonus section (CS-PLAN-091 WP-B4/WP-B5; its length is the GUI review's of WP-B6, D-091-74); the rows, the status line, the section rules (`utils/todaySections.js`) and the completion flow (`useTaskCompletion`) are extracted units (was 1,084) | accepted (composition root; template and CSS dominant) |
+| `components/Tasks/TaskForm.vue` | 319 | The one form for a new and an existing task (CS-PLAN-091 WP-B6): the fields' composition, the save with the scope question, the delete with its confirmation; the state is `useTaskFormState`, the model `utils/taskFormModel.js`, the field groups are components | accepted (one form contract; template dominant) |
 | `components/Insights/ActivityFeed.vue` | 383 | The household's completions by day with the events between them (postponements, date changes, deletions, absences) and the correction actions the server grants | accepted (one list surface; template and CSS dominant) |
 | `components/Common/ParticipationDialog.vue` | 325 | The actual-work split form: the picker of a short tap (the household, who a hold would credit ticked, equal shares, the people a bonus task already paid today disabled) and the attribution-correction mode, validation surface | accepted (one form contract across both flows) |
 | `components/Scheduling/AvailabilityEditModal.vue` | 514 | Owner availability grid editor | accepted (grid editor surface) |
@@ -1628,7 +1665,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `store/rewards.js` | 572 | Catalog and request state with the WP8 command receipts | accepted (cohesive store) |
 | `store/user.js` | 359 | The current user, the house members with their coin factor and the own wallet | accepted (cohesive store) |
 | `views/InsightsView.vue` | 496 | Insights composition root (CS-PLAN-090 WP-E: key figures, fairness bars, the ranking section and the activity list; the correction review is `Insights/CorrectionReview.vue`) + the WP3 §3.6 history-correction session (feed action, reused dialog, 409 draft retention) | accepted (composition root) |
-| `store/roomTasks.js` | 1116 | Canonical instance store: projections (the bonus rows included), generations, reconciliation (CS-PLAN-066 D3 one-owner rule); WP1 receipt contract + pending-command cache; WP3 completion correction actions | accepted (D3: splitting would duplicate cache/reconciliation ownership) |
+| `store/roomTasks.js` | 1162 | Canonical instance store: projections (the bonus rows and the load of *Today* included), generations, reconciliation (CS-PLAN-066 D3 one-owner rule); WP1 receipt contract + pending-command cache; WP3 completion correction actions | accepted (D3: splitting would duplicate cache/reconciliation ownership) |
 | `store/house.js` | 449 | House state: the house payload with its gates and bonus period, insights, the activity feed, the reset and bonus-days receipts | accepted (cohesive store) |
 | `store/rooms.js` | 340 | Floor/room state (WP3 journal receipt flows) | accepted (cohesive store) |
 | `utils/icons.js` | 580 | Static icon registry | accepted (static data table — not split to meet a physical target) |

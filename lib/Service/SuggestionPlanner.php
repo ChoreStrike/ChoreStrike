@@ -42,32 +42,57 @@ class SuggestionPlanner {
 	 */
 	public function plan(SuggestionLedger $ledger, array $jobs, ?array $pinned, array $joiners, callable $successor): SuggestionPlan {
 		$plan = new SuggestionPlan($ledger);
+		$queue = $this->queueOf($plan, $jobs, $pinned ?? [], $successor);
+		for ($steps = 0; !$queue->isEmpty() && $steps < self::MAX_STEPS; $steps++) {
+			$this->step($plan, $queue, $queue->pop(), $pinned === null, $joiners, $successor);
+		}
+		// What is still queued is left out; the service reports it.
+		$plan->truncated = !$queue->isEmpty();
+		return $plan;
+	}
+
+	/**
+	 * The cycles to place. Today's stored list is fixed: its entries take
+	 * their energy before anything else, and only what follows them is
+	 * queued.
+	 *
+	 * @param list<SuggestionJob> $jobs
+	 * @param array<int, array{memberIds: list<int>, overload: bool}> $pinned
+	 * @param callable(SuggestionJob, string): ?CurrentCycle $successor
+	 */
+	private function queueOf(SuggestionPlan $plan, array $jobs, array $pinned, callable $successor): SuggestionQueue {
 		$queue = new SuggestionQueue();
-		$today = $ledger->todayKey;
+		$today = $plan->ledger->todayKey;
 		foreach ($jobs as $job) {
 			$stored = $pinned[$job->roomTaskId] ?? null;
 			if ($stored === null) {
 				$queue->push($job);
 				continue;
 			}
-			// Today's stored list is fixed: its entries take their energy before anything else.
 			$this->record($plan, $job, $today, $stored['memberIds'], $stored['overload']);
-			$this->follow($queue, $job, $today, $successor, $ledger);
+			$this->follow($queue, $job, $today, $successor, $plan->ledger);
 		}
+		return $queue;
+	}
 
-		for ($steps = 0; !$queue->isEmpty() && $steps < self::MAX_STEPS; $steps++) {
-			$job = $queue->pop();
-			if ($job->current && $job->cycle->isOverdue($today)) {
-				$this->countOverdue($plan, $job);
-				$this->follow($queue, $job, $today, $successor, $ledger);
-				continue;
-			}
-			$day = $this->place($plan, $job, $pinned === null || isset($joiners[$job->roomTaskId]), $job->current && $pinned !== null && isset($joiners[$job->roomTaskId]));
-			$this->follow($queue, $job, $day ?? max($today, $job->cycle->plannedOn()), $successor, $ledger);
+	/**
+	 * Handle the next cycle of the queue: an overdue one counts against
+	 * today, any other is placed; then the cycle that follows it is queued.
+	 *
+	 * @param bool $todayOpen Whether today's list is not stored yet
+	 * @param array<int, true> $joiners
+	 * @param callable(SuggestionJob, string): ?CurrentCycle $successor
+	 */
+	private function step(SuggestionPlan $plan, SuggestionQueue $queue, SuggestionJob $job, bool $todayOpen, array $joiners, callable $successor): void {
+		$today = $plan->ledger->todayKey;
+		if ($job->current && $job->cycle->isOverdue($today)) {
+			$this->countOverdue($plan, $job);
+			$this->follow($queue, $job, $today, $successor, $plan->ledger);
+			return;
 		}
-		// What is still queued is left out; the service reports it.
-		$plan->truncated = !$queue->isEmpty();
-		return $plan;
+		$joins = isset($joiners[$job->roomTaskId]);
+		$day = $this->place($plan, $job, $todayOpen || $joins, $job->current && !$todayOpen && $joins);
+		$this->follow($queue, $job, $day ?? max($today, $job->cycle->plannedOn()), $successor, $plan->ledger);
 	}
 
 	/**
@@ -198,19 +223,7 @@ class SuggestionPlanner {
 		if ($memberIds !== [] && $plan->ledger->knows($memberIds[0])) {
 			$plan->ledger->book($memberIds[0], $day, $job->energy);
 		}
-		$plan->placements[] = [
-			'roomTaskId' => $job->roomTaskId,
-			// Only the current cycle is a completion target.
-			'cycleKey' => $job->current ? $job->cycle->key : null,
-			'day' => $day,
-			'memberIds' => $memberIds,
-			'energy' => $job->energy,
-			'overload' => $overload,
-			'current' => $job->current,
-			'windowStartOn' => $job->cycle->startOn,
-			'windowEndOn' => $job->cycle->endOn,
-			'postponeCount' => $job->cycle->postponeCount,
-		];
+		$plan->place(SuggestionPlacement::of($job, $day, $memberIds, $overload));
 	}
 
 	/**
@@ -223,14 +236,8 @@ class SuggestionPlanner {
 		if ($choice !== null) {
 			$plan->ledger->book($choice['memberId'], $today, $job->energy);
 		}
-		$plan->overdue[] = [
-			'roomTaskId' => $job->roomTaskId,
-			'cycleKey' => $job->cycle->key,
-			'memberIds' => $choice !== null ? $job->membersWith($choice['memberId']) : ($job->assigned ? $job->candidates : []),
-			'energy' => $job->energy,
-			'windowStartOn' => $job->cycle->startOn,
-			'windowEndOn' => $job->cycle->endOn,
-		];
+		$members = $choice !== null ? $job->membersWith($choice['memberId']) : ($job->assigned ? $job->candidates : []);
+		$plan->countOverdue(SuggestionPlacement::of($job, null, $members, false));
 	}
 
 	/**

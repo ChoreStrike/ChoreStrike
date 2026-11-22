@@ -364,7 +364,7 @@ class SleepAndBonusTest extends IntegrationTestCase {
 
 		self::assertSame([], $read->getOverdueTaskRows($f['houseId'], $owner), 'never overdue, whatever its first date');
 		self::assertSame([], $read->getDueTodayTaskRows($f['houseId'], $owner));
-		self::assertSame([], $read->getFilteredDailyTasksForUser($f['houseId'], $owner, new \DateTime()), 'never suggested');
+		self::assertSame([], $this->todayRowsOf($f['houseId'], $owner), 'never suggested');
 		self::assertSame([0, 0], [$goal()['eligible'], $streak()]);
 
 		$result = $this->completeOccurrence($this->completionService, $f['houseId'], self::OWNER, $f['roomTaskId']);

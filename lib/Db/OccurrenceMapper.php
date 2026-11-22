@@ -45,24 +45,13 @@ class OccurrenceMapper extends QBMapper {
 		return $this->findEntities($qb);
 	}
 
-	/*
-	 * Day bounds on DATE columns. Nextcloud binds an entity's date field as
-	 * 'Y-m-d 00:00:00'; PostgreSQL and MySQL store the day, SQLite keeps the
-	 * text and compares strings, so `<=`, `=` and `>` against a bare day key
-	 * put that day after itself there. `>=` a day and `<` the next day hold
-	 * for either form on every provider. Bare keys, because Doctrine's
-	 * PARAM_DATE conversion rejects plain 'Y-m-d' strings.
-	 */
+	// Day bounds on DATE columns: see {@see DayKey}.
 
 	private function onOrAfter(IQueryBuilder $qb, string $column, string $dayKey): string {
 		return $qb->expr()->gte($column, $qb->createNamedParameter($dayKey, IQueryBuilder::PARAM_STR));
 	}
 
 	private function onOrBefore(IQueryBuilder $qb, string $column, string $dayKey): string {
-		return $qb->expr()->lt($column, $qb->createNamedParameter(self::dayAfter($dayKey), IQueryBuilder::PARAM_STR));
-	}
-
-	private static function dayAfter(string $dayKey): string {
-		return (new \DateTimeImmutable($dayKey, new \DateTimeZone('UTC')))->modify('+1 day')->format('Y-m-d');
+		return $qb->expr()->lt($column, $qb->createNamedParameter(DayKey::after($dayKey), IQueryBuilder::PARAM_STR));
 	}
 }

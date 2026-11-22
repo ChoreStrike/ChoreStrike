@@ -16,6 +16,7 @@ import {
 	dueText,
 	locationLabel,
 	matchesEnergyFilter,
+	namesViewer,
 	recurrenceLabel,
 	cycleOf,
 	plannedDayKey,
@@ -282,6 +283,19 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 			expect(asleepLabel({ state: 'asleep', wakeOn: null })).toBe('Asleep')
 			expect(asleepLabel({ state: 'asleep', wakeOn: '2026-12-24' })).toMatch(/^Asleep until .*24/)
 			expect(asleepLabel(null)).toBe('Asleep')
+		})
+	})
+
+	describe('namesViewer', () => {
+		// One rule for "my tasks" on Today and in the calendar (RF-091-14).
+		it('holds for work that names the viewer or names nobody', () => {
+			expect(namesViewer(['kid', 'mom'], 'mom')).toBe(true)
+			expect(namesViewer([], 'mom')).toBe(true)
+			expect(namesViewer(['kid'], 'mom')).toBe(false)
+		})
+
+		it('holds for everything while the viewer is not known', () => {
+			expect(namesViewer(['kid'], null)).toBe(true)
 		})
 	})
 })

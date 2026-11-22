@@ -267,6 +267,15 @@ class Task extends Entity implements JsonSerializable {
 	}
 
 	/**
+	 * The energy one cycle of the task counts: its energy cost, at least 1.
+	 * The one floor of the completion ledger, a missed cycle and the live
+	 * suggestion.
+	 */
+	public function energy(): int {
+		return max(1, (int)$this->energyCost);
+	}
+
+	/**
 	 * Get estimated time as range string (e.g., "10-15 min" or "15 min")
 	 */
 	public function getEstimatedTimeRange(): string {

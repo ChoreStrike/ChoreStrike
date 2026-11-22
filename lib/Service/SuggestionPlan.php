@@ -14,21 +14,14 @@ namespace OCA\ChoreStrike\Service;
  * budgets they were booked on.
  */
 final class SuggestionPlan {
-	/**
-	 * Placed cycles in placement order.
-	 *
-	 * @var list<array{roomTaskId: int, cycleKey: ?string, day: string, memberIds: list<int>, energy: int, overload: bool, current: bool, windowStartOn: string, windowEndOn: string, postponeCount: int}>
-	 */
-	public array $placements = [];
+	/** @var list<SuggestionPlacement> Placed cycles in placement order */
+	private array $placements = [];
 
-	/**
-	 * Overdue cycles: never placed, counted against today's energy of the
-	 * member who would do them. While every candidate is absent today,
-	 * unassigned work names nobody and assigned work keeps its assignees.
-	 *
-	 * @var list<array{roomTaskId: int, cycleKey: string, memberIds: list<int>, energy: int, windowStartOn: string, windowEndOn: string}>
-	 */
-	public array $overdue = [];
+	/** @var array<string, list<SuggestionPlacement>> The placed cycles by day, each day in placement order */
+	private array $byDay = [];
+
+	/** @var list<SuggestionPlacement> */
+	private array $overdue = [];
 
 	/** Whether the run stopped at its step bound and left cycles unplaced. */
 	public bool $truncated = false;
@@ -38,12 +31,45 @@ final class SuggestionPlan {
 	) {
 	}
 
+	/** Record a cycle on its day. */
+	public function place(SuggestionPlacement $placement): void {
+		$this->placements[] = $placement;
+		$this->byDay[(string)$placement->day][] = $placement;
+	}
+
 	/**
-	 * The placements of one day.
+	 * Record an overdue cycle: never placed, counted against today's
+	 * energy of the member who would do it.
+	 */
+	public function countOverdue(SuggestionPlacement $placement): void {
+		$this->overdue[] = $placement;
+	}
+
+	/**
+	 * Every placed cycle, in placement order.
 	 *
-	 * @return list<array<string, mixed>>
+	 * @return list<SuggestionPlacement>
+	 */
+	public function placements(): array {
+		return $this->placements;
+	}
+
+	/**
+	 * The placements of one day, in placement order.
+	 *
+	 * @return list<SuggestionPlacement>
 	 */
 	public function on(string $day): array {
-		return array_values(array_filter($this->placements, static fn (array $placement): bool => $placement['day'] === $day));
+		return $this->byDay[$day] ?? [];
+	}
+
+	/**
+	 * The overdue cycles. While every candidate is absent today,
+	 * unassigned work names nobody and assigned work keeps its assignees.
+	 *
+	 * @return list<SuggestionPlacement>
+	 */
+	public function overdue(): array {
+		return $this->overdue;
 	}
 }

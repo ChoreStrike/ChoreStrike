@@ -87,7 +87,7 @@ class CycleMisses {
 	public function insertMissed(int $houseId, RoomTask $roomTask, Task $task, CurrentCycle $cycle, \DateTimeZone $timeZone, \DateTime $now, ?array $responsible = null): bool {
 		$row = $this->row($houseId, $roomTask, $cycle, $timeZone, $now, $responsible);
 		$row->setOutcome(Cycle::OUTCOME_MISSED);
-		$row->setEnergy(max(1, (int)$task->getEnergyCost()));
+		$row->setEnergy($task->energy());
 		return $this->cycleMapper->insertIfAbsent($row);
 	}
 

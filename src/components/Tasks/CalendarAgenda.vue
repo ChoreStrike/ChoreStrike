@@ -9,10 +9,10 @@
 			:key="day.day"
 			class="agenda-day"
 			:class="{ today: day.isToday, past: day.isPast }"
-			:aria-label="longLabel(day.day)"
+			:aria-label="formatLongDayKey(day.day)"
 			:data-testid="`calendar-agenda-day-${day.day}`">
 			<div class="day-head">
-				<h2>{{ shortLabel(day.day) }}</h2>
+				<h2>{{ formatShortDayKey(day.day) }}</h2>
 				<span v-if="day.isToday" class="today-badge">{{ t('chorestrike', 'Today') }}</span>
 				<span v-if="day.load?.preferred" class="preferred" data-testid="calendar-agenda-preferred">
 					<Icon name="Star" :size="14" /> {{ t('chorestrike', 'preferred') }}
@@ -68,7 +68,7 @@
 				</li>
 			</ul>
 		</section>
-		<p v-if="days.some((day) => day.beyond)" class="agenda-note" data-testid="calendar-agenda-beyond">
+		<p v-if="horizonDays && days.some((day) => day.beyond)" class="agenda-note" data-testid="calendar-agenda-beyond">
 			{{ t('chorestrike', 'The suggestion looks {days} days ahead. Later days show when the work is due.', { days: horizonDays }) }}
 		</p>
 	</div>
@@ -77,8 +77,7 @@
 <script setup>
 import { translate as t } from '@nextcloud/l10n'
 import Icon from '../Common/Icon.vue'
-import { SUGGESTION_HORIZON_DAYS } from '../../utils/calendarAgenda.js'
-import { formatLongDayKey } from '../../utils/dateKeys.js'
+import { formatLongDayKey, formatShortDayKey } from '../../utils/dateKeys.js'
 import { memberNames } from '../../utils/taskDisplay.js'
 import { windowRangeLabel } from '../../utils/windowLabels.js'
 
@@ -96,18 +95,9 @@ const props = defineProps({
 	members: { type: Array, default: () => [] },
 	/** The viewer: an entry that names only them shows no name. */
 	userId: { type: String, default: null },
+	/** How many days the suggestion looks ahead, as the server names it. */
+	horizonDays: { type: Number, default: null },
 })
-
-const horizonDays = SUGGESTION_HORIZON_DAYS
-
-function shortLabel(dayKey) {
-	const [year, month, day] = dayKey.split('-').map(Number)
-	return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })
-}
-
-function longLabel(dayKey) {
-	return formatLongDayKey(dayKey)
-}
 
 /**
  * Who else an entry names: the others of a team task, or whom the day suggests it to.

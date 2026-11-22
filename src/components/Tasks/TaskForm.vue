@@ -187,10 +187,12 @@ export default {
 	},
 
 	async mounted() {
+		// The sub-tasks are read at once, not after the members: a save waits for that read.
+		const subTasks = this.state.loadSubTasks()
 		if (!this.userStore.houseUsers.length) {
 			await this.loadMembers()
 		}
-		await this.state.loadSubTasks()
+		await subTasks
 	},
 
 	methods: {
@@ -219,6 +221,8 @@ export default {
 			this.askingScope = false
 			this.saving = true
 			try {
+				// A save while the sub-tasks still load waits for them: unknown, what was added would be dropped.
+				await this.state.subTasksSettled()
 				const fields = this.state.fields()
 				if (this.state.task) {
 					// The version the form opened with: after a refusal its content is stale, and a fresh version would overwrite the change it missed.

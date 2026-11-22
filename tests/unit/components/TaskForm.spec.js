@@ -457,6 +457,42 @@ describe('TaskForm', () => {
 			expect(wrapper.findAll('[data-testid="task-subtask-label"]').map((input) => input.element.value)).toEqual(['Rinse', 'Dry'])
 		})
 
+		it('saves a sub-task added before the others were read, once they are (RF-091-14 review)', async () => {
+			let resolve
+			checklistStore.fetchTaskItems.mockReturnValueOnce(new Promise((done) => {
+				resolve = done
+			}))
+			const wrapper = mount(TaskForm, { props: { item: { task: task(), roomTask: roomTask() } }, global: { plugins: [pinia] } })
+			await flushPromises()
+			await wrapper.get('[data-testid="task-subtask-new"]').setValue('Dry')
+			await wrapper.get('[data-testid="task-subtask-add"]').trigger('click')
+
+			// The browser gate saved here, before the read answered: the new sub-task was sent as unknown.
+			await wrapper.get('[data-testid="task-form"]').trigger('submit')
+			await flushPromises()
+			expect(taskFormStore.save).not.toHaveBeenCalled()
+			resolve([{ id: 4, label: 'Rinse' }])
+			await flushPromises()
+
+			expect(taskFormStore.save.mock.calls[0][2].checklistItems).toEqual([{ id: 4, label: 'Rinse' }, { label: 'Dry' }])
+		})
+
+		it('takes the sub-tasks another reader cached after its own read failed, without reading them again', async () => {
+			checklistStore.fetchTaskItems.mockRejectedValueOnce(new Error('offline'))
+			const wrapper = await editForm()
+			expect(wrapper.text()).toContain('Could not load the sub-tasks')
+			// The opened row read them meanwhile.
+			checklistStore.items = { 7: [{ id: 4, label: 'Rinse' }] }
+			checklistStore.fetchTaskItems.mockClear()
+
+			await wrapper.getComponent({ name: 'ErrorState' }).vm.$emit('retry')
+			await flushPromises()
+			await submit(wrapper)
+
+			expect(checklistStore.fetchTaskItems).not.toHaveBeenCalled()
+			expect(taskFormStore.save.mock.calls[0][2].checklistItems).toEqual([{ id: 4, label: 'Rinse' }])
+		})
+
 		it('drops blank sub-tasks and trims the others', async () => {
 			checklistStore.items = { 7: [{ id: 4, label: 'Rinse' }] }
 			const wrapper = await editForm()

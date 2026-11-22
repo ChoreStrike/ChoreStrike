@@ -23,7 +23,8 @@ use OCA\ChoreStrike\Db\TaskMapper;
 /**
  * Focused owner of the room-task READ cluster (CS-PLAN-067 §3.1): batched
  * visibility filtering, task/room enrichment, canonical assignee sets and
- * the house/room/scope/daily execution-row assembly.
+ * the house/room/scope execution-row assembly. The rows of *Today* are
+ * {@see TodayRows}, which builds them from the live suggestion.
  *
  * Every enrichment is a bounded batch (TaskMapper/RoomMapper::findByIds,
  * TaskAssigneeMapper::findUserIdsByRoomTasks) — no per-row lookup, including
@@ -45,7 +46,6 @@ class RoomTaskReadService {
 	private AppLogger $logger;
 	private TaskChecklistItemMapper $checklistItemMapper;
 	private CreditPolicy $creditPolicy;
-	private SuggestionService $suggestions;
 
 	public function __construct(
 		RoomTaskMapper $roomTaskMapper,
@@ -60,7 +60,6 @@ class RoomTaskReadService {
 		AppLogger $logger,
 		TaskChecklistItemMapper $checklistItemMapper,
 		CreditPolicy $creditPolicy,
-		SuggestionService $suggestions,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
@@ -74,7 +73,6 @@ class RoomTaskReadService {
 		$this->logger = $logger;
 		$this->checklistItemMapper = $checklistItemMapper;
 		$this->creditPolicy = $creditPolicy;
-		$this->suggestions = $suggestions;
 	}
 
 	/**
@@ -275,15 +273,17 @@ class RoomTaskReadService {
 	 *
 	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
 	 */
-	private function rowsOf(RoomTaskList $visible): array {
+	public function rowsOf(RoomTaskList $visible): array {
 		return $visible->roomTasks === []
 			? []
 			: $this->assembleRows($visible->roomTasks, $visible->tasksById, $this->roomsByIdOf($visible->roomTasks));
 	}
 
 	/**
+	 * The rooms of a batch of room tasks in one query.
+	 *
 	 * @param RoomTask[] $roomTasks
-	 * @return array<int, Room>
+	 * @return array<int, Room> By room id
 	 */
 	private function roomsByIdOf(array $roomTasks): array {
 		$roomIds = [];
@@ -423,76 +423,6 @@ class RoomTaskReadService {
 	}
 
 	/**
-	 * The daily rows of a user: every visible room task whose window is
-	 * open on the given day, restricted for a child by eligibility,
-	 * availability and the daily limit.
-	 *
-	 * The live suggestion decides what is today's work (ADR-022): a row it
-	 * placed on today carries `suggestedFor`, the members it is suggested
-	 * to, and `overload` when it fits no day. Every other open row carries
-	 * `openWindow: true`; *Today* lists those as also possible
-	 * (BUG-UX-005), and they never consume a child's slot.
-	 *
-	 * CS-PLAN-065 (decision D4): a child is offered its own and the
-	 * unassigned work only. Non-child users receive all visible daily tasks.
-	 *
-	 * The rows are built from what the suggestion already read — the room
-	 * tasks, definitions, assignees and current cycles of the house — so
-	 * the day's work costs only the rooms and the sub-task counts on top
-	 * (RF-058-11: no second assignee query).
-	 *
-	 * @return list<array{roomTask: RoomTask, task: Task, room: Room, assignees: string[], cycle: array<string, mixed>, checklistItemCount: int, suggestedFor?: list<string>, overload?: bool, openWindow?: true}> Today's open rows: suggested ones carry `suggestedFor` and `overload`, the others `openWindow`
-	 */
-	public function getFilteredDailyTasksForUser(
-		int $houseId,
-		HouseUser $viewer,
-		\DateTime $date,
-	): array {
-		$house = $this->houseMapper->find($houseId);
-		$view = $this->suggestions->view($house, $date);
-		$suggested = $view->today();
-		$dueRows = [];
-		$openWindow = [];
-		foreach ($this->openRowsOf($view->context, $viewer) as $row) {
-			$entry = $suggested[(int)$row['roomTask']->getId()] ?? null;
-			if ($entry !== null && $entry['cycleKey'] === $row['cycle']['cycleKey']) {
-				$dueRows[] = $row + ['suggestedFor' => $entry['userIds'], 'overload' => $entry['overload']];
-			} else {
-				$openWindow[] = $row + ['openWindow' => true];
-			}
-		}
-
-		// Non-child users see all (visible) tasks.
-		if (!$viewer->isChild()) {
-			return $this->withChecklistCounts($this->withAssignees([...$dueRows, ...$openWindow], $view->context->assignees));
-		}
-		return $this->childDailyRows($viewer, $date, $this->calendarService->getTimeZone($house), $dueRows, $openWindow, $view->context->assignees);
-	}
-
-	/**
-	 * The viewer-visible rows whose window is open today, from the inputs
-	 * of a suggestion read, in the canonical `next_due, created_at, id`
-	 * order of the house read. Visibility first, as in {@see rowsInState()}.
-	 *
-	 * @return list<array<string, mixed>> Rows with their `cycle` block
-	 */
-	private function openRowsOf(SuggestionContext $context, HouseUser $viewer): array {
-		$visible = array_values(array_filter($context->roomTasks, function (RoomTask $roomTask) use ($context, $viewer): bool {
-			$id = (int)$roomTask->getId();
-			$task = $context->taskOf($id);
-			return $task !== null && isset($context->jobs[$id]) && $this->taskAccessPolicy->canView($task, $viewer, $context->assignees[$id] ?? []);
-		}));
-		$rows = [];
-		foreach ($this->rowsOf(new RoomTaskList($visible, $context->tasks)) as $row) {
-			$block = $this->windows->block($row['roomTask'], $row['task'], $context->jobs[(int)$row['roomTask']->getId()]->cycle, $context->todayKey);
-			if (($block['state'] ?? null) === WindowService::STATE_OPEN) {
-				$rows[] = $row + ['cycle' => $block];
-			}
-		}
-		return $rows;
-	}
-
-	/**
 	 * The bonus rows of *Today* (ADR-021 decision 8): every visible bonus
 	 * task that is not asleep. Never due and never suggested, so neither a
 	 * child's daily limit nor the availability gate applies; a child still
@@ -528,61 +458,12 @@ class RoomTaskReadService {
 	}
 
 	/**
-	 * A child's rows of *Today*: nothing on a day the child is not
-	 * available; otherwise the work suggested to the child, at most the
-	 * owner-set daily limit (D5, ADR-022 decision 2 rule 5), and as also
-	 * possible the open rows that are not today's work and are the child's
-	 * or unassigned (D4). Unassigned work that today suggests to someone
-	 * else is not offered to the child. The limit caps what *Today*
-	 * suggests, never what the child owes (BUG-UX-013): the child's own
-	 * work above it stays visible as also possible.
-	 *
-	 * @param list<array<string, mixed>> $dueRows The rows suggested for today, to anyone
-	 * @param list<array<string, mixed>> $openWindow The other open rows
-	 * @param array<int, string[]> $assigneesByRoomTask The assignees the suggestion read
-	 * @return list<array<string, mixed>>
-	 */
-	private function childDailyRows(HouseUser $viewer, \DateTime $date, \DateTimeZone $tz, array $dueRows, array $openWindow, array $assigneesByRoomTask): array {
-		$preferences = $viewer->getSchedulingPreferences();
-		// Current day name (lowercase, house TZ — CS-PLAN-057).
-		$currentDay = strtolower(\DateTime::createFromInterface($date)->setTimezone($tz)->format('l'));
-		if (!($preferences['weekdayAvailability'][$currentDay] ?? true)) {
-			return [];
-		}
-		$suggested = [];
-		$others = [];
-		foreach ($dueRows as $row) {
-			if (in_array($viewer->getNextcloudUserId(), $row['suggestedFor'], true)) {
-				$suggested[] = $row;
-			} else {
-				$others[] = $row;
-			}
-		}
-		// A missing or non-finite limit means unlimited. Work that fits the day comes before overload.
-		$maxDailyTasks = $preferences['maxDailyTasks'] ?? null;
-		if (is_int($maxDailyTasks) && count($suggested) > $maxDailyTasks) {
-			usort($suggested, static fn (array $a, array $b): int => $a['overload'] <=> $b['overload']);
-			$others = [...array_slice($suggested, $maxDailyTasks), ...$others];
-			$suggested = array_slice($suggested, 0, $maxDailyTasks);
-		}
-		$possible = array_map(
-			static fn (array $row): array => array_diff_key($row, ['suggestedFor' => true, 'overload' => true]) + ['openWindow' => true],
-			[
-				...array_values(array_filter($others, static fn (array $item): bool => self::isOwn($item, $viewer, $assigneesByRoomTask))),
-				...array_values(array_filter($openWindow, static fn (array $item): bool => self::isChildEligible($item, $viewer, $assigneesByRoomTask))),
-			]
-		);
-
-		return $this->withChecklistCounts($this->withAssignees([...$suggested, ...$possible], $assigneesByRoomTask));
-	}
-
-	/**
 	 * Whether a row is the child's: assigned to the child or unassigned.
 	 *
 	 * @param array<string, mixed> $item
 	 * @param array<int, string[]> $assigneesByRoomTask
 	 */
-	private static function isChildEligible(array $item, HouseUser $viewer, array $assigneesByRoomTask): bool {
+	public static function isChildEligible(array $item, HouseUser $viewer, array $assigneesByRoomTask): bool {
 		return self::isOwn($item, $viewer, $assigneesByRoomTask)
 			|| ($assigneesByRoomTask[$item['roomTask']->getId()] ?? []) === [];
 	}
@@ -594,7 +475,7 @@ class RoomTaskReadService {
 	 * @param array<string, mixed> $item
 	 * @param array<int, string[]> $assigneesByRoomTask
 	 */
-	private static function isOwn(array $item, HouseUser $viewer, array $assigneesByRoomTask): bool {
+	public static function isOwn(array $item, HouseUser $viewer, array $assigneesByRoomTask): bool {
 		return in_array($viewer->getNextcloudUserId(), $assigneesByRoomTask[$item['roomTask']->getId()] ?? [], true);
 	}
 
@@ -606,7 +487,7 @@ class RoomTaskReadService {
 	 * @param array<int, string[]>|null $assigneesByRoomTask Pre-fetched map (reuse without a second query)
 	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room, assignees: string[]}>
 	 */
-	private function withAssignees(array $rows, ?array $assigneesByRoomTask = null): array {
+	public function withAssignees(array $rows, ?array $assigneesByRoomTask = null): array {
 		if ($rows === []) {
 			return [];
 		}
@@ -629,7 +510,7 @@ class RoomTaskReadService {
 	 * @param list<array<string, mixed>> $rows Rows carrying `task`
 	 * @return list<array<string, mixed>> Rows with a `checklistItemCount` key
 	 */
-	private function withChecklistCounts(array $rows): array {
+	public function withChecklistCounts(array $rows): array {
 		if ($rows === []) {
 			return [];
 		}

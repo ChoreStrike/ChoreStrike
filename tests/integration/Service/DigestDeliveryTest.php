@@ -64,10 +64,10 @@ class DigestDeliveryTest extends IntegrationTestCase {
 		parent::tearDown();
 	}
 
-	private function seedPref(?string $quietStart = null, ?string $quietEnd = null): void {
+	private function seedPref(?string $quietStart = null, ?string $quietEnd = null, ?int $memberId = null): void {
 		$pref = new MemberPreference();
 		$pref->setHouseId($this->houseId);
-		$pref->setHouseUserId($this->memberId);
+		$pref->setHouseUserId($memberId ?? $this->memberId);
 		$pref->setVersion(1);
 		$pref->setTaskDigestEnabled(true);
 		$pref->setOrgDigestEnabled(true);
@@ -77,6 +77,12 @@ class DigestDeliveryTest extends IntegrationTestCase {
 		$pref->setCreatedAt(new \DateTime('2026-09-29 10:00:00 UTC'));
 		$pref->setUpdatedAt(new \DateTime('2026-09-29 10:00:00 UTC'));
 		$this->prefMapper->insertOrGet($pref);
+	}
+
+	/** One dispatch attempt for a slot, as a pass of its own makes it. */
+	private function dispatch(DigestSlot $slot, \DateTime $now): string {
+		$views = [];
+		return (new \ReflectionMethod($this->digestService, 'dispatchSlot'))->invokeArgs($this->digestService, [$slot, $now, &$views]);
 	}
 
 	/** A queued agreement row, as the retired agreement writers left it. */
@@ -313,13 +319,61 @@ class DigestDeliveryTest extends IntegrationTestCase {
 		$this->scheduleService->materializeSlotsForHouse($this->houseId, new \DateTime('2026-09-29 17:00:00 UTC'));
 		$slot = $this->slotMapper->findByHouseUserAndDay($this->houseId, $this->memberId, '2026-09-29');
 
-		$outcome = (new \ReflectionMethod($this->digestService, 'dispatchSlot'))->invoke($this->digestService, $slot, new \DateTime('2026-09-29 18:05:00 UTC'));
+		$outcome = $this->dispatch($slot, new \DateTime('2026-09-29 18:05:00 UTC'));
 
 		self::assertSame('skipped', $outcome);
 		self::assertNull($this->slotMapper->findById((int)$slot->getId())->getDispatchedAt());
 		$rows = $this->changeMapper->findBySlot($this->memberId, '2026-09-29');
 		self::assertCount(1, $rows);
 		self::assertSame(DigestChange::DISPOSITION_QUEUED, $rows[0]->getDisposition(), 'a retained row is skipped, never consumed');
+	}
+
+	/**
+	 * RF-091-14: the summaries of one pass count the same plan. The work
+	 * of the house is read once, however many members are due — before,
+	 * every slot placed the whole suggestion again under the house lock
+	 * and read the room tasks a second time for the takeover rows.
+	 */
+	public function testPass_SeveralSummaries_ReadTheWorkOfTheHouseOnce(): void {
+		$this->addHouseMember($this->houseId, 'dgd-second', 'Second Digest Member');
+		$secondId = (int)\OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($this->houseId, 'dgd-second')->getId();
+		$this->seedPref();
+		$this->seedPref(null, null, $secondId);
+		$roomId = $this->createRoom($this->houseId, $this->createFloor($this->houseId));
+		$roomTaskIds = [];
+		foreach (['dgd-member', 'dgd-second'] as $userId) {
+			$roomTaskIds[$userId] = $this->assignTaskToRoom($this->createTask($this->houseId, "Work of $userId"), $roomId, $userId, '2026-09-29');
+		}
+		// A takeover queued for the second member: its visibility is asked of the same read.
+		$change = new DigestChange();
+		$change->setHouseId($this->houseId);
+		$change->setHouseUserId($secondId);
+		$change->setObjectType('takeover');
+		$change->setObjectId((string)$this->insertCompletionRow($roomTaskIds['dgd-second'], $this->memberId, '2026-09-28 10:00:00'));
+		$change->setCategory(DigestChange::CATEGORY_ORG);
+		$change->setChangeTime(new \DateTime('2026-09-29 10:00:00 UTC'));
+		$change->setTargetSlot('2026-09-29');
+		$change->setDisposition(DigestChange::DISPOSITION_QUEUED);
+		$change->setCreatedAt(new \DateTime('2026-09-29 10:00:00 UTC'));
+		$change->setUpdatedAt(new \DateTime('2026-09-29 10:00:00 UTC'));
+		$this->changeMapper->queueOrCoalesce($change);
+		$this->scheduleService->materializeSlotsForHouse($this->houseId, new \DateTime('2026-09-29 17:00:00 UTC'));
+
+		$counter = \OCA\ChoreStrike\Tests\Integration\Support\QueryCounter::attach($this->db);
+		try {
+			$stats = $this->digestService->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'));
+		} finally {
+			$counter->detach();
+		}
+
+		self::assertSame(2, $stats['dispatched']);
+		foreach ([$this->memberId, $secondId] as $memberId) {
+			self::assertSame(DigestSlot::STATUS_SENT, $this->slotMapper->findByHouseUserAndDay($this->houseId, $memberId, '2026-09-29')->getStatus());
+		}
+		$takeover = $this->changeMapper->findBySlot($secondId, '2026-09-29');
+		self::assertSame(DigestChange::DISPOSITION_CONSUMED, $takeover[0]->getDisposition(), 'the takeover counted: its visibility was asked');
+		$roomTaskReads = array_filter($counter->sqlStatements(), static fn (string $sql): bool => preg_match('/FROM\s+\S*chorestrike_room_tasks\b/i', $sql) === 1);
+		self::assertCount(1, $roomTaskReads, implode("\n", $counter->sqlStatements()));
 	}
 
 	public function testDispatch_CurrentTaskVisibility_DropsBothTaskAndTakeoverContent(): void {
@@ -351,7 +405,7 @@ class DigestDeliveryTest extends IntegrationTestCase {
 		\OC::$server->get(\OCA\ChoreStrike\Db\TaskAssigneeMapper::class)->deleteByUserForHouse('dgd-member', $this->houseId);
 		$this->scheduleService->materializeSlotsForHouse($this->houseId, new \DateTime('2026-09-29 17:00:00 UTC'));
 		$slot = $this->slotMapper->findByHouseUserAndDay($this->houseId, $this->memberId, '2026-09-29');
-		$outcome = (new \ReflectionMethod($this->digestService, 'dispatchSlot'))->invoke($this->digestService, $slot, new \DateTime('2026-09-29 18:05:00 UTC'));
+		$outcome = $this->dispatch($slot, new \DateTime('2026-09-29 18:05:00 UTC'));
 		self::assertSame('skipped', $outcome, 'the current policy excludes both counts even though the task and the queue row remain');
 		self::assertNull($this->slotMapper->findById((int)$slot->getId())->getDispatchedAt());
 	}

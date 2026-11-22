@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\DigestChange;
 use OCA\ChoreStrike\Db\DigestChangeMapper;
 use OCA\ChoreStrike\Db\DigestSlot;
 use OCA\ChoreStrike\Db\DigestSlotMapper;
+use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
@@ -46,7 +47,11 @@ use OCA\ChoreStrike\Db\TransactionExecutor;
  * task content is computed NOW from the live suggestion (the work it
  * suggests to the member for today plus their overdue tasks, ADR-022
  * decision 7; nothing on free days or during an absence; no offers or
- * future work), organizational content
+ * future work). The suggestion is computed once per house of a pass:
+ * every summary of one pass counts the same plan, which the first slot
+ * that needs it reads under its own house lock. A later summary of the
+ * pass therefore counts facts read seconds earlier, as if it had been
+ * dispatched with the first one (D-091-153). Organizational content
  * comes from the queued rows (rows carry only recipients authorized at
  * write time; the active-membership recheck is the visibility gate for
  * the house-scoped structural facts). Queued agreement rows from before
@@ -73,7 +78,6 @@ class DigestService {
 		private CompletedTaskMapper $completionMapper,
 		private PauseMapper $pauseMapper,
 		private RewardRequestMapper $rewardRequestMapper,
-		private RoomTaskReadService $roomTaskReadService,
 		private SuggestionService $suggestionService,
 	) {
 	}
@@ -108,8 +112,9 @@ class DigestService {
 			return $stats;
 		}
 
+		$views = [];
 		foreach ($this->slotMapper->findDuePending($now) as $slot) {
-			$outcome = $this->dispatchSlot($slot, $now);
+			$outcome = $this->dispatchSlot($slot, $now, $views);
 			$stats[$outcome]++;
 		}
 
@@ -123,14 +128,30 @@ class DigestService {
 	/**
 	 * One bounded dispatch attempt for one due slot. Returns the outcome
 	 * key (dispatched / skipped / quiet / contended / uncertain).
+	 *
+	 * The suggestion of the house is shared by every summary of the pass,
+	 * so a household of five does not place its whole plan five times
+	 * under the house lock (RF-091-14). A slot that needs it first builds
+	 * it inside its transaction, and the pass takes it over only once that
+	 * transaction committed: a rolled-back or retried attempt took the
+	 * day's stored list with it (D-091-153).
+	 *
+	 * @param array<int, SuggestionView> $views The pass's committed suggestions, by house id
 	 */
-	private function dispatchSlot(DigestSlot $slot, \DateTime $now): string {
+	private function dispatchSlot(DigestSlot $slot, \DateTime $now, array &$views): string {
 		$token = bin2hex(random_bytes(16));
+		$built = [];
+		$viewOf = function (House $house) use (&$views, &$built, $now): SuggestionView {
+			$houseId = (int)$house->getId();
+			return $views[$houseId] ?? ($built[$houseId] ??= $this->suggestionService->view($house, $now));
+		};
 
 		// (c) recheck + (claim) inside ONE house-first transaction that
 		// commits BEFORE any notification call (persist-before-notify).
 		try {
-			$decision = $this->transactions->run(function () use ($slot, $now, $token): array {
+			$decision = $this->transactions->run(function () use ($slot, $now, $token, $viewOf, &$built): array {
+				// A retried attempt starts afresh: the aborted one rolled back what its views stored.
+				$built = [];
 				// FIRST lock of the documented order: the house row
 				// serializes claims against opt-out/departure/zone writes.
 				$house = $this->houseMapper->findForUpdate((int)$slot->getHouseId());
@@ -179,16 +200,12 @@ class DigestService {
 					return ['outcome' => 'quiet'];
 				}
 
-				$visibleRoomTasks = $this->roomTaskReadService->getHouseRoomTasks((int)$house->getId(), $member)->roomTasks;
-				$visibleRoomTaskIds = array_fill_keys(array_map(
-					static fn (\OCA\ChoreStrike\Db\RoomTask $row): int => (int)$row->getId(),
-					$visibleRoomTasks
-				), true);
-				$taskCount = $pref->getTaskDigestEnabled()
-					? $this->countRelevantTasks($house, $member, $now)
-					: 0;
+				// Dispatch-time task relevance (§3.4 (c), ADR-022 decision 7):
+				// the count gates free days and absences itself, and a task is
+				// only ever suggested to a member who may see it.
+				$taskCount = $pref->getTaskDigestEnabled() ? $viewOf($house)->countFor($member) : 0;
 				$orgRows = $pref->getOrgDigestEnabled()
-					? $this->relevantOrgRows($slot, $member, $visibleRoomTaskIds)
+					? $this->relevantOrgRows($slot, $member, fn (): array => $this->suggestionService->visibleRoomTasks($viewOf($house)->context, $member))
 					: [];
 
 				if ($taskCount === 0 && $orgRows === []) {
@@ -216,6 +233,8 @@ class DigestService {
 			]);
 			return 'uncertain';
 		}
+		// Committed: every later summary of the pass counts the same plan.
+		$views += $built;
 
 		if ($decision['outcome'] !== 'claimed') {
 			return $decision['outcome'];
@@ -270,44 +289,20 @@ class DigestService {
 	}
 
 	/**
-	 * Dispatch-time task relevance (§3.4 (c), ADR-022 decision 7): the
-	 * work the live suggestion places on the member for today plus their
-	 * overdue tasks. Nothing on free (weekday-unavailable) days or during
-	 * an absence; no offers or future work; private tasks never leak (a
-	 * task is only ever suggested to a member who may see it; only a count
-	 * is rendered).
-	 */
-	private function countRelevantTasks(\OCA\ChoreStrike\Db\House $house, HouseUser $member, \DateTime $now): int {
-		$tz = $this->calendar->getTimeZone($house);
-		$todayKey = $this->calendar->dayKey($now, $tz);
-		$dayName = strtolower(\DateTime::createFromInterface($now)->setTimezone($tz)->format('l'));
-
-		$preferences = $member->getSchedulingPreferences();
-		$weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
-		if (($weekdayAvailability[$dayName] ?? null) === false) {
-			// Free day: no task content at all.
-			return 0;
-		}
-
-		$walletId = $member->getWalletId();
-		if ($walletId !== null) {
-			$excused = PauseProjectionService::excusedWalletsOn(
-				$this->pauseMapper->findByHouseId((int)$house->getId()), $todayKey, [(int)$walletId => true]
-			);
-			if (isset($excused[(int)$walletId])) {
-				return 0;
-			}
-		}
-
-		return $this->suggestionService->view($house, $now)->countFor($member);
-	}
-
-	/**
 	 * Current source facts and the existing task visibility policy gate
 	 * every count. A row of a type nothing queues any more — the retained
 	 * `agreement` rows (D-091-12) — is skipped and stays queued.
+	 *
+	 * @param \Closure(): array<int, \OCA\ChoreStrike\Db\RoomTask> $visibleRoomTasks The room tasks the member may see, by id;
+	 *                                                                               asked only when a row needs them
+	 * @return DigestChange[]
 	 */
-	private function relevantOrgRows(DigestSlot $slot, HouseUser $member, array $visibleRoomTaskIds): array {
+	private function relevantOrgRows(DigestSlot $slot, HouseUser $member, \Closure $visibleRoomTasks): array {
+		$visible = null;
+		$isVisible = static function (int $roomTaskId) use (&$visible, $visibleRoomTasks): bool {
+			$visible ??= $visibleRoomTasks();
+			return isset($visible[$roomTaskId]);
+		};
 		$relevant = [];
 		foreach ($this->changeMapper->findBySlot((int)$member->getId(), $slot->getLocalDay()) as $row) {
 			if ($row->getDisposition() !== DigestChange::DISPOSITION_QUEUED
@@ -316,7 +311,7 @@ class DigestService {
 				continue;
 			}
 			try {
-				if ($this->orgSourceIsRelevant($row, $member, $visibleRoomTaskIds)) {
+				if ($this->orgSourceIsRelevant($row, $member, $isVisible)) {
 					$relevant[] = $row;
 				}
 			} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
@@ -326,11 +321,14 @@ class DigestService {
 		return $relevant;
 	}
 
-	private function orgSourceIsRelevant(DigestChange $row, HouseUser $member, array $visibleRoomTaskIds): bool {
+	/**
+	 * @param \Closure(int): bool $isVisible Whether the member may see a room task
+	 */
+	private function orgSourceIsRelevant(DigestChange $row, HouseUser $member, \Closure $isVisible): bool {
 		switch ($row->getObjectType()) {
 			case 'takeover':
 				$completion = $this->completionMapper->find((int)$row->getObjectId());
-				return $completion->getUndoneAt() === null && isset($visibleRoomTaskIds[(int)$completion->getRoomTaskId()]);
+				return $completion->getUndoneAt() === null && $isVisible((int)$completion->getRoomTaskId());
 			case 'pause':
 				$pause = $this->pauseMapper->findCurrentByGroup((int)$row->getObjectId());
 				return (int)$pause->getHouseId() === (int)$member->getHouseId()

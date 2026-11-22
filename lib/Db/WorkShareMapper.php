@@ -139,6 +139,24 @@ class WorkShareMapper extends QBMapper {
 	}
 
 	/**
+	 * The selected shares (`ws`) of the valid completions (`ct`) of one
+	 * work day: the one "valid share on a day" rule of today's energy and
+	 * of the once-per-person rule. The caller selects and narrows.
+	 *
+	 * @param string $dayKey The work day (`Y-m-d`)
+	 */
+	private function validSharesOn(string $dayKey): IQueryBuilder {
+		$qb = $this->db->getQueryBuilder();
+		$qb->from($this->getTableName(), 'ws')
+			->innerJoin('ws', 'chorestrike_completed_tasks', 'ct', $qb->expr()->eq('ct.id', 'ws.completion_id'))
+			->where($qb->expr()->eq('ws.allocation_revision', 'ct.allocation_revision'))
+			->andWhere($qb->expr()->isNull('ct.undone_at'))
+			->andWhere($qb->expr()->gte('ct.work_date', $qb->createNamedParameter($dayKey)))
+			->andWhere($qb->expr()->lt('ct.work_date', $qb->createNamedParameter(DayKey::after($dayKey))));
+		return $qb;
+	}
+
+	/**
 	 * The energy minor each wallet did on one house-local day, from the
 	 * selected shares of the valid completions of that work day: what the
 	 * live suggestion subtracts from today's energy (ADR-022 decision 1).
@@ -152,19 +170,10 @@ class WorkShareMapper extends QBMapper {
 		if ($walletIds === []) {
 			return [];
 		}
-		$qb = $this->db->getQueryBuilder();
+		$qb = $this->validSharesOn($dayKey);
 		$qb->select('ws.wallet_id')
 			->selectAlias($qb->createFunction('COALESCE(SUM(ws.energy_minor), 0)'), 'energy_minor')
-			->from($this->getTableName(), 'ws')
-			->innerJoin('ws', 'chorestrike_completed_tasks', 'ct', $qb->expr()->eq('ct.id', 'ws.completion_id'))
-			->where($qb->expr()->in('ws.wallet_id', $qb->createNamedParameter($walletIds, IQueryBuilder::PARAM_INT_ARRAY)))
-			->andWhere($qb->expr()->eq('ws.allocation_revision', 'ct.allocation_revision'))
-			->andWhere($qb->expr()->isNull('ct.undone_at'))
-			// The portable day comparison: from the day, before the day after.
-			->andWhere($qb->expr()->gte('ct.work_date', $qb->createNamedParameter($dayKey)))
-			->andWhere($qb->expr()->lt('ct.work_date', $qb->createNamedParameter(
-				(new \DateTimeImmutable($dayKey, new \DateTimeZone('UTC')))->modify('+1 day')->format('Y-m-d')
-			)))
+			->andWhere($qb->expr()->in('ws.wallet_id', $qb->createNamedParameter($walletIds, IQueryBuilder::PARAM_INT_ARRAY)))
 			->groupBy('ws.wallet_id');
 		$result = $qb->executeQuery();
 		$sums = [];
@@ -204,19 +213,10 @@ class WorkShareMapper extends QBMapper {
 		if ($roomTaskIds === []) {
 			return [];
 		}
-		$qb = $this->db->getQueryBuilder();
+		$qb = $this->validSharesOn($dayKey);
 		$qb->select('ct.room_task_id', 'ws.wallet_id')
-			->from($this->getTableName(), 'ws')
-			->innerJoin('ws', 'chorestrike_completed_tasks', 'ct', $qb->expr()->eq('ct.id', 'ws.completion_id'))
-			->where($qb->expr()->in('ct.room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
-			->andWhere($qb->expr()->eq('ws.allocation_revision', 'ct.allocation_revision'))
-			->andWhere($qb->expr()->isNull('ct.undone_at'))
-			->andWhere($qb->expr()->isNotNull('ws.wallet_id'))
-			// The portable day comparison: from the day, before the day after.
-			->andWhere($qb->expr()->gte('ct.work_date', $qb->createNamedParameter($dayKey)))
-			->andWhere($qb->expr()->lt('ct.work_date', $qb->createNamedParameter(
-				(new \DateTimeImmutable($dayKey, new \DateTimeZone('UTC')))->modify('+1 day')->format('Y-m-d')
-			)));
+			->andWhere($qb->expr()->in('ct.room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->isNotNull('ws.wallet_id'));
 		if ($exceptCompletionId !== null) {
 			$qb->andWhere($qb->expr()->neq('ct.id', $qb->createNamedParameter($exceptCompletionId, IQueryBuilder::PARAM_INT)));
 		}

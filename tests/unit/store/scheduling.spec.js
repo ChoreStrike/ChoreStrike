@@ -39,7 +39,7 @@ describe('Scheduling Store', () => {
 		it('has correct initial state', () => {
 			expect(store.memberAvailability).toEqual([])
 			expect(store.preferredWeekdays).toEqual([])
-			expect(store.suggestion).toEqual({ days: {}, overdue: [], loads: {} })
+			expect(store.suggestion).toEqual({ days: {}, overdue: [], loads: {}, horizonDays: null, horizonEndOn: null })
 			expect(store.energyBudget.monday).toBe(10)
 			expect(store.weekdayAvailability.monday).toBe(true)
 			// CS-PLAN-065: the reader-less energy counter is gone (D7). The
@@ -50,20 +50,8 @@ describe('Scheduling Store', () => {
 			// The own child limit and the error state lost their last reader with the weekly plan's page.
 			expect(store).not.toHaveProperty('maxDailyTasks')
 			expect(store).not.toHaveProperty('error')
-		})
-	})
-
-	describe('Getters', () => {
-		it('getOwnCapacityForDay ignores the household read and honours an unavailable day', () => {
-			store.memberAvailability = [
-				{ userId: 'a', weekdayAvailability: { monday: true }, energyBudget: { monday: 9 } },
-				{ userId: 'b', weekdayAvailability: { monday: true }, energyBudget: { monday: 4 } },
-			]
-			store.energyBudget = { ...store.energyBudget, monday: 6, tuesday: 7 }
-			store.weekdayAvailability = { ...store.weekdayAvailability, tuesday: false }
-
-			expect(store.getOwnCapacityForDay('Monday')).toBe(6)
-			expect(store.getOwnCapacityForDay('tuesday')).toBe(0)
+			// Today reads its load from the server with its rows (RF-091-14).
+			expect(store).not.toHaveProperty('getOwnCapacityForDay')
 		})
 	})
 
@@ -260,6 +248,8 @@ describe('Scheduling Store', () => {
 					{ userId: 'kid', day: '2026-11-23', budget: 6, placed: 5 },
 					{ userId: 'mom', day: '2026-11-23', budget: 8, placed: 0 },
 				],
+				horizonDays: 14,
+				horizonEndOn: '2026-12-06',
 			}
 
 			it('reads the range and keys the entries by day and the loads by day and member', async () => {
@@ -272,6 +262,14 @@ describe('Scheduling Store', () => {
 				expect(store.suggestion.overdue).toEqual(answer.overdue)
 				expect(store.suggestion.loads['2026-11-23'].kid).toEqual(answer.members[0])
 				expect(store.suggestion.loads['2026-11-23'].mom.budget).toBe(8)
+			})
+
+			it('keeps the horizon the server names, also for a range that lies beyond it', async () => {
+				api.get.mockResolvedValue({ days: [], overdue: [], members: [], horizonDays: 14, horizonEndOn: '2026-12-06' })
+
+				await store.fetchSuggestion('2026-12-07', '2026-12-13')
+
+				expect(store.suggestion).toEqual({ days: {}, overdue: [], loads: {}, horizonDays: 14, horizonEndOn: '2026-12-06' })
 			})
 
 			it('drops an answer that a newer read or a cleared range overtook', async () => {
@@ -291,7 +289,7 @@ describe('Scheduling Store', () => {
 				store.clearSuggestion()
 				resolveFirst(answer)
 				await expect(late).resolves.toBe(false)
-				expect(store.suggestion).toEqual({ days: {}, overdue: [], loads: {} })
+				expect(store.suggestion).toEqual({ days: {}, overdue: [], loads: {}, horizonDays: null, horizonEndOn: null })
 			})
 
 			it('propagates a failed read and keeps the last suggestion', async () => {
@@ -310,7 +308,7 @@ describe('Scheduling Store', () => {
 				store.energyBudget.monday = 20
 				store.weekdayAvailability.monday = false
 				store.preferredWeekdays = ['monday']
-				store.suggestion = { days: { '2026-11-23': [] }, overdue: [], loads: {} }
+				store.suggestion = { days: { '2026-11-23': [] }, overdue: [], loads: {}, horizonDays: 14, horizonEndOn: '2026-12-06' }
 
 				store.reset()
 
@@ -318,7 +316,7 @@ describe('Scheduling Store', () => {
 				expect(store.energyBudget.monday).toBe(10)
 				expect(store.weekdayAvailability.monday).toBe(true)
 				expect(store.preferredWeekdays).toEqual([])
-				expect(store.suggestion).toEqual({ days: {}, overdue: [], loads: {} })
+				expect(store.suggestion).toEqual({ days: {}, overdue: [], loads: {}, horizonDays: null, horizonEndOn: null })
 			})
 		})
 	})

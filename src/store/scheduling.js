@@ -5,12 +5,12 @@
 
 import { defineStore } from 'pinia'
 import { api } from '../services/api.js'
-import { createDefaultEnergyBudget, resolveEnergyForDay } from '../utils/energyBudgets.js'
+import { createDefaultEnergyBudget } from '../utils/energyBudgets.js'
 import { logger } from '../utils/logger.js'
 
 /** The suggestion of no days: what the calendar shows before its read. */
 function emptySuggestion() {
-	return { days: {}, overdue: [], loads: {} }
+	return { days: {}, overdue: [], loads: {}, horizonDays: null, horizonEndOn: null }
 }
 
 /**
@@ -39,9 +39,11 @@ export const useSchedulingStore = defineStore('scheduling', {
 		preferredWeekdays: [],
 		/**
 		 * The suggestion of the last range read: per house-local day its
-		 * entries, the overdue work that counts against today, and per day
-		 * the load of each member the viewer may read, by user id.
-		 * @type {{days: object, overdue: Array, loads: object}}
+		 * entries, the overdue work that counts against today, per day the
+		 * load of each member the viewer may read, by user id, and the
+		 * horizon as the server names it: how many days the suggestion
+		 * looks ahead and the last of them.
+		 * @type {{days: object, overdue: Array, loads: object, horizonDays: ?number, horizonEndOn: ?string}}
 		 */
 		suggestion: emptySuggestion(),
 		// Monotonic read token: an older range read never replaces a newer one.
@@ -52,24 +54,6 @@ export const useSchedulingStore = defineStore('scheduling', {
 		preferencesRequestSeq: 0,
 		preferencesRequest: null,
 	}),
-
-	getters: {
-		/**
-		 * The current user's own energy capacity for a day, whatever the
-		 * owner's household read holds: Today compares a member's own work
-		 * with it.
-		 *
-		 * @param {object} state Store state
-		 * @return {(day: string) => number} Function that takes a weekday key
-		 */
-		getOwnCapacityForDay: (state) => (day) => {
-			const dayKey = day.toLowerCase()
-			if (state.weekdayAvailability[dayKey] === false) {
-				return 0
-			}
-			return resolveEnergyForDay(state.energyBudget, dayKey)
-		},
-	},
 
 	actions: {
 		/**
@@ -184,8 +168,9 @@ export const useSchedulingStore = defineStore('scheduling', {
 		},
 
 		/**
-		 * Read the live suggestion for a range of house-local days: from
-		 * today, at most the 14-day horizon (ADR-022 decision 6). An answer
+		 * Read the live suggestion for a range of house-local days. The
+		 * server cuts the range to the days from today to the end of its
+		 * horizon and names that horizon (ADR-022 decision 6). An answer
 		 * that a newer read overtook is dropped.
 		 *
 		 * @param {string} from First day (`YYYY-MM-DD`)
@@ -207,6 +192,8 @@ export const useSchedulingStore = defineStore('scheduling', {
 					days: Object.fromEntries((data.days ?? []).map((day) => [day.day, day.entries])),
 					overdue: data.overdue ?? [],
 					loads,
+					horizonDays: data.horizonDays ?? null,
+					horizonEndOn: data.horizonEndOn ?? null,
 				}
 				return true
 			} catch (error) {

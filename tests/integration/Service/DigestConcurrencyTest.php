@@ -229,8 +229,10 @@ if (fgets(STDIN) !== "go\n") {
 }
 fwrite(STDOUT, "attempting\n");
 $now = new \DateTime('2026-09-29 18:05:00 UTC');
+// A pass of its own: no suggestion of the house is shared yet.
+$views = [];
 $result = $mode === 'dispatch'
-    ? (new \ReflectionMethod($service, 'dispatchSlot'))->invoke($service, $slot, $now)
+    ? (new \ReflectionMethod($service, 'dispatchSlot'))->invokeArgs($service, [$slot, $now, &$views])
     : \OC::$server->get(\OCA\ChoreStrike\Service\DigestScheduleService::class)->materializeSlotsForHouse($houseId, $now)['materialized'];
 fwrite(STDOUT, json_encode($result, JSON_THROW_ON_ERROR) . "\n");
 PHP;

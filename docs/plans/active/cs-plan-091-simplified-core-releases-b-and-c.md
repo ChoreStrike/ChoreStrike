@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; next: RF-091-14, then the WP-G candidate)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; RF-091-14 implemented 2026-11-22 (D-091-144 to D-091-152); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-144 to D-091-152 accepted and D-091-153 to D-091-157 decided; next: the WP-G candidate)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -834,6 +834,155 @@ operator chose to fix all of them now); the structure and performance findings a
   and the error state that nothing read; *days available* and the energy hint carry their
   numbers as placeholders and name *Today* and the calendar.
 
+### Implementation decisions (RF-091-14, for the interim review)
+
+Taken while implementing the structure and performance findings of the WP-C review; each
+is open to the interim review of RF-091-14. ADR-022, the API reference and the
+architecture say the same.
+
+Gates of the implementation round (2026-11-22, uncommitted tree on `fe47009c`): Jest 186
+suites / 2659 tests with the zero-noise gate, ESLint, stylelint, build, l10n (1296 keys),
+php-cs-fixer, docs encoding, backlog and adapter checks; PHPUnit unit 1885 and integration
+729 on the canonical stack and on PostgreSQL, MariaDB, SQLite and the AIO row (matrix
+`r91rf14`), no skips; proof P4 on PostgreSQL (26 to 31 steps, clean teardown), whose
+fixture script reads the placement values; the full five-project browser gate without
+retries, green on its first run (`run-wixuJH`: `chromium` 104, `chromium-serial-db` 193,
+`chromium-scheduling-owner` 33 and the phone projects 16 each). Not run in this round:
+proofs P1 to P3 and P4 on the other rows (no schema step, the recovery fixture is
+unchanged); they are due with the interim review.
+
+- **D-091-144 The daily read answers the rows and the viewer's load:**
+  `GET /room-tasks/filtered-daily` answers `{ rows, load }`. `load` is the viewer's row of
+  the suggestion's `members` for today, booked by the plan that placed the rows, so
+  *Today* shows `placed` against `budget`: a team task counts for the member who carries
+  it, unassigned overdue work for the one member it counts against. Before, the client
+  added up every row that named the viewer or nobody and compared it with a budget it
+  resolved from the preferences. *Today* reads no preferences any more (three requests,
+  one plan). After a write the store reads the route again and takes only the load
+  (`refreshDailyLoad()` inside the one coordinated refresh): the rows keep their place,
+  because today's list is stable and a finished row stays for its undo. Work already done
+  stays outside the comparison on *Today*, as it was; the calendar's bar of today counts
+  it (D-091-139).
+- **D-091-145 The server names the horizon:** every answer of `GET /scheduling/suggestion`
+  carries `horizonDays` and `horizonEndOn`, also for a range wholly outside. The calendar
+  asks for the shown week and leaves the cut to the server (D-091-139); a week that is
+  over reads none. Until a suggestion is read no day lies inside or beyond the horizon.
+  `SUGGESTION_HORIZON_DAYS` went from the client.
+- **D-091-146 One suggestion per house of a digest pass:** the first slot of a pass that
+  needs it computes the suggestion inside its house-first transaction; every later
+  summary of the pass counts the same plan. The visibility of a takeover's task is asked
+  of that read, and only when a takeover is queued; a member with only the organization
+  digest and no takeover needs no suggestion. `DigestService` no longer reads the room
+  tasks and the absences itself and lost `RoomTaskReadService`. Pinned: one view for two
+  summaries (unit) and one read of the room tasks for two dispatched summaries on a real
+  database, where each summary read them twice.
+- **D-091-147 One absence derivation; the per-occurrence excuse goes:** the free-day and
+  absence gate of the summary is `SuggestionView::countFor()`, from the budgets the plan
+  was placed with. `PauseProjectionService::excusedWalletsOn()`, `isEffectiveFor()` and
+  `candidateDayInterval()` lost their last production caller with it and went by the rule
+  of D-091-113, with the tests of the timeliness rule and of the day interval; the tests
+  of the governing revision (shortening, deletion, the saved zone, several groups) stay
+  and run on `walletsAbsentThroughout()` and `governingRevisionsOn()`. Two readings of
+  today's summary change with it, both towards the suggestion: a household absence also
+  silences the summary of a member without a wallet, and the rule that a decision must
+  predate the end of the day in the absence's own zone no longer applies — for the
+  running day it could only differ after a change of the house zone.
+- **D-091-148 `TodayRows` owns the daily read:** it takes the House from the controller
+  and builds rows and load from one `SuggestionView`. A child's availability and daily
+  limit are the ones the plan was placed with (`SuggestionLedger::isAvailable()`,
+  `limitOf()`), no second resolution from the stored preferences. `RoomTaskReadService`
+  fell from 601 to 487 non-blank lines and from 13 to 12 dependencies; the daily read
+  costs 11 statements (13 on the day's first read) instead of 12 and 14, because the
+  house is not read again.
+- **D-091-149 Placements are values and the view holds the read contract:**
+  `SuggestionPlacement` replaces the two array shapes of the plan, which groups them by
+  day as they are placed. `SuggestionView` answers today's list, the summary's count, a
+  member's load (`loadOf()`) and the range; `SuggestionService` keeps the reads, the
+  stored day and the cut to the horizon. Visibility is decided once per room task
+  (`SuggestionService::visibleRoomTasks()` through
+  `TaskAccessPolicy::filterVisibleRoomTasks()` with the assignees the read already holds)
+  instead of once per placement, and it is the one test of the range read, *Today* and
+  the digest. The range reads the rooms of the room tasks the viewer may see, through
+  `RoomTaskReadService::roomsByIdOf()`: one statement as before, a few more rows.
+- **D-091-150 The successor is asked per room task:** `WindowService::successorOf()`
+  replaces `cycleAfter()` and answers a closure that read the rule and the anchor once;
+  a daily task used to parse both fourteen times per run, twice on the day's first read.
+  The budgets carry a daily task now (14 cycles, no statement of its own).
+- **D-091-151 One helper each, where three sites remained:** `Task::energy()` (the floor
+  of the completion ledger, a missed cycle and the suggestion), `DayKey::after()` in the
+  Db layer (five sites; the note on DATE columns moved there),
+  `WorkShareMapper::validSharesOn()` (today's energy and the once-per-person rule),
+  `namesViewer()` (`calendarAgenda.js` and `todaySections.js`) and one label helper in
+  `dateKeys.js` with `formatShortDayKey()` (the agenda and the calendar view had their
+  own). The weekday of a day key keeps its one site in `SuggestionLedger`: the digest and
+  *Today* ask the ledger instead of computing it.
+- **D-091-152 Long methods:** `SuggestionInputs::read()` and `jobs()` (`byId()`,
+  `candidates()`), `SuggestionPlanner::plan()` (`queueOf()`, `step()`),
+  `SuggestionService::view()` (`storeDay()`), the child's rows (`TodayRows::childRows()`,
+  `suggestedTo()`) and `SchedulingService::prepareMemberUpdates()`
+  (`mergeWeekdaySections()`).
+
+Found while implementing and fixed: the release test plan still promised a `400` for a
+range outside the 14 days, which D-091-139 had replaced by the cut; and the zero-noise
+gate (`npm run test:noise`) was red on the branch, because `AvailabilityEditModal.spec.js`
+printed the three error lines of its deliberate failures since the WP-C review. The spec
+mocks the logger now, as the mocking contract says.
+
+### Review decisions (interim Full review of RF-091-14, 2026-11-22)
+
+Asked in one batch; the operator chose the recommended option each time. D-091-144 to
+D-091-152 accepted, with D-091-144, D-091-145, D-091-146, D-091-148, D-091-149 and
+D-091-151 amended as below.
+
+- **D-091-153 A pass shares only a committed suggestion, and its staleness is accepted
+  (operator):** the first summary of a pass that needs the suggestion builds it inside its
+  own house-first transaction; the pass takes it over only once that transaction
+  committed. A rolled-back or retried attempt (the executor retries a deadlock up to three
+  times) took the day's stored list with it, so its view is never handed on. A later
+  summary of the pass counts absences, free days, assignees and the visibility of a
+  takeover as read seconds earlier under the first summary's lock — as if it had been
+  dispatched together with it; a write that lands during the pass counts from the next
+  summary on. Counts only, no new disclosure. Amends D-091-146; ADR-022 §7, the
+  notification document and the `DigestService` description say so.
+- **D-091-154 The load of *Today* on the client (operator: fix now):** a row refresh on a
+  shown *Today* takes the rows also while it has none (before, it fetched the daily read and
+  dropped its rows); the load has its own read generation, taken by the full daily read and
+  by the refresh, so an older full read can no longer overwrite a fresher load; *Today*
+  forgets the load when it is left (`forgetDailyLoad()`), so a write in another view no
+  longer runs the whole daily read for a load nobody shows. In the calendar a failed
+  suggestion read shows the error only for a week that reaches into the last known horizon;
+  a week wholly beyond it keeps the due windows of its range read. Amends D-091-144 and
+  D-091-145.
+- **D-091-155 Structure (operator: fix now):** `SuggestionService` reads the rooms of the
+  visible room tasks through `RoomMapper::findByIds()` again instead of depending on
+  `RoomTaskReadService` for it (`roomsByIdOf()` is private again; amends D-091-149);
+  `SuggestionView` answers a member's availability today and limit as the plan was placed
+  with them (`isAvailableToday()`, `limitOf()`), so `countFor()` and `TodayRows` no longer
+  reach into the ledger, and a child's free day returns before any room is read (amends
+  D-091-148); `RecurrenceCalculator::dayAfter()` delegates to `DayKey::after()` (amends
+  D-091-151); `buildAgendaDays()` maps its entries through `suggestedEntry()`,
+  `dueEntry()` and `overdueEntry()`; the two visibility wrappers say which input each
+  takes.
+- **D-091-156 What the review added and fixed without a question:** `TodayRowsTest` places
+  with budgets that differ from the stored preferences, so it proves the plan's
+  availability and limit win and that an adult is never cut; `DigestServiceTest` covers a
+  retried and a failed attempt; the pass budget of `DigestDeliveryTest` queues a takeover,
+  so the visibility path runs inside the counted pass; `SuggestionServiceTest` pins that
+  the rule of a room task is read once across both runs of the first read; the successor
+  data set gained the clamped month day; Jest covers the four client fixes. Also the PHPDoc
+  of `SuggestionPlacement` and of the takeover closure, stale docblocks of
+  `PauseProjectionService`, a dead counter mark and a misplaced docblock in
+  `WorkflowQueryBudgetTest`, `TodayRows::rowsOf()` private, `CalendarDayCell` on
+  `formatShortDayKey()`, and the service catalogue of the architecture.
+- **D-091-157 A save waits for the sub-tasks it does not know yet (operator):** the
+  review's first full browser gate failed in `family-core-ux` on a defect of WP-B6: the
+  form was saved before its own read of the sub-tasks answered, sent `checklistItems: null`
+  (unknown, leave them as they are) and so dropped the sub-task the owner had just added.
+  The save now waits for a read still under way, the read starts when the form opens
+  instead of after the members, and a list another reader cached meanwhile counts as known
+  (`useTaskFormState::subTasksSettled()`). A read that failed still leaves the sub-tasks
+  as they are, with its retry. Completes D-091-93 and D-091-112.
+
 ### Positions for the Standard A review
 
 These settle the remaining open points of the concept. They bind once Standard A passes.
@@ -1064,6 +1213,24 @@ approval.
   browser scenarios for *Today* and the calendar. Concurrent first reads are covered by the
   insert that ignores the conflict and by following another read's list; a race test with two
   processes was not added.
+- **RF-091-14:** `SuggestionViewTest` (the count with its free-day and absence gate, a
+  member's load, the range by day and visibility), `TodayRowsTest` (successor of
+  `RoomTaskServiceDailyTest`: the rows, the load, the child's limit from the plan, the
+  House not read again), `DigestServiceTest` and `DigestDeliveryTest` (one suggestion and
+  one read of the room tasks per pass), `LiveSuggestionTest` (the load of *Today* equals
+  the range read's, the horizon in every answer), `WindowServiceTest` (`successorOf()`),
+  `TaskAccessPolicyTest` (assignees already read), `DayKeyTest`, `TaskTest`
+  (`energy()`), `PauseProjectionServiceTest` re-pinned on the one derivation; the request
+  budgets of *Today* lowered to 11 and 13 with a daily task in the fixture; Jest for the
+  store's load and its refresh, the horizon from the answer and the shared helpers;
+  browser scenarios for the load on *Today*, the horizon and *Today*'s requests. Added by
+  its interim review (D-091-156): the plan's budgets against the stored preferences in
+  `TodayRowsTest`, a retried and a failed digest attempt, a queued takeover in the pass
+  budget, `SuggestionServiceTest` (the rule read once per room task), the clamped month
+  day of `successorOf()`, and Jest for the load's generation, the row refresh of an empty
+  *Today*, the forgotten load and a failed suggestion read beyond the horizon; Jest for a
+  form saved before its sub-tasks were read and for a list cached by another reader
+  (D-091-157).
 - **WP-G:** the complete gates of the qualification: PHPUnit on PostgreSQL, MySQL, SQLite and the
   AIO row, both browser gates, package build and smoke, the preservation proofs.
 
@@ -1168,6 +1335,22 @@ removed:  src/views/SchedulingView.vue, src/components/Scheduling/ScheduleCalend
 modified: src/App.vue, src/components/Tasks/TaskEnergyField.vue,
           src/components/Scheduling/SelfAvailabilitySettings.vue, docs/adr/ADR-010 (note),
           docs/standards/guidelines/security.md (interim Full review of WP-C)
+new:      lib/Db/DayKey.php, lib/Service/SuggestionPlacement.php, TodayRows.php,
+          tests/unit/Service/SuggestionViewTest.php, tests/unit/Db/DayKeyTest.php (RF-091-14)
+modified: lib/Service/SuggestionService.php, SuggestionView.php, SuggestionPlan.php,
+          SuggestionPlanner.php, SuggestionInputs.php, SuggestionLedger.php, DigestService.php,
+          RoomTaskReadService.php, WindowService.php, PauseProjectionService.php,
+          SchedulingService.php, TaskAccessPolicy.php, CompletionService.php, CycleMisses.php,
+          lib/Db/Task.php, WorkShareMapper.php, CycleMapper.php, OccurrenceMapper.php,
+          lib/Controller/RoomTaskController.php, src/views/TodayView.vue, CalendarView.vue,
+          src/components/Tasks/CalendarAgenda.vue, src/store/roomTasks.js, scheduling.js,
+          src/utils/calendarAgenda.js, todaySections.js, taskDisplay.js, dateKeys.js,
+          docs/engineering/notifications.md, docs/testing/release-test-plan.md,
+          docs/concepts/ui-use-cases.md (RF-091-14)
+new:      tests/unit/Service/SuggestionServiceTest.php (interim Full review of RF-091-14)
+modified: lib/Service/RecurrenceCalculator.php, src/components/Tasks/CalendarDayCell.vue,
+          TaskForm.vue, src/composables/useTaskFormState.js (interim Full review of RF-091-14)
+renamed:  tests/unit/Service/RoomTaskServiceDailyTest.php to TodayRowsTest.php (RF-091-14)
 modified: l10n/de.json, l10n/en.json, l10n/templates/chorestrike.pot
 modified: tests named in section 4, tests/e2e/required-scenarios.json, scripts/run-e2e-gate.js
 modified: docs/concepts/*.md named in WP-0, docs/api/README.md, docs/api/notifications.md,
@@ -1362,7 +1545,7 @@ Routed by the interim Full review of WP-C (2026-11-22); every verified defect of
 was fixed in it (D-091-137 to D-091-139), this is the structure and performance work it
 deferred (operator, D-091-142).
 
-- [ ] **RF-091-14 Structure and performance of the live suggestion** (WP-C, architecture and
+- [x] **RF-091-14 Structure and performance of the live suggestion** (WP-C, architecture and
   performance; due before the WP-G candidate, with its own interim review): the daily summary
   rebuilds the house's whole suggestion once per member slot under the house lock and reads
   room tasks and absences again — one computation per house and day of a pass, the free-day
@@ -1383,7 +1566,18 @@ deferred (operator, D-091-142).
   the rule and anchor once per room task for `cycleAfter()`, and a daily-task fixture in the
   budgets; the methods above ~30 lines (`SuggestionInputs::read()`/`jobs()`,
   `SuggestionPlanner::plan()`, `RoomTaskReadService::childDailyRows()`,
-  `SchedulingService::prepareMemberUpdates()`).
+  `SchedulingService::prepareMemberUpdates()`). **Fixed 2026-11-22:** one suggestion per
+  house of a digest pass with the gate in `countFor()` and one absence derivation
+  (D-091-146, D-091-147); `TodayRows` with the House from the controller and the ledger's
+  availability and limit (D-091-148); the viewer's load in the daily read and the horizon
+  in the suggestion read (D-091-144, D-091-145); `SuggestionPlacement`, the read contract
+  in `SuggestionView`, visibility once per room task and placements grouped by day
+  (D-091-149); the successor per room task and a daily task in the budgets (D-091-150);
+  the helpers (D-091-151) and the long methods (D-091-152). The weekday of a day key
+  needed no helper: one site is left. *Completed by its interim Full review (2026-11-22):*
+  a pass shares only a committed suggestion (D-091-153), the client load and the calendar's
+  failure path (D-091-154), and the leftovers of the structure (D-091-155); nothing was
+  routed.
 
 Routed by the interim Full review of WP-B2 and WP-B3 (2026-11-18); every verified defect of
 that review was fixed in it (D-091-59), these are the structure, performance and
@@ -1736,3 +1930,32 @@ implementation round on all four rows); the full five-project browser gate witho
 (`run-ULfOXm`: `chromium` 104, `chromium-serial-db` 193, `chromium-scheduling-owner` 33 and
 the phone projects 16 each), after a first run that failed on the spec of the old range
 contract and on two TECH-TRANSPORT-001 closures. Interim review: the plan stays in `active/`.
+
+**Interim Full review of RF-091-14, 2026-11-22: `PASS-WITH-FIXES`.** Scope: the whole
+uncommitted round on `feat/simplified-core-bc` (base HEAD `fe47009c`, 81 paths, fingerprint
+`5de32592…f06ce15d`), four reviewer tracks plus the main agent. Record:
+[CODE_REVIEW_2026-11-22](../../backlog/archive/CODE_REVIEW_2026-11-22.md#full-interim---cs-plan-091-rf-091-14-structure-and-performance-of-the-live-suggestion).
+
+The operator chose the recommended option of each question. Fixed in the review: the
+digest pass shared a suggestion built in a transaction that could roll back or retry, and
+now takes it over only after the commit; the bounded staleness of later summaries of a
+pass is accepted and documented (D-091-153). On the client the load of *Today* has its own
+read generation, an empty *Today* takes the rows it asked for, a write in another view no
+longer runs the daily read, and a failed suggestion read no longer blanks a week beyond the
+horizon (D-091-154). `SuggestionService` reads rooms through `RoomMapper` again,
+`SuggestionView` answers the availability and limit `TodayRows` and the digest share,
+`RecurrenceCalculator::dayAfter()` delegates to `DayKey::after()`, and `buildAgendaDays()`
+is split (D-091-155). Tests that could not fail were made to (D-091-156). The first full
+browser gate found a WP-B6 defect: a task form saved before its own read of the sub-tasks
+answered dropped the sub-task just added; a save now waits for that read (D-091-157).
+D-091-144 to D-091-152 accepted with these amendments. Nothing routed; RF-091-14 is
+complete.
+
+Gates: Jest 186 suites / 2666 tests with the zero-noise gate, ESLint, stylelint, build;
+PHPUnit unit 1891 and integration 729 on the canonical stack and on PostgreSQL, MariaDB,
+SQLite and the AIO row (matrix `r91rv14`), no skips; php-cs-fixer, l10n, adapter, docs and
+backlog checks; the preservation proofs on the final tree: P1 on PostgreSQL, MariaDB and
+SQLite, P2, P3 and P4 on PostgreSQL, each with a clean teardown; the full five-project
+browser gate without retries (`run-LPQb6u`: `chromium` 104, `chromium-serial-db` 193,
+`chromium-scheduling-owner` 33 and the phone projects 16 each), after a first run that
+failed on the form defect of D-091-157. Interim review: the plan stays in `active/`.

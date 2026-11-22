@@ -299,6 +299,19 @@ export function compareTaskItems(a, b) {
 }
 
 /**
+ * Whether work is the viewer's on a list that shows "my tasks": it names
+ * them, or it names nobody (unassigned work, overdue work nobody is
+ * responsible for). Before the viewer is known everything is theirs,
+ * rather than an empty list.
+ * @param {string[]} userIds The people the work names.
+ * @param {?string} userId The viewer.
+ * @return {boolean}
+ */
+export function namesViewer(userIds, userId) {
+	return !userId || userIds.length === 0 || userIds.includes(userId)
+}
+
+/**
  * @param {object} roomTask Room task payload.
  * @return {number} The projected end of its window, Infinity without one.
  */

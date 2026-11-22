@@ -656,7 +656,7 @@ test.describe('Family rhythm — absences, limits & visibility', () => {
 			// rest waits as also possible.
 			const daily = kidPage.waitForResponse((response) => response.url().includes('/room-tasks/filtered-daily'))
 			await kidPage.goto('/apps/chorestrike/#/today')
-			const rows = (await (await daily).json()).data as Array<{ roomTask: { id: number }, openWindow: boolean, suggestedFor?: string[] }>
+			const rows = (await (await daily).json()).data.rows as Array<{ roomTask: { id: number }, openWindow: boolean, suggestedFor?: string[] }>
 			const suggested = rows.filter((row) => !row.openWindow)
 			expect(suggested).toHaveLength(1)
 			expect(suggested[0].suggestedFor).toContain('kid')

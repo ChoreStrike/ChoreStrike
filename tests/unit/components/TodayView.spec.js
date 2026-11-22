@@ -100,7 +100,6 @@ let mockChecklistStore
 let mockUserStore
 let mockGameStore
 let mockRoomsStore
-let mockSchedulingStore
 
 jest.mock('@/store/roomTasks.js', () => ({
 	useRoomTasksStore: () => mockRoomTasksStore,
@@ -124,9 +123,6 @@ jest.mock('@/store/game.js', () => ({
 
 jest.mock('@/store/rooms.js', () => ({
 	useRoomsStore: () => mockRoomsStore,
-}))
-jest.mock('@/store/scheduling.js', () => ({
-	useSchedulingStore: () => mockSchedulingStore,
 }))
 
 // The wizard itself is covered by SetupWizard.spec.js; here only its entry.
@@ -153,6 +149,8 @@ describe('TodayView', () => {
 			// Selector sources (CS-PLAN-066 §3.3): the view derives its rows
 			// from the owning store slices.
 			dailyTasks: todayFixture(),
+			// The viewer's load of the day, as the daily read answers it.
+			dailyLoad: { userId: 'mom', budget: 5, placed: 5, doneMinor: 0, preferred: false, absent: false },
 			overdueTasks: overdueFixture(),
 			bonusTasks: [],
 			fetchBonusTasks: jest.fn().mockResolvedValue([]),
@@ -164,6 +162,7 @@ describe('TodayView', () => {
 			fetchDueTodayTasks: jest.fn().mockResolvedValue([]),
 			fetchRangeTasks: jest.fn().mockResolvedValue({ scheduled: [], completed: [] }),
 			refreshDerivedProjections: jest.fn().mockResolvedValue(true),
+			forgetDailyLoad: jest.fn(),
 			completingIds: {},
 			justCompletedIds: {},
 			isCompleting: jest.fn(id => mockRoomTasksStore.completingIds[id] === true),
@@ -222,13 +221,6 @@ describe('TodayView', () => {
 			rhythm: { confirmed: 4, current: 4, best: 9, pending: true },
 			weeklyGoal: { dueCount: 10, completedCount: 6, percent: 60, targetPercent: 80, achieved: false, weekStart: null, weekEnd: null },
 			fetchGameState: jest.fn().mockResolvedValue({}),
-		}
-		mockSchedulingStore = {
-			energyBudget: { monday: 5, tuesday: 5, wednesday: 5, thursday: 5, friday: 5, saturday: 5, sunday: 5 },
-			weekdayAvailability: { monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true, sunday: true },
-			memberAvailability: [],
-			getOwnCapacityForDay: () => 5,
-			fetchUserPreferences: jest.fn().mockResolvedValue({}),
 		}
 	})
 
@@ -384,11 +376,11 @@ describe('TodayView', () => {
 		expect(wrapper.get('.section-count').text()).toBe('1 task')
 	})
 
-	it('shows the own status: open energy against the day, weekly goal, streak and coins (WP-B)', async () => {
+	it('shows the own status: placed energy against the day, weekly goal, streak and coins (WP-B)', async () => {
 		const wrapper = await mountView()
 
 		const status = wrapper.get('[data-testid="today-status-line"]')
-		// Own and unassigned work: 3 + 2 of the day's 5.
+		// The load the server booked with the daily read: 5 placed of the day's 5.
 		expect(status.get('[data-testid="today-energy"]').text()).toContain('5 of 5')
 		expect(status.get('[data-testid="today-weekly-goal"]').text()).toContain('60%')
 		expect(status.get('[data-testid="today-streak"]').text()).toContain('4 days')
@@ -404,10 +396,19 @@ describe('TodayView', () => {
 		expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(false)
 	})
 
+	it('forgets the load when it is left, so a write elsewhere reads no daily load (RF-091-14 review)', async () => {
+		const wrapper = await mountView()
+		expect(mockRoomTasksStore.forgetDailyLoad).not.toHaveBeenCalled()
+
+		wrapper.unmount()
+
+		expect(mockRoomTasksStore.forgetDailyLoad).toHaveBeenCalledTimes(1)
+	})
+
 	it('shows dashes, never zeros, while the status reads have not delivered (neutral start)', async () => {
 		mockGameStore.gameState = null
 		mockGameStore.wallet = null
-		mockSchedulingStore.fetchUserPreferences.mockRejectedValue(new Error('offline'))
+		mockRoomTasksStore.dailyLoad = null
 		const wrapper = await mountView()
 
 		const values = wrapper.findAll('[data-testid="today-status-line"] .status-value').map((value) => value.text())
@@ -416,9 +417,9 @@ describe('TodayView', () => {
 		expect(wrapper.find('[data-testid="today-error"]').exists()).toBe(false)
 	})
 
-	it('renders the neutral overload clarification when the own open work exceeds the day capacity (C5f)', async () => {
-		// Own and unassigned work 3 + 2, plus an own miss of 2, against 5.
-		mockRoomTasksStore.overdueTasks[0].assignees = ['mom']
+	it('renders the neutral overload clarification when more is placed on the day than it holds (C5f)', async () => {
+		// The plan booked 7 on the viewer: today's work and an own miss, against 5.
+		mockRoomTasksStore.dailyLoad = { ...mockRoomTasksStore.dailyLoad, placed: 7 }
 		const wrapper = await mountView()
 
 		const overload = wrapper.find('[data-testid="today-overload"]')
@@ -548,11 +549,12 @@ describe('TodayView', () => {
 			expect(wrapper.find('[data-testid="today-section-open-window"]').exists()).toBe(false)
 		})
 
-		it('counts the viewer\'s energy from what is suggested to them', async () => {
+		it('takes the viewer\'s energy from the load the server booked, not from a sum of the rows (RF-091-14)', async () => {
+			// Two rows of energy 2 name mom, but one is a team task someone else carries.
+			mockRoomTasksStore.dailyLoad = { ...mockRoomTasksStore.dailyLoad, placed: 2 }
 			const wrapper = await mountView()
 
-			// Two rows of energy 2 are suggested to mom; the day holds 5.
-			expect(wrapper.get('[data-testid="today-energy"]').text()).toContain('4 of 5')
+			expect(wrapper.get('[data-testid="today-energy"]').text()).toContain('2 of 5')
 			expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(false)
 		})
 
@@ -597,14 +599,16 @@ describe('TodayView', () => {
 		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(false)
 	})
 
-	it('adds up the energy of the definitions: an edit of the energy shows in the status at once', async () => {
-		mockSchedulingStore.getOwnCapacityForDay = () => 4
-		mockRoomTasksStore.dailyTasks = [{ ...todayFixture()[0], task: { id: 1, name: 'Do the dishes', energyCost: 3 } }]
-		mockRoomTasksStore.overdueTasks = []
+	it('follows the load of every daily read: a changed energy or a finished task shows with it', async () => {
+		mockRoomTasksStore.dailyLoad = { ...mockRoomTasksStore.dailyLoad, budget: 4, placed: 3 }
 		const wrapper = await mountView()
-
 		expect(wrapper.get('[data-testid="today-energy"]').text()).toContain('3 of 4')
-		expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(false)
+
+		mockRoomTasksStore.dailyLoad = { ...mockRoomTasksStore.dailyLoad, placed: 6 }
+		await wrapper.vm.$nextTick()
+
+		expect(wrapper.get('[data-testid="today-energy"]').text()).toContain('6 of 4')
+		expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(true)
 	})
 
 	it('gives a row the same facts as a task list: energy, recurrence, floor and room (FEAT-UX-047)', async () => {
@@ -711,6 +715,8 @@ describe('TodayView', () => {
 			const row = mockRoomTasksStore.dailyTasks[index]
 			mockRoomTasksStore.dailyTasks[index] = { ...row, cycle: cycle(1) }
 			mockRoomTasksStore.justCompletedIds = { [roomTaskId]: true }
+			// The refresh after the write read the load again.
+			mockRoomTasksStore.dailyLoad = { ...mockRoomTasksStore.dailyLoad, placed: 2 }
 			return { roomTask: mockRoomTasksStore.dailyTasks[index].roomTask, rewards: {} }
 		})
 		const wrapper = await mountView()

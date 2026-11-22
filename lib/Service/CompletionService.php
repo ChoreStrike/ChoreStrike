@@ -269,7 +269,7 @@ class CompletionService {
 		$ledgerRow->setRoomTaskId($roomTaskId);
 		$ledgerRow->setUserId($actorId);
 		$ledgerRow->setCompletedAt($now);
-		$ledgerRow->setTotalEnergy(max(1, (int)$task->getEnergyCost()));
+		$ledgerRow->setTotalEnergy($task->energy());
 		$ledgerRow->setRateMinor(EffortAllocationService::COIN_MINOR_PER_ENERGY);
 		$ledgerRow->setCompletionVersion(0);
 		$ledgerRow->setAllocationRevision(1);

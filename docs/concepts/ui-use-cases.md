@@ -308,7 +308,7 @@ Today**; explicit deep links stay usable.
 | Counts of due and overdue work | TaskManager stats bar; Today's overdue heading | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ✅ CS-PLAN-066 (D2): the counters read dedicated endpoint-backed projections; a scoped room load or the child-limited daily list can never overwrite them; the coordinated derived refresh (D3) keeps them truthful after mutations. The Dashboard tiles are gone (CS-PLAN-090 WP-B); `/tasks?status=overdue&scope=all` stays as an address |
 | Per-row assignee resolution | TodayView | daily AND overdue rows embed canonical `assignees` (D1) | ✅ CS-PLAN-066 (no per-row re-fetch remains) |
 | Partial derived-refresh failure | TodayView | read-only retry of the loaded projections | ✅ CS-PLAN-066 (D3): a committed action stays successful; stale slices offer a refresh-only retry |
-| Own status (open energy against the day, weekly goal, streak, Coins) | TodayView → `TodayStatusLine` | `GET /game/state`, `GET /scheduling/preferences` (both optional: a dash until read) | ✅ CS-PLAN-090 WP-B |
+| Own status (placed energy against the day, weekly goal, streak, Coins) | TodayView → `TodayStatusLine` | `GET /game/state` (optional: a dash until read), the `load` of `GET /room-tasks/filtered-daily` | ✅ CS-PLAN-090 WP-B; the load is the server's since CS-PLAN-091 RF-091-14 |
 | Work already possible today (open flex window) | TodayView, collapsed behind one line | `GET /room-tasks/filtered-daily` (`openWindow`) | ✅ BUG-UX-005, CS-PLAN-090 WP-B |
 | Next appointments | — | — | ⛔ removed from Today (CS-PLAN-090 D-090-11); the calendar shows upcoming work |
 | Checklist toggle while completing | a short tap on Done → `CompletionPicker` (which sub-tasks are done); the opened row → `TaskChecklist` | `POST /room-tasks/{id}/complete`, `POST /checklists/toggle/{rt}/{item}` | ✅ (CS-PLAN-091 WP-B2, WP-B6) |
@@ -443,7 +443,7 @@ the activity list.
 | Fairness as compact bars (completed energy against weekly capacity, with contribution and streak) | InsightsView `MemberFairnessTable` | `GET /users` + client aggregation over activity | ✅ (formula: [energy-and-balancing.md](energy-and-balancing.md)) |
 | Activity list "who did what when": one line per completion (time, person, task, coins paid), grouped by the household's day; a tap opens room, effort, shares, *Correct split* and *Undo* | InsightsView `ActivityFeed` | `GET /house/activity` (`coinMinor` per share) | ✅ (CS-PLAN-090 WP-E; absences and date changes join in Release B, D-090-13) |
 | Freeze visibility (owned count ❄ + "frozen" state after yesterday's consumption) | Leaderboard streak badge | `GET /users` (`streakFreezes`, `lastFreezeDate`) | ✅ |
-| Overload | CalendarView week: an entry that fits no day of its window reads *does not fit*, a day with more than it holds is highlighted; TodayView: the neutral overload line | `GET /scheduling/suggestion` (`overload`, `placed` against `budget`) | ✅ CS-PLAN-091 WP-C (replaces the deferred-first list `OvercapacityWarning`; nothing is deferred by priority) |
+| Overload | CalendarView week: an entry that fits no day of its window reads *does not fit*, a day with more than it holds is highlighted; TodayView: the neutral overload line | `GET /scheduling/suggestion` (`overload`, `placed` against `budget`); *Today* reads the same load with `GET /room-tasks/filtered-daily` | ✅ CS-PLAN-091 WP-C (replaces the deferred-first list `OvercapacityWarning`; nothing is deferred by priority) |
 
 ---
 

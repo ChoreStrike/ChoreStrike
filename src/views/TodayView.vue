@@ -180,11 +180,10 @@ import { useGameStore } from '../store/game.js'
 import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
-import { useSchedulingStore } from '../store/scheduling.js'
 import { useUserStore } from '../store/user.js'
-import { formatLongDayKey, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
+import { formatLongDayKey, todayKeyInZone } from '../utils/dateKeys.js'
 import { logger } from '../utils/logger.js'
-import { buildTodaySections, openEnergy, viewerFilters } from '../utils/todaySections.js'
+import { buildTodaySections, viewerFilters } from '../utils/todaySections.js'
 
 /**
  * Today, the one landing page for every role (CS-PLAN-090 WP-B): the
@@ -192,7 +191,8 @@ import { buildTodaySections, openEnergy, viewerFilters } from '../utils/todaySec
  * today (CS-PLAN-091 WP-C, ADR-022), what is already possible and the
  * bonus tasks (WP-B4). The rows are selectors of the store's daily,
  * overdue and bonus reads (CS-PLAN-066 §3.3); the server decides
- * visibility, eligibility, child limits and what is suggested to whom.
+ * visibility, eligibility, child limits, what is suggested to whom and
+ * what that makes of the viewer's day.
  */
 export default {
 	name: 'TodayView',
@@ -214,10 +214,9 @@ export default {
 		const houseStore = useHouseStore()
 		const userStore = useUserStore()
 		const gameStore = useGameStore()
-		const schedulingStore = useSchedulingStore()
 		const roomsStore = useRoomsStore()
 		const completion = useTaskCompletion({ roomTasksStore, view: 'TodayView' })
-		return { roomTasksStore, roomsStore, houseStore, userStore, gameStore, schedulingStore, ...useHouseMemberNames(userStore), ...completion }
+		return { roomTasksStore, roomsStore, houseStore, userStore, gameStore, ...useHouseMemberNames(userStore), ...completion }
 	},
 
 	data() {
@@ -226,10 +225,9 @@ export default {
 			error: false,
 			filter: 'mine',
 			showPossible: false,
-			// The floors and the own capacity are optional reads: until
-			// one succeeded, "no floors" and the default budget are no facts.
+			// The floors are an optional read: until it succeeded, "no
+			// floors" is no fact.
 			structureRead: false,
-			capacityRead: false,
 			// Where each row stood when its completion started, by room
 			// task: `{ section, index, item }` (see `heldRows`).
 			held: {},
@@ -281,20 +279,15 @@ export default {
 		},
 
 		/**
-		 * What is suggested to the viewer or overdue for them against their
-		 * own energy for today, whatever the filter shows. Pure aggregation
-		 * of server facts; the placement stays server-side.
-		 * @return {?{planned: number, capacity: number}} Null until the capacity is read.
+		 * The energy the suggestion placed on the viewer's day against the
+		 * day's energy, whatever the filter shows. The server booked it
+		 * with the daily read: a team task counts for the member who
+		 * carries it, overdue work for the member it counts against.
+		 * @return {?{planned: number, capacity: number}} Null until the daily read answered it.
 		 */
 		energy() {
-			if (!this.capacityRead) {
-				return null
-			}
-			const weekday = weekdayOfKey(todayKeyInZone(this.houseStore.timezone))
-			return {
-				planned: openEnergy(this.buildSections(this.mine.isMine, this.mine.isSuggested)),
-				capacity: this.schedulingStore.getOwnCapacityForDay(weekday),
-			}
+			const load = this.roomTasksStore.dailyLoad
+			return load ? { planned: load.placed, capacity: load.budget } : null
 		},
 
 		overloaded() {
@@ -316,6 +309,11 @@ export default {
 	async mounted() {
 		this.loadStructure()
 		await this.load()
+	},
+
+	beforeUnmount() {
+		// Only a shown Today reads its load again after a write.
+		this.roomTasksStore.forgetDailyLoad()
 	},
 
 	methods: {
@@ -376,11 +374,6 @@ export default {
 		loadStatus() {
 			this.gameStore.fetchGameState().catch((error) => {
 				logger.error('Failed to load the progress snapshot', error, { view: 'TodayView', action: 'loadStatus' })
-			})
-			this.schedulingStore.fetchUserPreferences().then(() => {
-				this.capacityRead = true
-			}).catch((error) => {
-				logger.error('Failed to load the capacity facts', error, { view: 'TodayView', action: 'loadStatus' })
 			})
 			// The bonus tasks are an offer: without them the day's work still shows.
 			this.roomTasksStore.fetchBonusTasks().catch(() => {})

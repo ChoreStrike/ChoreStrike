@@ -114,7 +114,7 @@ describe('workflow request budgets (CS-PLAN-067 §3.5)', () => {
 
 	describe('My Day (filtered daily)', () => {
 		it('fetches the enriched daily rows in exactly ONE request', async () => {
-			api.get.mockResolvedValueOnce([])
+			api.get.mockResolvedValueOnce({ rows: [], load: null })
 
 			await roomTasksStore.fetchFilteredDailyTasks()
 

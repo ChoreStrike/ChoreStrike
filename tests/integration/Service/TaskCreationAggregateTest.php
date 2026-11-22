@@ -381,6 +381,7 @@ class TaskCreationAggregateTest extends IntegrationTestCase {
 				$l10n,
 				new CalendarService(),
 				\OC::$server->get(AppLogger::class),
+				\OC::$server->get(\OCA\ChoreStrike\Service\TodayRows::class),
 			);
 
 			$response = $controller->create();

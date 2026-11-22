@@ -80,17 +80,17 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	// its closed cycles and their work shares.
 	private const WEEK_WITH_PASS_BUDGET = 3;
 	// The daily read of *Today* with the live suggestion (ADR-022): the
-	// house, the inputs of the plan (members, room tasks, definitions,
+	// inputs of the plan (members, room tasks, definitions,
 	// assignees, the two completion inputs, absences, today's work), the
 	// stored day, then the rooms and the sub-task counts of the viewer's
-	// rows, which are built from those inputs. Measured 12 once the day is
-	// stored.
-	private const TODAY_WITH_SUGGESTION_BUDGET = 12;
+	// rows, which are built from those inputs. The house itself comes with
+	// the call (RF-091-14). Measured 11 once the day is stored.
+	private const TODAY_WITH_SUGGESTION_BUDGET = 11;
 	// The day's first read of *Today*: the same, plus the insert and the
-	// re-read of the snapshot. Measured 14.
-	private const FIRST_TODAY_WITH_SUGGESTION_BUDGET = 14;
+	// re-read of the snapshot. Measured 13.
+	private const FIRST_TODAY_WITH_SUGGESTION_BUDGET = 13;
 	// The range read of the calendar: the same inputs and the stored day,
-	// plus the rooms of the entries. Measured 10.
+	// plus the rooms of the room tasks the viewer may see. Measured 10.
 	private const SUGGESTION_RANGE_BUDGET = 10;
 
 	/**
@@ -218,8 +218,13 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		$this->completeOccurrence($completions, $smallHouse, $ownerId, $smallRoomTasks[0]);
 		$this->completeOccurrence($completions, $bigHouse, $ownerId, $bigRoomTasks[0]);
 
-		$readService = \OC::$server->get(RoomTaskReadService::class);
+		// A daily task has a cycle on every day of the horizon: the plan projects
+		// them without a statement of its own (RF-091-14).
+		$this->makeDaily($smallRoomTasks[1]);
+		$this->makeDaily($bigRoomTasks[1]);
+
 		$suggestions = \OC::$server->get(\OCA\ChoreStrike\Service\SuggestionService::class);
+		$todayRows = \OC::$server->get(\OCA\ChoreStrike\Service\TodayRows::class);
 		$houses = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class);
 		$members = \OC::$server->get(HouseUserMapper::class);
 		$today = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
@@ -232,15 +237,16 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		try {
 			foreach (['small' => $smallHouse, 'big' => $bigHouse] as $size => $houseId) {
 				$viewer = $members->findByNextcloudUserId($houseId, $ownerId);
+				// The controller hands the house in: its read is not counted.
+				$house = $houses->find($houseId);
 				// The day's first read stores today's list; the reads after it find it.
 				$counter->mark();
-				$readService->getFilteredDailyTasksForUser($houseId, $viewer, new \DateTime());
+				$todayRows->forViewer($house, $viewer, new \DateTime());
 				$counts[$size]['first'] = $counter->count();
 				$counter->mark();
-				$rows[$size] = $readService->getFilteredDailyTasksForUser($houseId, $viewer, new \DateTime());
+				$rows[$size] = $todayRows->forViewer($house, $viewer, new \DateTime())['rows'];
 				$counts[$size]['today'] = $counter->count();
 
-				$house = $houses->find($houseId);
 				$counter->mark();
 				$range = $suggestions->range($house, $viewer, $today, $last);
 				$counts[$size]['range'] = $counter->count();
@@ -250,11 +256,12 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 			$counter->detach();
 		}
 
-		// Every seeded task is weekly and due today: the open ones are rows, and the horizon holds
-		// two cycles of each; the completed one has its next cycle a week from now.
+		// Every seeded task is due today: the open ones are rows. The horizon holds two cycles
+		// of each weekly one and fourteen of the daily one; the completed one has its next
+		// cycle a week from now.
 		self::assertCount(9, $rows['small']);
 		self::assertCount(99, $rows['big']);
-		self::assertSame([19, 199], [$entries['small'], $entries['big']]);
+		self::assertSame([31, 211], [$entries['small'], $entries['big']]);
 		self::assertSame($counts['small'], $counts['big'], 'the suggestion is batched: Q(100) must equal Q(10)');
 		self::assertLessThanOrEqual(self::TODAY_WITH_SUGGESTION_BUDGET, $counts['big']['today'], implode("\n", $counter->sqlStatements()));
 		self::assertLessThanOrEqual(self::SUGGESTION_RANGE_BUDGET, $counts['big']['range'], implode("\n", $counter->sqlStatements()));
@@ -449,6 +456,17 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		$rows = $result->fetchAll();
 		$result->closeCursor();
 		return is_array($rows) ? $rows : [];
+	}
+
+	/** Turn the definition of a seeded room task into a daily one. */
+	private function makeDaily(int $roomTaskId): void {
+		$taskId = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($roomTaskId)->getTaskId();
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_tasks')
+			->set('frequency_type', $qb->createNamedParameter('daily'))
+			->set('frequency_value', $qb->createNamedParameter(1, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+			->executeStatement();
 	}
 
 	/**

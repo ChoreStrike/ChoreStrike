@@ -144,10 +144,7 @@ class CycleMapper extends QBMapper {
 			->from($this->getTableName())
 			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('window_end_on', $qb->createNamedParameter($fromKey)))
-			// Same portable day comparison as OccurrenceMapper: before the day after.
-			->andWhere($qb->expr()->lt('window_end_on', $qb->createNamedParameter(
-				(new \DateTimeImmutable($toKey, new \DateTimeZone('UTC')))->modify('+1 day')->format('Y-m-d')
-			)))
+			->andWhere($qb->expr()->lt('window_end_on', $qb->createNamedParameter(DayKey::after($toKey))))
 			->orderBy('window_end_on', 'ASC')
 			->addOrderBy('id', 'ASC');
 		return $this->findEntities($qb);
@@ -196,7 +193,7 @@ class CycleMapper extends QBMapper {
 			->addOrderBy('id', 'ASC')
 			->setMaxResults(max(1, $limit));
 		if ($afterDay !== null) {
-			$dayAfter = (new \DateTimeImmutable($afterDay, new \DateTimeZone('UTC')))->modify('+1 day')->format('Y-m-d');
+			$dayAfter = DayKey::after($afterDay);
 			$qb->andWhere($qb->expr()->orX(
 				$qb->expr()->gte('window_end_on', $qb->createNamedParameter($dayAfter)),
 				$qb->expr()->andX(

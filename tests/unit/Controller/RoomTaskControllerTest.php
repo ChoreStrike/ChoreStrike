@@ -22,6 +22,7 @@ use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskCreationService;
+use OCA\ChoreStrike\Service\TodayRows;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -37,6 +38,7 @@ class RoomTaskControllerTest extends TestCase {
 	private $roomTaskReadService;
 	private $completionService;
 	private $taskCreationService;
+	private $todayRows;
 	private $houseService;
 	private $authService;
 	private $request;
@@ -56,6 +58,7 @@ class RoomTaskControllerTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
+		$this->todayRows = $this->createMock(TodayRows::class);
 		$this->controller = new RoomTaskController(
 			$this->request,
 			$this->roomTaskService,
@@ -66,7 +69,8 @@ class RoomTaskControllerTest extends TestCase {
 			$this->authService,
 			$l10n,
 			new CalendarService(),
-			$this->appLogger
+			$this->appLogger,
+			$this->todayRows,
 		);
 	}
 
@@ -664,12 +668,12 @@ class RoomTaskControllerTest extends TestCase {
 		$task->setId(4);
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('assertHouseMember')->willReturn($this->createHouseUser());
-		$this->roomTaskReadService->method('getFilteredDailyTasksForUser')->willReturn([
+		$this->todayRows->method('forViewer')->willReturn(['load' => null, 'rows' => [
 			['roomTask' => $roomTask, 'task' => $task, 'room' => new Room(), 'assignees' => [], 'checklistItemCount' => 3, 'openWindow' => true],
 			['roomTask' => $roomTask, 'task' => $task, 'room' => new Room(), 'assignees' => []],
-		]);
+		]]);
 
-		$rows = $this->controller->filteredDaily()->getData()['data'];
+		$rows = $this->controller->filteredDaily()->getData()['data']['rows'];
 
 		$this->assertSame([3, 0], array_column($rows, 'checklistItemCount'));
 		$this->assertSame([true, false], array_column($rows, 'openWindow'));
@@ -733,11 +737,27 @@ class RoomTaskControllerTest extends TestCase {
 		$house->setId(1);
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('assertHouseMember')->willReturn($this->createHouseUser());
-		$this->roomTaskReadService->method('getFilteredDailyTasksForUser')->willReturn([
+		$this->todayRows->method('forViewer')->willReturn(['load' => null, 'rows' => [
 			['roomTask' => new RoomTask(), 'task' => new Task(), 'room' => new Room(), 'assignees' => []],
-		]);
+		]]);
 
-		$this->assertArrayNotHasKey('creditedToday', $this->controller->filteredDaily()->getData()['data'][0]);
+		$this->assertArrayNotHasKey('creditedToday', $this->controller->filteredDaily()->getData()['data']['rows'][0]);
+	}
+
+	/**
+	 * RF-091-14: the daily read hands the House it resolved to the rows
+	 * and answers the viewer's load of today next to them.
+	 */
+	public function testFilteredDaily_AnswersTheRowsAndTheViewersLoad(): void {
+		$house = new House();
+		$house->setId(1);
+		$viewer = $this->createHouseUser();
+		$load = ['userId' => 'mom', 'day' => '2026-03-07', 'budget' => 6, 'placed' => 4, 'doneMinor' => 150, 'preferred' => false, 'absent' => false];
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturn($viewer);
+		$this->todayRows->expects($this->once())->method('forViewer')->with($house, $viewer)->willReturn(['rows' => [], 'load' => $load]);
+
+		$this->assertSame(['rows' => [], 'load' => $load], $this->controller->filteredDaily()->getData()['data']);
 	}
 
 	/**

@@ -19,6 +19,7 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskCreationService;
+use OCA\ChoreStrike\Service\TodayRows;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
@@ -38,6 +39,7 @@ class RoomTaskController extends Controller {
 	private AuthorizationService $authService;
 	private IL10N $l;
 	private \OCA\ChoreStrike\Service\CalendarService $calendarService;
+	private TodayRows $todayRows;
 
 	public function __construct(
 		IRequest $request,
@@ -50,8 +52,10 @@ class RoomTaskController extends Controller {
 		IL10N $l,
 		\OCA\ChoreStrike\Service\CalendarService $calendarService,
 		AppLogger $appLogger,
+		TodayRows $todayRows,
 	) {
 		parent::__construct('chorestrike', $request);
+		$this->todayRows = $todayRows;
 		$this->roomTaskService = $roomTaskService;
 		$this->roomTaskReadService = $roomTaskReadService;
 		$this->completionService = $completionService;
@@ -546,11 +550,12 @@ class RoomTaskController extends Controller {
 	}
 
 	/**
-	 * Get filtered daily tasks for the current user based on role and preferences.
+	 * The daily read of *Today* (ADR-022): `rows`, the viewer's open work
+	 * with what today's suggestion decided about each row, and `load`, the
+	 * viewer's placed energy against the day's energy.
 	 *
-	 * Child users receive a filtered view based on:
-	 * - weekdayAvailability: Only tasks on available days
-	 * - maxDailyTasks: Limited number of tasks
+	 * A child receives a filtered view: nothing on a day it is not
+	 * available, and at most its daily limit as suggested work.
 	 *
 	 * @NoAdminRequired
 	 */
@@ -560,17 +565,16 @@ class RoomTaskController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$filteredTasks = $this->roomTaskReadService->getFilteredDailyTasksForUser(
-				$house->getId(),
-				$houseUser,
-				new \DateTime()
-			);
+			$daily = $this->todayRows->forViewer($house, $houseUser, new \DateTime());
 
 			// CS-PLAN-065 (decision D4): the rows carry their canonical
 			// assignee sets (service-side batched read, RF-058-11) so My Day
 			// never re-interprets an unknown set as unassigned after the
 			// child limit truncated the list.
-			return new JSONResponse(['success' => true, 'data' => $this->serializeDailyRows($filteredTasks, $this->timeZoneOf($house))]);
+			return new JSONResponse(['success' => true, 'data' => [
+				'rows' => $this->serializeDailyRows($daily['rows'], $this->timeZoneOf($house)),
+				'load' => $daily['load'],
+			]]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {

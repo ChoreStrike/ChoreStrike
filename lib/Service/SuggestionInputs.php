@@ -46,16 +46,9 @@ class SuggestionInputs {
 		$timeZone = $this->calendar->getTimeZone($house);
 		$today = WindowService::todayKey($now, $timeZone);
 
-		$members = [];
-		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
-			$members[(int)$member->getId()] = $member;
-		}
+		$members = self::byId($this->houseUserMapper->findByHouseId($houseId));
 		ksort($members);
-
-		$roomTasks = [];
-		foreach ($this->roomTaskMapper->findByHouse($houseId, true) as $roomTask) {
-			$roomTasks[(int)$roomTask->getId()] = $roomTask;
-		}
+		$roomTasks = self::byId($this->roomTaskMapper->findByHouse($houseId, true));
 		$tasks = $this->taskMapper->findByIds(array_values(array_unique(array_map(
 			static fn (RoomTask $roomTask): int => $roomTask->getTaskId(),
 			$roomTasks
@@ -75,6 +68,19 @@ class SuggestionInputs {
 			$assignees,
 			$this->jobs($roomTasks, $tasks, $assignees, $members, $timeZone, $now, $today),
 		);
+	}
+
+	/**
+	 * @template T of HouseUser|RoomTask
+	 * @param T[] $entities
+	 * @return array<int, T> By id, in the order of the read
+	 */
+	private static function byId(array $entities): array {
+		$byId = [];
+		foreach ($entities as $entity) {
+			$byId[(int)$entity->getId()] = $entity;
+		}
+		return $byId;
 	}
 
 	private function plannerMember(HouseUser $member): SuggestionMember {
@@ -117,16 +123,10 @@ class SuggestionInputs {
 				continue;
 			}
 			$assigned = $assignees[$id] ?? [];
-			$candidates = [];
-			foreach ($members as $memberId => $member) {
-				$responsible = $assigned === [] || in_array($member->getNextcloudUserId(), $assigned, true);
-				if ($responsible && $this->accessPolicy->canView($task, $member, $assigned)) {
-					$candidates[] = $memberId;
-				}
-			}
+			$candidates = $this->candidates($task, $assigned, $members);
 			$jobs[$id] = new SuggestionJob(
 				$id,
-				max(1, (int)$task->getEnergyCost()),
+				$task->energy(),
 				$candidates,
 				$assigned !== [],
 				$assigned !== [] && count($candidates) > 1,
@@ -136,6 +136,25 @@ class SuggestionInputs {
 			);
 		}
 		return $jobs;
+	}
+
+	/**
+	 * Who can carry a task: its assignees who may see it, or everyone who
+	 * may see an unassigned one (ADR-010).
+	 *
+	 * @param list<string> $assigned Nextcloud user ids
+	 * @param array<int, HouseUser> $members Ascending by id
+	 * @return list<int> House-user ids, ascending
+	 */
+	private function candidates(Task $task, array $assigned, array $members): array {
+		$candidates = [];
+		foreach ($members as $memberId => $member) {
+			$responsible = $assigned === [] || in_array($member->getNextcloudUserId(), $assigned, true);
+			if ($responsible && $this->accessPolicy->canView($task, $member, $assigned)) {
+				$candidates[] = $memberId;
+			}
+		}
+		return $candidates;
 	}
 
 	/**

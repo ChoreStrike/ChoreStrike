@@ -219,8 +219,16 @@ test.describe('Retired planner routes', () => {
 
 		const horizon = await appRequest(page, 'GET', `/scheduling/suggestion?from=${today}&to=${last}`)
 		expect(horizon.status).toBe(200)
-		const data = horizon.body.data as { days: Array<{ day: string, entries: unknown[] }>, overdue: unknown[], members: Array<{ userId: string, day: string }> }
+		const data = horizon.body.data as {
+			days: Array<{ day: string, entries: unknown[] }>
+			overdue: unknown[]
+			members: Array<{ userId: string, day: string }>
+			horizonDays: number
+			horizonEndOn: string
+		}
 		expect(data.days.map((day) => day.day)).toEqual(Array.from({ length: 14 }, (_, offset) => houseDateOffset(offset, 'UTC')))
+		// The server names its horizon; no client copies it (RF-091-14).
+		expect([data.horizonDays, data.horizonEndOn]).toEqual([14, last])
 		expect(Array.isArray(data.overdue)).toBe(true)
 		// The owner reads every member's load, one row per member and day.
 		expect(new Set(data.members.map((row) => row.userId)).size).toBeGreaterThan(1)
@@ -234,6 +242,8 @@ test.describe('Retired planner routes', () => {
 		expect(await daysOf(houseDateOffset(-1, 'UTC'), today)).toEqual([today])
 		expect(await daysOf(today, houseDateOffset(15, 'UTC'))).toHaveLength(14)
 		expect(await daysOf(houseDateOffset(14, 'UTC'), houseDateOffset(16, 'UTC'))).toEqual([])
+		const beyond = await appRequest(page, 'GET', `/scheduling/suggestion?from=${houseDateOffset(14, 'UTC')}&to=${houseDateOffset(16, 'UTC')}`)
+		expect(beyond.body.data.horizonEndOn, 'a range beyond the horizon still learns where it ends').toBe(last)
 
 		for (const [from, to] of [[last, today], ['today', last]]) {
 			const refused = await appRequest(page, 'GET', `/scheduling/suggestion?from=${from}&to=${to}`)

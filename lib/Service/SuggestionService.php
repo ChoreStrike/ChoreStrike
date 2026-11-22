@@ -12,6 +12,8 @@ use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\SuggestionDay;
 use OCA\ChoreStrike\Db\SuggestionDayMapper;
 use OCP\IL10N;
 
@@ -54,18 +56,11 @@ class SuggestionService {
 	 */
 	public function view(House $house, \DateTimeInterface $now): SuggestionView {
 		$context = $this->inputs->read($house, $now);
-		$successor = fn (SuggestionJob $job, string $doneOn): ?CurrentCycle => $this->successorOf($context, $job, $doneOn);
+		$successor = $this->successors($context);
 
 		$stored = $this->dayMapper->findDay($context->houseId, $context->todayKey);
 		if ($stored === null) {
-			$first = $this->planner->plan($context->ledger(), array_values($context->jobs), null, [], $successor);
-			$snapshot = self::snapshotOf($first, $context->todayKey);
-			$stored = $this->dayMapper->storeOnce($context->houseId, $context->todayKey, $snapshot, $now);
-			// Loose: MySQL's JSON type hands the keys of each entry back in its own order.
-			if ($stored->getPlacements() != $snapshot) {
-				// Another first read won the day: its list is the one everyone sees.
-				$this->logger->warning('Suggestion day stored by another read', ['event' => 'suggestion_day_race_lost', 'service' => 'SuggestionService', 'houseId' => $context->houseId]);
-			}
+			$stored = $this->storeDay($context, $successor, $now);
 		}
 		$placements = $stored->getPlacements();
 		[$pinned, $joiners] = $this->todaysList($context, is_array($placements) ? $placements : [], $stored->getCreatedAt());
@@ -89,42 +84,49 @@ class SuggestionService {
 	 *
 	 * @param string $from First house-local day (`Y-m-d`)
 	 * @param string $to Last house-local day
-	 * @return array{days: list<array<string, mixed>>, overdue: list<array<string, mixed>>, members: list<array<string, mixed>>}
+	 * @return array{days: list<array<string, mixed>>, overdue: list<array<string, mixed>>, members: list<array<string, mixed>>, horizonDays: int, horizonEndOn: string}
 	 * @throws \InvalidArgumentException When the last day lies before the first
 	 */
 	public function range(House $house, HouseUser $viewer, string $from, string $to, ?\DateTimeInterface $now = null): array {
 		$now ??= new \DateTime();
-		[$from, $to] = $this->insideHorizon($house, $from, $to, $now);
+		[$from, $to, $horizonEndOn] = $this->insideHorizon($house, $from, $to, $now);
+		// The client learns the horizon from every answer instead of copying it.
+		$horizon = ['horizonDays' => SuggestionPlanner::HORIZON_DAYS, 'horizonEndOn' => $horizonEndOn];
 		if ($from > $to) {
-			return ['days' => [], 'overdue' => [], 'members' => []];
+			return ['days' => [], 'overdue' => [], 'members' => []] + $horizon;
 		}
 		$view = $this->view($house, $now);
-		$context = $view->context;
-		$days = array_values(array_filter($view->plan->ledger->days, static fn (string $day): bool => $day >= $from && $day <= $to));
-		$visible = array_values(array_filter(
-			$view->plan->placements,
-			fn (array $placement): bool => $placement['day'] >= $from && $placement['day'] <= $to && $this->canSee($context, $viewer, $placement['roomTaskId'])
-		));
-		$overdue = $from === $context->todayKey
-			? array_values(array_filter($view->plan->overdue, fn (array $entry): bool => $this->canSee($context, $viewer, $entry['roomTaskId'])))
-			: [];
-		$describe = $this->describer($context, [...$visible, ...$overdue]);
+		$visible = $this->visibleRoomTasks($view->context, $viewer);
+		$rooms = $this->roomMapper->findByIds(array_values(array_unique(array_map(
+			static fn (RoomTask $roomTask): int => $roomTask->getRoomId(),
+			$visible
+		))));
 
-		return [
-			'days' => array_map(static fn (string $day): array => [
-				'day' => $day,
-				'entries' => array_map($describe, array_values(array_filter($visible, static fn (array $placement): bool => $placement['day'] === $day))),
-			], $days),
-			'overdue' => array_map($describe, $overdue),
-			'members' => $this->loads($context, $view->plan->ledger, $viewer, $days),
-		];
+		return $view->range($viewer, $visible, $rooms, $from, $to) + $horizon;
+	}
+
+	/**
+	 * The room tasks of a suggestion read that a viewer may see (ADR-010),
+	 * by id: one visibility decision per room task from the definitions and
+	 * assignees the read already holds, whatever the number of placements.
+	 * {@see RoomTaskReadService::visibleRoomTasks()} is the same policy for
+	 * a batch whose definitions are not read yet.
+	 *
+	 * @return array<int, RoomTask>
+	 */
+	public function visibleRoomTasks(SuggestionContext $context, HouseUser $viewer): array {
+		$visible = [];
+		foreach ($this->accessPolicy->filterVisibleRoomTasks(array_values($context->roomTasks), $context->tasks, $viewer, $context->assignees) as $roomTask) {
+			$visible[(int)$roomTask->getId()] = $roomTask;
+		}
+		return $visible;
 	}
 
 	/**
 	 * A requested range cut to the days from the house's today to the end
 	 * of the horizon; empty when the first day then lies after the last.
 	 *
-	 * @return array{string, string}
+	 * @return array{string, string, string} The first day, the last day and the last day of the horizon
 	 * @throws \InvalidArgumentException When the last day lies before the first
 	 */
 	private function insideHorizon(House $house, string $from, string $to, \DateTimeInterface $now): array {
@@ -132,21 +134,8 @@ class SuggestionService {
 			throw new \InvalidArgumentException($this->l10n->t('The last day must not lie before the first day'));
 		}
 		$today = WindowService::todayKey($now, $this->calendar->getTimeZone($house));
-		return [max($from, $today), min($to, RecurrenceCalculator::offsetDays($today, SuggestionPlanner::HORIZON_DAYS - 1))];
-	}
-
-	/**
-	 * Describe entries of the plan with their room, read once for all of them.
-	 *
-	 * @param list<array<string, mixed>> $entries
-	 * @return \Closure(array<string, mixed>): array<string, mixed>
-	 */
-	private function describer(SuggestionContext $context, array $entries): \Closure {
-		$rooms = $this->roomMapper->findByIds(array_values(array_unique(array_map(
-			static fn (array $entry): int => $context->roomTasks[$entry['roomTaskId']]->getRoomId(),
-			$entries
-		))));
-		return fn (array $entry): array => $this->describe($context, $rooms, $entry);
+		$horizonEndOn = RecurrenceCalculator::offsetDays($today, SuggestionPlanner::HORIZON_DAYS - 1);
+		return [max($from, $today), min($to, $horizonEndOn), $horizonEndOn];
 	}
 
 	/**
@@ -171,12 +160,42 @@ class SuggestionService {
 		return $this->dayMapper->deleteBefore((int)$house->getId(), RecurrenceCalculator::offsetDays($today, -self::KEEP_DAYS));
 	}
 
-	private function successorOf(SuggestionContext $context, SuggestionJob $job, string $doneOn): ?CurrentCycle {
-		$roomTask = $context->roomTasks[$job->roomTaskId] ?? null;
-		$task = $context->taskOf($job->roomTaskId);
-		return $roomTask === null || $task === null
-			? null
-			: $this->windows->cycleAfter($roomTask, $task, $job->cycle, $doneOn, $context->timeZone);
+	/**
+	 * The day's first read: place with today still open and store what the
+	 * plan put on today. A read that lost the race to another first read
+	 * gets that read's list, which is the one everyone sees.
+	 *
+	 * @param callable(SuggestionJob, string): ?CurrentCycle $successor
+	 */
+	private function storeDay(SuggestionContext $context, callable $successor, \DateTimeInterface $now): SuggestionDay {
+		$first = $this->planner->plan($context->ledger(), array_values($context->jobs), null, [], $successor);
+		$snapshot = self::snapshotOf($first, $context->todayKey);
+		$stored = $this->dayMapper->storeOnce($context->houseId, $context->todayKey, $snapshot, $now);
+		// Loose: MySQL's JSON type hands the keys of each entry back in its own order.
+		if ($stored->getPlacements() != $snapshot) {
+			$this->logger->warning('Suggestion day stored by another read', ['event' => 'suggestion_day_race_lost', 'service' => 'SuggestionService', 'houseId' => $context->houseId]);
+		}
+		return $stored;
+	}
+
+	/**
+	 * The cycle that follows a job done on a day, for the planner. The
+	 * rule and the anchor of a room task are read once, however many of
+	 * its cycles a run places.
+	 *
+	 * @return \Closure(SuggestionJob, string): ?CurrentCycle
+	 */
+	private function successors(SuggestionContext $context): \Closure {
+		$byRoomTask = [];
+		return function (SuggestionJob $job, string $doneOn) use (&$byRoomTask, $context): ?CurrentCycle {
+			$id = $job->roomTaskId;
+			$task = $context->taskOf($id);
+			if ($task === null) {
+				return null;
+			}
+			$byRoomTask[$id] ??= $this->windows->successorOf($context->roomTasks[$id], $task, $context->timeZone);
+			return $byRoomTask[$id]($job->cycle, $doneOn);
+		};
 	}
 
 	/**
@@ -187,13 +206,13 @@ class SuggestionService {
 	private static function snapshotOf(SuggestionPlan $plan, string $day): array {
 		$entries = [];
 		foreach ($plan->on($day) as $placement) {
-			if ($placement['current']) {
+			if ($placement->current) {
 				$entries[] = [
-					'r' => $placement['roomTaskId'],
-					'k' => (string)$placement['cycleKey'],
-					'u' => $placement['memberIds'],
-					'p' => $placement['postponeCount'],
-					'o' => $placement['overload'],
+					'r' => $placement->roomTaskId,
+					'k' => (string)$placement->cycleKey,
+					'u' => $placement->memberIds,
+					'p' => $placement->postponeCount,
+					'o' => $placement->overload,
 				];
 			}
 		}
@@ -257,60 +276,5 @@ class SuggestionService {
 			'memberIds' => array_values(array_filter($memberIds, static fn (int $id): bool => in_array($id, $job->candidates, true))),
 			'overload' => (bool)($entry['o'] ?? false),
 		]];
-	}
-
-	private function canSee(SuggestionContext $context, HouseUser $viewer, int $roomTaskId): bool {
-		$task = $context->taskOf($roomTaskId);
-		return $task !== null && $this->accessPolicy->canView($task, $viewer, $context->assignees[$roomTaskId] ?? []);
-	}
-
-	/**
-	 * One entry of the read contract, with what a calendar row shows.
-	 *
-	 * @param array<int, \OCA\ChoreStrike\Db\Room> $rooms
-	 * @param array<string, mixed> $entry A placement or an overdue entry of the plan
-	 * @return array<string, mixed>
-	 */
-	private function describe(SuggestionContext $context, array $rooms, array $entry): array {
-		$roomTask = $context->roomTasks[$entry['roomTaskId']];
-		return [
-			'roomTaskId' => $entry['roomTaskId'],
-			'cycleKey' => $entry['cycleKey'],
-			'userIds' => $context->userIdsOf($entry['memberIds']),
-			'energy' => $entry['energy'],
-			'overload' => $entry['overload'] ?? false,
-			'windowStartOn' => $entry['windowStartOn'],
-			'windowEndOn' => $entry['windowEndOn'],
-			'taskName' => (string)$context->taskOf($entry['roomTaskId'])?->getName(),
-			'roomId' => $roomTask->getRoomId(),
-			'roomName' => ($rooms[$roomTask->getRoomId()] ?? null)?->getName(),
-		];
-	}
-
-	/**
-	 * The placed energy against the budget, per member and day.
-	 *
-	 * @param list<string> $days
-	 * @return list<array<string, mixed>>
-	 */
-	private function loads(SuggestionContext $context, SuggestionLedger $ledger, HouseUser $viewer, array $days): array {
-		$loads = [];
-		foreach ($context->members as $memberId => $member) {
-			if ($memberId !== (int)$viewer->getId() && !$viewer->isOwner()) {
-				continue;
-			}
-			foreach ($days as $day) {
-				$loads[] = [
-					'userId' => (string)$member->getNextcloudUserId(),
-					'day' => $day,
-					'budget' => $ledger->budget($memberId, $day),
-					'placed' => $ledger->placed($memberId, $day),
-					'doneMinor' => $day === $context->todayKey ? $ledger->doneMinor($memberId) : 0,
-					'preferred' => $ledger->isPreferred($memberId, $day),
-					'absent' => $ledger->isAbsent($memberId, $day),
-				];
-			}
-		}
-		return $loads;
 	}
 }

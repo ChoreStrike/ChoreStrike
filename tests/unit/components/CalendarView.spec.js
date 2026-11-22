@@ -17,9 +17,11 @@ jest.mock('../../../src/services/api.js', () => ({
 }))
 
 /** What the three reads of the view answer, by path. */
+// The server names the horizon with every suggestion: 14 days, today included.
+const horizon = () => ({ horizonDays: 14, horizonEndOn: addDaysToKey(todayKeyInZone('UTC'), 13) })
 const answers = (suggestion = { days: [], overdue: [], members: [] }) => (path) => {
 	if (path === '/api/v1/scheduling/suggestion') {
-		return Promise.resolve(suggestion)
+		return Promise.resolve({ ...horizon(), ...suggestion })
 	}
 	return Promise.resolve(path === '/api/v1/users' ? [] : { scheduled: [], completed: [] })
 }
@@ -178,39 +180,42 @@ describe('CalendarView', () => {
 			expect(wrapper.get('[data-testid="calendar-hint"]').text()).toContain('A suggestion, not a plan')
 		})
 
-		it('reads the suggestion from today to the end of the shown week, never for a past day', async () => {
+		it('asks for the suggestion of the shown week and leaves the cut to the server', async () => {
 			const wrapper = await mountWeek()
 
-			expect(suggestionCalls()).toEqual([['/api/v1/scheduling/suggestion', { params: { from: today, to: wrapper.vm.rangeEnd } }]])
+			// The server cuts the range to today and its horizon (D-091-139).
+			expect(suggestionCalls()).toEqual([['/api/v1/scheduling/suggestion', { params: { from: wrapper.vm.rangeStart, to: wrapper.vm.rangeEnd } }]])
 		})
 
-		it('ends the read at the horizon and reads none for a week outside it', async () => {
+		it('learns the horizon from the answer: a week beyond it shows when the work is due, a week that is over reads none', async () => {
+			const due = { roomTask: { id: 5 }, task: { name: 'Far ahead', energyCost: 1 }, room: { name: 'Hall' }, assignees: ['mom'] }
+			api.get.mockImplementation((path, config) => (path === '/api/v1/room-tasks/range'
+				? Promise.resolve({ scheduled: [{ ...due, cycles: [{ date: config.params.from, late: false }] }], completed: [] })
+				: answers()(path)))
 			const wrapper = await mountWeek()
-			const horizonEnd = addDaysToKey(today, 13)
+			expect(wrapper.find('[data-testid="calendar-agenda-beyond"]').exists()).toBe(false)
 
 			await wrapper.get('[data-testid="calendar-next"]').trigger('click')
-			await flush()
-			const second = suggestionCalls()[1][1].params
-			expect(second.from).toBe(wrapper.vm.rangeStart)
-			expect(second.to <= horizonEnd).toBe(true)
-
 			await wrapper.get('[data-testid="calendar-next"]').trigger('click')
 			await wrapper.get('[data-testid="calendar-next"]').trigger('click')
 			await flush()
 			// Three weeks ahead no day of the week lies inside the 14-day horizon.
-			expect(wrapper.vm.rangeStart > horizonEnd).toBe(true)
-			expect(suggestionCalls().every(([, config]) => config.params.to <= horizonEnd)).toBe(true)
-			expect(wrapper.findAll('[data-testid="calendar-agenda-entry"]')).toHaveLength(0)
+			expect(wrapper.vm.rangeStart > horizon().horizonEndOn).toBe(true)
+			expect(suggestionCalls().at(-1)[1].params).toEqual({ from: wrapper.vm.rangeStart, to: wrapper.vm.rangeEnd })
+			expect(wrapper.find('[data-testid="calendar-agenda-beyond"]').exists()).toBe(true)
+			expect(wrapper.findAll('[data-testid="calendar-agenda-entry"] .entry-name').map((name) => name.text())).toEqual(['Far ahead'])
 
 			await wrapper.get('[data-testid="calendar-prev"]').trigger('click')
 			await wrapper.get('[data-testid="calendar-prev"]').trigger('click')
 			await wrapper.get('[data-testid="calendar-prev"]').trigger('click')
+			await flush()
+			const calls = suggestionCalls().length
 			await wrapper.get('[data-testid="calendar-prev"]').trigger('click')
 			await flush()
 			// A week that is over shows what was done, without a suggestion read.
-			const calls = suggestionCalls().length
 			expect(wrapper.vm.rangeEnd < today).toBe(true)
 			expect(suggestionCalls()).toHaveLength(calls)
+			expect(wrapper.find('[data-testid="calendar-agenda-beyond"]').exists()).toBe(false)
 		})
 
 		it('shows the viewer\'s suggestion first and everyone\'s on request', async () => {
@@ -248,6 +253,28 @@ describe('CalendarView', () => {
 
 			expect(wrapper.find('[data-testid="calendar-error"]').exists()).toBe(true)
 			expect(wrapper.find('[data-testid="calendar-agenda"]').exists()).toBe(false)
+		})
+
+		it('keeps a week beyond the known horizon when only its suggestion read fails (RF-091-14 review)', async () => {
+			const due = { roomTask: { id: 5 }, task: { name: 'Far ahead', energyCost: 1 }, room: { name: 'Hall' }, assignees: ['mom'] }
+			const wrapper = await mountWeek()
+			api.get.mockImplementation((path, config) => {
+				if (path === '/api/v1/scheduling/suggestion') {
+					return Promise.reject(new Error('down'))
+				}
+				return path === '/api/v1/room-tasks/range'
+					? Promise.resolve({ scheduled: [{ ...due, cycles: [{ date: config.params.from, late: false }] }], completed: [] })
+					: answers()(path)
+			})
+
+			for (let week = 0; week < 3; week++) {
+				await wrapper.get('[data-testid="calendar-next"]').trigger('click')
+			}
+			await flush()
+
+			expect(wrapper.vm.rangeStart > horizon().horizonEndOn).toBe(true)
+			expect(wrapper.find('[data-testid="calendar-error"]').exists()).toBe(false)
+			expect(wrapper.findAll('[data-testid="calendar-agenda-entry"] .entry-name').map((name) => name.text())).toEqual(['Far ahead'])
 		})
 	})
 })

@@ -101,6 +101,11 @@ final class SuggestionLedger {
 		return $limit !== null && ($this->counts[$memberId][$day] ?? 0) >= $limit;
 	}
 
+	/** A child's daily limit; null for a member without one. */
+	public function limitOf(int $memberId): ?int {
+		return ($this->members[$memberId] ?? null)?->dailyLimit;
+	}
+
 	/** Book a cycle of the given energy on the member's day. */
 	public function book(int $memberId, string $day, int $energy): void {
 		$this->booked[$memberId][$day] = ($this->booked[$memberId][$day] ?? 0) + $energy * 100;

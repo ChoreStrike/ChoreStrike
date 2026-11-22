@@ -12,6 +12,24 @@ use PHPUnit\Framework\TestCase;
  */
 class TaskTest extends TestCase {
 	/**
+	 * The one energy floor of the completion ledger, a missed cycle and
+	 * the live suggestion (RF-091-14).
+	 *
+	 * @dataProvider energies
+	 */
+	public function testEnergy_IsTheEnergyCostAndAtLeastOne(int $cost, int $energy): void {
+		$task = new Task();
+		$task->setEnergyCost($cost);
+
+		self::assertSame($energy, $task->energy());
+	}
+
+	/** @return array<string, array{int, int}> */
+	public static function energies(): array {
+		return ['a cost' => [4, 4], 'the lowest cost' => [1, 1], 'no cost' => [0, 1], 'a negative cost' => [-3, 1]];
+	}
+
+	/**
 	 * GetPriorityLabel_WithPriority1_ReturnsLow
 	 */
 	public function testGetPriorityLabel_WithPriority1_ReturnsLow(): void {
