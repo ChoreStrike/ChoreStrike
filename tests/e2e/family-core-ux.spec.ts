@@ -27,6 +27,7 @@ import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { nonTextContrastViolations } from './fixtures/non-text-contrast.ts'
 import { runOcc } from './fixtures/occ-runner.ts'
+import { preferringDay } from './fixtures/planning.ts'
 import { addSubTasks, openEditForm } from './fixtures/task-form.ts'
 import { useTheme } from './fixtures/theme.ts'
 
@@ -114,15 +115,22 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				await expect(other).toHaveCount(0)
 				expect(await page.getByTestId('tasks-filter-mine').evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44)
 				await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-				// Today applies the same rule, and names the people on a row.
+				// Today shows what the day suggests to the viewer (ADR-022) and
+				// names the people on a row. Unassigned work is suggested to
+				// one member — here to someone with more energy left than mom —
+				// and stays possible for everyone else who may do it.
 				await page.goto('/apps/chorestrike/#/today')
 				const todayRow = (name: string) => page.getByTestId('today-task-item').filter({ hasText: name })
 				await expect(todayRow('Own filter probe')).toBeVisible()
-				await expect(todayRow('Unassigned filter probe')).toBeVisible()
+				await expect(todayRow('Unassigned filter probe')).toHaveCount(0)
 				await expect(todayRow('Other filter probe')).toHaveCount(0)
 				await expect(todayRow('Own filter probe').getByTestId('task-assignees')).toContainText('Assigned to: Mom')
+				await page.getByTestId('today-section-open-window').click()
+				await expect(todayRow('Unassigned filter probe')).toBeVisible()
+				await expect(todayRow('Other filter probe')).toHaveCount(0)
 				await page.getByTestId('today-filter-all').click()
 				await expect(todayRow('Other filter probe')).toBeVisible()
+				await expect(todayRow('Unassigned filter probe')).toBeVisible()
 				await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 			}
 		} finally {
@@ -362,6 +370,13 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const name = 'Energy edit probe'
+			// The live suggestion decides the day (ADR-022): mom prefers
+			// tomorrow and has room there on every weekday of the seed, so
+			// the probe is suggested there and possible today.
+			const preferred = await page.request.put('/apps/chorestrike/api/v1/scheduling/preferences', {
+				data: preferringDay(utcDayKey(1)),
+			})
+			expect(preferred.status(), await preferred.text()).toBe(200)
 			const rooms = ((await (await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')).json()).data as Array<{ rooms: Array<{ id: number }> }>)
 				.flatMap((floor) => floor.rooms)
 			const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {

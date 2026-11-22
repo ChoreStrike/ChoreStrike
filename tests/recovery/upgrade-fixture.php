@@ -50,9 +50,10 @@ require __DIR__ . '/upgrade-cycles.php';
 const PREFS = 'chorestrike_member_prefs';
 const BEFORE = '/evidence/upgrade-before.json';
 const FIXTURE = '/evidence/upgrade-fixture.json';
-// What the update adds for derived due windows (CS-PLAN-091 WP-B1) and for
-// the two coin multipliers (WP-B5), in the order a snapshot lists its tables.
-const NEW_TABLES = ['chorestrike_bonus_periods', 'chorestrike_cycle_progress', 'chorestrike_cycles'];
+// What the update adds for derived due windows (CS-PLAN-091 WP-B1), for the
+// two coin multipliers (WP-B5) and for the live suggestion (WP-C), in the
+// order a snapshot lists its tables.
+const NEW_TABLES = ['chorestrike_bonus_periods', 'chorestrike_cycle_progress', 'chorestrike_cycles', 'chorestrike_suggestion_days'];
 const NEW_COLUMNS = [
 	'chorestrike_houses' => ['cycles_from'],
 	'chorestrike_house_users' => ['streak_base', 'longest_streak_base', 'coin_factor'],
@@ -229,7 +230,7 @@ function verify(): string {
 	$before = json_decode((string)file_get_contents(BEFORE), true, 512, JSON_THROW_ON_ERROR);
 	$after = snapshot();
 	check(array_values(array_diff(array_keys($after), array_keys($before))) === NEW_TABLES
-		&& array_diff(array_keys($before), array_keys($after)) === [], 'The update must add the cycle and bonus-period tables and no other');
+		&& array_diff(array_keys($before), array_keys($after)) === [], 'The update must add the cycle, bonus-period and suggestion-day tables and no other');
 	foreach (NEW_TABLES as $table) {
 		check($after[$table] === [], 'The update wrote rows into ' . $table);
 	}

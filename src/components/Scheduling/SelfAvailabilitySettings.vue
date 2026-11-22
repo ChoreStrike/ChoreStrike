@@ -14,7 +14,7 @@
 			<div class="section-header">
 				<h3>{{ t('chorestrike', 'Weekly Availability') }}</h3>
 				<span class="days-count" data-testid="self-availability-count">
-					{{ availableDaysCount }}/7 {{ t('chorestrike', 'days available') }}
+					{{ t('chorestrike', '{available}/7 days available', { available: availableDaysCount }) }}
 				</span>
 			</div>
 

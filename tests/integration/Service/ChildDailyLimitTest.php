@@ -18,8 +18,10 @@ use OCA\ChoreStrike\Tests\Integration\Support\TaskEditing;
 /**
  * BUG-UX-013: the daily limit never hides what a child owes. Runs the real
  * creation and assignment paths: neither refuses a task for a child on a
- * full day (the capacity refusals went with ADR-021), so the limit only
- * ever trims what nobody owns.
+ * full day (the capacity refusals went with ADR-021). The limit is a second
+ * budget of the live suggestion (ADR-022 decision 2 rule 5): it caps what
+ * *Today* suggests to the child, and unassigned work beyond it goes to
+ * someone else.
  */
 class ChildDailyLimitTest extends IntegrationTestCase {
 	use TaskEditing;
@@ -57,6 +59,7 @@ class ChildDailyLimitTest extends IntegrationTestCase {
 			$this->myDayNames(),
 			'a task the child owes is never hidden by the limit'
 		);
+		self::assertSame(['First', 'Second'], $this->myDayNames(true), 'today suggests no more than the limit');
 	}
 
 	public function testUnassignedTask_DoesNotTakeASlotFromAnOwnTask(): void {
@@ -64,11 +67,13 @@ class ChildDailyLimitTest extends IntegrationTestCase {
 		$this->createTaskDueToday('Unassigned, sorts first', []);
 		$this->createTaskDueToday('Own', [self::KID]);
 
+		// The unassigned task goes to the owner; the child's one slot is its own task's.
 		self::assertSame(['Own'], $this->myDayNames());
 	}
 
 	public function testUnassignedTask_FillsAFreeSlot(): void {
-		$this->setChildLimit(2);
+		// The child has the most energy, so unassigned work is suggested to it while a slot is free.
+		$this->setChildLimit(2, 12);
 		$this->createTaskDueToday('Own', [self::KID]);
 		$this->createTaskDueToday('Unassigned', []);
 		$this->createTaskDueToday('Over the limit', []);
@@ -90,9 +95,10 @@ class ChildDailyLimitTest extends IntegrationTestCase {
 	 * @param string[] $assignees
 	 */
 	private function createTaskDueToday(string $name, array $assignees): int {
+		// Without flex days the window is today alone, so the suggestion cannot move the task to another day.
 		$result = $this->creation->create($this->houseId, $this->actor, [
 			'roomId' => $this->roomId,
-			'task' => ['name' => $name, 'frequencyType' => 'weekly', 'frequencyValue' => 1],
+			'task' => ['name' => $name, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'energyCost' => 1, 'flexDays' => 0],
 			'assigneeUserIds' => $assignees,
 			'firstDate' => (new \DateTime())->format('Y-m-d'),
 		]);
@@ -100,22 +106,30 @@ class ChildDailyLimitTest extends IntegrationTestCase {
 		return (int)$result['roomTask']->getId();
 	}
 
-	private function setChildLimit(int $limit): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_house_users')
-			->set('scheduling_preferences', $qb->createNamedParameter(json_encode(['maxDailyTasks' => $limit])))
-			->where($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter(self::KID)))
-			->executeStatement();
+	/** The child's limit, with the same energy on every day for the child and the owner. */
+	private function setChildLimit(int $limit, int $childEnergy = 6): void {
+		$week = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+		foreach ([self::KID => ['maxDailyTasks' => $limit, 'energyBudget' => array_fill_keys($week, $childEnergy)], self::OWNER => ['energyBudget' => array_fill_keys($week, 6)]] as $userId => $preferences) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->update('chorestrike_house_users')
+				->set('scheduling_preferences', $qb->createNamedParameter(json_encode($preferences)))
+				->where($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($userId)))
+				->executeStatement();
+		}
 	}
 
 	/**
+	 * The names on the child's *Today*, in the order of the read.
+	 *
+	 * @param bool $suggestedOnly Leave out what is only also possible
 	 * @return string[]
 	 */
-	private function myDayNames(): array {
+	private function myDayNames(bool $suggestedOnly = false): array {
 		$kid = $this->houseUserMapper->findByHouseAndUser($this->houseId, self::KID);
-		return array_map(
-			static fn (array $row): string => $row['task']->getName(),
-			$this->readService->getFilteredDailyTasksForUser($this->houseId, $kid, new \DateTime())
-		);
+		$rows = $this->readService->getFilteredDailyTasksForUser($this->houseId, $kid, new \DateTime());
+		if ($suggestedOnly) {
+			$rows = array_values(array_filter($rows, static fn (array $row): bool => isset($row['suggestedFor'])));
+		}
+		return array_map(static fn (array $row): string => $row['task']->getName(), $rows);
 	}
 }

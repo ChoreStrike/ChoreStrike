@@ -94,7 +94,7 @@ E2E spec basenames under `tests/e2e/`, plus PHPUnit suites):
 - Gamification: `leaderboard`, `title-selection`, `teamwork-rewards`
 - Rewards: `family-reward-api` (WP7 HTTP contract), `family-rewards` (WP8 UI flows)
 - Overdue/teamwork: `overdue-task-claiming`, `teamwork-rewards`, `multi-user-interactions`
-- Scheduling/calendar: `scheduling`, `availability-settings-flow`, `flex-window-scheduling`, `calendar`
+- Scheduling/calendar (the live suggestion): `scheduling`, `availability-settings-flow`, `flex-window-scheduling`, `calendar`, `today-view`
 - Landing/nav: `today-view`, `core-functionality`, `fast-core-tests`, `task-deep-links`
 - Minigames: `snake-game`
 - Settings: `settings`
@@ -289,17 +289,17 @@ fields (`participants`/`allocationReviewed`).
 
 ---
 
-## 11. Scheduling (Member Availability & Energy)
+## 11. Scheduling (Availability, Energy, Preferred Days & the Live Suggestion)
 
-Route surface: `scheduling#*`. Since CS-PLAN-090 WP-D the own days and energy
-(My Availability + Energy Budget) are under **Settings → Planning** for every
-role, and the weekly plan opens from the **Calendar** header (*Weekly plan*), no
-longer from the navigation: overcapacity warning, Calendar and, for owners only,
-the Member Availability grid (CS-032). The preview-and-apply planner and the
+Route surface: `scheduling#*`. The own days, energy and preferred days (My
+Availability + Energy Budget) are under **Settings → Planning** for every role
+(CS-PLAN-090 WP-D); the owner's editor of every member is under **Settings →
+Household → Planning of the members** (CS-032, moved by CS-PLAN-091 WP-C). The
+weekly plan's page is gone: `#/scheduling` leads to the **Calendar**, whose week
+shows the live suggestion (ADR-022). The preview-and-apply planner and the
 occurrence agreements went with ADR-021/ADR-022 (CS-PLAN-091 WP-B1); their rows
 (preview, exact shares, consent attestation, local-midnight staleness, joint
-suspension, concrete arrangements, virtual twins) are retired. WP-C adds the live
-suggestion's rows.
+suspension, concrete arrangements, virtual twins) are retired.
 
 > The unauthenticated `smart-schedule#*` routes were removed (CS-016). The UI
 > consumes `scheduling#*` only.
@@ -307,12 +307,17 @@ suggestion's rows.
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
 | My Availability (any role) | Open Settings → Planning → My Availability → toggle a weekday → Save → reload | Section with 7 toggles renders for non-owners too; value persists; a failed save is reported at the form with the entries kept | `self-availability-member` |
-| View availability (owner) | Open Calendar → *Weekly plan* → Member Availability section | Owner sees member cards with weekday grid; non-owners see no grid and no "No Members Found" state | `scheduling`, `self-availability-member` |
+| View availability (owner) | Open Settings → Household → *Planning of the members* → reload | Owner sees member cards with weekday grid, preferred days and a child's limit; the category is open again after the reload; non-owners see no such category | `scheduling`, `availability-settings-flow`, `self-availability-member` |
 | Edit own availability | Toggle weekdays on your card → Save | Availability persists after reload | `availability-settings-flow` |
-| Energy budget | Settings → Planning: adjust an energy value for a day → Save | Energy value persists after reload | `flex-window-scheduling` |
-| Schedule calendar | Open the Schedule Calendar section | Week grid with member rows/capacity renders | `scheduling` |
-| Owner edits member availability | Owner edits another member's availability | Allowed; a member editing someone else is denied | `scheduling` |
-| Neutral/overload clarification (WP2) | A member is paused (API) or a day is over budget | Capacity grid shows `Absent`/`{planned}/{budget} — over capacity` (`Absent` since CS-PLAN-090 D-090-26); absent rows are never silently dropped | `family-rhythm` (WP2 describe) |
+| Energy budget | Settings → Planning: adjust an energy value for a day → Save | Energy value persists after reload | `flex-window-scheduling`, `scheduling` |
+| Preferred days | Settings → Planning: star a day → Save → reload; create a task whose window contains that day and a roomier one | The star persists; the task is suggested on the preferred day | `scheduling`, `today-view`, PHPUnit `LiveSuggestionTest` |
+| Owner edits a member's planning | Owner edits another member's availability, energy, preferred days and daily limit | Allowed, and the card shows them; a member editing someone else is denied | `availability-settings-flow`, PHPUnit `SchedulingControllerTest` |
+| The weekly plan's address | Open `#/scheduling` | The calendar opens; nothing links a weekly plan | `scheduling`, `flex-window-scheduling` |
+| Calendar week (live suggestion) | Open Calendar → week | A list of days: inside 14 days the suggested tasks with their window and the own placed energy against the day's energy; *My tasks* / *Everyone*; a week beyond the horizon shows what is due and says where the suggestion ends; past days show what was done | `calendar`, `flex-window-scheduling`, `today-view`, Jest `CalendarAgenda.spec.js` |
+| Today's suggestion | Open Today; change your energy; create a task; hand a task due today to someone else | *Suggested for today* names each task's window; a changed energy moves nothing today; the new task joins; the handed-over task is on the new member's list at once | `today-view`, `mobile-core`, PHPUnit `LiveSuggestionTest` |
+| Unassigned work | An unassigned task, several members who may do it | Suggested to one member; for everyone else it is under *Also possible today* | `family-core-ux` |
+| Overload and absence | A day is over its energy, or a member is absent | Nothing is refused: *Today* says the day is full, the calendar marks the task *does not fit* and highlights the day; an absent day reads *Absent* and gets no suggestion | `insights-flow`, Jest `CalendarAgenda.spec.js`, PHPUnit `SuggestionPlannerTest` |
+| Suggestion read (API) | `GET /scheduling/suggestion` for today to today + 13, and outside | 200 with days, overdue and the own load (every member's for the owner); 400 outside the 14 days; private tasks of others are not listed | `scheduling`, PHPUnit `LiveSuggestionTest`, `SchedulingControllerTest` |
 | Derived windows (CS-PLAN-091 WP-B1, API) | A completion carries `commandId`/`cycleKey`/`expectedVersion` from the row's `cycle` block | A stale key or version → 409 `STALE_TARGET`, a closed cycle → `ALREADY_COMPLETED`, a second completion the same day → `SAME_DAY`, all with zero writes; the retired agreement, due-date, last-done, preview and apply routes answer 404 | PHPUnit `CycleTimelineTest`, `RouteMatrixTest`, `RoleGuardApiTest`, `family-rhythm` |
 | Pause lifecycle (WP2, API; absences per ADR-020) | Personal absence (acknowledged at once for every role since ADR-020), owner house absence, approve/reject of a request pending from before that update, delete (a `cancelled` revision), owner illness recognition; the shortening route is retired (CS-PLAN-091 RF-091-11) | Only recognized pauses have effects; a deletion frees the days from the next local day and an ended absence answers 409; overlapping pauses keep union provenance; member/child denials are 403; foreign illness subject is 404; `PUT /pauses/{id}` has no route | PHPUnit `PauseServiceTest`, `PauseAbsenceTest`, `PauseConcurrencyTest`, `RoleGuardApiTest`, `RouteMatrixTest` |
 | Shortening precedence (WP2 fix round; stored revisions since CS-PLAN-091 RF-091-11) | Acknowledged multi-day pause with a stored acknowledged revision that ends today (full persisted revision history) | Superseded future dates actually resume duty; today/past stay recognized in the saved zone; pending/rejected child shortenings change nothing; job replay is inert | PHPUnit `PauseProjectionServiceTest`, `PauseAbsenceTest` |

@@ -68,11 +68,12 @@ jest.mock('../../../src/components/Settings/StructureSettings.vue', () => mockCa
 jest.mock('../../../src/components/Settings/TaskCategorySettings.vue', () => mockCategory('TaskCategorySettings'))
 jest.mock('../../../src/components/Settings/DangerZoneSettings.vue', () => mockCategory('DangerZoneSettings'))
 jest.mock('../../../src/components/Members/MemberList.vue', () => mockCategory('MemberList'))
+jest.mock('../../../src/components/Scheduling/AvailabilitySettings.vue', () => mockCategory('AvailabilitySettings'))
 jest.mock('../../../src/components/Settings/RewardSettings.vue', () => mockCategory('RewardSettings'))
 jest.mock('../../../src/components/Settings/ArcadeSettings.vue', () => mockCategory('ArcadeSettings'))
 
 const PERSONAL = ['title', 'notifications', 'appearance', 'planning']
-const HOUSEHOLD = ['house', 'members', 'structure', 'categories', 'rewards', 'arcade', 'danger']
+const HOUSEHOLD = ['house', 'members', 'member-planning', 'structure', 'categories', 'rewards', 'arcade', 'danger']
 // The section test ids the page had before the split stay.
 const SECTION_IDS = ['house-section', 'members-section', 'floors-section', 'task-categories-section', 'catalog-section', 'arcade-gate-section', 'danger-zone']
 
@@ -172,6 +173,18 @@ describe('Settings.vue', () => {
 		expect(toggle(wrapper, 'structure').attributes('aria-expanded')).toBe('true')
 		expect(toggle(wrapper, 'house').attributes('aria-expanded')).toBe('false')
 		expect(mockMounted).toEqual(['StructureSettings'])
+	})
+
+	// CS-PLAN-091 WP-C: the members' planning is a category like the others,
+	// so the address it writes when it opens brings it back after a reload.
+	it('opens the planning of the members by its link', async () => {
+		mockRoute = { query: { category: 'member-planning' } }
+		const wrapper = mountSettings()
+		await flushPromises()
+
+		expect(wrapper.get('[data-testid="settings-tab-household"]').attributes('aria-pressed')).toBe('true')
+		expect(toggle(wrapper, 'member-planning').attributes('aria-expanded')).toBe('true')
+		expect(mockMounted).toEqual(['AvailabilitySettings'])
 	})
 
 	it('names the category opened last in the address and drops it when that one closes', async () => {

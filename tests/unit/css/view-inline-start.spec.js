@@ -46,9 +46,9 @@ describe('routed views clear the Nextcloud navigation toggle with their heading 
 	const components = routedComponents()
 
 	it('finds the routed views', () => {
-		// 11 since the room page and the Leaderboard became redirects
-		// (CS-PLAN-090 WP-C and WP-E).
-		expect(components.length).toBeGreaterThanOrEqual(11)
+		// 10 since the room page, the Leaderboard (CS-PLAN-090 WP-C and
+		// WP-E) and the weekly plan (CS-PLAN-091 WP-C) became redirects.
+		expect(components.length).toBeGreaterThanOrEqual(10)
 	})
 
 	it.each(components)('%s keeps the gutter on its root and clears the toggle in its header', (file) => {

@@ -165,6 +165,17 @@ CSRF-able and died with their no-consumer index routes in CS-PLAN-055; the
 `/rooms/create`, …) from being re-registered without a deliberate consumer
 decision.
 
+**The one exception: the day's suggestion cache** (ADR-022 §3, D-091-18,
+operator 2026-11-22). The first read of a house-local day —
+`GET /scheduling/suggestion`, `GET /room-tasks/filtered-daily` or the daily
+summary — stores that day's list in `chorestrike_suggestion_days`. It stays
+acceptable only while all of this holds: the write runs after the house
+membership check; it is an idempotent insert-or-ignore of one row per house
+and day; its content is computed by the server and never taken from the
+request; the row is a cache without actor, effect or history value that the
+timeline job deletes after a week. Any other state change on a GET is a
+defect.
+
 ---
 
 ## SQL Injection Prevention

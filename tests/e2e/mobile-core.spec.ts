@@ -334,6 +334,9 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 
 			await openMyDay(former.page)
 			await expect(former.page.getByTestId(`today-complete-button-${roomTaskId}`)).toHaveCount(0)
+			// Today's list was stored with the task on the former assignee.
+			// Its window ends today, so it has no later day to move to and
+			// joins the new assignee's list at once (ADR-022 decision 3).
 			await openMyDay(next.page)
 			await expect(next.page.getByTestId(`today-complete-button-${roomTaskId}`)).toBeVisible()
 			await expectNoHorizontalOverflow(next.page)
@@ -409,6 +412,19 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 
 			await openRoom(page, 'Kitchen')
 			await expectNoHorizontalOverflow(page)
+
+			// CS-PLAN-091 WP-C: the calendar's week is a list of days with the
+			// suggestion; today's section and its load fit the phone.
+			await page.goto('/apps/chorestrike/#/calendar')
+			const week = page.getByTestId('calendar-agenda')
+			await expect(week).toBeVisible({ timeout: 20000 })
+			await expect(page.getByTestId(`calendar-agenda-day-${day(0)}`)).toHaveClass(/today/)
+			await expect(page.getByTestId(`calendar-agenda-load-${day(0)}`)).toBeVisible()
+			await expectNoHorizontalOverflow(page)
+			for (const filter of ['calendar-filter-mine', 'calendar-filter-all']) {
+				const box = await page.getByTestId(filter).boundingBox()
+				expect(box!.height).toBeGreaterThanOrEqual(44)
+			}
 		} finally {
 			await context.close()
 		}

@@ -25,6 +25,8 @@ class SchedulingService {
 	public const MAX_DAILY_TASKS_MIN = 1;
 	/** Inclusive upper bound for the owner-set child daily-task limit (decision D5). */
 	public const MAX_DAILY_TASKS_MAX = 100;
+	/** @var list<string> The canonical weekday keys of every preference section, Monday first */
+	public const WEEKDAYS = TaskService::WEEKDAYS;
 
 	private HouseUserMapper $houseUserMapper;
 	private IL10N $l10n;
@@ -84,6 +86,28 @@ class SchedulingService {
 	}
 
 	/**
+	 * The preferred weekdays of a member as stored (ADR-022 decision 5):
+	 * a list of canonical weekday keys without repeats, Monday first.
+	 *
+	 * @param mixed $days The candidate value
+	 * @return list<string>
+	 * @throws \InvalidArgumentException When the value is not a list of weekdays
+	 */
+	public function normalizePreferredWeekdays($days): array {
+		if (!is_array($days) || !array_is_list($days)) {
+			throw new \InvalidArgumentException($this->l10n->t('Preferred days must be a list of weekdays'));
+		}
+		$chosen = [];
+		foreach ($days as $day) {
+			if (!is_string($day) || !in_array(strtolower($day), self::WEEKDAYS, true)) {
+				throw new \InvalidArgumentException($this->l10n->t('Preferred days must be a list of weekdays'));
+			}
+			$chosen[strtolower($day)] = true;
+		}
+		return array_values(array_filter(self::WEEKDAYS, static fn (string $day): bool => isset($chosen[$day])));
+	}
+
+	/**
 	 * Get scheduling preferences for a user
 	 *
 	 * @param int $userId The house user ID
@@ -92,7 +116,7 @@ class SchedulingService {
 	public function getUserPreferences(int $userId): array {
 		$user = $this->houseUserMapper->find($userId);
 
-		return $this->buildPreferencesPayload($user, $user->getSchedulingPreferences());
+		return ['userId' => $user->getId()] + $this->preferencesOf($user);
 	}
 
 	/**
@@ -124,10 +148,11 @@ class SchedulingService {
 	 * @param string $nextcloudUserId The Nextcloud user ID
 	 * @param array|null $weekdayAvailability Full week of availability flags (null = leave unchanged)
 	 * @param array|null $energyBudget Full week of energy budgets 1-20 (null = leave unchanged)
+	 * @param array|null $preferredWeekdays Preferred weekdays, possibly none (null = leave unchanged)
 	 * @return array The persisted scheduling preferences
-	 * @throws \InvalidArgumentException When an energy value is not an integer in 1-20
+	 * @throws \InvalidArgumentException When an energy value is not an integer in 1-20 or a preferred day is no weekday
 	 */
-	public function updatePreferencesByNextcloudUserId(int $houseId, string $nextcloudUserId, ?array $weekdayAvailability, ?array $energyBudget): array {
+	public function updatePreferencesByNextcloudUserId(int $houseId, string $nextcloudUserId, ?array $weekdayAvailability, ?array $energyBudget, ?array $preferredWeekdays = null): array {
 		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
 		$preferences = $user->getSchedulingPreferences();
 
@@ -142,6 +167,10 @@ class SchedulingService {
 			$preferences['weekdayAvailability'] = self::normalizeWeekdayKeys($weekdayAvailability);
 		}
 
+		if ($preferredWeekdays !== null) {
+			$preferences['preferredWeekdays'] = $this->normalizePreferredWeekdays($preferredWeekdays);
+		}
+
 		// CS-PLAN-071 WP0: preference mutations run house-first and lock
 		// the membership row before the write.
 		return $this->transactions->run(function () use ($houseId, $user, $preferences) {
@@ -150,7 +179,7 @@ class SchedulingService {
 			$lockedUser->setSchedulingPreferences($preferences);
 			$this->houseUserMapper->update($lockedUser);
 
-			return $this->buildPreferencesPayload($lockedUser, $lockedUser->getSchedulingPreferences());
+			return ['userId' => $lockedUser->getId()] + $this->preferencesOf($lockedUser);
 		});
 	}
 
@@ -171,23 +200,26 @@ class SchedulingService {
 	}
 
 	/**
-	 * Build the public preferences payload for a house user.
+	 * The scheduling preferences of a member with the defaults filled in:
+	 * the one resolution the preference reads and the live suggestion
+	 * share (ADR-022 decision 1).
 	 *
 	 * CS-PLAN-065 (decision D7): the reader-less `todayConsumedEnergy`
 	 * field is gone. `maxDailyTasks` is `null` when unset (unlimited) and
 	 * a finite integer when the owner set a child limit (decision D5).
+	 * `preferredWeekdays` is empty until the member chose days.
 	 *
 	 * @param HouseUser $user The house user (already loaded)
-	 * @param array|null $preferences The user's scheduling preferences (null for rows without stored preferences)
-	 * @return array The full preferences shape exposed to controllers
+	 * @return array{energyBudget: array<string, int>, weekdayAvailability: array<string, bool>, preferredWeekdays: list<string>, maxDailyTasks: ?int}
 	 */
-	private function buildPreferencesPayload(HouseUser $user, ?array $preferences): array {
-		$preferences = $preferences ?? [];
+	public function preferencesOf(HouseUser $user): array {
+		$preferences = $user->getSchedulingPreferences() ?? [];
+		$preferred = is_array($preferences['preferredWeekdays'] ?? null) ? $preferences['preferredWeekdays'] : [];
 
 		return [
-			'userId' => $user->getId(),
 			'energyBudget' => $preferences['energyBudget'] ?? $this->getDefaultEnergyBudget(),
 			'weekdayAvailability' => $preferences['weekdayAvailability'] ?? $this->getDefaultAvailability(),
+			'preferredWeekdays' => array_values(array_filter(self::WEEKDAYS, static fn (string $day): bool => in_array($day, $preferred, true))),
 			'maxDailyTasks' => isset($preferences['maxDailyTasks']) && is_int($preferences['maxDailyTasks'])
 				? $preferences['maxDailyTasks']
 				: null,
@@ -212,17 +244,11 @@ class SchedulingService {
 		$availability = [];
 
 		foreach ($users as $user) {
-			$preferences = $user->getSchedulingPreferences();
 			$availability[] = [
 				'userId' => $user->getNextcloudUserId(),
 				'houseUserId' => $user->getId(),
 				'userName' => $user->getDisplayName(),
-				'energyBudget' => $preferences['energyBudget'] ?? $this->getDefaultEnergyBudget(),
-				'weekdayAvailability' => $preferences['weekdayAvailability'] ?? $this->getDefaultAvailability(),
-				'maxDailyTasks' => isset($preferences['maxDailyTasks']) && is_int($preferences['maxDailyTasks'])
-					? $preferences['maxDailyTasks']
-					: null,
-			];
+			] + $this->preferencesOf($user);
 		}
 
 		return $availability;
@@ -305,6 +331,10 @@ class SchedulingService {
 			foreach ($updates['weekdayAvailability'] as $day => $available) {
 				$preferences['weekdayAvailability'][strtolower((string)$day)] = (bool)$available;
 			}
+		}
+
+		if (array_key_exists('preferredWeekdays', $updates)) {
+			$preferences['preferredWeekdays'] = $this->normalizePreferredWeekdays($updates['preferredWeekdays']);
 		}
 
 		if (array_key_exists('maxDailyTasks', $updates)) {

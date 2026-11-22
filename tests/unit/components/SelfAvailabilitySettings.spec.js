@@ -6,7 +6,7 @@ import { api } from '../../../src/services/api.js'
 import { showError } from '@nextcloud/dialogs'
 
 jest.mock('@nextcloud/l10n', () => ({
-	translate: jest.fn((app, text) => text),
+	translate: jest.fn((app, text, vars = {}) => text.replace(/\{(\w+)\}/g, (match, key) => (key in vars ? String(vars[key]) : match))),
 }))
 
 jest.mock('@nextcloud/dialogs', () => ({
@@ -74,7 +74,7 @@ describe('SelfAvailabilitySettings', () => {
 		}
 		const wrapper = mountComponent()
 		await wrapper.vm.$nextTick()
-		expect(wrapper.find('[data-testid="self-availability-count"]').text()).toContain('5/7')
+		expect(wrapper.find('[data-testid="self-availability-count"]').text()).toBe('5/7 days available')
 	})
 
 	it('disables save until a toggle differs from the store', async () => {

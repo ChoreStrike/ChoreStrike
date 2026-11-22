@@ -94,8 +94,10 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 					{ name: 'Tasks', path: '#/tasks', ready: 'task-manager-view' },
 					{ name: 'Tasks by room', path: `#/tasks?group=room&room=${await firstRoomId(page)}`, ready: 'room-task-list' },
 					{ name: 'Insights', path: '#/insights', ready: 'ranking-panel' },
-					{ name: 'Scheduling', path: '#/scheduling', ready: 'scheduling-view' },
-					{ name: 'Calendar', path: '#/calendar', ready: 'calendar-view' },
+					// CS-PLAN-091 WP-C: the week with the suggestion (today's highlight, the load, the
+					// badges) and the planning settings with the preferred-day stars; the weekly plan's page is gone.
+					{ name: 'Calendar', path: '#/calendar', ready: 'calendar-agenda' },
+					{ name: 'Planning', path: '#/settings?category=planning', ready: 'energy-budget-settings' },
 					{ name: 'Settings', path: '#/settings?category=notifications', ready: 'notification-preferences' },
 				]
 				const { violations, openView, collect } = contrastProbe(page)

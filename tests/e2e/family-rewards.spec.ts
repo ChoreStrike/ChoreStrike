@@ -155,8 +155,8 @@ test.describe('Reward UI and onboarding (CS-PLAN-070 WP8)', () => {
 			for (const session of [owner, teen]) {
 				await session.page.goto('/apps/chorestrike/')
 				await expect(session.page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
-				await session.page.goto('/apps/chorestrike/#/scheduling')
-				await expect(session.page.getByTestId('scheduling-view')).toBeVisible({ timeout: 30000 })
+				await session.page.goto('/apps/chorestrike/#/calendar')
+				await expect(session.page.getByTestId('calendar-view')).toBeVisible({ timeout: 30000 })
 				// No catalog entry; the own requests stay reachable through
 				// the personal settings (CS-PLAN-090 WP-D).
 				await expect(session.page.getByTestId('nav-rewards')).toHaveCount(0)

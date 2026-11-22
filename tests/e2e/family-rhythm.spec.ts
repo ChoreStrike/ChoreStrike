@@ -42,6 +42,7 @@ import {
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
+import { preferringDay } from './fixtures/planning.ts'
 import { openRoom } from './fixtures/rooms.ts'
 import { openEditForm, putRoomTask } from './fixtures/task-form.ts'
 
@@ -388,11 +389,19 @@ test.describe('Family rhythm — derived cycles', () => {
 	})
 
 	// BUG-UX-005 (CS-PLAN-088 feedback #5): work inside its flex window can
-	// be completed from My Day one day before its planned day.
+	// be completed from Today before the day it is suggested for. Since
+	// CS-PLAN-091 WP-C the live suggestion decides that day (ADR-022): mom
+	// prefers tomorrow and has room there on every weekday of the seed, so the
+	// probe is suggested there and only possible today.
 	test('My Day offers work inside its flex window before the planned day', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
+			const preferred = await page.request.put('/apps/chorestrike/api/v1/scheduling/preferences', {
+				data: preferringDay(houseDateOffset(1, 'UTC')),
+				headers: { Accept: 'application/json' },
+			})
+			expect(preferred.status(), await preferred.text()).toBe(200)
 			const kitchen = await kitchenRoom(page)
 			const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 				data: {
@@ -412,7 +421,8 @@ test.describe('Family rhythm — derived cycles', () => {
 			await expect(possible).toHaveAttribute('aria-expanded', 'false', { timeout: 20000 })
 			await expect(page.getByTestId(`today-complete-button-${roomTaskId}`)).toHaveCount(0)
 			await possible.click()
-			await expect(page.getByTestId(`today-open-window-planned-${roomTaskId}`)).toBeVisible()
+			// The row names how long its window stays open, not a planned day.
+			await expect(page.getByTestId(`today-window-${roomTaskId}`)).toBeVisible()
 			const completed = page.waitForResponse((response) => response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
 			await holdToConfirm(page.getByTestId(`today-complete-button-${roomTaskId}`))
 			const response = await completed
@@ -640,6 +650,24 @@ test.describe('Family rhythm — absences, limits & visibility', () => {
 			for (const id of ids) {
 				expect((await readFlatRow(kidPage, id))?.cycle, 'the capacity never refuses work').toMatchObject({ state: 'open' })
 			}
+
+			// ADR-022 decision 2 rule 5 with BUG-UX-013: Today suggests the
+			// child no more than the limit and hides nothing it owes — the
+			// rest waits as also possible.
+			const daily = kidPage.waitForResponse((response) => response.url().includes('/room-tasks/filtered-daily'))
+			await kidPage.goto('/apps/chorestrike/#/today')
+			const rows = (await (await daily).json()).data as Array<{ roomTask: { id: number }, openWindow: boolean, suggestedFor?: string[] }>
+			const suggested = rows.filter((row) => !row.openWindow)
+			expect(suggested).toHaveLength(1)
+			expect(suggested[0].suggestedFor).toContain('kid')
+			for (const id of ids) {
+				expect(rows.some((row) => row.roomTask.id === id), `probe ${id} stays on the child's Today`).toBe(true)
+			}
+			await expect(kidPage.getByTestId('today-task-item')).toHaveCount(1, { timeout: 20000 })
+			const possible = kidPage.getByTestId('today-section-open-window')
+			await expect(possible).toBeVisible()
+			await possible.click()
+			await expect(kidPage.getByTestId('today-task-item')).toHaveCount(rows.length)
 		} finally {
 			await context.close()
 			await kidContext.close()

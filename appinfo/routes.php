@@ -186,10 +186,12 @@ return [
         ['name' => 'scheduling#updatePreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'PUT'],
         ['name' => 'scheduling#getMemberAvailability', 'url' => '/api/v1/scheduling/members', 'verb' => 'GET'],
         ['name' => 'scheduling#updateMemberAvailability', 'url' => '/api/v1/scheduling/members/{userId}', 'verb' => 'PUT', 'requirements' => ['userId' => '[a-zA-Z0-9_.@-]+']],
+        // The live suggestion (CS-PLAN-091 WP-C, ADR-022): computed on read.
+        ['name' => 'scheduling#suggestion', 'url' => '/api/v1/scheduling/suggestion', 'verb' => 'GET'],
         // Pruned 2026-11-17 (CS-PLAN-091 WP-B1, ADR-022): `scheduling#preview`
         // (POST /scheduling/suggestions) and `scheduling#apply`
         // (POST /scheduling/apply) — nothing is applied as an agreement any more;
-        // the live suggestion (WP-C) replaces them.
+        // the live suggestion replaces them.
 
         // Pruned 2026-11-17 (CS-PLAN-091 WP-B1, ADR-021): the occurrence agreement
         // API — `occurrence#amend`, `occurrence#catchUp` and `occurrence#restart`

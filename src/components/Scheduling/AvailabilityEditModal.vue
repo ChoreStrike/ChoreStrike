@@ -31,6 +31,29 @@
 			</div>
 
 			<div class="form-section">
+				<h4>{{ t('chorestrike', 'Preferred days') }}</h4>
+				<p class="section-description">
+					{{ t('chorestrike', 'The suggestion plans work on preferred days first.') }}
+				</p>
+				<div class="availability-toggle-grid">
+					<div
+						v-for="day in weekDays"
+						:key="`preferred-${day.key}`"
+						class="toggle-item">
+						<label class="toggle-label">
+							<input
+								v-model="editForm.preferred[day.key]"
+								type="checkbox"
+								class="toggle-input cs-visually-hidden"
+								:data-testid="`preferred-${day.key}`">
+							<span class="toggle-slider" />
+							<span class="toggle-text">{{ day.name }}</span>
+						</label>
+					</div>
+				</div>
+			</div>
+
+			<div class="form-section">
 				<h4>{{ t('chorestrike', 'Daily Energy Budget') }}</h4>
 				<p class="section-description">
 					{{ t('chorestrike', 'Set how much energy you have for tasks each day (1-20)') }}
@@ -174,10 +197,16 @@ const LIMIT_MIN = MAX_DAILY_TASKS_MIN
 const LIMIT_MAX = MAX_DAILY_TASKS_MAX
 
 const saving = ref(false)
+const storedPreferred = () => props.member.preferredWeekdays ?? []
 const editForm = ref({
 	availability: { ...props.member.weekdayAvailability },
 	energyBudget: { ...props.member.energyBudget },
+	preferred: Object.fromEntries(weekDays.map((day) => [day.key, storedPreferred().includes(day.key)])),
 })
+
+// The preferred days the save would persist, in the order of the week.
+const nextPreferred = () => weekDays.map((day) => day.key).filter((key) => editForm.value.preferred[key])
+const preferredHasChanges = computed(() => JSON.stringify(nextPreferred()) !== JSON.stringify(storedPreferred()))
 // Decision D5: the stored limit is `null` (unlimited) or a finite int.
 // Disabled toggle + previously finite stored limit → explicit null is sent;
 // otherwise the key is omitted and the stored value stays untouched.
@@ -217,7 +246,7 @@ const editHasChanges = computed(() => {
 	const storedAvailability = props.member.weekdayAvailability ?? {}
 	const storedBudget = props.member.energyBudget ?? {}
 	const defaultBudget = createDefaultEnergyBudget()
-	if (!isSelf.value && limitHasChanges.value) {
+	if ((!isSelf.value && limitHasChanges.value) || preferredHasChanges.value) {
 		return true
 	}
 	return weekDays.some((day) => {
@@ -259,6 +288,9 @@ async function saveAvailability() {
 	// Decision D5: validate the limit before firing — an out-of-range value
 	// aborts instead of being silently dropped behind a success toast.
 	const payload = buildWeeklyPayload()
+	if (preferredHasChanges.value) {
+		payload.preferredWeekdays = nextPreferred()
+	}
 	const updates = { ...payload }
 	if (!isSelf.value && limitHasChanges.value) {
 		if (limitEnabled.value) {
@@ -277,15 +309,25 @@ async function saveAvailability() {
 		} else {
 			await schedulingStore.updateMemberPreferences(props.member.userId, updates)
 		}
-
-		showSuccess(t('chorestrike', 'Availability settings saved successfully'))
-		await schedulingStore.fetchMemberAvailability()
-		close()
 	} catch (error) {
 		logger.error('Failed to save availability', error, { component: 'AvailabilityEditModal', action: 'saveAvailability', userId: props.member.userId })
 		showError(t('chorestrike', 'Failed to save availability settings'))
-	} finally {
 		saving.value = false
+		return
+	}
+	showSuccess(t('chorestrike', 'Availability settings saved successfully'))
+	await refreshMembers()
+	saving.value = false
+	close()
+}
+
+// The save stands even when the list cannot be read again: the store already
+// holds the change and has logged the failed read.
+async function refreshMembers() {
+	try {
+		await schedulingStore.fetchMemberAvailability()
+	} catch {
+		// Logged by the store; nothing for the dialog to undo.
 	}
 }
 

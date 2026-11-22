@@ -43,9 +43,10 @@ use OCA\ChoreStrike\Db\TransactionExecutor;
  * The recheck BEFORE the final claim decides freshness: membership
  * active, category opt-ins still enabled, currently outside personal
  * quiet hours (cross-midnight ranges), and dispatch-time relevance —
- * task content is computed NOW from the derived windows (the member's
- * open cycles planned for today, ADR-021; nothing on free days or during
- * an absence; no backlog, offers or future work), organizational content
+ * task content is computed NOW from the live suggestion (the work it
+ * suggests to the member for today plus their overdue tasks, ADR-022
+ * decision 7; nothing on free days or during an absence; no offers or
+ * future work), organizational content
  * comes from the queued rows (rows carry only recipients authorized at
  * write time; the active-membership recheck is the visibility gate for
  * the house-scoped structural facts). Queued agreement rows from before
@@ -73,6 +74,7 @@ class DigestService {
 		private PauseMapper $pauseMapper,
 		private RewardRequestMapper $rewardRequestMapper,
 		private RoomTaskReadService $roomTaskReadService,
+		private SuggestionService $suggestionService,
 	) {
 	}
 
@@ -183,7 +185,7 @@ class DigestService {
 					$visibleRoomTasks
 				), true);
 				$taskCount = $pref->getTaskDigestEnabled()
-					? $this->countRelevantTasks($house, $member, $now, $visibleRoomTasks)
+					? $this->countRelevantTasks($house, $member, $now)
 					: 0;
 				$orgRows = $pref->getOrgDigestEnabled()
 					? $this->relevantOrgRows($slot, $member, $visibleRoomTaskIds)
@@ -268,16 +270,14 @@ class DigestService {
 	}
 
 	/**
-	 * Dispatch-time task relevance (§3.4 (c)): the member's assigned,
-	 * active tasks whose current cycle is planned for today and whose
-	 * window is open (ADR-021). Nothing on free (weekday-unavailable) days
-	 * or during an absence; no backlog, offers or future work; private
-	 * tasks never leak (the member is assigned to every counted task;
-	 * only a count is rendered).
-	 *
-	 * @param \OCA\ChoreStrike\Db\RoomTask[] $visibleRoomTasks Room tasks the member may see
+	 * Dispatch-time task relevance (§3.4 (c), ADR-022 decision 7): the
+	 * work the live suggestion places on the member for today plus their
+	 * overdue tasks. Nothing on free (weekday-unavailable) days or during
+	 * an absence; no offers or future work; private tasks never leak (a
+	 * task is only ever suggested to a member who may see it; only a count
+	 * is rendered).
 	 */
-	private function countRelevantTasks(\OCA\ChoreStrike\Db\House $house, HouseUser $member, \DateTime $now, array $visibleRoomTasks): int {
+	private function countRelevantTasks(\OCA\ChoreStrike\Db\House $house, HouseUser $member, \DateTime $now): int {
 		$tz = $this->calendar->getTimeZone($house);
 		$todayKey = $this->calendar->dayKey($now, $tz);
 		$dayName = strtolower(\DateTime::createFromInterface($now)->setTimezone($tz)->format('l'));
@@ -299,18 +299,7 @@ class DigestService {
 			}
 		}
 
-		$assignees = $this->roomTaskReadService->assigneesByRoomTasks($visibleRoomTasks);
-		$own = array_values(array_filter(
-			$visibleRoomTasks,
-			static fn (\OCA\ChoreStrike\Db\RoomTask $roomTask): bool => in_array($member->getNextcloudUserId(), $assignees[$roomTask->getId()] ?? [], true)
-		));
-		$count = 0;
-		foreach ($this->roomTaskReadService->cycleFacts((int)$house->getId(), $own, null, $now) as $fact) {
-			if (($fact['block']['state'] ?? null) === WindowService::STATE_OPEN && $fact['block']['centreOn'] === $todayKey) {
-				$count++;
-			}
-		}
-		return $count;
+		return $this->suggestionService->view($house, $now)->countFor($member);
 	}
 
 	/**

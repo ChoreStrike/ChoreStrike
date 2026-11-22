@@ -9,15 +9,20 @@
  * default "My tasks" filter (D3) shows it. Completing a task must flip
  * the row to its completed state — celebration effects (confetti/sound)
  * are deliberately not asserted (E2E flakiness risk). The last scenario
- * is the bonus day of CS-PLAN-091 WP-B4 and WP-B5.
+ * of the first block is the bonus day of CS-PLAN-091 WP-B4 and WP-B5; the
+ * second block is the live suggestion of WP-C on Today and in the calendar.
  *
  * Requires: Docker test environment with the `family` database profile.
  */
+
+import type { Locator, Page } from '@playwright/test'
 
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import { completeWithOptionalDialog, postCompletionWithReceipt } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
+import { houseDateOffset } from './fixtures/house-clock.js'
+import { openCalendarWeek, openPlanningSettings, weekdayOf, WEEKDAYS } from './fixtures/planning.ts'
 import { openToday } from './fixtures/rooms.ts'
 import { openSettings } from './fixtures/settings.ts'
 
@@ -273,6 +278,165 @@ test.describe('Release: Today view', () => {
 			await expect(page.getByTestId('today-section-bonus')).toBeVisible({ timeout: 15000 })
 			await expect(page.getByTestId('today-bonus-days')).toHaveCount(0)
 			await expect(coins).toHaveText(String(before + 30))
+		} finally {
+			await context.close()
+		}
+	})
+})
+
+// CS-PLAN-091 WP-C (ADR-022): the suggestion is computed on read from the
+// windows, the energy per weekday and the preferred days. Every scenario
+// CONTROLS mom's energy and creates its own probes, so the expected days do
+// not depend on the weekday the gate runs on. The day's first read stores
+// today's list; each test starts from a fresh seed without one.
+test.describe('Release: the live suggestion on Today and in the calendar', () => {
+	test.use({ databaseProfile: 'family' })
+
+	const day = (offset: number): string => houseDateOffset(offset, 'UTC')
+	const everyDay = <T>(value: T): Record<string, T> => Object.fromEntries(WEEKDAYS.map((weekday) => [weekday, value]))
+
+	/** Set the signed-in member's energy per weekday; every day is available. */
+	async function setEnergy(page: Page, energyBudget: Record<string, number>): Promise<void> {
+		const saved = await page.request.put(`${API}/scheduling/preferences`, {
+			data: { weekdayAvailability: everyDay(true), energyBudget },
+			headers: { Accept: 'application/json' },
+		})
+		expect(saved.status(), await saved.text()).toBe(200)
+	}
+
+	/** Create a task for mom in the first room and return its room task id. */
+	async function createProbe(page: Page, name: string, firstOffset: number, task: Record<string, unknown>): Promise<number> {
+		const floors = await page.request.get(`${API}/floors/with-rooms`, { headers: { Accept: 'application/json' } })
+		expect(floors.status()).toBe(200)
+		const roomId = ((await floors.json()).data as Array<{ rooms: Array<{ id: number }> }>).flatMap((floor) => floor.rooms)[0].id
+		const created = await page.request.post(`${API}/room-tasks`, {
+			data: {
+				roomId,
+				assigneeUserIds: ['mom'],
+				firstDate: day(firstOffset),
+				task: { name, description: '', priority: 2, energyCost: 1, frequencyType: 'weekly', frequencyValue: 1, ...task },
+			},
+			headers: { Accept: 'application/json' },
+		})
+		expect(created.status(), await created.text()).toBe(200)
+		return (await created.json()).data.roomTask.id as number
+	}
+
+	/** The section of a day in the calendar's week; a day of the next week is one step ahead. */
+	async function daySection(page: Page, dayKey: string): Promise<Locator> {
+		const section = page.getByTestId(`calendar-agenda-day-${dayKey}`)
+		if (await section.count() === 0) {
+			await page.getByTestId('calendar-next').click()
+		}
+		await expect(section).toBeVisible({ timeout: 15000 })
+		return section
+	}
+
+	test('today\'s suggestion stays when the energy changes during the day, and work created since joins', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const dishes = seededData.data.roomTasks.find((roomTask) => roomTask.taskId === seededData.data.tasks.find((task) => task.name === 'Do the dishes').id)
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			// The day holds 6: the seeded dishes (3) are today's, and a probe
+			// of 4 whose window is yesterday to tomorrow only fits tomorrow.
+			await setEnergy(page, everyDay(6))
+			const later = await createProbe(page, 'Suggestion Probe Tomorrow', 0, { energyCost: 4, flexDays: 1 })
+
+			const firstRead = page.waitForResponse((response) => response.url().includes('/room-tasks/filtered-daily'))
+			await openToday(page)
+			const rows = (await (await firstRead).json()).data as Array<{ roomTask: { id: number }, openWindow: boolean, suggestedFor?: string[] }>
+			expect(rows.find((row) => row.roomTask.id === dishes.id)).toMatchObject({ openWindow: false, suggestedFor: ['mom'] })
+			expect(rows.find((row) => row.roomTask.id === later)).toMatchObject({ openWindow: true })
+			await expect(page.getByTestId(`today-complete-button-${dishes.id}`)).toBeVisible({ timeout: 20000 })
+			await expect(page.getByTestId('today-section-open-window')).toBeVisible()
+			await expect(page.getByTestId(`today-complete-button-${later}`)).toHaveCount(0)
+
+			// More energy would take the probe today; what was suggested for
+			// today stays as it was (ADR-022 decision 3).
+			await setEnergy(page, everyDay(20))
+			await page.reload()
+			await expect(page.getByTestId(`today-complete-button-${dishes.id}`)).toBeVisible({ timeout: 20000 })
+			await expect(page.getByTestId(`today-complete-button-${later}`)).toHaveCount(0)
+			await page.getByTestId('today-section-open-window').click()
+			await expect(page.getByTestId(`today-window-${later}`)).toBeVisible()
+
+			// Work created since the day was stored joins today's list.
+			const joins = await createProbe(page, 'Suggestion Probe Joins', 0, { frequencyType: 'daily' })
+			await page.reload()
+			await expect(page.getByTestId(`today-complete-button-${joins}`)).toBeVisible({ timeout: 20000 })
+			await expect(page.getByTestId(`today-complete-button-${later}`)).toHaveCount(0)
+		} finally {
+			await context.close()
+		}
+	})
+
+	test('the calendar shows the week\'s suggestion with the own energy, everyone\'s on request, and where it ends', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			await setEnergy(page, everyDay(6))
+			await createProbe(page, 'Calendar Probe Tomorrow', 0, { energyCost: 4, flexDays: 1 })
+
+			await openCalendarWeek(page)
+			const today = page.getByTestId(`calendar-agenda-day-${day(0)}`)
+			await expect(today).toHaveClass(/today/)
+			await expect(today.getByTestId('calendar-agenda-entry').filter({ hasText: 'Do the dishes' })).toBeVisible({ timeout: 15000 })
+			await expect(today.getByTestId('calendar-agenda-entry').filter({ hasText: 'Calendar Probe Tomorrow' })).toHaveCount(0)
+			// Placed energy against the day's energy: the dishes of the seed.
+			await expect(page.getByTestId(`calendar-agenda-load-${day(0)}`)).toHaveText('3/6')
+
+			// Everyone: the family's other work for today, each with whose it is.
+			const mine = await today.getByTestId('calendar-agenda-entry').count()
+			await page.getByTestId('calendar-filter-all').click()
+			await expect(today.getByTestId('calendar-agenda-entry').filter({ hasText: 'Tidy up toys' })).toContainText('Kid')
+			expect(await today.getByTestId('calendar-agenda-entry').count()).toBeGreaterThan(mine)
+			await page.getByTestId('calendar-filter-mine').click()
+
+			// The probe is suggested for tomorrow, inside its window.
+			const tomorrow = await daySection(page, day(1))
+			await expect(tomorrow.getByTestId('calendar-agenda-entry').filter({ hasText: 'Calendar Probe Tomorrow' })).toBeVisible()
+
+			// A week ahead the daily work is suggested again; beyond the 14
+			// days the list says where the suggestion ends.
+			const nextWeek = await daySection(page, day(7))
+			await expect(nextWeek.getByTestId('calendar-agenda-entry').filter({ hasText: 'Do the dishes' })).toBeVisible()
+			await expect(page.getByTestId(`calendar-agenda-load-${day(7)}`)).toBeVisible()
+			await page.getByTestId('calendar-next').click()
+			await page.getByTestId('calendar-next').click()
+			await expect(page.getByTestId('calendar-agenda-beyond')).toBeVisible({ timeout: 15000 })
+			await expect(page.locator('[data-testid^="calendar-agenda-load-"]')).toHaveCount(0)
+		} finally {
+			await context.close()
+		}
+	})
+
+	test('a preferred day chosen in the settings takes the work before a roomier day', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			// The day after tomorrow holds less energy than every other day,
+			// so only the star can bring the probe there.
+			const target = day(2)
+			await setEnergy(page, { ...everyDay(10), [weekdayOf(target)]: 5 })
+
+			await openPlanningSettings(page)
+			const star = page.getByTestId(`preferred-${weekdayOf(target)}`)
+			await expect(star).toHaveAttribute('aria-pressed', 'false')
+			await star.click()
+			const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
+				&& response.url().includes('/scheduling/preferences'))
+			await page.getByTestId('save-energy-budget-button').click()
+			expect((await saved).ok()).toBe(true)
+			await expect(star).toHaveAttribute('aria-pressed', 'true')
+
+			// Its window reaches from yesterday to three days ahead.
+			await createProbe(page, 'Preferred Day Probe', 1, { flexDays: 2 })
+
+			await openCalendarWeek(page)
+			const section = await daySection(page, target)
+			await expect(section.getByTestId('calendar-agenda-entry').filter({ hasText: 'Preferred Day Probe' })).toBeVisible({ timeout: 15000 })
+			await expect(section.getByTestId('calendar-agenda-preferred')).toBeVisible()
+			await expect(page.getByTestId('calendar-agenda-entry').filter({ hasText: 'Preferred Day Probe' })).toHaveCount(1)
 		} finally {
 			await context.close()
 		}

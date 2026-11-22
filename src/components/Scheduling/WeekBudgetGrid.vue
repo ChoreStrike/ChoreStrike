@@ -11,7 +11,19 @@
 			class="budget-item">
 			<div class="day-header">
 				<span class="day-name">{{ day.name }}</span>
-				<span class="day-short">{{ day.short }}</span>
+				<!-- ADR-022 decision 5: the suggestion fills a preferred day first. -->
+				<button v-if="preferred !== null"
+					type="button"
+					class="preferred-toggle"
+					:class="{ on: preferred.includes(day.key) }"
+					:aria-pressed="preferred.includes(day.key) ? 'true' : 'false'"
+					:aria-label="t('chorestrike', 'Prefer {day}', { day: day.name })"
+					:disabled="disabled"
+					:data-testid="`preferred-${day.key}`"
+					@click="togglePreferred(day.key)">
+					<Icon name="Star" :size="20" />
+				</button>
+				<span v-else class="day-short">{{ day.short }}</span>
 			</div>
 			<div class="budget-input-group">
 				<div class="energy-slider-container">
@@ -54,6 +66,7 @@
 
 <script setup>
 import { translate as t } from '@nextcloud/l10n'
+import Icon from '../Common/Icon.vue'
 import { ENERGY_MAX, ENERGY_MIN, weekDays } from '../../constants/scheduling.js'
 
 defineProps({
@@ -62,13 +75,18 @@ defineProps({
 		type: Object,
 		required: true,
 	},
+	/** The preferred weekday keys; without the prop the grid offers no stars. */
+	preferred: {
+		type: Array,
+		default: null,
+	},
 	disabled: {
 		type: Boolean,
 		default: false,
 	},
 })
 
-const emit = defineEmits(['updateDay'])
+const emit = defineEmits(['updateDay', 'togglePreferred'])
 
 const marks = [ENERGY_MIN, 5, 10, 15, ENERGY_MAX]
 
@@ -77,6 +95,10 @@ const marks = [ENERGY_MIN, 5, 10, 15, ENERGY_MAX]
 // fast interaction overwrite freshly synced days with old values.
 function setDay(key, value) {
 	emit('updateDay', { key, value })
+}
+
+function togglePreferred(key) {
+	emit('togglePreferred', key)
 }
 </script>
 
@@ -108,6 +130,30 @@ function setDay(key, value) {
 .day-short {
 	font-size: 0.9rem;
 	color: var(--color-text-maxcontrast);
+}
+
+.preferred-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 44px;
+	min-height: 44px;
+	border: 1px solid transparent;
+	border-radius: 22px;
+	background: transparent;
+	color: var(--color-text-maxcontrast);
+	cursor: pointer;
+}
+
+.preferred-toggle.on {
+	border-color: var(--color-primary-element);
+	background: var(--color-primary-element);
+	color: var(--color-primary-element-text);
+}
+
+.preferred-toggle:focus-visible {
+	outline: 2px solid var(--color-main-text);
+	outline-offset: 2px;
 }
 
 .budget-input-group {

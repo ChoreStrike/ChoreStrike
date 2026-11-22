@@ -12,7 +12,17 @@
 				:rangeLabel="rangeLabel"
 				@update:mode="mode = $event"
 				@navigate="navigate" />
+			<SegmentedSwitch
+				v-if="mode === 'week'"
+				v-model="filter"
+				class="calendar-filter"
+				:options="filterOptions"
+				:label="t('chorestrike', 'Task filter')"
+				testidPrefix="calendar-filter" />
 		</header>
+		<p v-if="mode === 'week'" class="calendar-hint" data-testid="calendar-hint">
+			{{ t('chorestrike', 'A suggestion, not a plan: it adapts as soon as something is done or postponed.') }}
+		</p>
 
 		<div v-if="loading" class="calendar-loading">
 			<div class="skeleton skeleton-grid" />
@@ -22,6 +32,13 @@
 			<p>{{ error }}</p>
 		</div>
 
+		<!-- The week is a list of days with the live suggestion (ADR-022);
+		     the month keeps the grid of the planned days. -->
+		<CalendarAgenda
+			v-else-if="mode === 'week'"
+			:days="agendaDays"
+			:members="userStore.houseUsers || []"
+			:userId="myUserId" />
 		<TaskCalendar
 			v-else
 			:mode="mode"
@@ -63,31 +80,49 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import SegmentedSwitch from '../components/Common/SegmentedSwitch.vue'
+import CalendarAgenda from '../components/Tasks/CalendarAgenda.vue'
 import CalendarControls from '../components/Tasks/CalendarControls.vue'
 import TaskCalendar from '../components/Tasks/TaskCalendar.vue'
+import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 import { useHouseStore } from '../store/house.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
+import { useSchedulingStore } from '../store/scheduling.js'
+import { useUserStore } from '../store/user.js'
+import { buildAgendaDays, SUGGESTION_HORIZON_DAYS } from '../utils/calendarAgenda.js'
 import { addDaysToKey, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
 import { logger } from '../utils/logger.js'
 import { isOverdue as isRowOverdue } from '../utils/taskDisplay.js'
 
+/**
+ * The calendar (CS-PLAN-091 WP-C): the week as a list of days with the
+ * live suggestion and the viewer's energy (ADR-022), the month as the grid
+ * of the planned days. Both read the range of the shown days; the week
+ * adds the suggestion for the days inside its horizon.
+ */
 export default {
 	name: 'CalendarView',
 
 	components: {
+		CalendarAgenda,
 		CalendarControls,
+		SegmentedSwitch,
 		TaskCalendar,
 	},
 
 	setup() {
 		const roomTasksStore = useRoomTasksStore()
 		const houseStore = useHouseStore()
-		return { roomTasksStore, houseStore }
+		const schedulingStore = useSchedulingStore()
+		const userStore = useUserStore()
+		return { roomTasksStore, houseStore, schedulingStore, userStore, ...useHouseMemberNames(userStore) }
 	},
 
 	data() {
 		return {
 			mode: 'week',
+			// Whose work the week shows; the month shows the household.
+			filter: 'mine',
 			// CS-PLAN-057: the grid is anchored on the house-local "today"
 			// key so its day keys agree with the backend's bucketing.
 			anchorDate: this.mondayOfKey(todayKeyInZone(useHouseStore().timezone)),
@@ -121,6 +156,38 @@ export default {
 			return `${start} – ${end}`
 		},
 
+		filterOptions() {
+			return [
+				{ value: 'mine', label: t('chorestrike', 'My tasks') },
+				{ value: 'all', label: t('chorestrike', 'Everyone') },
+			]
+		},
+
+		todayKey() {
+			return todayKeyInZone(this.houseStore.timezone)
+		},
+
+		/** The last day the suggestion covers. */
+		horizonEndKey() {
+			return addDaysToKey(this.todayKey, SUGGESTION_HORIZON_DAYS - 1)
+		},
+
+		myUserId() {
+			return this.userStore.currentUser?.nextcloudUserId || null
+		},
+
+		agendaDays() {
+			return buildAgendaDays({
+				days: this.visibleDays,
+				todayKey: this.todayKey,
+				horizonEndKey: this.horizonEndKey,
+				suggestion: this.schedulingStore.suggestion,
+				rangeByDay: this.roomTasksStore.rangeTasksByDay,
+				userId: this.myUserId,
+				mineOnly: this.filter === 'mine',
+			})
+		},
+
 		dayDetail() {
 			if (!this.selectedDay) {
 				return { scheduled: [], completed: [] }
@@ -136,6 +203,10 @@ export default {
 				this.fetchData()
 			},
 		},
+
+		mode() {
+			this.fetchData()
+		},
 	},
 
 	methods: {
@@ -145,13 +216,30 @@ export default {
 			this.loading = true
 			this.error = null
 			try {
-				await this.roomTasksStore.fetchRangeTasks(this.rangeStart, this.rangeEnd)
+				await Promise.all([
+					this.roomTasksStore.fetchRangeTasks(this.rangeStart, this.rangeEnd),
+					this.fetchSuggestion(),
+				])
 			} catch (e) {
 				this.error = e.message
 				logger.error('Calendar fetch failed', e, { view: 'CalendarView' })
 			} finally {
 				this.loading = false
 			}
+		},
+
+		/**
+		 * The suggestion for the shown days of the week that lie inside its
+		 * horizon; a week outside it, and the month, show none.
+		 */
+		async fetchSuggestion() {
+			const from = this.rangeStart > this.todayKey ? this.rangeStart : this.todayKey
+			const to = this.rangeEnd < this.horizonEndKey ? this.rangeEnd : this.horizonEndKey
+			if (this.mode !== 'week' || from > to) {
+				this.schedulingStore.clearSuggestion()
+				return
+			}
+			await this.schedulingStore.fetchSuggestion(from, to)
 		},
 
 		navigate(direction) {
@@ -208,58 +296,14 @@ export default {
 	margin-bottom: 12px;
 }
 
-.calendar-loading .skeleton-grid {
-	height: 300px;
-	background: var(--color-background-dark);
-	border-radius: 8px;
-	animation: pulse 1.5s infinite;
+.calendar-hint {
+	margin: 0.5rem 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85rem;
 }
 
-@keyframes pulse {
-	0%, 100% { opacity: 1; }
-	50% { opacity: 0.5; }
-}
-
-.calendar-error {
-	color: var(--color-error-text);
-}
-
-.day-detail {
-	margin-top: 20px;
-	padding: 16px;
-	border: 1px solid var(--color-border);
-	border-radius: 8px;
-}
-
-.day-task-list {
-	list-style: none;
-	padding: 0;
-	margin: 8px 0;
-}
-
-.task-item {
-	display: flex;
-	justify-content: space-between;
-	padding: 6px 8px;
-	border-radius: 4px;
-}
-
-.task-item.completed {
-	opacity: 0.5;
-	text-decoration: line-through;
-}
-
-.task-item.overdue {
-	background: var(--color-error-hover);
-}
-
-.task-repeat {
-	opacity: 0.6;
-	font-size: 0.9em;
-}
-
-.close-detail {
-	margin-top: 8px;
-	cursor: pointer;
+.calendar-filter {
+	max-width: 20rem;
+	margin-block: 0.5rem 0;
 }
 </style>

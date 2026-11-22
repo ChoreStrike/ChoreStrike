@@ -1143,7 +1143,8 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `time-travel-overdue.spec.ts`, `time-travel-streak-notification.spec.ts` | Time-travel flows (CS-PLAN-023): overdue via seeded past due-date, streak-freeze + at-risk notification via `trigger-jobs --as-of` |
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage — the arcade is its own opt-in surface under `#/arcade` (CS-PLAN-070 WP6), no longer a Dashboard section |
 | `calm-core-ui.spec.ts` | Calm core UI (CS-PLAN-070 WP6, CS-PLAN-090 WP-B): every role lands on Today and the old `#/dashboard` address leads there, Today shows the own Coins and no arcade, catalog or ranking surface, the optional arcade hiding together with its navigation entry while `arcadeVisible` is off, and the absence journey of ADR-020 (a child enters an absence, everyone sees it, the owner deletes it). Runs in `chromium-serial-db` (preference/pause state is seed-mutating) |
-| `scheduling.spec.ts`, `flex-window-scheduling.spec.ts`, `availability-settings-flow.spec.ts` | Scheduling UI — availability grid, energy budget, capacity calendar; no planner, preview or apply any more, and the retired preview and apply routes answer 404 while the preferences stay (CS-PLAN-091 WP-B1, ADR-022) |
+| `scheduling.spec.ts`, `flex-window-scheduling.spec.ts`, `availability-settings-flow.spec.ts` | Planning and the live suggestion (CS-PLAN-091 WP-C, ADR-022): the own days, energy and preferred days under Settings → Planning; the owner's editor of every member under Settings → Household → *Planning of the members* (a member's preferred days and daily limit, the category's address surviving a reload); the calendar's week as a list of days with the suggestion, its filter, today's own energy and the note where the suggestion ends; `#/scheduling` landing on the calendar; the suggestion read for the 14 days from today and refused outside them. No planner, preview or apply, and the retired preview and apply routes answer 404 while the preferences stay (WP-B1) |
+| `calendar.spec.ts` | The calendar: week and month toggle, navigation and range label, the week as a list of days with the suggestion, *My tasks* first and *Everyone* on request, the month grid |
 | `family-rhythm.spec.ts` | Derived-cycle client contract (CS-PLAN-091 WP-B1, ADR-021): a UI completion carries the full receipt (`commandId`/`cycleKey`/`expectedVersion`) and the answer the next cycle; a closed cycle, a second completion the same day (`SAME_DAY`) and a stale receipt after a definition edit (`STALE_TARGET`) conflict 409 without a second effect, a replay returns the original identity, a wrong key and the retired occurrence fields are a 400; work completes before its window opens and after it ended; one overdue card per task on My Day; a non-UTC house; an absence and a house pause leave rows and cycles in place; work above a child's daily limit is accepted; private-task 404; the rhythm read contract |
 | `self-availability-member.spec.ts` | Non-owner scheduling surface: "My Availability" self-service toggles, hidden owner grid, persist/reload round-trip (CS-PLAN-032; runs in default `chromium` as `admin`, ignored by firefox/webkit) |
 | `color-contrast.spec.ts` | WCAG AA text contrast (axe) and the non-text probe (3:1) in the light and dark Nextcloud themes: every main view on *Standard*, and two views (Today, Settings → Appearance) per colour scheme and theme (CS-PLAN-090 WP-K). The palettes' pairs are computed by `tests/unit/css/colorSchemes.spec.js` |
@@ -1319,7 +1320,8 @@ Repository status (CS-PLAN-068 refresh):
   (`chromium-serial-db`, `emptyhouse` profile): one test with named
   `test.step` phases covering first owner bootstrap, wizard setup,
   invitations (adult + child), custom/template task creation with
-  instructions/checklist/assignees, the capacity overview,
+  instructions/checklist/assignees, the members' planning in the
+  settings and the calendar's week,
   child execution on My Day, completion receipts with exact credited
   deltas, queued undo (live + after reload) and identity/visibility
   authority on re-entry. The retired `gui-scratch-flow` spec is archived
@@ -1442,7 +1444,9 @@ fixtures or lock choreography elsewhere:
   neutral facts only, RF-073-WP2-28). A mocked-controller test cannot prove
   field filtering.
 - Query-budget pins: `WorkflowQueryBudgetTest` (the completion flow budget
-  includes the pause-independent appointment stamping, RF-073-WP2-20).
+  includes the pause-independent appointment stamping, RF-073-WP2-20; the
+  daily read of *Today* with the live suggestion and the range read of the
+  calendar cost the same statements for 10 and for 100 tasks).
 - `tests/integration/Service/SleepAndBonusTest.php` — sleeping and bonus tasks
   (ADR-021 §7 and §8): sleep and wake by command, by the job on the wake date
   and by a completion, the wake anchor per rule, no missed cycle for the time
@@ -1458,6 +1462,36 @@ fixtures or lock choreography elsewhere:
   default, a completion stored before the step is corrected at the rate it was
   paid, the step adds nothing a second time and the runner does not apply it
   again. The upgrade from the retained baseline is proof P4.
+- The live suggestion (CS-PLAN-091 WP-C, ADR-022):
+  `tests/unit/Service/SuggestionPlannerTest.php` pins the placement rules on
+  frozen days (order, preferred and unavailable days, absences, overload, team
+  tasks, the child's limit, overdue work, the stored day with its joiners, the
+  cycles after the current one, determinism).
+  `tests/integration/Service/LiveSuggestionTest.php` runs them from real
+  inputs: preferences, absences, visibility, today's work; one stored row per
+  house and day, the list of another first read, the lost insert inside a
+  transaction, what leaves (done, postponed, asleep, deleted, handed over) and
+  what joins (work created since, and work due only today that was handed
+  over or edited onto today); the read contract with its visibility filter, the loads of the
+  viewer and of the owner, the projected cycles of the horizon and the range
+  validation; the deletion of old days.
+  `tests/integration/Service/ChildDailyLimitTest.php` covers the limit as the
+  child's second budget on *Today*.
+  `tests/integration/Db/SuggestionDayStepTest.php` — the schema step
+  `Version1038`: it adds nothing a second time, and the runner leaves a
+  populated household and its snapshot as they are. Proof P4 reads the
+  suggestion on the upgraded household (`tests/recovery/upgrade-cycles.php`).
+  In the browser, `today-view.spec.ts` pins that today's suggestion stays
+  when the energy changes during the day and that work created since joins,
+  the calendar's week with the own energy and everyone's work on request, and
+  a preferred day chosen in the settings taking the work before a roomier
+  day; `insights-flow.spec.ts` shows an overloaded day on *Today* and in the
+  calendar instead of refused work; `mobile-core.spec.ts` hands work due
+  today to another member, who finds it on their list at once, and fits the
+  week on both phones; `family-core-ux.spec.ts` pins that unassigned work is
+  suggested to one member and stays possible for the others. The Jest specs
+  `calendarAgenda.spec.js` and `CalendarAgenda.spec.js` build the week from
+  fixed day keys, `todaySections.spec.js` sorts the daily read.
 - Browser layer: `family-rhythm.spec.ts`, describes *"Family rhythm —
   derived cycles"* (the receipt and its coded conflicts) and *"Family rhythm
   — absences, limits & visibility"* (absences and a house pause leaving the
@@ -1891,8 +1925,10 @@ improvement should tighten the number.
 Frontend counterpart: `tests/unit/views/requestCounts.spec.js` (real Pinia
 stores, mocked API boundary — exactly one house-wide list request in the
 TaskManager init set) and `tests/e2e/workflow-request-budgets.spec.ts`
-(real HTTP boundary — the TaskManager/Scheduling load issues exactly ONE
-`GET /api/v1/room-tasks` without a `roomId` param).
+(real HTTP boundary — the TaskManager load issues exactly ONE
+`GET /api/v1/room-tasks` without a `roomId` param; *Today* reads its three
+projections once each and no suggestion of its own; the calendar's week reads
+one range and one suggestion per shown week, and its filter reads nothing).
 
 ---
 
@@ -2090,8 +2126,9 @@ in `chromium-scheduling-owner`), My Day
 assertions), lifecycle (`release-task-lifecycle`), members/roles
 (`members-owner`, `release-visibility-roles`), insights (`insights-flow`
 — controlled per-day capacity), checklist (`task-checklist-and-features`).
-`ScheduleCalendar.spec.js` fixes Saturday/Sunday/Monday clocks and uses the
-same `house-clock.js` fixture date helper and actual planned-energy store.
+The calendar's week is built from fixed day keys in `calendarAgenda.spec.js`;
+the weekly plan's `ScheduleCalendar.spec.js` went with its component
+(CS-PLAN-091 WP-C).
 `WindowServiceTest` covers the day boundary in zones east and west of UTC and
 both Berlin DST transitions; `CalendarServiceTest` pins the bucketing
 primitives underneath.

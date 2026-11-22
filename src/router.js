@@ -51,10 +51,11 @@ export const routes = [
 		name: 'arcade',
 		component: () => import(/* webpackChunkName: "arcade" */ './views/ArcadeView.vue'),
 	},
+	// The weekly plan's page went with the live suggestion (CS-PLAN-091
+	// WP-C): the calendar shows the suggestion, the settings the planning.
 	{
 		path: '/scheduling',
-		name: 'scheduling',
-		component: () => import(/* webpackChunkName: "scheduling" */ './views/SchedulingView.vue'),
+		redirect: { name: 'calendar' },
 	},
 	{
 		path: '/calendar',

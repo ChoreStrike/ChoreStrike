@@ -56,7 +56,8 @@ class RoomTaskServiceLoggingTest extends TestCase {
 				new \OCA\ChoreStrike\Service\WindowService(new \OCA\ChoreStrike\Service\RecurrenceCalculator(), $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class)),
 				$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class),
 				$this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class),
-				$this->createMock(\OCA\ChoreStrike\Service\CreditPolicy::class)
+				$this->createMock(\OCA\ChoreStrike\Service\CreditPolicy::class),
+				$this->createMock(\OCA\ChoreStrike\Service\SuggestionService::class),
 			),
 			$roomService,
 			$taskAssigneeMapper,

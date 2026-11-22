@@ -104,13 +104,25 @@ The current confirmed-preview workflow and hard constraints are described in
   last day as overload. Team tasks use the chosen person's budget only.
 - A child's `maxDailyTasks` caps how many cycles are placed on the child's
   day; *Today* never offers more.
+- Overload goes to a member available in the window before one who has those
+  days off, and past a child at its daily limit.
 - Today's list is stored once per house and day on its first read: during the
-  day work only leaves it (done, postponed, asleep) or joins it (created today
-  and due); everything else moves from tomorrow on.
+  day work only leaves it (done, postponed, asleep, deleted, handed to someone
+  else, or moved off today by an edit) or joins it (created today and due, or
+  due only today); everything else moves from tomorrow on.
 - **Capacity shows overload and never refuses** an assignment, a new task, an
   edit or a postponement (settles D-089-13).
 
 ## Overcapacity Policy (Locked)
+
+> **Superseded for the surface (CS-PLAN-091 WP-C, [ADR-022](../adr/ADR-022-live-suggestion.md)):**
+> the client-side load view described below — `overcapacityDays()`,
+> `OvercapacityWarning`, `ScheduleCalendar` and the weekly plan's page — is
+> gone. The live suggestion places the work on the server and shows overload
+> where it happens: a cycle that fits no day of its window is marked in the
+> calendar, a day with more than it holds is highlighted, and *Today* says so
+> for the viewer. Nothing is deferred by priority and nothing is refused. The
+> rule that overload is shown and never blocks work stands.
 
 If total due energy exceeds available capacity:
 
@@ -127,6 +139,10 @@ listing each overloaded day with its would-be-deferred tasks sorted lowest
 priority first; `ScheduleCalendar` marks overloaded day headers inline.
 
 ## Plan Capacity (CS-PLAN-065, ADR-012)
+
+> **Superseded (CS-PLAN-091, [ADR-022](../adr/ADR-022-live-suggestion.md)):**
+> the owner's preview and apply are gone; the live suggestion above places the
+> work. Kept as the record of the retired planner.
 
 The owner plan preview derives per-person/day capacity from three
 authoritative server-side sources — never from client-side counters:
@@ -177,6 +193,10 @@ canonical display sources.
   retrospective illness is a separate traceable owner decision.
 
 ### Approved Whole-Day Capacity C2 (2026-09-17)
+
+> **Superseded for enforcement (CS-PLAN-091 WP-B1, [ADR-022](../adr/ADR-022-live-suggestion.md) §4):**
+> nothing is refused at a budget any more; capacity only shapes the suggestion
+> and shows overload. Kept as the record of the whole-day rules.
 
 Planning and amendment capacity is enforced since CS-PLAN-073 WP2 (see
 *Delivered planning capacity* below), and Today shows the neutral overload
@@ -236,6 +256,10 @@ Implemented by WP3 (CS-PLAN-074,
   [ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md).
 
 ### Delivered planning capacity and frozen energy (CS-PLAN-073 WP2, implemented 2026-09-24)
+
+> **Superseded for the refusals (CS-PLAN-091 WP-B1, [ADR-022](../adr/ADR-022-live-suggestion.md) §4):**
+> `DailyCapacityService` and its gates are gone. The frozen energy of a
+> completion described below stays.
 
 The whole-day C2 rules are **enforced for the planning/amendment surfaces** by
 `DailyCapacityService` (ADR-013 §WP2): exact integer-hundredths ("minor units",

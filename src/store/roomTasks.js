@@ -21,15 +21,21 @@ import { useUserStore } from './user.js'
  * (CR-084-01): the planned day of the current cycle and of the cycles the
  * rule yields after it (ADR-021), else the projected due instant without a
  * mark (`late: null`).
+ * Each day carries the window of its cycle, where the read named one.
  * @param {object} item Range row from GET /room-tasks/range.
  * @param {string} timezone IANA timezone of the household.
- * @return {Array<{date: string, late: ?boolean}>}
+ * @return {Array<{date: string, late: ?boolean, windowStartOn: ?string, windowEndOn: ?string}>}
  */
 function rangeDays(item, timezone) {
 	if (Array.isArray(item.cycles) && item.cycles.length) {
-		return item.cycles.map((cycle) => ({ date: cycle.date, late: cycle.late === true }))
+		return item.cycles.map((cycle) => ({
+			date: cycle.date,
+			late: cycle.late === true,
+			windowStartOn: cycle.windowStartOn ?? null,
+			windowEndOn: cycle.windowEndOn ?? null,
+		}))
 	}
-	return [{ date: dateKeyInZone(item.roomTask?.nextDue, timezone), late: null }]
+	return [{ date: dateKeyInZone(item.roomTask?.nextDue, timezone), late: null, windowStartOn: null, windowEndOn: null }]
 }
 
 /**
@@ -226,7 +232,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				// house TZ.
 				const days = rangeDays(item, houseStore.timezone)
 
-				for (const { date, late } of days) {
+				for (const { date, late, windowStartOn, windowEndOn } of days) {
 					if (!date) {
 						continue
 					}
@@ -237,8 +243,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 						roomTask: item.roomTask,
 						task: item.task,
 						room: item.room,
+						assignees: item.assignees ?? [],
 						dueDate: date,
 						late,
+						windowStartOn,
+						windowEndOn,
 					})
 				}
 			}
@@ -308,8 +317,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Fetch the whole house's room tasks in ONE request (CS-PLAN-067
-		 * D1) — the batched read that replaces TaskManager's and
-		 * SchedulingView's per-room loops. A full-house result REPLACES the
+		 * D1) — the batched read that replaces the task list's per-room
+		 * loops. A full-house result REPLACES the
 		 * instance set; a room-scoped result still updates only its room.
 		 * The read is generation-guarded: a stale house response never
 		 * lands, and it is also dropped when a room-scoped read started

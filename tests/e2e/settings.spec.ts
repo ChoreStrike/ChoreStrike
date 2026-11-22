@@ -60,7 +60,7 @@ test.describe('Settings', () => {
 
 		// The owner's household area sits behind the switch, closed as well.
 		await page.getByTestId('settings-tab-household').click()
-		for (const category of ['house', 'members', 'structure', 'categories', 'rewards', 'arcade', 'danger']) {
+		for (const category of ['house', 'members', 'member-planning', 'structure', 'categories', 'rewards', 'arcade', 'danger']) {
 			await expect(page.getByTestId(`settings-category-${category}`)).toHaveAttribute('aria-expanded', 'false')
 		}
 		await expect(page.getByTestId('house-name-input')).toHaveCount(0)

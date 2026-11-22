@@ -935,8 +935,8 @@ broader mode):
   `404 RESOURCE_NOT_FOUND`.
 - neither: **house-wide** — every visible instance of the CURRENT house
   (server-side resolved, never a browser-supplied house ID) in ONE request.
-  This is the batched read TaskManager and SchedulingView load instead of
-  the former per-room request loop.
+  This is the batched read the task list loads instead of the former
+  per-room request loop.
 - `activeOnly` (optional, default `true`): limit to active instances; `false`
   adds finished/deactivated instances (the TaskManager *Completed* filter).
   Deleted (tombstoned) room tasks are never listed (CS-PLAN-084 D-084-07).
@@ -1063,7 +1063,7 @@ from the one form after a confirmation (D-091-86).
 > inactive room task and the coded conflicts of its receipt (below).
 
 > **Full route list:** the canonical, complete route table is
-> [`appinfo/routes.php`](../../appinfo/routes.php) (92 routes spanning `house`,
+> [`appinfo/routes.php`](../../appinfo/routes.php) (93 routes spanning `house`,
 > `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,
 > `checklist`, `minigame`, `setup`, and `test`). The task-sync ×6 and
 > reward-config ×2 HTTP surfaces were pruned in CS-PLAN-055 together with
@@ -1260,27 +1260,32 @@ cycle (CR-084-03).
 > reader — a stale in-flight response can never overwrite a newer one.
 
 #### GET /room-tasks/filtered-daily
-The Today payload for the current user (CS-PLAN-057/061), now with two
-CS-PLAN-065 changes (decision D4): the deterministic read order is
-`nextDue, createdAt, id` (engine-stable child-limit slicing), and every row
-embeds its canonical `assignees` list so the client never re-interprets an
-unknown set as unassigned after a child limit truncated the list. For child
-users the assignment eligibility (assigned to the viewer OR unassigned) is
-evaluated **before** the availability gate and the daily limit. The limit caps
-offered work only: every row the child owes stays, even above the limit, and
-unassigned rows fill the slots that remain (BUG-UX-013).
+The Today payload for the current user (CS-PLAN-057/061): every
+viewer-visible row whose cycle is `open`, in the read order
+`nextDue, createdAt, id`, each with its canonical `assignees` list
+(CS-PLAN-065 decision D4).
 
-The day's rows are the rows whose cycle is `open` and planned for today
-(`cycle.centreOn`).
+**Today's work is what the live suggestion places on today (ADR-022,
+CS-PLAN-091 WP-C).** Such a row carries `suggestedFor`, the user ids the
+suggestion places it on (every assignee of a team task), and `overload`, true
+when it fits no day of its window. These rows come first. The day's first read
+stores today's list (ADR-022 decision 3); nothing else is written.
 
-**Open flex windows (BUG-UX-005, CS-PLAN-088):** after them follow the
-viewer-visible rows whose cycle is `open` although it is planned for another
-day — before or after the planned day, inside its flex days. They carry
-`openWindow: true`, pass the same child eligibility and never count toward the
-daily limit.
+**Also possible (BUG-UX-005, CS-PLAN-088):** after them follow the other
+viewer-visible rows whose cycle is `open` — placed on another day, or no
+longer on today's list. They carry `openWindow: true` and neither
+`suggestedFor` nor `overload`.
+
+**A child** reads nothing on a weekday it is not available on. Otherwise it
+reads the rows suggested to it, at most its owner-set daily limit (work that
+fits the day before overload), and as `openWindow` rows its own work above the
+limit and the open rows that are its own or unassigned (decision D4). The limit
+never hides what the child owes (BUG-UX-013). Unassigned work that today's
+suggestion places on someone else is not offered to the child.
 
 **Response `data`:** list of `{ roomTask, task, room, assignees, cycle,
-openWindow, checklistItemCount }` objects.
+openWindow, checklistItemCount }` objects, with `suggestedFor` and `overload`
+on the rows of today's suggestion.
 
 **Checklist count (BUG-UX-003, CS-PLAN-088 D-088-19):** the filtered-daily,
 due-today and overdue rows carry `checklistItemCount`, the number of checklist
@@ -1518,9 +1523,7 @@ never other members' rows; each `{ id, score, createdAt }`.
 > the owner's preview and apply (`POST /scheduling/suggestions`,
 > `POST /scheduling/apply`; ADR-022). The routes answer `404`; stored
 > agreements stay as history. No scheduling route refuses at a budget any more.
->
-> **Planned (WP-C):** `GET /scheduling/suggestion` replaces preview and apply,
-> and the preferences gain `preferredWeekdays`.
+> `GET /scheduling/suggestion` (CS-PLAN-091 WP-C) replaces preview and apply.
 
 #### GET /scheduling/preferences
 Get the current user's scheduling preferences (member-gated).
@@ -1531,6 +1534,7 @@ Get the current user's scheduling preferences (member-gated).
   "userId": 7,
   "energyBudget": { "monday": 10, "tuesday": 10, "wednesday": 10, "thursday": 10, "friday": 10, "saturday": 15, "sunday": 15 },
   "weekdayAvailability": { "monday": true, "tuesday": true, "wednesday": true, "thursday": true, "friday": true, "saturday": true, "sunday": true },
+  "preferredWeekdays": ["wednesday", "saturday"],
   "maxDailyTasks": null
 }
 ```
@@ -1538,77 +1542,103 @@ Get the current user's scheduling preferences (member-gated).
 > CS-PLAN-065 (decision D7): the reader-less `todayConsumedEnergy` field is
 > gone — capacity is derived server-side. `maxDailyTasks` is `null` when
 > unset (unlimited) and a finite integer (1-100) when the owner set a child
-> daily-task limit (decision D5).
+> daily-task limit (decision D5). `preferredWeekdays` (ADR-022 decision 5) is
+> the list of weekdays the suggestion fills first, Monday first, empty until
+> the member chose days.
 
 #### PUT /scheduling/preferences
 Save the current user's weekly preferences in **one** bulk request
 (CS-PLAN-033, closes CR-016-02; replaced the removed per-day
 `PUT /scheduling/energy` and `PUT /scheduling/availability`).
 
-**Request** — sections are optional, but at least one is required; each
-provided section must be the **complete week** (exactly the seven canonical
-weekday keys). The merge is section-granular: a provided section replaces the
-stored one wholesale, absent sections and sibling keys (e.g. `maxDailyTasks`)
-stay unchanged.
+**Request** — sections are optional, but at least one is required.
+`weekdayAvailability` and `energyBudget` must each be the **complete week**
+(exactly the seven canonical weekday keys); `preferredWeekdays` (ADR-022
+decision 5) is a list of canonical weekday keys, possibly empty. The merge is
+section-granular: a provided section replaces the stored one wholesale, absent
+sections and sibling keys (e.g. `maxDailyTasks`) stay unchanged.
 
 ```json
 {
   "weekdayAvailability": { "monday": true, "tuesday": false, "wednesday": true, "thursday": true, "friday": true, "saturday": true, "sunday": true },
-  "energyBudget": { "monday": 10, "tuesday": 10, "wednesday": 10, "thursday": 10, "friday": 10, "saturday": 15, "sunday": 15 }
+  "energyBudget": { "monday": 10, "tuesday": 10, "wednesday": 10, "thursday": 10, "friday": 10, "saturday": 15, "sunday": 15 },
+  "preferredWeekdays": ["wednesday", "saturday"]
 }
 ```
 
 **Response `data`:** the full persisted preferences (same shape as `GET`).
 
-**Errors:** `400 VALIDATION_ERROR` (neither section provided, partial week,
-unknown weekday key, non-bool availability, energy outside 1-20), `403 FORBIDDEN`
+**Errors:** `400 VALIDATION_ERROR` (no section provided, partial week,
+unknown weekday key, non-bool availability, energy outside 1-20, preferred days
+that are no list of weekdays), `403 FORBIDDEN`
 (non-member). Persistence is a single validated read-modify-write on one
 `house_user` JSON column — inherently atomic, no multi-statement transaction.
 
-> **Preferred days (ADR-022 §5, CS-PLAN-091 WP-C):** a third optional section
-> `preferredWeekdays` — a list of canonical weekday keys, possibly empty — joins
-> both endpoints and the owner's `PUT /scheduling/members/{userId}`. The
-> suggestion fills a member's preferred days first.
-
-#### GET /scheduling/suggestion?from=&to= (ADR-022, planned: CS-PLAN-091 WP-C)
-The live suggestion over house-local days from today, at most 14 days ahead
-(`400 VALIDATION_ERROR` otherwise). Member-gated; nothing is written except
-today's per-house snapshot on the day's first read (ADR-022 §3).
+#### GET /scheduling/suggestion?from=&to= (ADR-022, CS-PLAN-091 WP-C)
+The live suggestion for a range of house-local days: both real `Y-m-d` days,
+`to` not before `from` (`400 VALIDATION_ERROR` otherwise). The range is cut to
+the days from today to 13 days after today before anything is read, so a
+client whose day ran over midnight still gets the days that remain; a range
+wholly outside answers empty `days`, `overdue` and `members`. Member-gated
+(`403 FORBIDDEN`). Nothing is written except today's per-house snapshot on the
+day's first read (ADR-022 decision 3). The calendar reads it; *Today* reads `GET /room-tasks/filtered-daily`.
 
 **Response `data`:**
 ```json
 {
   "days": [
     {
-      "day": "2026-11-17",
+      "day": "2026-11-23",
       "entries": [
-        { "roomTaskId": 11, "cycleKey": "c88", "userIds": ["kid"], "energy": 2, "overload": false }
+        { "roomTaskId": 11, "cycleKey": "c88", "userIds": ["kid"], "energy": 2, "overload": false,
+          "windowStartOn": "2026-11-22", "windowEndOn": "2026-11-24", "taskName": "Vacuum", "roomId": 4, "roomName": "Hall" }
       ]
     }
   ],
+  "overdue": [
+    { "roomTaskId": 12, "cycleKey": "d2026-11-20", "userIds": ["kid"], "energy": 3, "overload": false,
+      "windowStartOn": "2026-11-20", "windowEndOn": "2026-11-20", "taskName": "Bathroom", "roomId": 5, "roomName": "Bath" }
+  ],
   "members": [
-    { "userId": "kid", "day": "2026-11-17", "budget": 6, "placed": 4 }
+    { "userId": "kid", "day": "2026-11-23", "budget": 6, "placed": 5, "doneMinor": 0, "preferred": false, "absent": false }
   ]
 }
 ```
 
-Entries are filtered by task visibility (ADR-010); a team task lists every
-assignee in `userIds`. Today's entries come from the snapshot with the leave and
-join rules of ADR-022 §3; later days are computed live.
+- **`days`**: one object per day of the range. An entry is a cycle the
+  suggestion places on that day. `cycleKey` is the completion target of a
+  current cycle and `null` for a cycle the rule yields after it (a projection).
+  `userIds` names whom it is suggested to: the member who carries it, then the
+  other assignees of a team task (a task with several assignees). `overload`
+  is true when it fits no day of its window.
+- **`overdue`**: the cycles whose window ended, when the range starts today.
+  They are not placed; they count against today's energy of the first member
+  in `userIds`. While every candidate is absent today, unassigned work names
+  nobody and assigned work keeps naming its assignees.
+- **`members`**: the placed energy against the day's energy — the viewer's own
+  rows, and every member's for the owner. `placed` on today includes the
+  overdue work, `doneMinor` is today's valid work in energy hundredths,
+  `budget` is 0 on a weekday the member is not available on.
+
+Entries and overdue cycles are filtered by task visibility (ADR-010); a load is
+a sum of energy and names no task. Loads and the `overload` mark of an entry
+someone else carries count all work, private tasks included (ADR-022 §6). Today's entries are the stored list with the
+leave and join rules of ADR-022 decision 3; later days are computed live.
 
 #### GET /scheduling/members
 Get all member availability (house owner only). Each entry carries the
-member's `maxDailyTasks` child limit (`null` = unlimited, integer = finite
-bound, decision D5).
+member's `preferredWeekdays` and `maxDailyTasks` child limit (`null` =
+unlimited, integer = finite bound, decision D5).
 
 #### PUT /scheduling/members/{userId}
 Update another member's weekday availability/energy (house owner only).
-The closed payload also accepts the child limit (decision D5):
+The closed payload also accepts `preferredWeekdays` (a list of weekday keys
+that replaces the stored one) and the child limit (decision D5):
 `maxDailyTasks` omitted = unchanged, explicit `null` = unlimited,
 integer 1-100 = finite bound (`0` is a validation error — an unavailable
 weekday already expresses a day off). Errors: `400 VALIDATION_ERROR`
-(unknown field, invalid weekday, limit outside 1-100), `403 FORBIDDEN`
-(non-member/non-owner).
+(unknown field, invalid weekday, preferred days that are no list of weekdays,
+limit outside 1-100), `403 FORBIDDEN` (non-member/non-owner).
 
 ### Users
 

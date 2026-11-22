@@ -7,10 +7,11 @@
  * Covers the FEAT-UX-016/017/022 acceptance rows end to end:
  * - /insights renders house stats cards, the capacity-normalized fairness
  *   table, and an activity feed listing a real completion.
- * - SchedulingView surfaces the overcapacity warning when planned energy
- *   exceeds the available capacity.
+ * - Today and the calendar show an overloaded day when the suggested
+ *   energy exceeds the day's energy (the successor of the weekly plan's
+ *   overcapacity warning, CS-PLAN-091 WP-C).
  *
- * The completion and the overcapacity tasks are created via the API (the
+ * The completion and the overload tasks are created via the API (the
  * deterministic data path); the assertions are UI-driven because these are
  * user-facing render checks.
  *
@@ -132,31 +133,25 @@ test.describe('Release: Insights Flow', () => {
 		await expect(feedItem.locator('[data-testid^="activity-energy-"]')).toBeVisible()
 	})
 
-	test('overcapacity warning appears when a day exceeds its capacity', async ({ browser, seededData }) => {
+	// Successor of the weekly plan's overcapacity warning (CS-PLAN-091 WP-C,
+	// ADR-022 decision 4): capacity shows overload and never refuses. The
+	// day and the energy are CONTROLLED, never the weekday-dependent family
+	// profile (BUG-E2E-005): mom's day holds 4 energy on every weekday, and
+	// two probes of energy 5 can only be done today.
+	test('an overloaded day shows on Today and in the calendar instead of refusing work', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
-
-		// BUG-E2E-005 (CS-PLAN-068 §3.4): the probe day and the capacity are
-		// CONTROLLED, never the weekday-dependent family profile. All seven
-		// members (six family + the invited admin) get an explicit full-week
-		// budget (7 × 4 = 28/day) and the four probes (4 × 5 = 20 energy)
-		// are due TODAY — which is always inside the displayed Monday-start
-		// week and the today+0..6 strip. Planned/capacity per day: today
-		// 10 + 20 = 30 > 28 (over), tomorrow 16 < 28, later days 0 — exactly
-		// ONE overloaded day on any run day.
-		const owner = await createUserContext(browser, 'mom')
+		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			const api = owner.page.request
+			const api = page.request
 			const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-			for (const member of ['mom', 'dad', 'teen', 'kid', 'grandma', 'friend', 'admin']) {
-				const availabilityResponse = await api.put(`/apps/chorestrike/api/v1/scheduling/members/${member}`, {
-					data: {
-						weekdayAvailability: Object.fromEntries(days.map((day) => [day, true])),
-						energyBudget: Object.fromEntries(days.map((day) => [day, 4])),
-					},
-					headers: { Accept: 'application/json' },
-				})
-				expect(availabilityResponse.status(), await availabilityResponse.text()).toBe(200)
-			}
+			const preferences = await api.put('/apps/chorestrike/api/v1/scheduling/preferences', {
+				data: {
+					weekdayAvailability: Object.fromEntries(days.map((day) => [day, true])),
+					energyBudget: Object.fromEntries(days.map((day) => [day, 4])),
+				},
+				headers: { Accept: 'application/json' },
+			})
+			expect(preferences.status(), await preferences.text()).toBe(200)
 
 			const floorsResponse = await api.get('/apps/chorestrike/api/v1/floors/with-rooms', {
 				headers: { Accept: 'application/json' },
@@ -167,40 +162,47 @@ test.describe('Release: Insights Flow', () => {
 			expect(roomId).toBeDefined()
 
 			const today = offsetDate(0)
-			for (let i = 0; i < 4; i++) {
-				// CS-PLAN-063: one atomic aggregate create per room task —
-				// the mount-duplicate guard still rejects duplicate pairs.
+			const probes = ['Overload Probe A', 'Overload Probe B']
+			for (const name of probes) {
+				// Above the day's energy from the first probe on: the creation is accepted.
 				const created = await api.post('/apps/chorestrike/api/v1/room-tasks', {
 					data: {
 						roomId,
 						firstDate: today,
-						task: { name: `Overcapacity Probe ${i}`, description: '', energyCost: 5, priority: 2, frequencyType: 'daily', frequencyValue: 1 },
+						assigneeUserIds: ['mom'],
+						task: { name, description: '', energyCost: 5, priority: 2, frequencyType: 'daily', frequencyValue: 1 },
 					},
 					headers: { Accept: 'application/json' },
 				})
 				const createdBody = await created.json()
 				expect(created.status(), JSON.stringify(createdBody)).toBe(200)
 			}
-		} finally {
-			await owner.context.close()
-		}
 
-		// The view is read as the OWNER so the member-availability grid (the
-		// controlled capacity) is actually loaded.
-		const ownerView = await createUserContext(browser, 'mom')
-		try {
-			const view = ownerView.page
-			await view.goto('/apps/chorestrike/#/scheduling')
-			await expect(view.getByTestId('scheduling-view')).toBeVisible({ timeout: 20000 })
+			// Today: the probes are suggested although they do not fit, and
+			// the neutral clarification names the amounts.
+			await page.goto('/apps/chorestrike/#/today')
+			await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 20000 })
+			for (const name of probes) {
+				await expect(page.getByTestId('today-task-item').filter({ hasText: name })).toBeVisible({ timeout: 15000 })
+			}
+			await expect(page.getByTestId('today-overload')).toBeVisible({ timeout: 15000 })
+			await expect(page.getByTestId('today-energy')).toHaveClass(/over/)
 
-			await expect(view.getByTestId('overcapacity-warning')).toBeVisible({ timeout: 15000 })
-			// Exactly the probe day crosses the controlled capacity.
-			await expect(view.getByTestId('overcapacity-day')).toHaveCount(1)
-			// The calendar marks the overloaded day INSIDE the displayed week
-			// (Saturday/Sunday/Monday runs all pin today, never "tomorrow").
-			await expect(view.getByTestId('overcapacity-marker').first()).toBeVisible()
+			// The calendar: today's energy is exceeded, and the probes say they do not fit.
+			await page.goto('/apps/chorestrike/#/calendar')
+			await expect(page.getByTestId('calendar-agenda')).toBeVisible({ timeout: 20000 })
+			const todaySection = page.getByTestId(`calendar-agenda-day-${today}`)
+			await expect(page.getByTestId(`calendar-agenda-load-${today}`)).toHaveClass(/over/, { timeout: 15000 })
+			for (const name of probes) {
+				await expect(todaySection.getByTestId('calendar-agenda-entry').filter({ hasText: name })).toHaveClass(/overload/)
+			}
+			// Tomorrow's cycle of a probe is one 5 against 4: it does not fit either, and is still shown.
+			const tomorrowSection = page.getByTestId(`calendar-agenda-day-${offsetDate(1)}`)
+			if (await tomorrowSection.count()) {
+				await expect(tomorrowSection.getByTestId('calendar-agenda-entry').filter({ hasText: probes[0] })).toHaveClass(/overload/)
+			}
 		} finally {
-			await ownerView.context.close()
+			await context.close()
 		}
 	})
 

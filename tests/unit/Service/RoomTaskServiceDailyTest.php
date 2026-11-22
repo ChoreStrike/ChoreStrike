@@ -14,661 +14,271 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\TaskAssigneeMapper;
-use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\CalendarService;
+use OCA\ChoreStrike\Service\CurrentCycle;
+use OCA\ChoreStrike\Service\RecurrenceCalculator;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
+use OCA\ChoreStrike\Service\SuggestionContext;
+use OCA\ChoreStrike\Service\SuggestionJob;
+use OCA\ChoreStrike\Service\SuggestionPlan;
+use OCA\ChoreStrike\Service\SuggestionService;
+use OCA\ChoreStrike\Service\SuggestionView;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
+use OCA\ChoreStrike\Service\WindowService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Daily/filtered-daily read behavior of RoomTaskReadService (CS-PLAN-067
- * §3.1: the read cluster moved here from RoomTaskService; the tests follow
- * the moved code, CS-PLAN-066 §3.1 D1 semantics unchanged).
+ * The daily read of RoomTaskReadService (CS-PLAN-067 §3.1; CS-PLAN-091
+ * WP-C): the live suggestion decides which open rows are today's work
+ * (ADR-022), every other open row is also possible, and a child is offered
+ * its own and the unassigned work up to the daily limit. The rows are built
+ * from the inputs the suggestion read, so the read issues no second query
+ * for room tasks, definitions, assignees or completions.
  */
 class RoomTaskServiceDailyTest extends TestCase {
+	private const DATE = '2026-03-07'; // A Saturday
+
 	private RoomTaskReadService $service;
-	private RoomTaskMapper|MockObject $roomTaskMapper;
-	private TaskMapper|MockObject $taskMapper;
 	private RoomMapper|MockObject $roomMapper;
-	private HouseMapper|MockObject $houseMapper;
-	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
-	private TaskAccessPolicy|MockObject $taskAccessPolicy;
-	private \OCA\ChoreStrike\Service\WindowService|MockObject $windows;
 	private \OCA\ChoreStrike\Db\TaskChecklistItemMapper|MockObject $checklistItemMapper;
-	private \OCA\ChoreStrike\Service\CreditPolicy|MockObject $creditPolicy;
-	/** @var int[]|null Room tasks with work planned today (null = all). */
-	private ?array $dueTodayIds = null;
-	/**
-	 * @var array<int, ?string> The other room tasks: `agreed` = an open
-	 *                          window planned for another day, `late` = a window that ended, absent
-	 *                          or null = no cycle.
-	 */
-	private array $classifications = [];
+	/** @var array<int, RoomTask> The active room tasks of the house, as the suggestion read them. */
+	private array $roomTasks = [];
+	/** @var array<int, Task> */
+	private array $tasks = [];
+	/** @var array<int, list<string>> */
+	private array $assignees = [];
+	/** @var array<int, string> Room tasks without an open window today: `late` or `none`. */
+	private array $closed = [];
+	/** @var array<int, array{cycleKey: string, userIds: list<string>, overload: bool}> Today's suggestion by room task. */
+	private array $suggested = [];
 
 	protected function setUp(): void {
-		$this->dueTodayIds = null;
-		$this->classifications = [];
-		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
-		$this->taskMapper = $this->createMock(TaskMapper::class);
-		$this->roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
-		$this->houseMapper = $this->createMock(HouseMapper::class);
-		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
-		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
+		$this->roomTasks = $this->tasks = $this->assignees = $this->closed = $this->suggested = [];
+		$this->roomMapper = $this->createMock(RoomMapper::class);
 		$this->checklistItemMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class);
-		$this->creditPolicy = $this->createMock(\OCA\ChoreStrike\Service\CreditPolicy::class);
-		// CS-PLAN-057: day windows resolve the house timezone (UTC here, so
-		// the [start, end) bounds match the injected date's UTC calendar day).
+		// CS-PLAN-057: day windows resolve the house timezone (UTC here).
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
-		$this->houseMapper->method('find')->willReturn($utcHouse);
+		$houseMapper = $this->createMock(HouseMapper::class);
+		$houseMapper->method('find')->willReturn($utcHouse);
 
-		// Daily read paths filter through the visibility matrix — default to
-		// "everything visible" here; denials are covered in RoomTaskServiceTest.
-		$this->taskAccessPolicy->method('filterVisibleRoomTasks')
-			->willReturnCallback(static fn (array $roomTasks): array => $roomTasks);
+		// "Everything visible": the matrix is covered in TaskAccessPolicyTest.
+		$taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
+		$taskAccessPolicy->method('canView')->willReturn(true);
 
-		// ADR-021: daily reads derive from the current cycle. The window
-		// derivation is stubbed (its rules are pinned in WindowServiceTest);
-		// the real `cycle` block is built on top of it.
-		$this->windows = $this->getMockBuilder(\OCA\ChoreStrike\Service\WindowService::class)
-			->setConstructorArgs([new \OCA\ChoreStrike\Service\RecurrenceCalculator(), $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class)])
-			->onlyMethods(['historiesFor', 'currentCycle'])
-			->getMock();
-		$this->windows->method('historiesFor')->willReturn([]);
-		$this->windows->method('currentCycle')->willReturnCallback(
-			function (RoomTask $roomTask, Task $task, $history, \DateTimeZone $tz, \DateTimeInterface $now): ?\OCA\ChoreStrike\Service\CurrentCycle {
-				$today = \OCA\ChoreStrike\Service\WindowService::todayKey($now, $tz);
-				$day = static fn (int $offset): string => \OCA\ChoreStrike\Service\RecurrenceCalculator::offsetDays($today, $offset);
-				if ($this->dueTodayIds === null || in_array($roomTask->getId(), $this->dueTodayIds, true)) {
-					return new \OCA\ChoreStrike\Service\CurrentCycle('d' . $today, $today, $today, $today);
-				}
-				return match ($this->classifications[$roomTask->getId()] ?? null) {
-					'agreed' => new \OCA\ChoreStrike\Service\CurrentCycle('d' . $day(1), $day(1), $day(-1), $day(3)),
-					'late' => new \OCA\ChoreStrike\Service\CurrentCycle('d' . $day(-3), $day(-3), $day(-3), $day(-3)),
-					default => null,
-				};
-			}
-		);
+		// The suggestion is stubbed: its rules are pinned in SuggestionPlannerTest.
+		// Its inputs are the room tasks of the house with their current cycle.
+		$suggestions = $this->createMock(SuggestionService::class);
+		$suggestions->method('view')->willReturnCallback(function (): SuggestionView {
+			$context = $this->context();
+			$view = $this->getMockBuilder(SuggestionView::class)
+				->setConstructorArgs([$context, new SuggestionPlan($context->ledger())])
+				->onlyMethods(['today'])
+				->getMock();
+			$view->method('today')->willReturn($this->suggested);
+			return $view;
+		});
+
+		// No mapper but the rooms' and the sub-task counts' may be asked: the rest is the suggestion's.
+		$roomTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
+		$roomTaskMapper->expects($this->never())->method($this->anything());
+		$taskMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskMapper::class);
+		$taskMapper->expects($this->never())->method($this->anything());
+		$assigneeMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskAssigneeMapper::class);
+		$assigneeMapper->expects($this->never())->method($this->anything());
+		$completions = $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class);
+		$completions->expects($this->never())->method($this->anything());
 
 		$this->service = new RoomTaskReadService(
-			$this->roomTaskMapper,
-			$this->taskMapper,
+			$roomTaskMapper,
+			$taskMapper,
 			$this->roomMapper,
 			$this->createMock(\OCA\ChoreStrike\Db\FloorMapper::class),
-			$this->houseMapper,
-			$this->taskAssigneeMapper,
-			$this->taskAccessPolicy,
+			$houseMapper,
+			$assigneeMapper,
+			$taskAccessPolicy,
 			new CalendarService(),
-			$this->windows,
+			new WindowService(new RecurrenceCalculator(), $completions),
 			$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class),
 			$this->checklistItemMapper,
-			$this->creditPolicy
+			$this->createMock(\OCA\ChoreStrike\Service\CreditPolicy::class),
+			$suggestions,
 		);
 	}
 
-	private function createHouseUser(string $userId = 'user123', string $role = 'member'): HouseUser {
-		$houseUser = new HouseUser();
-		$houseUser->setNextcloudUserId($userId);
-		$houseUser->setRole($role);
-		return $houseUser;
+	private static function key(): string {
+		return 'd' . self::DATE;
 	}
 
-	public function testGetFilteredDailyTasksForUserReturnsAllTasksForNonChildUser(): void {
-		$houseId = 1;
-		$date = new \DateTime('2026-03-07'); // Saturday
+	/**
+	 * What the suggestion read: every room task has an open window around
+	 * today unless the test closes it.
+	 */
+	private function context(): SuggestionContext {
+		$jobs = [];
+		foreach ($this->roomTasks as $id => $roomTask) {
+			$cycle = match ($this->closed[$id] ?? null) {
+				'late' => new CurrentCycle('d2026-03-04', '2026-03-04', '2026-03-04', '2026-03-04'),
+				'none' => null,
+				default => new CurrentCycle(self::key(), self::DATE, '2026-03-06', '2026-03-08'),
+			};
+			if ($cycle !== null) {
+				$jobs[$id] = new SuggestionJob($id, 1, [], false, false, $cycle);
+			}
+		}
+		return new SuggestionContext(1, new \DateTimeZone('UTC'), self::DATE, [], [], [], [], $this->roomTasks, $this->tasks, $this->assignees, $jobs);
+	}
 
-		// Create room tasks
-		$roomTask1 = new RoomTask();
-		$roomTask1->setId(1);
-		$roomTask1->setTaskId(1);
-		$roomTask1->setRoomId(1);
-
-		$roomTask2 = new RoomTask();
-		$roomTask2->setId(2);
-		$roomTask2->setTaskId(2);
-		$roomTask2->setRoomId(1);
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Test Task');
-
+	/**
+	 * Room tasks 1..$count of one room, each with its own definition.
+	 *
+	 * @param array<int, list<string>> $assignees
+	 */
+	private function wireHouse(int $count, array $assignees = []): void {
+		for ($id = 1; $id <= $count; $id++) {
+			$roomTask = new RoomTask();
+			$roomTask->setId($id);
+			$roomTask->setTaskId(10 + $id);
+			$roomTask->setRoomId(1);
+			$roomTask->setIsActive(true);
+			$this->roomTasks[$id] = $roomTask;
+			$task = new Task();
+			$task->setId(10 + $id);
+			$this->tasks[10 + $id] = $task;
+		}
+		$this->assignees = $assignees + array_fill_keys(array_keys($this->roomTasks), []);
 		$room = new Room();
 		$room->setId(1);
-		$room->setName('Kitchen');
+		$this->roomMapper->method('findByIds')->willReturn([1 => $room]);
+	}
 
-		// Mock daily tasks
-		$this->roomTaskMapper->expects($this->once())
-			->method('findByHouse')
-			->with($houseId, true)
-			->willReturn([$roomTask1, $roomTask2]);
+	/**
+	 * Today's suggestion: room task id to the members it is suggested to.
+	 *
+	 * @param array<int, list<string>> $entries
+	 * @param list<int> $overload Room tasks placed as overload
+	 */
+	private function suggest(array $entries, array $overload = []): void {
+		foreach ($entries as $roomTaskId => $userIds) {
+			$this->suggested[$roomTaskId] = ['cycleKey' => self::key(), 'userIds' => $userIds, 'overload' => in_array($roomTaskId, $overload, true)];
+		}
+	}
 
-		$this->taskMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
-
-		$this->roomMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
-
-		// Real HouseUser entity (non-child) — passed directly as the viewer
-		// since CS-PLAN-061; the HouseUserMapper param was removed.
-		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
+	private function viewer(string $userId, string $role, array $preferences = []): HouseUser {
+		$viewer = new HouseUser();
 		$viewer->setId(1);
-		$viewer->setNextcloudUserId('parent');
-		$viewer->setRole('owner');
+		$viewer->setNextcloudUserId($userId);
+		$viewer->setRole($role);
+		$viewer->setSchedulingPreferences($preferences);
+		return $viewer;
+	}
 
-		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
+	/** @return list<int> */
+	private function daily(HouseUser $viewer): array {
+		return array_map(
+			static fn (array $item): int => $item['roomTask']->getId(),
+			$this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime(self::DATE))
+		);
+	}
 
-		$this->assertCount(2, $result);
+	public function testDaily_Adult_SuggestedRowsFirstThenEveryOtherOpenRowAsAlsoPossible(): void {
+		$this->wireHouse(5);
+		$this->closed = [4 => 'late', 5 => 'none'];
+		$this->suggest([2 => ['mom'], 3 => ['dad', 'mom']], [3]);
+
+		$result = $this->service->getFilteredDailyTasksForUser(1, $this->viewer('mom', 'owner'), new \DateTime(self::DATE));
+
+		// 4 is overdue and 5 has no cycle: neither is a daily row.
+		$this->assertSame([2, 3, 1], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
+		$this->assertSame(['mom'], $result[0]['suggestedFor']);
+		$this->assertFalse($result[0]['overload']);
+		$this->assertArrayNotHasKey('openWindow', $result[0], 'a suggested row is a plain due row');
+		$this->assertSame(['dad', 'mom'], $result[1]['suggestedFor'], 'the viewer sees whom the day suggests it to');
+		$this->assertTrue($result[1]['overload']);
+		$this->assertTrue($result[2]['openWindow']);
+		$this->assertArrayNotHasKey('suggestedFor', $result[2]);
+	}
+
+	public function testDaily_EntryOfAnotherCycle_IsNoSuggestionForTheRow(): void {
+		$this->wireHouse(1);
+		$this->suggested[1] = ['cycleKey' => 'c99', 'userIds' => ['mom'], 'overload' => false];
+
+		$result = $this->service->getFilteredDailyTasksForUser(1, $this->viewer('mom', 'owner'), new \DateTime(self::DATE));
+
+		$this->assertTrue($result[0]['openWindow']);
 	}
 
 	/**
 	 * BUG-UX-003 (CS-PLAN-088 D-088-19): every daily row carries its
 	 * definition's checklist item count from ONE grouped query, 0 without
-	 * items — My Day renders the toggle only where items exist.
+	 * items.
 	 */
-	public function testGetFilteredDailyTasks_RowsCarryTheChecklistItemCount(): void {
-		$roomTasks = [];
-		$tasks = [];
-		foreach ([1, 2] as $id) {
-			$roomTask = new RoomTask();
-			$roomTask->setId($id);
-			$roomTask->setTaskId(10 + $id);
-			$roomTask->setRoomId(1);
-			$roomTasks[] = $roomTask;
-			$task = new Task();
-			$task->setId(10 + $id);
-			$tasks[10 + $id] = $task;
-		}
-		$room = new Room();
-		$room->setId(1);
-		$this->roomTaskMapper->method('findByHouse')->willReturn($roomTasks);
-		$this->taskMapper->method('findByIds')->willReturn($tasks);
-		$this->roomMapper->method('findByIds')->willReturn([1 => $room]);
-		$this->checklistItemMapper->expects($this->once())->method('countByTaskIds')
-			->with([11, 12])->willReturn([11 => 3]);
-		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
-		$viewer->setNextcloudUserId('parent');
-		$viewer->setRole('owner');
+	public function testDaily_RowsCarryTheChecklistItemCount(): void {
+		$this->wireHouse(2);
+		$this->checklistItemMapper->expects($this->once())->method('countByTaskIds')->with([11, 12])->willReturn([11 => 3]);
 
-		$result = $this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime('2026-03-07'));
+		$result = $this->service->getFilteredDailyTasksForUser(1, $this->viewer('mom', 'owner'), new \DateTime(self::DATE));
 
 		$this->assertSame([3, 0], array_column($result, 'checklistItemCount'));
 	}
 
-	public function testGetFilteredDailyTasksForUserFiltersByWeekdayAvailabilityForChild(): void {
-		$houseId = 1;
-		$date = new \DateTime('2026-03-06'); // Friday (weekday)
+	public function testDaily_ChildOnADayItIsNotAvailable_SeesNothing(): void {
+		$this->wireHouse(2);
+		$this->suggest([1 => ['teen']]);
 
-		// Create room tasks
-		$roomTask1 = new RoomTask();
-		$roomTask1->setId(1);
-		$roomTask1->setTaskId(1);
-		$roomTask1->setRoomId(1);
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Test Task');
-
-		$room = new Room();
-		$room->setId(1);
-		$room->setName('Kitchen');
-
-		// Mock daily tasks
-		$this->roomTaskMapper->expects($this->once())
-			->method('findByHouse')
-			->with($houseId, true)
-			->willReturn([$roomTask1]);
-
-		// Real HouseUser entity (child with weekend-only availability)
-		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
-		$viewer->setId(2);
-		$viewer->setNextcloudUserId('teen');
-		$viewer->setRole('child');
-		$viewer->setSchedulingPreferences([
-			'weekdayAvailability' => [
-				'monday' => false,
-				'tuesday' => false,
-				'wednesday' => false,
-				'thursday' => false,
-				'friday' => false,
-				'saturday' => true,
-				'sunday' => true,
-			],
-			'maxDailyTasks' => 3,
-		]);
-
-		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
-
-		// Friday is not available, so result should be empty
-		$this->assertCount(0, $result);
-	}
-
-	public function testGetFilteredDailyTasksForUserLimitsByMaxDailyTasksForChild(): void {
-		$houseId = 1;
-		$date = new \DateTime('2026-03-07'); // Saturday (available day)
-
-		// Create 5 room tasks
-		$roomTasks = [];
-		for ($i = 1; $i <= 5; $i++) {
-			$roomTask = new RoomTask();
-			$roomTask->setId($i);
-			$roomTask->setTaskId($i);
-			$roomTask->setRoomId(1);
-			$roomTasks[] = $roomTask;
-		}
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Test Task');
-
-		$room = new Room();
-		$room->setId(1);
-		$room->setName('Kitchen');
-
-		// Mock daily tasks
-		$this->roomTaskMapper->expects($this->once())
-			->method('findByHouse')
-			->with($houseId, true)
-			->willReturn($roomTasks);
-
-		$this->taskMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
-
-		$this->roomMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
-
-		// Real HouseUser entity (child with maxDailyTasks=2)
-		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
-		$viewer->setId(3);
-		$viewer->setNextcloudUserId('kid');
-		$viewer->setRole('child');
-		$viewer->setSchedulingPreferences([
-			'weekdayAvailability' => [
-				'monday' => false,
-				'tuesday' => false,
-				'wednesday' => false,
-				'thursday' => false,
-				'friday' => false,
-				'saturday' => true,
-				'sunday' => true,
-			],
-			'maxDailyTasks' => 2,
-		]);
-
-		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
-
-		// Saturday is available, but maxDailyTasks=2 limits to 2 tasks
-		$this->assertCount(2, $result);
-	}
-
-	public function testGetFilteredDailyTasksForChildReturnsTasksOnAvailableDay(): void {
-		$houseId = 1;
-		$date = new \DateTime('2026-03-07'); // Saturday (available day)
-
-		// Create room tasks
-		$roomTask1 = new RoomTask();
-		$roomTask1->setId(1);
-		$roomTask1->setTaskId(1);
-		$roomTask1->setRoomId(1);
-
-		$roomTask2 = new RoomTask();
-		$roomTask2->setId(2);
-		$roomTask2->setTaskId(2);
-		$roomTask2->setRoomId(1);
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Test Task');
-
-		$room = new Room();
-		$room->setId(1);
-		$room->setName('Kitchen');
-
-		// Mock daily tasks
-		$this->roomTaskMapper->expects($this->once())
-			->method('findByHouse')
-			->with($houseId, true)
-			->willReturn([$roomTask1, $roomTask2]);
-
-		$this->taskMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
-
-		$this->roomMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
-
-		// Real HouseUser entity (child with weekend-only availability and maxDailyTasks=3)
-		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
-		$viewer->setId(4);
-		$viewer->setNextcloudUserId('teen');
-		$viewer->setRole('child');
-		$viewer->setSchedulingPreferences([
-			'weekdayAvailability' => [
-				'monday' => false,
-				'tuesday' => false,
-				'wednesday' => false,
-				'thursday' => false,
-				'friday' => false,
-				'saturday' => true,
-				'sunday' => true,
-			],
-			'maxDailyTasks' => 3,
-		]);
-
-		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
-
-		// Saturday is available and maxDailyTasks=3 allows all 2 tasks
-		$this->assertCount(2, $result);
+		$this->assertSame([], $this->daily($this->viewer('teen', 'child', ['weekdayAvailability' => ['saturday' => false]])));
 	}
 
 	/**
-	 * CS-PLAN-065 (decision D4): a task assigned to ANOTHER member is
-	 * ineligible for the child's My Day and must not consume a limit slot —
-	 * even when it sorts earlier than the child's own tasks.
+	 * CS-PLAN-065 (decision D4): a child is offered its own and the
+	 * unassigned work only, and what today suggests to someone else is
+	 * not offered to the child at all.
 	 */
-	public function testGetFilteredDailyTasksForChild_AssignedToOtherEarlier_SkippedBeforeLimit(): void {
-		$houseId = 1;
-		$date = new \DateTime('2026-03-07'); // Saturday (available day)
+	public function testDaily_Child_SuggestedWorkThenOwnAndUnassignedOpenRows(): void {
+		$this->wireHouse(6, [1 => ['teen'], 2 => ['sibling'], 4 => ['sibling'], 5 => ['teen']]);
+		$this->suggest([1 => ['teen'], 2 => ['sibling'], 3 => ['mom']]);
 
-		// id 1 sorts first but belongs to another member; ids 2-3 are the
-		// child's own; id 4 is unassigned.
-		$roomTasks = [];
-		for ($i = 1; $i <= 4; $i++) {
-			$roomTask = new RoomTask();
-			$roomTask->setId($i);
-			$roomTask->setTaskId($i);
-			$roomTask->setRoomId(1);
-			$roomTasks[] = $roomTask;
-		}
+		$result = $this->service->getFilteredDailyTasksForUser(1, $this->viewer('teen', 'child'), new \DateTime(self::DATE));
 
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Test Task');
-
-		$room = new Room();
-		$room->setId(1);
-		$room->setName('Kitchen');
-
-		$this->roomTaskMapper->expects($this->once())
-			->method('findByHouse')
-			->willReturn($roomTasks);
-
-		$this->taskMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
-
-		$this->roomMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
-
-		$this->taskAssigneeMapper->expects($this->once())
-			->method('findUserIdsByRoomTasks')
-			->with([1, 2, 3, 4])
-			->willReturn([1 => ['teen-sibling'], 2 => ['teen'], 3 => ['teen'], 4 => []]);
-
-		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
-		$viewer->setId(9);
-		$viewer->setNextcloudUserId('teen');
-		$viewer->setRole('child');
-		$viewer->setSchedulingPreferences([
-			'weekdayAvailability' => [
-				'monday' => true,
-				'tuesday' => true,
-				'wednesday' => true,
-				'thursday' => true,
-				'friday' => true,
-				'saturday' => true,
-				'sunday' => true,
-			],
-			'maxDailyTasks' => 2,
-		]);
-
-		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
-
-		// The ineligible id 1 must not eat one of the two slots.
-		$this->assertSame([2, 3], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
-	}
-
-	/**
-	 * CS-PLAN-065 (decision D4): unassigned tasks keep the "mine" semantics
-	 * — they pass child eligibility and consume limit slots like own tasks.
-	 */
-	public function testGetFilteredDailyTasksForChild_UnassignedTasks_AreEligible(): void {
-		$houseId = 1;
-		$date = new \DateTime('2026-03-07');
-
-		$roomTask1 = new RoomTask();
-		$roomTask1->setId(1);
-		$roomTask1->setTaskId(1);
-		$roomTask1->setRoomId(1);
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Unassigned Task');
-
-		$room = new Room();
-		$room->setId(1);
-		$room->setName('Kitchen');
-
-		$this->roomTaskMapper->expects($this->once())
-			->method('findByHouse')
-			->willReturn([$roomTask1]);
-
-		$this->taskMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
-
-		$this->roomMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
-
-		$this->taskAssigneeMapper->expects($this->once())
-			->method('findUserIdsByRoomTasks')
-			->willReturn([1 => []]);
-
-		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
-		$viewer->setId(10);
-		$viewer->setNextcloudUserId('teen');
-		$viewer->setRole('child');
-		$viewer->setSchedulingPreferences([
-			'weekdayAvailability' => [
-				'monday' => true,
-				'tuesday' => true,
-				'wednesday' => true,
-				'thursday' => true,
-				'friday' => true,
-				'saturday' => true,
-				'sunday' => true,
-			],
-			'maxDailyTasks' => 1,
-		]);
-
-		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
-
-		$this->assertCount(1, $result);
-	}
-
-	/**
-	 * CS-PLAN-065 (decision D5): a non-finite stored limit (e.g. a stale
-	 * PHP_INT_MAX from before D5) means unlimited, not zero.
-	 */
-	public function testGetFilteredDailyTasksForChild_StaleIntMaxLimit_IsUnlimited(): void {
-		$houseId = 1;
-		$date = new \DateTime('2026-03-07');
-
-		$roomTasks = [];
-		for ($i = 1; $i <= 3; $i++) {
-			$roomTask = new RoomTask();
-			$roomTask->setId($i);
-			$roomTask->setTaskId($i);
-			$roomTask->setRoomId(1);
-			$roomTasks[] = $roomTask;
-		}
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Test Task');
-
-		$room = new Room();
-		$room->setId(1);
-		$room->setName('Kitchen');
-
-		$this->roomTaskMapper->expects($this->once())
-			->method('findByHouse')
-			->willReturn($roomTasks);
-
-		$this->taskMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
-
-		$this->roomMapper->expects($this->any())
-			->method('findByIds')
-			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
-
-		$this->taskAssigneeMapper->expects($this->any())
-			->method('findUserIdsByRoomTasks')
-			->willReturn([]);
-
-		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
-		$viewer->setId(11);
-		$viewer->setNextcloudUserId('teen');
-		$viewer->setRole('child');
-		$viewer->setSchedulingPreferences([
-			'weekdayAvailability' => [
-				'monday' => true,
-				'tuesday' => true,
-				'wednesday' => true,
-				'thursday' => true,
-				'friday' => true,
-				'saturday' => true,
-				'sunday' => true,
-			],
-			'maxDailyTasks' => PHP_INT_MAX,
-		]);
-
-		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
-
-		$this->assertCount(3, $result);
-	}
-
-	// ------------------------------------------------------------------
-	// BUG-UX-005: open flex windows without work planned today
-	// ------------------------------------------------------------------
-
-	/**
-	 * Wire room tasks 1..$count with shared task/room rows, and the cycle
-	 * of every room task that is not planned today.
-	 *
-	 * @param array<int, ?string> $classifications room task id => `agreed` (open window), `late` (ended), null (no cycle)
-	 * @return RoomTask[]
-	 */
-	private function wireOpenWindowHouse(int $count, array $classifications): array {
-		$roomTasks = [];
-		for ($i = 1; $i <= $count; $i++) {
-			$roomTask = new RoomTask();
-			$roomTask->setId($i);
-			$roomTask->setTaskId($i);
-			$roomTask->setRoomId(1);
-			$roomTasks[] = $roomTask;
-		}
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Clean the oven');
-		$room = new Room();
-		$room->setId(1);
-		$room->setName('Kitchen');
-		$this->roomTaskMapper->expects($this->once())->method('findByHouse')->willReturn($roomTasks);
-		$this->taskMapper->method('findByIds')->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
-		$this->roomMapper->method('findByIds')->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
-		$this->classifications = $classifications;
-		return $roomTasks;
-	}
-
-	public function testGetFilteredDailyTasks_OpenWindowWithoutWorkToday_IsAppendedAndFlagged(): void {
-		$this->dueTodayIds = [1];
-		// 2: open window (before or after its planned day), 3: a miss, 4: no target.
-		$this->wireOpenWindowHouse(4, [1 => 'agreed', 2 => 'agreed', 3 => 'late', 4 => null]);
-		$viewer = $this->createHouseUser('parent', 'owner');
-
-		$result = $this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime('2026-03-07'));
-
-		$this->assertSame([1, 2], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
-		$this->assertArrayNotHasKey('openWindow', $result[0], 'a row planned today stays a plain due row');
+		// 2 and 4 are the sibling's; 3 is unassigned work that today suggests to mom;
+		// 5 is the child's own open row and 6 an unassigned one.
+		$this->assertSame([1, 5, 6], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
+		$this->assertSame(['teen'], $result[0]['suggestedFor']);
 		$this->assertTrue($result[1]['openWindow']);
-	}
-
-	public function testGetFilteredDailyTasksForChild_OpenWindowRows_AreEligibleButNeverUseASlot(): void {
-		$this->dueTodayIds = [1, 2];
-		$this->wireOpenWindowHouse(4, [1 => 'agreed', 2 => 'agreed', 3 => 'agreed', 4 => 'agreed']);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')
-			->willReturn([1 => ['teen'], 2 => [], 3 => [], 4 => ['teen-sibling']]);
-		$viewer = $this->createHouseUser('teen', 'child');
-		$viewer->setSchedulingPreferences(['maxDailyTasks' => 1]);
-
-		$result = $this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime('2026-03-07'));
-
-		// The own task takes the only slot, so the unassigned due row stays
-		// out; the unassigned open-window row comes on top, and the sibling's
-		// open-window row is not the child's.
-		$this->assertSame([1, 3], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
-		$this->assertTrue($result[1]['openWindow']);
+		$this->assertArrayNotHasKey('suggestedFor', $result[1], 'a row that is only possible names no suggestion');
+		$this->assertTrue($result[2]['openWindow']);
 	}
 
 	/**
-	 * BUG-UX-013: the limit never hides what the child owes. An own task
-	 * created after the limit filled up stays visible, and an unassigned
-	 * row that sorts first cannot take its place.
-	 */
-	public function testGetFilteredDailyTasksForChild_OwnTasksAboveTheLimit_StayVisible(): void {
-		$this->dueTodayIds = [1, 2, 3, 4];
-		$this->wireOpenWindowHouse(4, [1 => 'agreed', 2 => 'agreed', 3 => 'agreed', 4 => 'agreed']);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')
-			->willReturn([1 => [], 2 => ['teen'], 3 => ['teen'], 4 => ['teen']]);
-		$viewer = $this->createHouseUser('teen', 'child');
-		$viewer->setSchedulingPreferences(['maxDailyTasks' => 2]);
-
-		$result = $this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime('2026-03-07'));
-
-		$this->assertSame([2, 3, 4], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
-	}
-
-	/**
-	 * BUG-UX-013: unassigned rows fill the slots the own tasks leave free,
-	 * in canonical order, and a zero limit offers none of them.
+	 * ADR-022 decision 2 rule 5 with BUG-UX-013: *Today* suggests a child
+	 * at most the daily limit, work that fits the day first; what is above
+	 * the limit stays visible as also possible.
 	 *
-	 * @dataProvider limitsForOffers
-	 * @param int[] $expected
+	 * @dataProvider limits
+	 * @param list<int> $suggested
+	 * @param list<int> $possible
 	 */
-	public function testGetFilteredDailyTasksForChild_UnassignedRows_FillOnlyFreeSlots(int $limit, array $expected): void {
-		$this->dueTodayIds = [1, 2, 3, 4];
-		$this->wireOpenWindowHouse(4, [1 => 'agreed', 2 => 'agreed', 3 => 'agreed', 4 => 'agreed']);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')
-			->willReturn([1 => [], 2 => ['teen'], 3 => [], 4 => []]);
-		$viewer = $this->createHouseUser('teen', 'child');
-		$viewer->setSchedulingPreferences(['maxDailyTasks' => $limit]);
+	public function testDaily_ChildLimit_CapsTheSuggestionAndHidesNothing(int $limit, array $suggested, array $possible): void {
+		$this->wireHouse(4, [1 => ['teen'], 2 => ['teen'], 3 => ['teen']]);
+		$this->suggest([1 => ['teen'], 2 => ['teen'], 3 => ['teen']], [1]);
 
-		$result = $this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime('2026-03-07'));
+		$result = $this->service->getFilteredDailyTasksForUser(1, $this->viewer('teen', 'child', ['maxDailyTasks' => $limit]), new \DateTime(self::DATE));
 
-		$this->assertSame($expected, array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
+		$ids = static fn (array $rows): array => array_values(array_map(static fn (array $item): int => $item['roomTask']->getId(), $rows));
+		$this->assertSame($suggested, $ids(array_filter($result, static fn (array $item): bool => isset($item['suggestedFor']))));
+		$this->assertSame($possible, $ids(array_filter($result, static fn (array $item): bool => $item['openWindow'] ?? false)));
 	}
 
-	/**
-	 * @return array<string, array{int, int[]}>
-	 */
-	public function limitsForOffers(): array {
+	/** @return array<string, array{int, list<int>, list<int>}> */
+	public function limits(): array {
 		return [
-			'no free slot' => [1, [2]],
-			'one free slot' => [2, [1, 2]],
-			'two free slots' => [3, [1, 2, 3]],
-			'more slots than rows' => [9, [1, 2, 3, 4]],
+			'one slot: fitting work before overload' => [1, [2], [3, 1, 4]],
+			'two slots' => [2, [2, 3], [1, 4]],
+			'as many slots as suggestions' => [3, [1, 2, 3], [4]],
+			// CS-PLAN-065 (decision D5): a stale PHP_INT_MAX from before D5 means unlimited.
+			'a non-finite limit' => [PHP_INT_MAX, [1, 2, 3], [4]],
 		];
 	}
 }

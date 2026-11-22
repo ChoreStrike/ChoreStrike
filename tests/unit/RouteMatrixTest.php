@@ -321,15 +321,17 @@ class RouteMatrixTest extends TestCase {
 	 * statistics of a room → 94, and the two others of those decisions
 	 * (RF-091-11, D-090-10, D-090-38): shortening an absence and the house
 	 * health refresh → 92.
+	 * CS-PLAN-091 WP-C added the live suggestion (GET
+	 * /scheduling/suggestion, consumed by the calendar; ADR-022) → 93.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			92,
+			93,
 			$this->routes['routes'],
-			'Route count drifted from the pin (92 after CS-PLAN-091 WP-B7) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (93 after CS-PLAN-091 WP-C) — add only with a consumer, then update deliberately'
 		);
 	}
 
@@ -362,6 +364,20 @@ class RouteMatrixTest extends TestCase {
 		$this->assertSame('PUT /api/v1/house/members/{userId}/coin-factor', $declared['coinMultiplier#setFactor'] ?? null);
 		$this->assertSame('POST /api/v1/house/bonus-periods', $declared['coinMultiplier#startPeriod'] ?? null);
 		$this->assertSame('DELETE /api/v1/house/bonus-periods/{id}', $declared['coinMultiplier#cancelPeriod'] ?? null);
+	}
+
+	/**
+	 * CS-PLAN-091 WP-C (ADR-022 decision 6): the live suggestion is one
+	 * read, and the preferred days ride the two existing preference writes.
+	 */
+	public function testSuggestionRouteMatchesTheContract(): void {
+		$declared = [];
+		foreach ($this->routes['routes'] as $route) {
+			$declared[$route['name']] = $route['verb'] . ' ' . $route['url'];
+		}
+		$this->assertSame('GET /api/v1/scheduling/suggestion', $declared['scheduling#suggestion'] ?? null);
+		$this->assertSame('PUT /api/v1/scheduling/preferences', $declared['scheduling#updatePreferences'] ?? null);
+		$this->assertSame('PUT /api/v1/scheduling/members/{userId}', $declared['scheduling#updateMemberAvailability'] ?? null);
 	}
 
 	/**

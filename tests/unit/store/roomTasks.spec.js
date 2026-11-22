@@ -1265,9 +1265,10 @@ describe('RoomTasks Store', () => {
 						roomTask: { id: 1, nextDue: '2026-07-29T10:00:00' },
 						task: { name: 'Dishes', recurrenceMode: 'recurring' },
 						room: { name: 'Kitchen' },
+						assignees: ['mom'],
 						cycles: [
 							{ date: '2026-07-29', cycleKey: 'd2026-07-29', windowStartOn: '2026-07-29', windowEndOn: '2026-07-29', current: true, late: false },
-							{ date: '2026-07-30', cycleKey: null, windowStartOn: '2026-07-30', windowEndOn: '2026-07-30', current: false, late: false },
+							{ date: '2026-07-30', cycleKey: null, windowStartOn: '2026-07-29', windowEndOn: '2026-07-31', current: false, late: false },
 							{ date: '2026-07-31', cycleKey: null, windowStartOn: '2026-07-31', windowEndOn: '2026-07-31', current: false, late: false },
 						],
 					},
@@ -1285,6 +1286,8 @@ describe('RoomTasks Store', () => {
 			expect(byDay['2026-07-30'].scheduled[0].dueDate).toBe('2026-07-30')
 			expect(byDay['2026-07-30'].scheduled[0].task.name).toBe('Dishes')
 			expect(byDay['2026-07-30'].scheduled[0].late).toBe(false)
+			// The calendar's list names whose work it is and the window of the day's cycle.
+			expect(byDay['2026-07-30'].scheduled[0]).toMatchObject({ assignees: ['mom'], windowStartOn: '2026-07-29', windowEndOn: '2026-07-31' })
 		})
 
 		// CR-084-01: the overdue mark is per day entry, straight from the
@@ -1326,6 +1329,7 @@ describe('RoomTasks Store', () => {
 
 			const byDay = store.rangeTasksByDay
 			expect(byDay['2026-07-29'].scheduled).toHaveLength(1)
+			expect(byDay['2026-07-29'].scheduled[0]).toMatchObject({ assignees: [], windowStartOn: null, windowEndOn: null })
 		})
 		})
 

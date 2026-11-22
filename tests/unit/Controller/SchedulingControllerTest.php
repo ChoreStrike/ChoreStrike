@@ -30,6 +30,7 @@ class SchedulingControllerTest extends TestCase {
 	private $houseService;
 	private $authService;
 	private $request;
+	private $suggestionService;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -38,6 +39,7 @@ class SchedulingControllerTest extends TestCase {
 		$this->schedulingService = $this->createMock(SchedulingService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		$this->suggestionService = $this->createMock(\OCA\ChoreStrike\Service\SuggestionService::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -65,7 +67,9 @@ class SchedulingControllerTest extends TestCase {
 			$this->houseService,
 			$this->authService,
 			$l10n,
-			$this->createMock(AppLogger::class)
+			$this->createMock(AppLogger::class),
+			$this->suggestionService,
+			new \OCA\ChoreStrike\Service\CalendarService(),
 		);
 	}
 
@@ -475,5 +479,113 @@ class SchedulingControllerTest extends TestCase {
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertEquals('maxDailyTasks can only be changed by a house owner', $response->getData()['error']['message']);
+	}
+
+	// ------------------------------------------------------------------
+	// Preferred days and the live suggestion (CS-PLAN-091 WP-C, ADR-022)
+	// ------------------------------------------------------------------
+
+	public function testUpdatePreferences_PreferredDaysOnly_Success(): void {
+		$this->mockHouse();
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
+		$this->schedulingService->expects($this->once())->method('normalizePreferredWeekdays')->with(['saturday']);
+		$this->schedulingService->expects($this->once())
+			->method('updatePreferencesByNextcloudUserId')
+			->with(1, 'user1', null, null, ['saturday']);
+
+		$response = $this->controller->updatePreferences(null, null, ['saturday']);
+
+		$this->assertEquals(200, $response->getStatus());
+	}
+
+	public function testUpdatePreferences_NoPreferredDays_IsAValidSection(): void {
+		$this->mockHouse();
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
+		$this->schedulingService->expects($this->once())
+			->method('updatePreferencesByNextcloudUserId')
+			->with(1, 'user1', null, null, []);
+
+		$this->assertEquals(200, $this->controller->updatePreferences(null, null, [])->getStatus());
+	}
+
+	public function testUpdatePreferences_InvalidPreferredDay_IsRefusedBeforeTheWrite(): void {
+		$this->mockHouse();
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
+		$this->schedulingService->method('normalizePreferredWeekdays')
+			->willThrowException(new \InvalidArgumentException('Preferred days must be a list of weekdays'));
+		$this->schedulingService->expects($this->never())->method('updatePreferencesByNextcloudUserId');
+
+		$response = $this->controller->updatePreferences(null, null, ['someday']);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	public function testUpdateMemberAvailability_AcceptsPreferredDays(): void {
+		$this->mockHouse();
+		$updates = ['preferredWeekdays' => ['wednesday', 'saturday']];
+		$this->mockMemberRequest($updates, 'kid');
+		$this->schedulingService->expects($this->once())->method('normalizePreferredWeekdays')->with(['wednesday', 'saturday']);
+		$this->schedulingService->expects($this->once())
+			->method('updateMemberAvailabilityByNextcloudUserId')
+			->with(1, 'kid', $updates);
+
+		$this->assertEquals(200, $this->controller->updateMemberAvailability('kid')->getStatus());
+	}
+
+	public function testSuggestion_ValidRange_ReturnsTheViewersSuggestion(): void {
+		$house = $this->mockHouse();
+		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
+		$this->authService->method('assertHouseMember')->willReturn($viewer);
+		$payload = ['days' => [], 'overdue' => [], 'members' => []];
+		$this->suggestionService->expects($this->once())->method('range')
+			->with($house, $viewer, '2026-11-23', '2026-11-29')
+			->willReturn($payload);
+
+		$response = $this->controller->suggestion('2026-11-23', '2026-11-29');
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertSame($payload, $response->getData()['data']);
+	}
+
+	/**
+	 * @dataProvider invalidSuggestionDays
+	 */
+	public function testSuggestion_DayThatIsNoRealDay_IsRefusedWithoutARead(string $from, string $to): void {
+		$this->mockHouse();
+		$this->suggestionService->expects($this->never())->method('range');
+
+		$response = $this->controller->suggestion($from, $to);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	/** @return array<string, array{string, string}> */
+	public static function invalidSuggestionDays(): array {
+		return [
+			'missing' => ['', ''],
+			'no day key' => ['today', '2026-11-29'],
+			'a day that does not exist' => ['2026-11-23', '2026-11-31'],
+		];
+	}
+
+	public function testSuggestion_RangeOutsideTheHorizon_IsAValidationError(): void {
+		$this->mockHouse();
+		$this->suggestionService->method('range')
+			->willThrowException(new \InvalidArgumentException('The suggestion covers 14 days from today'));
+
+		$response = $this->controller->suggestion('2026-11-23', '2026-12-31');
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertSame('The suggestion covers 14 days from today', $response->getData()['error']['message']);
+	}
+
+	public function testSuggestion_NonMember_IsForbiddenWithoutARead(): void {
+		$this->mockHouse();
+		$this->authService->method('assertHouseMember')->willThrowException(new ForbiddenException('Not a house member'));
+		$this->suggestionService->expects($this->never())->method('range');
+
+		$this->assertEquals(403, $this->controller->suggestion('2026-11-23', '2026-11-29')->getStatus());
 	}
 }

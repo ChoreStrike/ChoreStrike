@@ -44,7 +44,12 @@ export default {
 				{
 					id: 'today',
 					title: t('chorestrike', 'Today'),
-					text: t('chorestrike', 'Your day at a glance: your own status, what is overdue, what is due today and what is already possible. Upcoming work is in the calendar.'),
+					text: t('chorestrike', 'Your day at a glance: your own status, what is overdue, what is suggested for today and what is already possible. Upcoming work is in the calendar.'),
+				},
+				{
+					id: 'suggestion',
+					title: t('chorestrike', 'Suggestion'),
+					text: t('chorestrike', 'ChoreStrike suggests a day inside its window for every task: one of your preferred days first, else the day you have the most energy left. The suggestion adapts when something is done, postponed or changed; what it suggested for today stays on today\'s list. It is advice — you may do any task on any day.'),
 				},
 				{
 					id: 'window',
@@ -55,6 +60,11 @@ export default {
 					id: 'overdue',
 					title: t('chorestrike', 'Overdue'),
 					text: t('chorestrike', 'A task is overdue once its window has ended. It shows as one red entry until it is done; on a fixed day, until the next window opens. Missed rounds do not pile up.'),
+				},
+				{
+					id: 'shares',
+					title: t('chorestrike', 'Work shares'),
+					text: t('chorestrike', 'People who do a chore together share it. Actual shares split the total work; they never multiply it: a total energy-1 chore earns 10 Coins once, so 34/33/33% give 3.4/3.3/3.3 Coins, before coin factors and bonus days.'),
 				},
 				{
 					id: 'absence',

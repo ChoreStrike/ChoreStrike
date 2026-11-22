@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import AvailabilityEditModal from '../../../src/components/Scheduling/AvailabilityEditModal.vue'
 import { useSchedulingStore } from '../../../src/store/scheduling.js'
 import { api } from '../../../src/services/api.js'
-import { showError } from '@nextcloud/dialogs'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 
 jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, text) => text),
@@ -106,6 +106,67 @@ describe('AvailabilityEditModal', () => {
 				friday: 15, saturday: 16, sunday: 17,
 			},
 		})
+	})
+
+	// A failed read after a committed save is no failed save: one success, the dialog closes.
+	it('closes after a committed save even when the members cannot be read again', async () => {
+		api.put.mockResolvedValue({})
+		api.get.mockRejectedValue(new Error('down'))
+
+		const bob = { ...selfMember, userId: 'bob' }
+		const wrapper = mount(AvailabilityEditModal, { props: { member: bob } })
+		await wrapper.find('[data-testid="budget-monday-input"]').setValue(9)
+		await wrapper.find('[data-testid="save-availability-button"]').trigger('click')
+		await flushPromises()
+
+		expect(showSuccess).toHaveBeenCalledTimes(1)
+		expect(showError).not.toHaveBeenCalled()
+		expect(wrapper.emitted('close')).toHaveLength(1)
+	})
+
+	it('keeps the dialog open and says so when the save fails', async () => {
+		api.put.mockRejectedValue(new Error('down'))
+
+		const wrapper = mount(AvailabilityEditModal, { props: { member: { ...selfMember, userId: 'bob' } } })
+		await wrapper.find('[data-testid="budget-monday-input"]').setValue(9)
+		await wrapper.find('[data-testid="save-availability-button"]').trigger('click')
+		await flushPromises()
+
+		expect(showError).toHaveBeenCalledWith('Failed to save availability settings')
+		expect(showSuccess).not.toHaveBeenCalled()
+		expect(wrapper.emitted('close')).toBeUndefined()
+	})
+
+	// CS-PLAN-091 WP-C (ADR-022 decision 5): the owner edits a member's preferred days.
+	it('shows the stored preferred days and sends the changed list in the order of the week', async () => {
+		api.put.mockResolvedValue({})
+		api.get.mockResolvedValue([])
+		const bob = { ...selfMember, userId: 'bob', preferredWeekdays: ['wednesday'] }
+		const wrapper = mount(AvailabilityEditModal, { props: { member: bob } })
+
+		expect(wrapper.find('[data-testid="preferred-wednesday"]').element.checked).toBe(true)
+		expect(wrapper.find('[data-testid="preferred-monday"]').element.checked).toBe(false)
+		expect(wrapper.find('[data-testid="save-availability-button"]').attributes('disabled')).toBeDefined()
+
+		await wrapper.find('[data-testid="preferred-monday"]').setValue(true)
+		await wrapper.find('[data-testid="save-availability-button"]').trigger('click')
+		await flushPromises()
+
+		expect(api.put).toHaveBeenCalledTimes(1)
+		expect(api.put.mock.calls[0][0]).toBe('/api/v1/scheduling/members/bob')
+		expect(api.put.mock.calls[0][1].preferredWeekdays).toEqual(['monday', 'wednesday'])
+	})
+
+	it('leaves the preferred days out of a save that did not change them', async () => {
+		api.put.mockResolvedValue({})
+		api.get.mockResolvedValue([])
+		const wrapper = mount(AvailabilityEditModal, { props: { member: { ...selfMember, preferredWeekdays: ['wednesday'] } } })
+
+		await wrapper.find('[data-testid="availability-monday"]').setValue(false)
+		await wrapper.find('[data-testid="save-availability-button"]').trigger('click')
+		await flushPromises()
+
+		expect(api.put.mock.calls[0][1]).not.toHaveProperty('preferredWeekdays')
 	})
 })
 

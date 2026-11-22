@@ -7,10 +7,14 @@
  * CS-PLAN-065 fast-typing fix).
  */
 
-import { describe, it, expect } from '@jest/globals'
+import { describe, it, expect, jest } from '@jest/globals'
 import { mount } from '@vue/test-utils'
 
 import WeekBudgetGrid from '../../../src/components/Scheduling/WeekBudgetGrid.vue'
+
+jest.mock('@nextcloud/l10n', () => ({
+	translate: jest.fn((app, text) => text),
+}))
 
 const FULL_BUDGET = { monday: 10, tuesday: 10, wednesday: 10, thursday: 10, friday: 10, saturday: 15, sunday: 15 }
 
@@ -61,5 +65,34 @@ describe('WeekBudgetGrid', () => {
 		// A range input bound to `undefined` falls back to the jsdom
 		// midpoint of the 1..20 scale — the grid must not crash.
 		expect(wrapper.find('[data-testid="energy-slider-monday"]').element.value).toBe('10.5')
+	})
+
+	// CS-PLAN-091 WP-C (ADR-022 decision 5): a star per day marks it as preferred.
+	describe('preferred days', () => {
+		const withStars = (preferred, disabled = false) => mount(WeekBudgetGrid, { props: { budget: FULL_BUDGET, preferred, disabled } })
+
+		it('offers no star without the prop', () => {
+			expect(mountGrid().find('[data-testid^="preferred-"]').exists()).toBe(false)
+		})
+
+		it('offers a named toggle per day and shows which days are preferred', () => {
+			const wrapper = withStars(['wednesday'])
+
+			const stars = wrapper.findAll('[data-testid^="preferred-"]')
+			expect(stars).toHaveLength(7)
+			expect(wrapper.get('[data-testid="preferred-wednesday"]').attributes('aria-pressed')).toBe('true')
+			expect(wrapper.get('[data-testid="preferred-monday"]').attributes('aria-pressed')).toBe('false')
+			expect(wrapper.get('[data-testid="preferred-monday"]').attributes('aria-label')).toBe('Prefer {day}')
+		})
+
+		it('emits the day to toggle and nothing while disabled', async () => {
+			const wrapper = withStars([])
+			await wrapper.get('[data-testid="preferred-saturday"]').trigger('click')
+			expect(wrapper.emitted('togglePreferred')).toEqual([['saturday']])
+
+			const disabled = withStars([], true)
+			await disabled.get('[data-testid="preferred-saturday"]').trigger('click')
+			expect(disabled.emitted('togglePreferred')).toBeUndefined()
+		})
 	})
 })

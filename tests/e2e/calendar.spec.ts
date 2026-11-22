@@ -34,6 +34,9 @@ test.describe('Calendar View', () => {
 	test('switches to month mode', async ({ page }) => {
 		await page.getByTestId('calendar-mode-month').click()
 		await expect(page.getByTestId('task-calendar')).toBeVisible()
+		// The grid of the month replaces the week's list and its filter.
+		await expect(page.getByTestId('calendar-agenda')).toHaveCount(0)
+		await expect(page.getByTestId('calendar-filter-mine')).toHaveCount(0)
 	})
 
 	test('prev/next changes the range label', async ({ page }) => {
@@ -43,7 +46,22 @@ test.describe('Calendar View', () => {
 		await expect(label).not.toHaveText(before!)
 	})
 
-	test('renders the task calendar grid', async ({ page }) => {
-		await expect(page.getByTestId('task-calendar')).toBeVisible()
+	// CS-PLAN-091 WP-C (ADR-022): the week is a list of days with the live
+	// suggestion; the grid stays for the month.
+	test('renders the week as a list of days with the suggestion', async ({ page }) => {
+		await expect(page.getByTestId('calendar-agenda')).toBeVisible()
+		await expect(page.locator('[data-testid^="calendar-agenda-day-"]')).toHaveCount(7)
+		await expect(page.getByTestId('calendar-hint')).toBeVisible()
+		await expect(page.getByTestId('task-calendar')).toHaveCount(0)
+	})
+
+	test('the week shows the own tasks first and everyone\'s on request', async ({ page }) => {
+		await expect(page.getByTestId('calendar-filter-mine')).toHaveAttribute('aria-pressed', 'true')
+
+		await page.getByTestId('calendar-filter-all').click()
+
+		await expect(page.getByTestId('calendar-filter-all')).toHaveAttribute('aria-pressed', 'true')
+		// The family's daily tasks are suggested on the days from today on.
+		await expect(page.getByTestId('calendar-agenda-entry').first()).toBeVisible({ timeout: 15000 })
 	})
 })

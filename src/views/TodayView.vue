@@ -61,8 +61,8 @@
 				:coinMinor="gameStore.wallet?.availableMinor" />
 			<BonusDaysBanner :period="houseStore.bonusPeriod" :today="todayKey" />
 
-			<!-- Overload clarification (C5f): neutral, amounts visible,
-			     invites the owner to replan — never a threat. -->
+			<!-- Overload clarification (C5f, ADR-022 decision 4): neutral,
+			     amounts visible, never a refusal or a threat. -->
 			<div
 				v-if="overloaded"
 				class="overload-banner"
@@ -70,7 +70,7 @@
 				role="status">
 				<Icon name="AlertTriangle" :size="18" class="overload-icon" />
 				<p class="overload-text">
-					{{ t('chorestrike', '{total} of {capacity} daily capacity is planned or still outstanding. It is too much for one day — the house owner can replan it.', { total: energy.planned, capacity: energy.capacity }) }}
+					{{ t('chorestrike', 'Your day holds {capacity} energy; {total} is suggested or still outstanding. That is too much for one day — postpone or share what does not fit.', { total: energy.planned, capacity: energy.capacity }) }}
 				</p>
 			</div>
 
@@ -110,14 +110,14 @@
 			<section v-if="!isEmpty" class="today-section">
 				<div class="section-heading">
 					<h2 data-testid="today-section-today">
-						{{ t('chorestrike', 'Due Today') }}
+						{{ t('chorestrike', 'Suggested for today') }}
 					</h2>
 					<span v-if="sections.due.length > 0" class="section-count">
 						{{ sections.due.length === 1 ? t('chorestrike', '1 task') : t('chorestrike', '{count} tasks', { count: sections.due.length }) }}
 					</span>
 				</div>
 				<p v-if="sections.due.length === 0" class="section-empty">
-					{{ t('chorestrike', 'Nothing due today') }}
+					{{ t('chorestrike', 'Nothing is suggested for today') }}
 				</p>
 				<TaskRow
 					v-for="item in sections.due"
@@ -126,8 +126,8 @@
 					@complete="(row, split) => complete(row, 'due', split)" />
 			</section>
 
-			<!-- BUG-UX-005: work whose flex window is open although it is
-			     planned for another day, behind one line. -->
+			<!-- BUG-UX-005: work whose window is open although today's
+			     suggestion does not hold it, behind one line. -->
 			<section v-if="sections.possible.length > 0" class="today-section">
 				<button
 					type="button"
@@ -184,14 +184,15 @@ import { useSchedulingStore } from '../store/scheduling.js'
 import { useUserStore } from '../store/user.js'
 import { formatLongDayKey, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
 import { logger } from '../utils/logger.js'
-import { buildTodaySections, openEnergy } from '../utils/todaySections.js'
+import { buildTodaySections, openEnergy, viewerFilters } from '../utils/todaySections.js'
 
 /**
  * Today, the one landing page for every role (CS-PLAN-090 WP-B): the
- * viewer's status, the overdue block, what is due today, what is already
- * possible and the bonus tasks (CS-PLAN-091 WP-B4). The rows are selectors
- * of the store's daily, overdue and bonus reads (CS-PLAN-066 §3.3); server
- * visibility, eligibility and child limits stay authoritative.
+ * viewer's status, the overdue block, what the live suggestion places on
+ * today (CS-PLAN-091 WP-C, ADR-022), what is already possible and the
+ * bonus tasks (WP-B4). The rows are selectors of the store's daily,
+ * overdue and bonus reads (CS-PLAN-066 §3.3); the server decides
+ * visibility, eligibility, child limits and what is suggested to whom.
  */
 export default {
 	name: 'TodayView',
@@ -248,9 +249,14 @@ export default {
 			return formatLongDayKey(this.todayKey)
 		},
 
+		/** What "My tasks" shows: the viewer's work and what today suggests to them. */
+		mine() {
+			return viewerFilters(this.myUserId)
+		},
+
 		/** The bonus tasks the filter lets through; they are no part of the day's sections. */
 		bonusRows() {
-			return this.roomTasksStore.bonusTasks.filter(this.filter === 'all' ? () => true : this.isMine)
+			return this.roomTasksStore.bonusTasks.filter(this.filter === 'all' ? () => true : this.mine.isMine)
 		},
 
 		/**
@@ -265,7 +271,9 @@ export default {
 		},
 
 		sections() {
-			return this.buildSections(this.filter === 'all' ? () => true : this.isMine, this.heldRows)
+			return this.filter === 'all'
+				? this.buildSections(() => true, () => true, this.heldRows)
+				: this.buildSections(this.mine.isMine, this.mine.isSuggested, this.heldRows)
 		},
 
 		isEmpty() {
@@ -273,9 +281,9 @@ export default {
 		},
 
 		/**
-		 * The viewer's own open work against their own energy for today,
-		 * whatever the filter shows. Pure aggregation of server facts; the
-		 * capacity policy stays server-side.
+		 * What is suggested to the viewer or overdue for them against their
+		 * own energy for today, whatever the filter shows. Pure aggregation
+		 * of server facts; the placement stays server-side.
 		 * @return {?{planned: number, capacity: number}} Null until the capacity is read.
 		 */
 		energy() {
@@ -284,7 +292,7 @@ export default {
 			}
 			const weekday = weekdayOfKey(todayKeyInZone(this.houseStore.timezone))
 			return {
-				planned: openEnergy(this.buildSections(this.isMine)),
+				planned: openEnergy(this.buildSections(this.mine.isMine, this.mine.isSuggested)),
 				capacity: this.schedulingStore.getOwnCapacityForDay(weekday),
 			}
 		},
@@ -313,24 +321,14 @@ export default {
 	methods: {
 		t,
 
-		buildSections(isVisible, held = []) {
+		buildSections(isVisible, isSuggested, held = []) {
 			return buildTodaySections({
 				daily: this.roomTasksStore.dailyTasks,
 				overdue: this.roomTasksStore.overdueTasks,
-				timezone: this.houseStore.timezone,
 				isVisible,
+				isSuggested,
 				held,
 			})
-		},
-
-		isMine(item) {
-			// Unknown user (store not resolved yet): show everything rather
-			// than an empty list.
-			if (!this.myUserId) {
-				return true
-			}
-			const assignees = item.assignees ?? item.roomTask.assignees ?? []
-			return assignees.length === 0 || assignees.includes(this.myUserId)
 		},
 
 		/**

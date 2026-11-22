@@ -4,44 +4,45 @@
  */
 
 import { expect, test } from '@playwright/test'
-import { openPlanningSettings, openWeeklyPlan } from './fixtures/planning.ts'
+import { houseDateOffset } from './fixtures/house-clock.js'
+import { appRequest, openCalendarWeek, openMemberPlanning, openPlanningSettings } from './fixtures/planning.ts'
 
-test.describe('Scheduling UI', () => {
+// CS-PLAN-091 WP-C (ADR-022): the weekly plan's page is gone. The calendar
+// shows the live suggestion; planning is a matter of the settings.
+test.describe('Planning surfaces', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
 		await expect(async () => {
 			await page.goto('/apps/chorestrike/#/today')
 			await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 10000 })
-			await openWeeklyPlan(page)
 		}).toPass({ timeout: 45000 })
 	})
 
-	test('loads the scheduling view with all sections', async ({ page }) => {
-		await expect(page.getByTestId('scheduling-view')).toBeVisible()
+	test('planning lives in the settings: every member\'s week for the owner, the own days and energy for everyone', async ({ page }) => {
+		await openMemberPlanning(page)
 		await expect(page.getByTestId('availability-settings')).toBeVisible()
-		await expect(page.getByTestId('schedule-planner')).toHaveCount(0)
-		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
-		// The own days and energy moved to the personal settings (WP-D).
+		// The own days and energy are personal (CS-PLAN-090 WP-D), not part of the owner's view.
 		await expect(page.getByTestId('energy-budget-settings')).toHaveCount(0)
-		await expect(page.getByTestId('self-availability-settings')).toHaveCount(0)
+
+		await openPlanningSettings(page)
+		await expect(page.getByTestId('self-availability-settings')).toBeVisible()
+		await expect(page.getByTestId('energy-budget-settings')).toBeVisible()
+		await expect(page.getByTestId('schedule-planner')).toHaveCount(0)
 	})
 
-	test('displays the scheduling header', async ({ page }) => {
-		// Heading presence without locale coupling — profile users render
-		// in their own Nextcloud language.
-		await expect(page.getByTestId('scheduling-view')).toBeVisible()
-		await expect(page.getByTestId('scheduling-view').locator('h1')).toBeVisible()
-	})
-
-	test('navigates to the weekly plan through the calendar', async ({ page }) => {
-		await page.getByTestId('nav-today').click()
-		await page.getByTestId('today-view').waitFor({ state: 'visible' })
+	test('the address of the weekly plan lands on the calendar', async ({ page }) => {
 		await expect(page.getByTestId('nav-scheduling')).toHaveCount(0)
-		await openWeeklyPlan(page)
-		await expect(page.getByTestId('scheduling-view')).toBeVisible()
+
+		await page.goto('/apps/chorestrike/#/scheduling')
+
+		await expect(page.getByTestId('calendar-view')).toBeVisible({ timeout: 20000 })
+		await expect(page).toHaveURL(/#\/calendar/)
+		await expect(page.getByTestId('scheduling-view')).toHaveCount(0)
+		await expect(page.getByTestId('calendar-open-plan')).toHaveCount(0)
 	})
 
 	test('shows availability grid with 7 day slots', async ({ page }) => {
+		await openMemberPlanning(page)
 		const slots = page.getByTestId('availability-slot')
 		await expect(slots.first()).toBeVisible()
 		expect(await slots.count()).toBeGreaterThanOrEqual(7)
@@ -67,21 +68,25 @@ test.describe('Scheduling UI', () => {
 		await expect(page.getByTestId('energy-input-monday')).toHaveValue('15')
 	})
 
-	test('shows schedule calendar with navigation', async ({ page }) => {
-		await expect(page.getByTestId('previous-week-button')).toBeVisible()
-		await expect(page.getByTestId('next-week-button')).toBeVisible()
-		await expect(page.getByTestId('today-button')).toBeVisible()
+	test('the calendar week shows the suggestion with its navigation', async ({ page }) => {
+		await openCalendarWeek(page)
+		await expect(page.getByTestId('calendar-prev')).toBeVisible()
+		await expect(page.getByTestId('calendar-next')).toBeVisible()
+		await expect(page.getByTestId('calendar-hint')).toBeVisible()
+		await expect(page.locator('[data-testid^="calendar-agenda-day-"]')).toHaveCount(7)
 	})
 
-	// CS-PLAN-091 / ADR-021: the plan preview and its apply step are retired.
+	// CS-PLAN-091 / ADR-022: nothing is previewed or applied any more.
 	test('offers no plan preview any more', async ({ page }) => {
+		await openCalendarWeek(page)
 		await expect(page.getByTestId('preview-plan-button')).toHaveCount(0)
+		await expect(page.getByTestId('apply-plan-button')).toHaveCount(0)
 		await expect(page.getByTestId('planner-task-list')).toHaveCount(0)
 	})
 })
 
-// CS-PLAN-033: the save flow mutates dad's own energy budget and restores
-// it afterwards — mutate→assert→restore in one test with try/finally, so the
+// CS-PLAN-033: the save flows mutate dad's own planning and restore it
+// afterwards — mutate→assert→restore in one test with try/finally, so the
 // seeded value is restored even when an assertion fails (a serial second test
 // would be skipped after a failure and leave the seed mutated).
 test.describe('Scheduling save flow', () => {
@@ -139,17 +144,53 @@ test.describe('Scheduling save flow', () => {
 			}
 		}
 	})
+
+	// ADR-022 decision 5: a star marks a preferred day; it is saved with the energy.
+	test('saves a preferred day with the energy, keeps it over a reload and restores the seed', async ({ page }) => {
+		const star = page.getByTestId('preferred-wednesday')
+		await expect(star).toBeVisible()
+		await expect(page.getByTestId('preferred-days-hint')).toBeVisible()
+		const save = async (): Promise<{ preferredWeekdays?: string[] }> => {
+			const put = page.waitForResponse((response) => response.request().method() === 'PUT'
+				&& response.url().includes('/scheduling/preferences'))
+			await page.getByTestId('save-energy-budget-button').click()
+			const response = await put
+			expect(response.ok()).toBe(true)
+			return response.request().postDataJSON()
+		}
+		const before = await star.getAttribute('aria-pressed')
+		const after = before === 'true' ? 'false' : 'true'
+
+		try {
+			await star.click()
+			await expect(star).toHaveAttribute('aria-pressed', after)
+			const sent = await save()
+			expect(sent.preferredWeekdays?.includes('wednesday')).toBe(after === 'true')
+
+			await page.reload()
+			await page.getByTestId('planning-settings').waitFor({ state: 'visible' })
+			await expect(page.getByTestId('preferred-wednesday')).toHaveAttribute('aria-pressed', after)
+		} finally {
+			if ((await page.getByTestId('preferred-wednesday').getAttribute('aria-pressed')) !== before) {
+				await page.getByTestId('preferred-wednesday').click()
+				await save()
+			}
+		}
+	})
 })
 
-// CS-PLAN-091 / ADR-021: the plan preview/apply pair is gone with the
-// stored timeline. The preferences and member routes stay; the owner's own
-// session proves the retired pair is not just hidden in the UI.
+// CS-PLAN-091 / ADR-021, ADR-022: the plan preview/apply pair is gone with
+// the stored timeline, and the live suggestion is a read. The preferences
+// and member routes stay; the owner's own session proves the retired pair
+// is not just hidden in the UI.
 test.describe('Retired planner routes', () => {
-	test('the plan preview and apply routes answer 404 while the preferences stay', async ({ page }) => {
+	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
 		await page.goto('/apps/chorestrike/#/today')
 		await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 30000 })
+	})
 
+	test('the plan preview and apply routes answer 404 while the preferences stay', async ({ page }) => {
 		const headers = { Accept: 'application/json' }
 		const preview = await page.request.post('/apps/chorestrike/api/v1/scheduling/suggestions', {
 			data: { startDate: '2026-11-18', roomTaskIds: [1], overrides: {} },
@@ -169,17 +210,35 @@ test.describe('Retired planner routes', () => {
 		})
 		expect(apply.status()).toBe(404)
 
-		// The preferences read is a CSRF-checked route: read it the way the
-		// app does, with the page's request token.
-		const preferencesStatus = await page.evaluate(async () => {
-			const response = await fetch('/apps/chorestrike/api/v1/scheduling/preferences', {
-				headers: {
-					Accept: 'application/json',
-					requesttoken: (window as unknown as { OC: { requestToken: string } }).OC.requestToken,
-				},
-			})
-			return response.status
-		})
-		expect(preferencesStatus).toBe(200)
+		expect((await appRequest(page, 'GET', '/scheduling/preferences')).status).toBe(200)
+	})
+
+	test('the suggestion is read for the 14 days from today and cut to them', async ({ page }) => {
+		const today = houseDateOffset(0, 'UTC')
+		const last = houseDateOffset(13, 'UTC')
+
+		const horizon = await appRequest(page, 'GET', `/scheduling/suggestion?from=${today}&to=${last}`)
+		expect(horizon.status).toBe(200)
+		const data = horizon.body.data as { days: Array<{ day: string, entries: unknown[] }>, overdue: unknown[], members: Array<{ userId: string, day: string }> }
+		expect(data.days.map((day) => day.day)).toEqual(Array.from({ length: 14 }, (_, offset) => houseDateOffset(offset, 'UTC')))
+		expect(Array.isArray(data.overdue)).toBe(true)
+		// The owner reads every member's load, one row per member and day.
+		expect(new Set(data.members.map((row) => row.userId)).size).toBeGreaterThan(1)
+
+		// A day that ran over midnight, or a week past the horizon, keeps the days that remain (D-091-139).
+		const daysOf = async (from: string, to: string) => {
+			const cut = await appRequest(page, 'GET', `/scheduling/suggestion?from=${from}&to=${to}`)
+			expect(cut.status, `${from}..${to}`).toBe(200)
+			return (cut.body.data as { days: Array<{ day: string }> }).days.map((day) => day.day)
+		}
+		expect(await daysOf(houseDateOffset(-1, 'UTC'), today)).toEqual([today])
+		expect(await daysOf(today, houseDateOffset(15, 'UTC'))).toHaveLength(14)
+		expect(await daysOf(houseDateOffset(14, 'UTC'), houseDateOffset(16, 'UTC'))).toEqual([])
+
+		for (const [from, to] of [[last, today], ['today', last]]) {
+			const refused = await appRequest(page, 'GET', `/scheduling/suggestion?from=${from}&to=${to}`)
+			expect(refused.status, `${from}..${to}`).toBe(400)
+			expect(refused.body.error?.code).toBe('VALIDATION_ERROR')
+		}
 	})
 })

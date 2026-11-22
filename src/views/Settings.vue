@@ -77,6 +77,14 @@
 						<MemberList />
 					</div>
 				</SettingsCategory>
+				<!-- Every member's days, energy and preferred days, and a child's daily limit. -->
+				<SettingsCategory id="member-planning"
+					:title="t('chorestrike', 'Planning of the members')"
+					:open="isOpen('member-planning')"
+					testid="member-planning-section"
+					@toggle="toggle">
+					<AvailabilitySettings />
+				</SettingsCategory>
 				<!-- The single surface that edits the house structure. -->
 				<SettingsCategory id="structure"
 					:title="t('chorestrike', 'Floors & Rooms')"
@@ -125,6 +133,7 @@ import { useRoute, useRouter } from 'vue-router'
 import Icon from '../components/Common/Icon.vue'
 import SegmentedSwitch from '../components/Common/SegmentedSwitch.vue'
 import MemberList from '../components/Members/MemberList.vue'
+import AvailabilitySettings from '../components/Scheduling/AvailabilitySettings.vue'
 import AppearanceSettings from '../components/Settings/AppearanceSettings.vue'
 import ArcadeSettings from '../components/Settings/ArcadeSettings.vue'
 import DangerZoneSettings from '../components/Settings/DangerZoneSettings.vue'
@@ -143,7 +152,7 @@ import { logger } from '../utils/logger.js'
 // Categories per area; a `?category=` link opens one of them.
 const CATEGORIES = {
 	personal: ['title', 'notifications', 'appearance', 'planning'],
-	household: ['house', 'members', 'structure', 'categories', 'rewards', 'arcade', 'danger'],
+	household: ['house', 'members', 'member-planning', 'structure', 'categories', 'rewards', 'arcade', 'danger'],
 }
 
 /**
@@ -174,6 +183,7 @@ export default {
 		PlanningSettings,
 		HouseSettings,
 		MemberList,
+		AvailabilitySettings,
 		StructureSettings,
 		TaskCategorySettings,
 		RewardSettings,

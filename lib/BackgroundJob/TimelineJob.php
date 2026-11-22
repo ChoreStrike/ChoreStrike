@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\BackgroundJob;
 use OCA\ChoreStrike\Service\CycleAdvanceService;
 use OCA\ChoreStrike\Service\MedalService;
 use OCA\ChoreStrike\Service\RhythmService;
+use OCA\ChoreStrike\Service\SuggestionService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 
@@ -30,17 +31,21 @@ use OCP\BackgroundJob\TimedJob;
  * actor, no CommandService receipt. After the cycle pass and the rhythm
  * refresh, closed weeks reconcile recognition and claim their weekly
  * receipt once, including when nobody completes work at the deadline.
+ * Last, the daily snapshots of the live suggestion that are older than a
+ * week go (ADR-022 decision 3): they are a cache without history value.
  */
 class TimelineJob extends TimedJob {
 	private CycleAdvanceService $cycleService;
 	private RhythmService $rhythmService;
 	private MedalService $medalService;
+	private SuggestionService $suggestionService;
 
 	public function __construct(
 		ITimeFactory $time,
 		CycleAdvanceService $cycleService,
 		RhythmService $rhythmService,
 		MedalService $medalService,
+		SuggestionService $suggestionService,
 	) {
 		parent::__construct($time);
 		$this->setInterval(5 * 60);
@@ -48,6 +53,7 @@ class TimelineJob extends TimedJob {
 		$this->cycleService = $cycleService;
 		$this->rhythmService = $rhythmService;
 		$this->medalService = $medalService;
+		$this->suggestionService = $suggestionService;
 	}
 
 	/**
@@ -63,5 +69,6 @@ class TimelineJob extends TimedJob {
 		$this->cycleService->advanceForJobs($now);
 		$this->rhythmService->refreshForJobs($now);
 		$this->medalService->reconcileClosedWeeksForJobs($now);
+		$this->suggestionService->deleteOldDaysForJobs($now);
 	}
 }

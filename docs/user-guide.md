@@ -70,13 +70,23 @@ goal, how many days in a row you confirmed, and your Coins. Below it:
   block with the day they were planned for and the days since. A task stands
   there once, however many rounds it missed; a task on fixed days leaves the
   block when its next window opens.
-- **Due Today** — today's tasks.
-- **Also possible today** — one line that opens the tasks planned for another
-  day whose flex days include today; Done counts them on time.
+- **Suggested for today** — what ChoreStrike suggests you do today. Each task
+  names how long its window stays open (*only today*, *until Wed*).
+- **Also possible today** — one line that opens the other tasks whose window
+  is open today; Done counts them on time.
+
+ChoreStrike suggests a day inside its window for every task: one of your
+**preferred days** first, else the day you have the most energy left. The
+suggestion adapts when something is done, postponed or changed, but what it
+suggested for today stays on today's list, so the list does not jump during
+the day; a task created during the day joins when its window includes today.
+It is advice: you may do any task on any day. An unassigned task is suggested
+to one person; for everyone else it is *also possible*. A task with several
+people is suggested to all of them on the same day.
 
 What comes up later is in the **Calendar**. **My tasks** and **Everyone**
-switch between your own tasks and the whole household's; your status stays
-about you.
+switch between what is suggested to you and the whole household's; your status
+stays about you.
 
 | | |
 |:-:|:-:|
@@ -156,14 +166,26 @@ sub-tasks in the task form.
 ## Planning the week
 
 Under **Settings → Planning**, everyone sets **My Availability** (the days you
-can help) and an energy budget for a day. Nobody applies a plan any more: what
-is due follows from each task's rhythm and from when it was last done.
+can help) and the energy for each day. The **star** next to a day marks it as
+preferred: the suggestion plans your work there first. Nobody applies a plan:
+what is due follows from each task's rhythm and from when it was last done,
+and the suggestion spreads it over the days.
 
-Open the **Calendar** and choose **Weekly plan** for the capacity overview: it
-shows each day's planned load against everyone's budget, and *Overloaded days
-ahead* warns early. A full day refuses nothing; work can always be recorded.
-An owner can give a child a **daily task limit**; it caps the unassigned tasks
-a child is offered on *Today*, never their own.
+The **Calendar** shows the week as a list of days, for the next 14 days with
+the suggestion: each task with its window, and next to the day how much energy
+is suggested against the energy you have that day. **My tasks** and
+**Everyone** switch between your suggestion and the household's. A task that
+fits no day of its window is marked *does not fit*, and a day with more than
+it holds is highlighted. A full day refuses nothing; work can always be
+recorded, postponed or shared. Days further ahead show when work is due,
+without a suggestion; past days show what was done. **Month** shows the grid
+of the planned days.
+
+Owners set every member's days, energy and preferred days under **Settings →
+Household → Planning of the members**, and can give a child a **daily task
+limit**: *Today* then suggests the child at most that many tasks, and
+unassigned work beyond it goes to someone else. The child's own tasks above
+the limit stay visible under *Also possible today*.
 
 Each unit of **energy** stands for about 10 minutes of work. The task dialog
 lists 1 to 5; **Longer task** takes up to 20. A changed energy applies at once

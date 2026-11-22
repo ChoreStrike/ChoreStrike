@@ -32,6 +32,7 @@ import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { journeyClock } from './fixtures/house-clock.js'
 import { runOcc } from './fixtures/occ-runner.ts'
+import { openMemberPlanning } from './fixtures/planning.ts'
 import { listRooms, openRoom, roomGroup } from './fixtures/rooms.ts'
 import { openSettingsCategory } from './fixtures/settings.ts'
 import { addSubTasks, openFormMore, openRowDetails, setFlexDays } from './fixtures/task-form.ts'
@@ -366,15 +367,17 @@ test.describe('Canonical household journey', () => {
 		})
 
 		// ----------------------------------------------------------------
-		// Phase 5 — Planning: the child's availability and limit, the weekly
-		// calendar (ADR-021: the plan preview/apply step is retired)
+		// Phase 5 — Planning: the child's availability and limit in the
+		// household settings, the calendar with the live suggestion (ADR-022:
+		// nothing is previewed or applied; the weekly plan's page is gone)
 		// ----------------------------------------------------------------
 		await test.step('owner sets the child availability and limit, and the calendar shows the candidate for today', async () => {
 			const { context, page } = await createUserContext(browser, 'mom')
 			try {
 				await page.goto('/apps/chorestrike/#/scheduling')
-				await expect(page.getByTestId('scheduling-view')).toBeVisible({ timeout: 20000 })
-				await expect(page.getByTestId('schedule-calendar')).toBeVisible({ timeout: 20000 })
+				await expect(page.getByTestId('calendar-view')).toBeVisible({ timeout: 20000 })
+				await expect(page.getByTestId('scheduling-view')).toHaveCount(0)
+				await openMemberPlanning(page)
 				await expect(page.getByTestId('schedule-planner')).toHaveCount(0)
 
 				// Configure availability + child limit through the owner
@@ -405,11 +408,16 @@ test.describe('Canonical household journey', () => {
 					expect.objectContaining({ date: houseLocalDate(0), cycleKey: cycleKeyBefore, current: true }),
 				])
 
-				// The calendar shows the candidate on today.
+				// The calendar suggests the candidate to the child for today:
+				// the owner sees it under "Everyone", with the child's name.
 				await page.getByTestId('nav-calendar').click()
 				await expect(page.getByTestId('calendar-view')).toBeVisible()
-				await page.getByTestId(`calendar-day-${clock.today}`).click()
-				await expect(page.getByTestId('calendar-day-list')).toContainText(CUSTOM_TASK)
+				await expect(page.getByTestId('calendar-agenda')).toBeVisible({ timeout: 20000 })
+				await page.getByTestId('calendar-filter-all').click()
+				const candidate = page.getByTestId(`calendar-agenda-day-${clock.today}`)
+					.getByTestId('calendar-agenda-entry').filter({ hasText: CUSTOM_TASK })
+				await expect(candidate).toBeVisible({ timeout: 15000 })
+				await expect(candidate).toContainText('Kid')
 			} finally {
 				await context.close()
 			}

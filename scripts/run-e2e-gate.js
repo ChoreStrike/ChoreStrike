@@ -62,11 +62,11 @@ const REQUIRED_SPECS = [
 	// Seed/reset-owned serial pool.
 	{ file: 'setup-wizard-journey.spec.ts', project: 'chromium-serial-db', scenarios: ['owner completes the wizard through the ui', 'six-floor house cap', 'six-floor apartment cap'], minTests: 5 },
 	{ file: 'task-completion-full-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['undo restores the exact state'], minTests: 5 },
-	{ file: 'insights-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['overcapacity warning appears when a day exceeds its capacity', 'owner corrects a recorded work split'], minTests: 4 },
+	{ file: 'insights-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['an overloaded day shows on today and in the calendar', 'owner corrects a recorded work split'], minTests: 4 },
 	{ file: 'family-core-ux.spec.ts', project: 'chromium-serial-db', scenarios: ['child: my day hides manage controls and executes the checklist', 'core task filters show own and unassigned work'], minTests: 8 },
 	{ file: 'workflow-state-reconciliation.spec.ts', project: 'chromium-serial-db', scenarios: ['same-device logout and child login'], minTests: 4 },
 	// CS-PLAN-091 WP-B1: the derived-cycle client-contract slice.
-	{ file: 'family-rhythm.spec.ts', project: 'chromium-serial-db', scenarios: ['a ui completion carries the full cycle receipt', 'a second completion on the same day conflicts 409 same_day', 'my day shows one overdue card', 'fixed and relative schedules explain'], minTests: 16 },
+	{ file: 'family-rhythm.spec.ts', project: 'chromium-serial-db', scenarios: ['a ui completion carries the full cycle receipt', 'a second completion on the same day conflicts 409 same_day', 'my day shows one overdue card', 'fixed and relative schedules explain', 'my day offers work inside its flex window', 'work above a child daily limit is accepted'], minTests: 16 },
 	// CS-PLAN-070 WP7 (CS-PLAN-078): the reward catalog/request browser
 	// contract — gate flip, catalog scopes, full request lifecycle.
 	{ file: 'family-reward-api.spec.ts', project: 'chromium-serial-db', scenarios: ['the catalog gate is owner-controlled, versioned and denied for members', 'child request lifecycle: frozen terms, approve, fulfill, exact debit, exact refund'], minTests: 3 },
@@ -76,7 +76,8 @@ const REQUIRED_SPECS = [
 	// mobile/keyboard/localization proof.
 	{ file: 'family-rewards.spec.ts', project: 'chromium-serial-db', scenarios: ['catalog-off core works for every role', 'owner administration works while the catalog is off', 'child request', 'adult self-approval, cancellation', 'changed terms require renewed review', 'funding hold', 'foreign requests stay invisible', 'uncertain command outcome replays', 'mobile targets, keyboard operation'], minTests: 9 },
 	// CS-PLAN-091 WP-B4/WP-B5: the bonus day (coin factor, bonus period, a bonus task once per person).
-	{ file: 'today-view.spec.ts', project: 'chromium-serial-db', scenarios: ['today is the landing page with the own status', 'a bonus day on today'], minTests: 5 },
+	// WP-C: the live suggestion on Today and in the calendar (stable day, joining work, preferred day).
+	{ file: 'today-view.spec.ts', project: 'chromium-serial-db', scenarios: ['today is the landing page with the own status', 'a bonus day on today', 'suggestion stays when the energy changes during the day', 'the calendar shows the week', 'a preferred day chosen in the settings takes the work'], minTests: 8 },
 	{ file: 'members-owner.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 3 },
 	{ file: 'family-membership-hardening.spec.ts', project: 'chromium-serial-db', scenarios: ['invite enforces the approved 60/300 boundary', 'remove enforces the approved 60/300 boundary', 'updaterole enforces the approved 60/300 boundary'], minTests: 3 },
 	{ file: 'settings.spec.ts', project: 'chromium-serial-db', scenarios: ['a room in the list shows its tasks and can be renamed', 'every select shows its whole value', 'reset keeps setup, structure, tasks and history', 'owner timezone and populated floor controls remain reachable at 390px', 'owner timezone and populated floor controls remain reachable at 1440px', 'house drafts wait for the winning read', 'cold structure hydration survives room reconciliation'], minTests: 14 },
@@ -107,13 +108,14 @@ const REQUIRED_SPECS = [
 	// CS-PLAN-086: chore unlocks and the owner arcade gate (reseeds, flips the household flag).
 	{ file: 'arcade-games.spec.ts', project: 'chromium-serial-db', scenarios: ['a locked game shows neutral progress', 'a crafted score for a locked game is refused', 'three finished chores unlock sock match', 'sock match saves a round', 'tile breaker saves a hands-off round', 'dust runner saves a hands-off round', 'the owner switch opens every game', 'spot sprint is open without chores', 'a lower threshold opens sock match for a child'], minTests: 9 },
 	{ file: 'calm-core-ui.spec.ts', project: 'chromium-serial-db', scenarios: ['every role lands on my day', 'optional arcade hides', 'a child enters an absence', 'a free day stays neutral', 'the animation is on by default, reduced motion wins'], minTests: 6 },
-	// Owner-scoped scheduling pool.
-	{ file: 'scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },
-	{ file: 'flex-window-scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },
-	{ file: 'availability-settings-flow.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },
+	// Owner-scoped scheduling pool. CS-PLAN-091 WP-C: the weekly plan's page is gone — the planning
+	// lives in the settings, the calendar's week is the live suggestion.
+	{ file: 'scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: ['the address of the weekly plan lands on the calendar', 'saves a preferred day with the energy', 'the suggestion is read for the 14 days from today'], minTests: 12 },
+	{ file: 'flex-window-scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: ['the calendar week is a list of days with the suggestion', 'beyond the horizon the week shows what is due'], minTests: 7 },
+	{ file: 'availability-settings-flow.spec.ts', project: 'chromium-scheduling-owner', scenarios: ['the address of the category brings it back after a reload', 'preferred days and daily limit'], minTests: 11 },
 	// Default parallel pool (read-only against the seed).
 	{ file: 'admin-only-tasks.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
-	{ file: 'calendar.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
+	{ file: 'calendar.spec.ts', project: 'chromium', scenarios: ['renders the week as a list of days with the suggestion'], minTests: 7 },
 	// CS-PLAN-090 WP-K: contrast per theme and colour scheme, and the scheme itself.
 	{ file: 'color-contrast.spec.ts', project: 'chromium', scenarios: ['main views have no color-contrast violations in the light theme', 'main views have no color-contrast violations in the dark theme', 'every colour scheme keeps contrast on today and in settings in the light theme', 'every colour scheme keeps contrast on today and in settings in the dark theme'], minTests: 4 },
 	{ file: 'color-schemes.spec.ts', project: 'chromium', scenarios: ['a scheme chosen in settings holds after a reload', 'a high-contrast nextcloud theme keeps the standard colours'], minTests: 2 },
@@ -132,7 +134,7 @@ const REQUIRED_SPECS = [
 	{ file: 'task-manager.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	// WP3 cutover: teamwork-rewards (teamwork bonus) retired.
 	{ file: 'title-selection.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
-	{ file: 'workflow-request-budgets.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
+	{ file: 'workflow-request-budgets.spec.ts', project: 'chromium', scenarios: ['today reads its three projections once each', 'the calendar week reads the range and the suggestion once each'], minTests: 3 },
 	// CS-PLAN-084 WP-G: the curated phone core set, run by BOTH device projects.
 	// CS-PLAN-086 WP-C..WP-F: arcade touch controls, the DOM games and both canvas input modes, on both phones.
 	{ file: 'arcade-mobile.spec.ts', project: MOBILE_PROJECTS, scenarios: ['spot sprint plays by tapping', 'sock match plays by tapping', 'tile breaker steers by tapping the board', 'crumb snake steers with the on-screen pad', 'dust runner turns with the on-screen pad'], minTests: 5 },

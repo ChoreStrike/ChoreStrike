@@ -705,4 +705,89 @@ class SchedulingServiceTest extends TestCase {
 
 		$this->service->assertValidMaxDailyTasks(0);
 	}
+
+	// ------------------------------------------------------------------
+	// Preferred days (CS-PLAN-091 WP-C, ADR-022 decision 5)
+	// ------------------------------------------------------------------
+
+	public function testNormalizePreferredWeekdays_ReturnsCanonicalDaysOnceMondayFirst(): void {
+		$this->assertSame(['wednesday', 'saturday'], $this->service->normalizePreferredWeekdays(['Saturday', 'wednesday', 'saturday']));
+		$this->assertSame([], $this->service->normalizePreferredWeekdays([]));
+	}
+
+	/**
+	 * @dataProvider invalidPreferredWeekdays
+	 * @param mixed $days
+	 */
+	public function testNormalizePreferredWeekdays_NotAListOfWeekdays_RejectedWithStableMessage($days): void {
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Preferred days must be a list of weekdays');
+
+		$this->service->normalizePreferredWeekdays($days);
+	}
+
+	/** @return array<string, array{mixed}> */
+	public static function invalidPreferredWeekdays(): array {
+		return [
+			'unknown day' => [['someday']],
+			'keyed by day' => [['monday' => true]],
+			'not a string' => [[1]],
+			'not a list' => ['monday'],
+		];
+	}
+
+	public function testPreferencesOf_WithoutStoredPreferredDays_ReadsNone(): void {
+		$houseUser = new HouseUser();
+		$houseUser->setSchedulingPreferences(['energyBudget' => ['monday' => 4]]);
+
+		$preferences = $this->service->preferencesOf($houseUser);
+
+		$this->assertSame([], $preferences['preferredWeekdays']);
+		$this->assertSame(4, $preferences['energyBudget']['monday']);
+		$this->assertTrue($preferences['weekdayAvailability']['sunday'], 'defaults fill what is not stored');
+	}
+
+	public function testUpdatePreferencesByNextcloudUserId_PreferredDaysOnly_StoredAndSiblingsPreserved(): void {
+		$houseUser = new HouseUser();
+		$houseUser->setId(14);
+		$houseUser->setHouseId(3);
+		$houseUser->setNextcloudUserId('member-e');
+		$houseUser->setSchedulingPreferences(['energyBudget' => ['monday' => 7], 'maxDailyTasks' => 2]);
+		$this->houseUserMapper->method('findByNextcloudUserId')->with(3, 'member-e')->willReturn($houseUser);
+		$this->stubLockedMember($houseUser);
+
+		$result = $this->service->updatePreferencesByNextcloudUserId(3, 'member-e', null, null, ['sunday', 'tuesday']);
+
+		$stored = $houseUser->getSchedulingPreferences();
+		$this->assertSame(['tuesday', 'sunday'], $stored['preferredWeekdays']);
+		$this->assertSame(7, $stored['energyBudget']['monday']);
+		$this->assertSame(2, $stored['maxDailyTasks']);
+		$this->assertSame(['tuesday', 'sunday'], $result['preferredWeekdays']);
+	}
+
+	public function testUpdateMemberAvailabilityByNextcloudUserId_PreferredDays_ReplaceTheStoredList(): void {
+		$houseUser = new HouseUser();
+		$houseUser->setId(21);
+		$houseUser->setHouseId(3);
+		$houseUser->setNextcloudUserId('kid');
+		$houseUser->setSchedulingPreferences(['preferredWeekdays' => ['monday'], 'maxDailyTasks' => 2]);
+		$this->houseUserMapper->method('findByNextcloudUserId')->willReturn($houseUser);
+		$this->stubLockedMember($houseUser);
+
+		$this->service->updateMemberAvailabilityByNextcloudUserId(3, 'kid', ['preferredWeekdays' => ['saturday']]);
+
+		$stored = $houseUser->getSchedulingPreferences();
+		$this->assertSame(['saturday'], $stored['preferredWeekdays']);
+		$this->assertSame(2, $stored['maxDailyTasks']);
+	}
+
+	public function testGetMemberAvailability_CarriesThePreferredDays(): void {
+		$houseUser = new HouseUser();
+		$houseUser->setId(21);
+		$houseUser->setNextcloudUserId('kid');
+		$houseUser->setSchedulingPreferences(['preferredWeekdays' => ['saturday']]);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$houseUser]);
+
+		$this->assertSame(['saturday'], $this->service->getMemberAvailability(3)[0]['preferredWeekdays']);
+	}
 }

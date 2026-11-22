@@ -79,6 +79,19 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	// One week of an evaluation that holds a pass: its stored occurrences,
 	// its closed cycles and their work shares.
 	private const WEEK_WITH_PASS_BUDGET = 3;
+	// The daily read of *Today* with the live suggestion (ADR-022): the
+	// house, the inputs of the plan (members, room tasks, definitions,
+	// assignees, the two completion inputs, absences, today's work), the
+	// stored day, then the rooms and the sub-task counts of the viewer's
+	// rows, which are built from those inputs. Measured 12 once the day is
+	// stored.
+	private const TODAY_WITH_SUGGESTION_BUDGET = 12;
+	// The day's first read of *Today*: the same, plus the insert and the
+	// re-read of the snapshot. Measured 14.
+	private const FIRST_TODAY_WITH_SUGGESTION_BUDGET = 14;
+	// The range read of the calendar: the same inputs and the stored day,
+	// plus the rooms of the entries. Measured 10.
+	private const SUGGESTION_RANGE_BUDGET = 10;
 
 	/**
 	 * HouseWideRead_ConstantQueryCount_10vs100Rows
@@ -182,6 +195,74 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		self::assertStringStartsWith('c', $bigFacts[$bigRoomTasks[0]]['block']['cycleKey'], 'the completed task hangs on its completion');
 		self::assertSame($smallCount, $bigCount, 'the cycle derivation is batched: Q(100) must equal Q(10)');
 		self::assertLessThanOrEqual(self::LIST_WITH_CYCLES_BUDGET, $bigCount, implode("\n", $counter->sqlStatements()));
+	}
+
+	/**
+	 * TodayAndCalendar_WithTheLiveSuggestion_ConstantQueryCount_10vs100Rows
+	 *
+	 * *Today* and the calendar place every open cycle of the house on
+	 * each read (ADR-022 decision 1). The plan is computed from a bounded
+	 * batch per source, so ten times the tasks cost the same statements.
+	 */
+	public function testTodayAndCalendar_WithTheLiveSuggestion_ConstantQueryCount_10vs100Rows(): void {
+		$ownerId = 'wqb_suggest_owner';
+		$this->actingAs($ownerId);
+		$smallHouse = $this->createHouse($ownerId, 'WQB Suggest Small');
+		$this->addHouseMember($smallHouse, 'wqb_suggest_kid', 'Kid', 'child');
+		$smallRoomTasks = $this->seedRoomsAndTasks($smallHouse, $ownerId, 2, 5);
+		$bigHouse = $this->createHouse($ownerId, 'WQB Suggest Big');
+		$this->addHouseMember($bigHouse, 'wqb_suggest_kid', 'Kid', 'child');
+		$bigRoomTasks = $this->seedRoomsAndTasks($bigHouse, $ownerId, 10, 10);
+		// One completion each: the plan then reads both completion inputs and today's work.
+		$completions = \OC::$server->get(CompletionService::class);
+		$this->completeOccurrence($completions, $smallHouse, $ownerId, $smallRoomTasks[0]);
+		$this->completeOccurrence($completions, $bigHouse, $ownerId, $bigRoomTasks[0]);
+
+		$readService = \OC::$server->get(RoomTaskReadService::class);
+		$suggestions = \OC::$server->get(\OCA\ChoreStrike\Service\SuggestionService::class);
+		$houses = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class);
+		$members = \OC::$server->get(HouseUserMapper::class);
+		$today = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
+		$last = (new \DateTime($today))->modify('+13 days')->format('Y-m-d');
+		$counts = [];
+		$rows = [];
+		$entries = [];
+
+		$counter = QueryCounter::attach($this->db);
+		try {
+			foreach (['small' => $smallHouse, 'big' => $bigHouse] as $size => $houseId) {
+				$viewer = $members->findByNextcloudUserId($houseId, $ownerId);
+				// The day's first read stores today's list; the reads after it find it.
+				$counter->mark();
+				$readService->getFilteredDailyTasksForUser($houseId, $viewer, new \DateTime());
+				$counts[$size]['first'] = $counter->count();
+				$counter->mark();
+				$rows[$size] = $readService->getFilteredDailyTasksForUser($houseId, $viewer, new \DateTime());
+				$counts[$size]['today'] = $counter->count();
+
+				$house = $houses->find($houseId);
+				$counter->mark();
+				$range = $suggestions->range($house, $viewer, $today, $last);
+				$counts[$size]['range'] = $counter->count();
+				$entries[$size] = array_sum(array_map(static fn (array $day): int => count($day['entries']), $range['days']));
+			}
+		} finally {
+			$counter->detach();
+		}
+
+		// Every seeded task is weekly and due today: the open ones are rows, and the horizon holds
+		// two cycles of each; the completed one has its next cycle a week from now.
+		self::assertCount(9, $rows['small']);
+		self::assertCount(99, $rows['big']);
+		self::assertSame([19, 199], [$entries['small'], $entries['big']]);
+		self::assertSame($counts['small'], $counts['big'], 'the suggestion is batched: Q(100) must equal Q(10)');
+		self::assertLessThanOrEqual(self::TODAY_WITH_SUGGESTION_BUDGET, $counts['big']['today'], implode("\n", $counter->sqlStatements()));
+		self::assertLessThanOrEqual(self::SUGGESTION_RANGE_BUDGET, $counts['big']['range'], implode("\n", $counter->sqlStatements()));
+		self::assertSame(
+			[self::FIRST_TODAY_WITH_SUGGESTION_BUDGET, self::TODAY_WITH_SUGGESTION_BUDGET, self::SUGGESTION_RANGE_BUDGET],
+			[$counts['big']['first'], $counts['big']['today'], $counts['big']['range']],
+			'a lower count is welcome: lower the pin with it'
+		);
 	}
 
 	/**

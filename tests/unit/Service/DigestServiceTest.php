@@ -70,10 +70,8 @@ class DigestServiceTest extends TestCase {
 	private ?array $dispatched = null;
 	private ?\Throwable $dispatchThrowable = null;
 	private int $claimsWon = 1;
-	/** Assignees by room task id (test seam). */
-	private array $assignees = [];
-	/** `cycle` block by room task id (test seam); absent = no cycle. */
-	private array $cycleBlocks = [];
+	/** What the live suggestion counts for the member today (test seam). */
+	private int $suggestedCount = 0;
 	private CompletedTaskMapper&MockObject $completionMapper;
 	private RoomTaskReadService&MockObject $readService;
 	private CompletedTask $currentCompletion;
@@ -123,8 +121,7 @@ class DigestServiceTest extends TestCase {
 		$this->dispatched = null;
 		$this->dispatchThrowable = null;
 		$this->claimsWon = 1;
-		$this->assignees = [];
-		$this->cycleBlocks = [];
+		$this->suggestedCount = 0;
 
 		$this->houseUserMapper->method('find')->willReturnCallback(
 			function (int $id): HouseUser {
@@ -159,14 +156,11 @@ class DigestServiceTest extends TestCase {
 				return $this->dueSlots[0];
 			}
 		);
-		$this->readService->method('assigneesByRoomTasks')->willReturnCallback(fn (): array => $this->assignees);
-		$this->readService->method('cycleFacts')->willReturnCallback(function (int $houseId, array $roomTasks): array {
-			$facts = [];
-			foreach ($roomTasks as $roomTask) {
-				$facts[$roomTask->getId()] = ['cycle' => null, 'block' => $this->cycleBlocks[$roomTask->getId()] ?? null];
-			}
-			return $facts;
-		});
+		// The count is the suggestion's (ADR-022 decision 7); its rules are pinned in LiveSuggestionTest.
+		$view = $this->createMock(\OCA\ChoreStrike\Service\SuggestionView::class);
+		$view->method('countFor')->willReturnCallback(fn (): int => $this->suggestedCount);
+		$suggestions = $this->createMock(\OCA\ChoreStrike\Service\SuggestionService::class);
+		$suggestions->method('view')->willReturn($view);
 
 		$this->scheduleService->method('materializeSlotsForJobs')->willReturn(['materialized' => 0, 'reResolved' => 0]);
 		$this->scheduleService->method('expireMissedSlots')->willReturn(['expiredSlots' => 0]);
@@ -186,6 +180,7 @@ class DigestServiceTest extends TestCase {
 			$this->pauseMapper,
 			$this->rewardRequestMapper,
 			$this->readService,
+			$suggestions,
 		);
 	}
 
@@ -236,10 +231,9 @@ class DigestServiceTest extends TestCase {
 		return $row;
 	}
 
-	/** Room task 11 is mom's, open and planned for the slot's day. */
+	/** The suggestion places one task on mom for the slot's day. */
 	private function ownWorkPlannedToday(): void {
-		$this->assignees = [11 => ['mom']];
-		$this->cycleBlocks = [11 => ['cycleKey' => 'c5', 'state' => 'open', 'centreOn' => '2026-09-29']];
+		$this->suggestedCount = 1;
 	}
 
 	// ------------------------------------------------------------------
@@ -350,35 +344,30 @@ class DigestServiceTest extends TestCase {
 	}
 
 	/**
-	 * ADR-021: only own work that is planned for today and whose window is
-	 * open counts — not an upcoming or overdue window, not an open window
-	 * planned for another day, not someone else's or unassigned work.
-	 *
-	 * @dataProvider irrelevantWork
+	 * ADR-022 decision 7: the task content is what the live suggestion
+	 * places on the member for today plus their overdue tasks; with
+	 * neither there is no task content.
 	 */
-	public function testPass_WorkThatIsNotOwnAndPlannedToday_IsNotCounted(array $assignees, ?array $block): void {
+	public function testPass_NothingSuggestedAndNothingOverdue_IsNoTaskContent(): void {
 		$this->membersById[7] = $this->member();
 		$this->membersById[7]->setWalletId(500);
 		$this->prefsByKey['1:7'] = $this->pref();
 		$this->dueSlots = [$this->slot()];
-		$this->assignees = [11 => $assignees];
-		$this->cycleBlocks = $block === null ? [] : [11 => $block];
 
 		// Both categories empty → no empty summary.
 		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
 		$this->assertNull($this->dispatched);
 	}
 
-	public static function irrelevantWork(): array {
-		$today = ['cycleKey' => 'c5', 'state' => 'open', 'centreOn' => '2026-09-29'];
-		return [
-			'window not open yet' => [['mom'], ['state' => 'upcoming', 'centreOn' => '2026-09-29'] + $today],
-			'window ended' => [['mom'], ['state' => 'overdue', 'centreOn' => '2026-09-27'] + $today],
-			'open, planned for another day' => [['mom'], ['centreOn' => '2026-09-30'] + $today],
-			'asleep or done: no cycle' => [['mom'], null],
-			'someone else\'s task' => [['dad'], $today],
-			'unassigned task' => [[], $today],
-		];
+	public function testPass_TaskCount_IsTheSuggestionsCountForTheMember(): void {
+		$this->membersById[7] = $this->member();
+		$this->membersById[7]->setWalletId(500);
+		$this->prefsByKey['1:7'] = $this->pref();
+		$this->dueSlots = [$this->slot()];
+		$this->suggestedCount = 3;
+
+		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['dispatched']);
+		$this->assertSame(['mom', 1, 7, '2026-09-29', 3, 0], $this->dispatched);
 	}
 
 	public function testPass_SlotMovedAfterDueScan_RechecksTheFreshSchedule(): void {
@@ -467,13 +456,17 @@ class DigestServiceTest extends TestCase {
 		$this->assertSame(['mom', 1, 7, '2026-09-29', 0, 1], $this->dispatched);
 	}
 
-	public function testPass_NoLongerVisibleWork_DropsTaskAndOrgContent(): void {
+	/**
+	 * The takeover of a task the member may no longer see is no content.
+	 * The task count needs no such gate here: the suggestion only ever
+	 * places a task on a member who may see it.
+	 */
+	public function testPass_NoLongerVisibleWork_DropsOrgContent(): void {
 		$this->membersById[7] = $this->member();
 		$this->membersById[7]->setWalletId(500);
 		$this->prefsByKey['1:7'] = $this->pref();
 		$this->queuedBySlot['7:2026-09-29'] = [$this->queuedRow(1)];
 		$this->dueSlots = [$this->slot()];
-		$this->ownWorkPlannedToday();
 		$this->visibleRoomTasks = [];
 		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
 		$this->assertNull($this->dispatched);

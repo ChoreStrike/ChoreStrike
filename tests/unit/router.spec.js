@@ -17,7 +17,6 @@ jest.mock('../../src/views/TaskManager.vue', () => ({ default: {} }))
 jest.mock('../../src/views/InsightsView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/ArcadeView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/AbsenceView.vue', () => ({ default: {} }))
-jest.mock('../../src/views/SchedulingView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/CalendarView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/Settings.vue', () => ({ default: {} }))
 jest.mock('../../src/views/Rewards.vue', () => ({ default: {} }))
@@ -53,9 +52,16 @@ describe('router routes (CS-PLAN-070 WP6)', () => {
 		expect(routes.some(route => route.name === 'leaderboard' || route.name === 'room')).toBe(false)
 	})
 
-	it('keeps the weekly plan and the own reward requests on their addresses, without a navigation entry', () => {
-		expect(routes.find(route => route.name === 'scheduling').path).toBe('/scheduling')
+	it('keeps the own reward requests on their address, without a navigation entry', () => {
 		expect(routes.find(route => route.name === 'reward-requests').path).toBe('/reward-requests')
+	})
+
+	// CS-PLAN-091 WP-C: the weekly plan's page went with the live suggestion.
+	it('sends the address of the weekly plan to the calendar', () => {
+		const plan = routes.find(route => route.path === '/scheduling')
+		expect(plan.component).toBeUndefined()
+		expect(plan.redirect).toEqual({ name: 'calendar' })
+		expect(routes.some(route => route.name === 'scheduling')).toBe(false)
 	})
 
 	it('exposes the gated arcade surface on its own path (Q-077-05 A)', () => {

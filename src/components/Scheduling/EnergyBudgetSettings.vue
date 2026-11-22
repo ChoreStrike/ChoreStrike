@@ -20,8 +20,13 @@
 
 			<WeekBudgetGrid
 				:budget="localBudget"
+				:preferred="localPreferred"
 				:disabled="saving"
-				@updateDay="setBudgetDay" />
+				@updateDay="setBudgetDay"
+				@togglePreferred="togglePreferred" />
+			<p class="preferred-hint" data-testid="preferred-days-hint">
+				{{ t('chorestrike', 'The star marks your preferred days. The suggestion plans work there first.') }}
+			</p>
 
 			<div class="quick-actions">
 				<h4>{{ t('chorestrike', 'Quick Templates') }}</h4>
@@ -81,6 +86,7 @@ const schedulingStore = useSchedulingStore()
 const saving = ref(false)
 const saveError = ref(false)
 const localBudget = ref(createDefaultEnergyBudget())
+const localPreferred = ref([])
 
 const energyTemplates = [
 	{
@@ -118,12 +124,24 @@ const totalWeeklyEnergy = computed(() => {
 	}, 0)
 })
 
+const preferredChanged = computed(() => JSON.stringify(localPreferred.value) !== JSON.stringify(schedulingStore.preferredWeekdays))
+
 const hasChanges = computed(() => {
-	return JSON.stringify(localBudget.value) !== JSON.stringify(schedulingStore.energyBudget)
+	return preferredChanged.value || JSON.stringify(localBudget.value) !== JSON.stringify(schedulingStore.energyBudget)
 })
 
 function syncFromStore() {
 	localBudget.value = { ...createDefaultEnergyBudget(), ...schedulingStore.energyBudget }
+	localPreferred.value = [...schedulingStore.preferredWeekdays]
+}
+
+// Kept in the order of the week, as the server stores it.
+function togglePreferred(key) {
+	const chosen = new Set(localPreferred.value)
+	if (!chosen.delete(key)) {
+		chosen.add(key)
+	}
+	localPreferred.value = weekDays.map((day) => day.key).filter((day) => chosen.has(day))
 }
 
 // Apply one day's edit onto the CURRENT budget — the grid emits deltas so a
@@ -150,7 +168,10 @@ async function saveEnergyBudget() {
 	saving.value = true
 	saveError.value = false
 	try {
-		await schedulingStore.saveWeeklyPreferences({ energyBudget: { ...localBudget.value } })
+		await schedulingStore.saveWeeklyPreferences({
+			energyBudget: { ...localBudget.value },
+			preferredWeekdays: preferredChanged.value ? [...localPreferred.value] : null,
+		})
 		showSuccess(t('chorestrike', 'Energy budget saved successfully!'))
 	} catch (error) {
 		logger.error('Failed to save energy budget', error, { component: 'EnergyBudgetSettings', action: 'saveEnergyBudget' })
@@ -164,7 +185,7 @@ onMounted(() => {
 	syncFromStore()
 })
 
-watch(() => schedulingStore.energyBudget, () => {
+watch(() => [schedulingStore.energyBudget, schedulingStore.preferredWeekdays], () => {
 	syncFromStore()
 }, { deep: true })
 </script>
@@ -173,6 +194,12 @@ watch(() => schedulingStore.energyBudget, () => {
 .save-error {
 	margin: 1rem 0 0;
 	color: var(--color-error-text);
+}
+
+.preferred-hint {
+	margin: 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9rem;
 }
 
 .energy-budget-settings {

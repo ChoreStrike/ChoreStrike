@@ -11,31 +11,33 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\SchedulingService;
+use OCA\ChoreStrike\Service\SuggestionService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
 use OCP\IRequest;
 
 /**
- * API controller for the scheduling preferences: the personal and the
- * owner's per-member availability and energy surface. The owner's preview
- * and apply went with ADR-022 (CS-PLAN-091): nothing is applied as an
- * agreement any more.
+ * API controller for the scheduling preferences — the personal and the
+ * owner's per-member availability, energy and preferred days — and the
+ * live suggestion that reads them (ADR-022, CS-PLAN-091). The owner's
+ * preview and apply went: nothing is applied as an agreement any more.
  */
 class SchedulingController extends Controller {
 	use ControllerLoggingTrait;
 
 	/** @var list<string> */
-	private const VALID_WEEKDAYS = [
-		'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
-	];
+	private const VALID_WEEKDAYS = SchedulingService::WEEKDAYS;
 
 	private SchedulingService $schedulingService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IL10N $l;
+	private SuggestionService $suggestionService;
+	private CalendarService $calendarService;
 
 	public function __construct(
 		IRequest $request,
@@ -44,12 +46,16 @@ class SchedulingController extends Controller {
 		AuthorizationService $authService,
 		IL10N $l,
 		AppLogger $appLogger,
+		SuggestionService $suggestionService,
+		CalendarService $calendarService,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->schedulingService = $schedulingService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
+		$this->suggestionService = $suggestionService;
+		$this->calendarService = $calendarService;
 		$this->initializeControllerLogger($appLogger);
 	}
 
@@ -100,9 +106,10 @@ class SchedulingController extends Controller {
 	 * @NoAdminRequired
 	 * @param array|null $weekdayAvailability Full week of availability flags
 	 * @param array|null $energyBudget Full week of energy budgets (1-20)
+	 * @param array|null $preferredWeekdays Preferred weekdays, possibly none (ADR-022 decision 5)
 	 * @return JSONResponse
 	 */
-	public function updatePreferences(?array $weekdayAvailability, ?array $energyBudget): JSONResponse {
+	public function updatePreferences(?array $weekdayAvailability, ?array $energyBudget, ?array $preferredWeekdays = null): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
@@ -114,16 +121,20 @@ class SchedulingController extends Controller {
 			if ($this->request->getParam('maxDailyTasks') !== null) {
 				throw new \InvalidArgumentException($this->l->t('maxDailyTasks can only be changed by a house owner'));
 			}
-			if ($weekdayAvailability === null && $energyBudget === null) {
-				throw new \InvalidArgumentException($this->l->t('At least one section (weekdayAvailability or energyBudget) must be provided'));
+			if ($weekdayAvailability === null && $energyBudget === null && $preferredWeekdays === null) {
+				throw new \InvalidArgumentException($this->l->t('At least one section (weekdayAvailability, energyBudget or preferredWeekdays) must be provided'));
 			}
 			$this->validatePreferencesSection($weekdayAvailability, 'weekdayAvailability');
 			$this->validatePreferencesSection($energyBudget, 'energyBudget');
+			if ($preferredWeekdays !== null) {
+				$this->schedulingService->normalizePreferredWeekdays($preferredWeekdays);
+			}
 			$preferences = $this->schedulingService->updatePreferencesByNextcloudUserId(
 				$house->getId(),
 				$userId,
 				$weekdayAvailability,
-				$energyBudget
+				$energyBudget,
+				$preferredWeekdays
 			);
 
 			return new JSONResponse([
@@ -233,6 +244,38 @@ class SchedulingController extends Controller {
 	}
 
 	/**
+	 * The live suggestion for a range of house-local days (ADR-022 decision
+	 * 6): from today, at most the 14-day horizon. Entries are filtered by
+	 * the viewer's task visibility; the day's first read stores today's
+	 * list, nothing else is written.
+	 *
+	 * @NoAdminRequired
+	 * @param string $from First day (`Y-m-d`)
+	 * @param string $to Last day (`Y-m-d`)
+	 */
+	public function suggestion(string $from = '', string $to = ''): JSONResponse {
+		try {
+			$house = $this->houseService->getOrCreateHouse($this->houseService->getInstanceId());
+			$viewer = $this->authService->assertHouseMember($house->getId());
+			if (!$this->calendarService->isRealDay($from) || !$this->calendarService->isRealDay($to)) {
+				throw new \InvalidArgumentException($this->l->t('from and to must be valid Y-m-d dates'));
+			}
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $this->suggestionService->range($house, $viewer, $from, $to),
+			]);
+		} catch (\InvalidArgumentException $e) {
+			return ControllerErrorFormatter::validation($e);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('suggestion', $e);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'SUGGESTION_ERROR');
+		}
+	}
+
+	/**
 	 * Validate that a day string is a recognized weekday name.
 	 *
 	 * @param string $day Weekday name (case-insensitive)
@@ -317,8 +360,11 @@ class SchedulingController extends Controller {
 		if (array_key_exists('maxDailyTasks', $updates) && $updates['maxDailyTasks'] !== null) {
 			$this->schedulingService->assertValidMaxDailyTasks($updates['maxDailyTasks']);
 		}
+		if (array_key_exists('preferredWeekdays', $updates)) {
+			$this->schedulingService->normalizePreferredWeekdays($updates['preferredWeekdays']);
+		}
 
-		$allowedKeys = ['weekdayAvailability', 'energyBudget', 'maxDailyTasks'];
+		$allowedKeys = ['weekdayAvailability', 'energyBudget', 'preferredWeekdays', 'maxDailyTasks'];
 		foreach (array_keys($updates) as $key) {
 			if (!in_array($key, $allowedKeys, true)) {
 				throw new \InvalidArgumentException($this->l->t('Unknown update field: %1$s', [(string)$key]));

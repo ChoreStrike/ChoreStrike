@@ -139,6 +139,43 @@ class WorkShareMapper extends QBMapper {
 	}
 
 	/**
+	 * The energy minor each wallet did on one house-local day, from the
+	 * selected shares of the valid completions of that work day: what the
+	 * live suggestion subtracts from today's energy (ADR-022 decision 1).
+	 *
+	 * @param int[] $walletIds
+	 * @param string $dayKey The work day (`Y-m-d`)
+	 * @return array<int, int> walletId => energy minor (wallets without work are omitted)
+	 */
+	public function sumEnergyMinorByWalletOn(array $walletIds, string $dayKey): array {
+		$walletIds = array_values(array_unique(array_filter(array_map('intval', $walletIds))));
+		if ($walletIds === []) {
+			return [];
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('ws.wallet_id')
+			->selectAlias($qb->createFunction('COALESCE(SUM(ws.energy_minor), 0)'), 'energy_minor')
+			->from($this->getTableName(), 'ws')
+			->innerJoin('ws', 'chorestrike_completed_tasks', 'ct', $qb->expr()->eq('ct.id', 'ws.completion_id'))
+			->where($qb->expr()->in('ws.wallet_id', $qb->createNamedParameter($walletIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->eq('ws.allocation_revision', 'ct.allocation_revision'))
+			->andWhere($qb->expr()->isNull('ct.undone_at'))
+			// The portable day comparison: from the day, before the day after.
+			->andWhere($qb->expr()->gte('ct.work_date', $qb->createNamedParameter($dayKey)))
+			->andWhere($qb->expr()->lt('ct.work_date', $qb->createNamedParameter(
+				(new \DateTimeImmutable($dayKey, new \DateTimeZone('UTC')))->modify('+1 day')->format('Y-m-d')
+			)))
+			->groupBy('ws.wallet_id');
+		$result = $qb->executeQuery();
+		$sums = [];
+		while ($row = $result->fetch()) {
+			$sums[(int)$row['wallet_id']] = (int)$row['energy_minor'];
+		}
+		$result->closeCursor();
+		return $sums;
+	}
+
+	/**
 	 * The wallets credited on one house-local day by the valid completions
 	 * of a room task, from their selected allocation (ADR-021 decision 8:
 	 * a bonus task pays each person once per day).

@@ -86,7 +86,7 @@ class FixtureCleanupTest extends IntegrationTestCase {
 			$result->closeCursor();
 		}
 		ksort($rows);
-		self::assertCount(33, $rows, 'Snapshot every app table, including rows without a house key');
+		self::assertCount(34, $rows, 'Snapshot every app table, including rows without a house key');
 		return $rows;
 	}
 

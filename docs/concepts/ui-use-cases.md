@@ -18,7 +18,7 @@ its pruned routes or superseded write bodies are available.
 | Task discovery | Task Manager defaults to the current person's assigned tasks plus unassigned work. My tasks / Unassigned / Everyone are explicit buttons and the presets of *People*: a tick per member and one for unassigned work, with *All* and *None*, so the buttons and the ticks always say the same. Below them a quick filter takes a floor or one of its rooms. The detail filters (status, priority, energy, visibility, category, search) sit behind *Filters* (GUI review of CS-PLAN-091 WP-B6, D-091-106). Assignment names are visible without expansion. These are display filters, never authorization changes. |
 | Upcoming appointments | The calendar shows them. Today no longer lists the next agreed appointments (CS-PLAN-090 WP-B, D-090-11). |
 | Completion participation | Initial completion requires the signed-in actor to have a positive actual-work share. The dialog refuses missing identity or an excluded actor with an explanation; attribution correction intentionally does not require the correcting owner to participate. |
-| Scheduling | The view shows availability and the planned load. The owner's preview and apply are retired (ADR-022, CS-PLAN-091 WP-B1): nothing is saved as a plan; the live suggestion follows in WP-C. |
+| Scheduling | Nothing is saved as a plan (ADR-022, CS-PLAN-091 WP-B1 and WP-C). The server computes a live suggestion from the windows, the members' energy and preferred days and the absences: *Today* shows what it places on today, the calendar's week the next 14 days with the load. Today's list is stored once a day, so it does not jump. The weekly plan's page is gone; its address leads to the calendar. |
 | Completion and undo | One complete receipt freezes the work evidence and updates wallet/contribution/streak/room/checklist projections before events (WP3 minor units, ADR-014). The queued targeted undo reverses the latest selected allocation from the valid history, including after reload; medals and sent notifications are not revoked. The Insights history exposes the authorized correction (completer/owner `canCorrect`) reusing the participation form; a 409 keeps the draft. |
 | Child/mobile | The bare root lands on Today for every role. Focused member/child mobile tests retain 44px controls, role gating and checklist execution. |
 | Localization | Real Nextcloud DE and EN rendering is tested in `family-core-ux.spec.ts`; source/catalog ownership and artifacts are enforced globally. |
@@ -144,7 +144,7 @@ without a dedicated endpoint call.
 | 07 | Task lifecycle maintenance | TaskManager, TaskForm |
 | 08 | Daily execution (Today) | TodayView, TaskList |
 | 09 | Assignment & teamwork | TaskForm, the completion picker |
-| 10 | Planning: availability, energy, task plans | Settings → Planning (own days and energy), SchedulingView (weekly plan, from the calendar) |
+| 10 | Planning: availability, energy, preferred days, the suggestion | Settings → Planning (own days, energy and preferred days), Settings → Household → Planning of the members (owner), CalendarView (the suggestion) |
 | 11 | Progress & gamification | TodayView (status line), InsightsView (ranking section), Settings |
 | 12 | Minigames | ArcadeCatalog (optional Arcade view) |
 | 13 | Members, roles & household changes | Settings → MemberList |
@@ -328,23 +328,26 @@ Members. **Entry points:** the one form; the picker of a short tap on Done.
 | Claim overdue public task | — | — | ⛔ retired (CS-PLAN-091 WP-B6): a short tap on Done opens the picker, where anyone records who did the work (ADR-021 §13) |
 | Dedicated claimable-tasks query | — | `GET /room-tasks/overdue-claims` | ⛔ pruned (CS-PLAN-055; UI uses `/overdue` + client filter) |
 
-## UC-10 — Planning: availability, energy, task plans
+## UC-10 — Planning: availability, energy, preferred days, the suggestion
 
-**Goal:** balance workload by capacity and energy, and let the owner confirm
-a real household schedule. **Personas:** all (self service), Owner (plan
-preview/apply). **Entry points:** Settings → *Planning* for the own days and energy; SchedulingView
-for the weekly plan, which left the navigation and opens from the calendar header
-(CS-PLAN-090 WP-D, D-090-14).
+**Goal:** balance workload by capacity and energy without anyone applying a
+plan. **Personas:** all (self service), Owner (every member's settings).
+**Entry points:** Settings → *Planning* for the own days, energy and preferred
+days; Settings → *Household* → *Planning of the members* for the owner; the
+calendar for the suggestion. The weekly plan's page went with the live
+suggestion (CS-PLAN-091 WP-C, ADR-022); `#/scheduling` leads to the calendar.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | Edit own weekday availability | Settings → Planning: `SelfAvailabilitySettings` (a failed save is reported at the form) | `GET+PUT /scheduling/preferences` | ✅ changed-days-only saves |
-| Owner availability grid (all members) | `AvailabilitySettings` | `GET /scheduling/members` | ✅ |
+| Owner availability grid (all members) | Settings → Household → *Planning of the members*: `AvailabilitySettings`, which reads the members when it opens | `GET /scheduling/members` | ✅ (moved from the weekly plan's page, CS-PLAN-091 WP-C) |
 | Edit another member's availability | `AvailabilitySettings` → shared `AvailabilityEditModal` (owner) | `PUT /scheduling/members/{userId}` | ✅ (CS-PLAN-043 wired the edit path — UX-014 keep decision resolved: endpoint stays) |
 | Edit energy budget (weekdays/weekend) | `EnergyBudgetSettings` | `GET+PUT /scheduling/preferences` | ✅ single bulk save |
+| Mark preferred days | the star per day in `EnergyBudgetSettings` (`WeekBudgetGrid`); for another member the owner's `AvailabilityEditModal` | `PUT /scheduling/preferences` / `PUT /scheduling/members/{userId}` (`preferredWeekdays`) | ✅ CS-PLAN-091 WP-C (ADR-022 §5): the suggestion fills preferred days first |
 | Set a child's daily-task limit | `AvailabilityEditModal` (owner, non-self only) | `PUT /scheduling/members/{userId}` (`maxDailyTasks`) | ✅ CS-PLAN-065 (decision D5): omitted = unchanged, `null` = unlimited, 1-100 = finite bound; the personal endpoints reject the key |
-| Capacity calendar (members × days) | `ScheduleCalendar` | `GET /scheduling/members` + client getters | ✅ |
-| Preview and apply a plan | retired with ADR-022 (CS-PLAN-091 WP-B1): `SchedulePlanner`, its proposal rows, capacity grid and consent attestation are gone; the live suggestion follows in WP-C | — (`POST /scheduling/suggestions` and `POST /scheduling/apply` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
+| The suggestion of the next 14 days with the load | CalendarView, week: `CalendarAgenda` — per day the suggested tasks with their window, the overdue work on today, what was done, and the viewer's placed energy against the day's energy; *My tasks* / *Everyone* | `GET /scheduling/suggestion` + `GET /room-tasks/range` | ✅ CS-PLAN-091 WP-C (replaces the capacity calendar `ScheduleCalendar`) |
+| Today's suggestion | TodayView: *Suggested for today*, *Also possible today* | `GET /room-tasks/filtered-daily` (`suggestedFor`, `overload`) | ✅ CS-PLAN-091 WP-C |
+| Preview and apply a plan | retired with ADR-022 (CS-PLAN-091 WP-B1): `SchedulePlanner`, its proposal rows, capacity grid and consent attestation are gone; the live suggestion replaces them | — (`POST /scheduling/suggestions` and `POST /scheduling/apply` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
 | Absence (enter, see everyone's, delete; owner: household, for someone afterwards, pending requests) | `AbsenceView` (`#/absence`) with `AbsenceOwnerPanel`. An absence writes nothing on the work: tasks stay visible and can be completed; a window inside the absence is neutral for the absent member (ADR-021 §5) | `GET/POST /pauses`, `DELETE /pauses/{id}`, `POST /pauses/{id}/approve\|reject`, `POST /pauses/recognize-illness` | ✅ CS-PLAN-090 WP-A, [ADR-020](../adr/ADR-020-absences-without-requests.md) — every role acknowledged at once, no reason asked or shown, deletion as a cancelled revision; the shortening route is pruned (CS-PLAN-091 RF-091-11), and an acknowledged shortening that is stored keeps governing |
 | Occurrence agreements (amend/catch-up/restart) | retired with ADR-021 (CS-PLAN-091 WP-B1); stored agreements stay as history | — (`POST /occurrences/{key}/…` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
 
@@ -440,7 +443,7 @@ the activity list.
 | Fairness as compact bars (completed energy against weekly capacity, with contribution and streak) | InsightsView `MemberFairnessTable` | `GET /users` + client aggregation over activity | ✅ (formula: [energy-and-balancing.md](energy-and-balancing.md)) |
 | Activity list "who did what when": one line per completion (time, person, task, coins paid), grouped by the household's day; a tap opens room, effort, shares, *Correct split* and *Undo* | InsightsView `ActivityFeed` | `GET /house/activity` (`coinMinor` per share) | ✅ (CS-PLAN-090 WP-E; absences and date changes join in Release B, D-090-13) |
 | Freeze visibility (owned count ❄ + "frozen" state after yesterday's consumption) | Leaderboard streak badge | `GET /users` (`streakFreezes`, `lastFreezeDate`) | ✅ |
-| Overcapacity warning (deferred-first list) | SchedulingView (weekly plan) `OvercapacityWarning` + ScheduleCalendar markers | client getters (`plannedEnergyForDay` / `overcapacityDays`) | ✅ |
+| Overload | CalendarView week: an entry that fits no day of its window reads *does not fit*, a day with more than it holds is highlighted; TodayView: the neutral overload line | `GET /scheduling/suggestion` (`overload`, `placed` against `budget`) | ✅ CS-PLAN-091 WP-C (replaces the deferred-first list `OvercapacityWarning`; nothing is deferred by priority) |
 
 ---
 

@@ -89,6 +89,14 @@ a shared private definition never edits the others: the save splits off a copy
 for the member's room task and neither asks nor names them (D-091-110). A task
 that becomes private is owned by the member who saves it (D-091-95).
 
+**The live suggestion (CS-PLAN-091 WP-C, operator 2026-11-22):** a private task
+is suggested only to members who may see it, and every entry of the suggestion
+is filtered by this matrix. The placement itself counts all work, so energy
+sums (a member's load, the owner's read of every member's load) and the
+*does not fit* mark of someone else's entry can reflect private work the
+viewer may not see. No name, room, energy or existence of a single private task
+is shown; the operator accepted this aggregate (ADR-022 §6, D-091-140).
+
 ### D3 — Denial standard: visibility → 404, role → 403
 
 - Visibility denials (foreign/nonexistent id, or an id the caller cannot see)

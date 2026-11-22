@@ -19,9 +19,9 @@
   "insights-flow.spec.ts": [
     "insights-flow.spec.ts > Release: Insights Flow > a concurrent correction requires explicit review before resubmission and history can undo it",
     "insights-flow.spec.ts > Release: Insights Flow > a lost attribution response replays the same correction after a completion refetch",
+    "insights-flow.spec.ts > Release: Insights Flow > an overloaded day shows on Today and in the calendar instead of refusing work",
     "insights-flow.spec.ts > Release: Insights Flow > insights renders stats cards, fairness table, and activity feed",
     "insights-flow.spec.ts > Release: Insights Flow > navigation exposes the insights entry",
-    "insights-flow.spec.ts > Release: Insights Flow > overcapacity warning appears when a day exceeds its capacity",
     "insights-flow.spec.ts > Release: Insights Flow > owner corrects a recorded work split from the activity history (WP3 §3.6)",
     "insights-flow.spec.ts > Release: Insights Flow > the caller wallet reads its exact minor-unit balance on Today after a reload"
   ],
@@ -86,7 +86,10 @@
     "today-view.spec.ts > Release: Today view > a bonus day on Today: a bonus task pays once per person at the coin factor and the bonus rate",
     "today-view.spec.ts > Release: Today view > shows seeded due-today rows and completes one with row state change",
     "today-view.spec.ts > Release: Today view > the mine filter hides other members tasks, everyone shows them",
-    "today-view.spec.ts > Release: Today view > undo queue keeps two completions independently undoable (UX-015, CS-PLAN-064)"
+    "today-view.spec.ts > Release: Today view > undo queue keeps two completions independently undoable (UX-015, CS-PLAN-064)",
+    "today-view.spec.ts > Release: the live suggestion on Today and in the calendar > a preferred day chosen in the settings takes the work before a roomier day",
+    "today-view.spec.ts > Release: the live suggestion on Today and in the calendar > the calendar shows the week's suggestion with the own energy, everyone's on request, and where it ends",
+    "today-view.spec.ts > Release: the live suggestion on Today and in the calendar > today's suggestion stays when the energy changes during the day, and work created since joins"
   ],
   "members-owner.spec.ts": [
     "members-owner.spec.ts > Release: Members (owner) > invite by email adds an existing Nextcloud account to the house",
@@ -245,26 +248,27 @@
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the optional arcade hides with its navigation entry when arcadeVisible is off"
   ],
   "scheduling.spec.ts": [
+    "scheduling.spec.ts > Planning surfaces > can interact with energy slider",
+    "scheduling.spec.ts > Planning surfaces > offers no plan preview any more",
+    "scheduling.spec.ts > Planning surfaces > planning lives in the settings: every member's week for the owner, the own days and energy for everyone",
+    "scheduling.spec.ts > Planning surfaces > shows availability grid with 7 day slots",
+    "scheduling.spec.ts > Planning surfaces > shows energy budget number inputs",
+    "scheduling.spec.ts > Planning surfaces > shows energy budget sliders for each day",
+    "scheduling.spec.ts > Planning surfaces > the address of the weekly plan lands on the calendar",
+    "scheduling.spec.ts > Planning surfaces > the calendar week shows the suggestion with its navigation",
     "scheduling.spec.ts > Retired planner routes > the plan preview and apply routes answer 404 while the preferences stay",
-    "scheduling.spec.ts > Scheduling UI > can interact with energy slider",
-    "scheduling.spec.ts > Scheduling UI > displays the scheduling header",
-    "scheduling.spec.ts > Scheduling UI > loads the scheduling view with all sections",
-    "scheduling.spec.ts > Scheduling UI > navigates to the weekly plan through the calendar",
-    "scheduling.spec.ts > Scheduling UI > offers no plan preview any more",
-    "scheduling.spec.ts > Scheduling UI > shows availability grid with 7 day slots",
-    "scheduling.spec.ts > Scheduling UI > shows energy budget number inputs",
-    "scheduling.spec.ts > Scheduling UI > shows energy budget sliders for each day",
-    "scheduling.spec.ts > Scheduling UI > shows schedule calendar with navigation",
-    "scheduling.spec.ts > Scheduling save flow > persists a changed energy budget with exactly one bulk PUT and restores the seed"
+    "scheduling.spec.ts > Retired planner routes > the suggestion is read for the 14 days from today and cut to them",
+    "scheduling.spec.ts > Scheduling save flow > persists a changed energy budget with exactly one bulk PUT and restores the seed",
+    "scheduling.spec.ts > Scheduling save flow > saves a preferred day with the energy, keeps it over a reload and restores the seed"
   ],
   "flex-window-scheduling.spec.ts": [
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > beyond the horizon the week shows what is due and says where the suggestion ends",
     "flex-window-scheduling.spec.ts > Flex Window Scheduling > calendar navigates between weeks",
-    "flex-window-scheduling.spec.ts > Flex Window Scheduling > calendar returns to current week with today button",
-    "flex-window-scheduling.spec.ts > Flex Window Scheduling > calendar shows week navigation controls",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > calendar shows week navigation controls and the filter",
     "flex-window-scheduling.spec.ts > Flex Window Scheduling > energy budget settings persist slider changes",
-    "flex-window-scheduling.spec.ts > Flex Window Scheduling > scheduling view loads with calendar section",
-    "flex-window-scheduling.spec.ts > Flex Window Scheduling > the weekly plan has no schedule planner any more",
-    "flex-window-scheduling.spec.ts > Flex Window Scheduling > the weekly plan opens from the calendar and leads back to it"
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > the calendar opens from the navigation and links no weekly plan",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > the calendar week is a list of days with the suggestion",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > today is marked in the current week and carries the own energy"
   ],
   "availability-settings-flow.spec.ts": [
     "availability-settings-flow.spec.ts > Availability Settings Flow > can adjust energy budget with number input",
@@ -275,7 +279,9 @@
     "availability-settings-flow.spec.ts > Availability Settings Flow > shows edit button for current user availability",
     "availability-settings-flow.spec.ts > Availability Settings Flow > shows energy budget inputs in edit modal",
     "availability-settings-flow.spec.ts > Availability Settings Flow > shows energy budget settings with save button",
-    "availability-settings-flow.spec.ts > Availability Settings Flow > shows energy templates in budget settings"
+    "availability-settings-flow.spec.ts > Availability Settings Flow > shows energy templates in budget settings",
+    "availability-settings-flow.spec.ts > Availability Settings Flow > the address of the category brings it back after a reload",
+    "availability-settings-flow.spec.ts > Availability Settings Flow > the owner sets a member's preferred days and daily limit, and the card shows them"
   ],
   "admin-only-tasks.spec.ts": [
     "admin-only-tasks.spec.ts > Admin-Only Tasks > admin-only task shows crown icon for owner",
@@ -289,8 +295,9 @@
     "calendar.spec.ts > Calendar View > displays week/month toggle with week active by default",
     "calendar.spec.ts > Calendar View > navigates to calendar via nav item",
     "calendar.spec.ts > Calendar View > prev/next changes the range label",
-    "calendar.spec.ts > Calendar View > renders the task calendar grid",
-    "calendar.spec.ts > Calendar View > switches to month mode"
+    "calendar.spec.ts > Calendar View > renders the week as a list of days with the suggestion",
+    "calendar.spec.ts > Calendar View > switches to month mode",
+    "calendar.spec.ts > Calendar View > the week shows the own tasks first and everyone's on request"
   ],
   "color-contrast.spec.ts": [
     "color-contrast.spec.ts > Color contrast (light/dark Nextcloud themes) > every colour scheme keeps contrast on Today and in Settings in the dark theme",
@@ -409,9 +416,9 @@
     "title-selection.spec.ts > Role Title System (single series) > Title section renders without a change-title control (retired surface)"
   ],
   "workflow-request-budgets.spec.ts": [
-    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > SchedulingView preloads its planning candidates with ONE house-wide request",
     "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > TaskManager issues ONE house-wide room-task request for every grouping (CS-PLAN-090 WP-C)",
-    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > Today reads its three projections once each and no instance list (CS-PLAN-090 WP-B, CS-PLAN-091 WP-B4)"
+    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > Today reads its three projections once each and no instance list (CS-PLAN-090 WP-B, CS-PLAN-091 WP-B4)",
+    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > the calendar week reads the range and the suggestion once each, per shown week"
   ],
   "arcade-mobile.spec.ts": [
     "arcade-mobile.spec.ts > Arcade touch controls (CS-PLAN-086) > Crumb Snake steers with the on-screen pad",

@@ -93,6 +93,7 @@ class TestDataService {
 		'chorestrike_cycle_progress',
 		'chorestrike_cycles',
 		'chorestrike_bonus_periods',
+		'chorestrike_suggestion_days',
 		'chorestrike_agreements',
 		'chorestrike_pauses',
 		'chorestrike_member_prefs',

@@ -36,7 +36,10 @@ class TimelineJobTest extends TestCase {
 		$medals = $this->createMock(MedalService::class);
 		$medals->expects($this->once())->method('reconcileClosedWeeksForJobs')->with($atNow);
 
-		$job = new TimelineJob($timeFactory, $cycles, $rhythmService, $medals);
+		$suggestions = $this->createMock(\OCA\ChoreStrike\Service\SuggestionService::class);
+		$suggestions->expects($this->once())->method('deleteOldDaysForJobs')->with($atNow);
+
+		$job = new TimelineJob($timeFactory, $cycles, $rhythmService, $medals, $suggestions);
 		$ref = new \ReflectionMethod($job, 'run');
 		$ref->setAccessible(true);
 		$ref->invoke($job, null);
@@ -64,7 +67,13 @@ class TimelineJobTest extends TestCase {
 			$order[] = 'closedWeeks';
 		});
 
-		(new TimelineJob($time, $cycles, $rhythm, $medals))->reconcileAt($now);
-		self::assertSame(['cycles', 'rhythm', 'closedWeeks'], $order);
+		$suggestions = $this->createMock(\OCA\ChoreStrike\Service\SuggestionService::class);
+		$suggestions->method('deleteOldDaysForJobs')->willReturnCallback(static function () use (&$order): int {
+			$order[] = 'oldSuggestionDays';
+			return 0;
+		});
+
+		(new TimelineJob($time, $cycles, $rhythm, $medals, $suggestions))->reconcileAt($now);
+		self::assertSame(['cycles', 'rhythm', 'closedWeeks', 'oldSuggestionDays'], $order);
 	}
 }

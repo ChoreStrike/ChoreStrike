@@ -2,6 +2,9 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import CalendarView from '../../../src/views/CalendarView.vue'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
+import { useUserStore } from '../../../src/store/user.js'
+import { api } from '../../../src/services/api.js'
+import { addDaysToKey, todayKeyInZone } from '../../../src/utils/dateKeys.js'
 
 jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, text) => text),
@@ -9,9 +12,19 @@ jest.mock('@nextcloud/l10n', () => ({
 
 jest.mock('../../../src/services/api.js', () => ({
 	api: {
-		get: jest.fn().mockResolvedValue({ scheduled: [], completed: [] }),
+		get: jest.fn(),
 	},
 }))
+
+/** What the three reads of the view answer, by path. */
+const answers = (suggestion = { days: [], overdue: [], members: [] }) => (path) => {
+	if (path === '/api/v1/scheduling/suggestion') {
+		return Promise.resolve(suggestion)
+	}
+	return Promise.resolve(path === '/api/v1/users' ? [] : { scheduled: [], completed: [] })
+}
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+const suggestionCalls = () => api.get.mock.calls.filter(([path]) => path === '/api/v1/scheduling/suggestion')
 
 jest.mock('../../../src/utils/logger.js', () => ({
 	logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
@@ -21,6 +34,7 @@ describe('CalendarView', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		jest.clearAllMocks()
+		api.get.mockImplementation(answers())
 	})
 
 	it('renders the calendar view with testids', () => {
@@ -140,15 +154,100 @@ describe('CalendarView', () => {
 		expect(wrapper.vm.isOverdue({ roomTask: { ...roomTask, status: 'overdue' }, dueDate: '2000-01-01', late: null })).toBe(true)
 	})
 
-	// CS-PLAN-090 D-090-14: the weekly plan left the navigation and is
-	// reached from the calendar header until Release C replaces it.
-	it('links the weekly plan from its header', () => {
-		const wrapper = mount(CalendarView, {
-			global: { stubs: { TaskCalendar: true, RouterLink: { props: ['to'], template: '<a :data-to="to.name"><slot /></a>' } } },
+	// CS-PLAN-091 WP-C (ADR-022): the week is a list of days with the live
+	// suggestion; the weekly plan's page and its link are gone.
+	describe('the week with the live suggestion', () => {
+		const today = todayKeyInZone('UTC')
+		const entry = (userIds, taskName) => ({ roomTaskId: 1, cycleKey: 'c1', userIds, energy: 2, overload: false, windowStartOn: today, windowEndOn: today, taskName, roomName: 'Kitchen' })
+		const mountWeek = async (suggestion) => {
+			if (suggestion) {
+				api.get.mockImplementation(answers(suggestion))
+			}
+			useUserStore().currentUser = { id: 1, nextcloudUserId: 'mom', role: 'owner' }
+			const wrapper = mount(CalendarView)
+			await flush()
+			return wrapper
+		}
+
+		it('shows the week as a list of days, without the grid and without a link to a weekly plan', async () => {
+			const wrapper = await mountWeek()
+
+			expect(wrapper.findAll('[data-testid^="calendar-agenda-day-"]')).toHaveLength(7)
+			expect(wrapper.find('[data-testid="task-calendar"]').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="calendar-open-plan"]').exists()).toBe(false)
+			expect(wrapper.get('[data-testid="calendar-hint"]').text()).toContain('A suggestion, not a plan')
 		})
 
-		const link = wrapper.get('[data-testid="calendar-open-plan"]')
-		expect(link.attributes('data-to')).toBe('scheduling')
-		expect(link.text()).toBe('Weekly plan')
+		it('reads the suggestion from today to the end of the shown week, never for a past day', async () => {
+			const wrapper = await mountWeek()
+
+			expect(suggestionCalls()).toEqual([['/api/v1/scheduling/suggestion', { params: { from: today, to: wrapper.vm.rangeEnd } }]])
+		})
+
+		it('ends the read at the horizon and reads none for a week outside it', async () => {
+			const wrapper = await mountWeek()
+			const horizonEnd = addDaysToKey(today, 13)
+
+			await wrapper.get('[data-testid="calendar-next"]').trigger('click')
+			await flush()
+			const second = suggestionCalls()[1][1].params
+			expect(second.from).toBe(wrapper.vm.rangeStart)
+			expect(second.to <= horizonEnd).toBe(true)
+
+			await wrapper.get('[data-testid="calendar-next"]').trigger('click')
+			await wrapper.get('[data-testid="calendar-next"]').trigger('click')
+			await flush()
+			// Three weeks ahead no day of the week lies inside the 14-day horizon.
+			expect(wrapper.vm.rangeStart > horizonEnd).toBe(true)
+			expect(suggestionCalls().every(([, config]) => config.params.to <= horizonEnd)).toBe(true)
+			expect(wrapper.findAll('[data-testid="calendar-agenda-entry"]')).toHaveLength(0)
+
+			await wrapper.get('[data-testid="calendar-prev"]').trigger('click')
+			await wrapper.get('[data-testid="calendar-prev"]').trigger('click')
+			await wrapper.get('[data-testid="calendar-prev"]').trigger('click')
+			await wrapper.get('[data-testid="calendar-prev"]').trigger('click')
+			await flush()
+			// A week that is over shows what was done, without a suggestion read.
+			const calls = suggestionCalls().length
+			expect(wrapper.vm.rangeEnd < today).toBe(true)
+			expect(suggestionCalls()).toHaveLength(calls)
+		})
+
+		it('shows the viewer\'s suggestion first and everyone\'s on request', async () => {
+			const wrapper = await mountWeek({
+				days: [{ day: today, entries: [entry(['mom'], 'Mine'), entry(['kid'], 'The kid\'s')] }],
+				overdue: [],
+				members: [{ userId: 'mom', day: today, budget: 6, placed: 2, doneMinor: 0, preferred: false, absent: false }],
+			})
+			const names = () => wrapper.findAll('[data-testid="calendar-agenda-entry"] .entry-name').map((name) => name.text())
+
+			expect(wrapper.get('[data-testid="calendar-filter-mine"]').attributes('aria-pressed')).toBe('true')
+			expect(names()).toEqual(['Mine'])
+			expect(wrapper.get(`[data-testid="calendar-agenda-load-${today}"]`).text()).toBe('2/6')
+
+			await wrapper.get('[data-testid="calendar-filter-all"]').trigger('click')
+			expect(names()).toHaveLength(2)
+		})
+
+		it('keeps the grid for the month and reads no suggestion there', async () => {
+			const wrapper = await mountWeek()
+			const calls = suggestionCalls().length
+
+			await wrapper.get('[data-testid="calendar-mode-month"]').trigger('click')
+			await flush()
+
+			expect(wrapper.find('[data-testid="task-calendar"]').exists()).toBe(true)
+			expect(wrapper.find('[data-testid="calendar-agenda"]').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="calendar-filter-mine"]').exists()).toBe(false)
+			expect(suggestionCalls()).toHaveLength(calls)
+		})
+
+		it('shows the error state when the suggestion cannot be read', async () => {
+			api.get.mockImplementation((path) => (path === '/api/v1/scheduling/suggestion' ? Promise.reject(new Error('down')) : answers()(path)))
+			const wrapper = await mountWeek()
+
+			expect(wrapper.find('[data-testid="calendar-error"]').exists()).toBe(true)
+			expect(wrapper.find('[data-testid="calendar-agenda"]').exists()).toBe(false)
+		})
 	})
 })

@@ -36,11 +36,6 @@
 				&gt;
 			</button>
 		</div>
-		<!-- The weekly plan left the navigation and is reached from
-		     here until the live suggestion replaces it (D-090-14). -->
-		<router-link :to="{ name: 'scheduling' }" class="plan-link" data-testid="calendar-open-plan">
-			{{ t('chorestrike', 'Weekly plan') }}
-		</router-link>
 	</div>
 </template>
 
@@ -48,9 +43,8 @@
 import { translate as t } from '@nextcloud/l10n'
 
 /**
- * The controls in the calendar header: week or month, the range with its
- * arrows, and the way to the weekly plan (CS-PLAN-090 D-090-14). Stateless;
- * the view owns the mode and the range.
+ * The controls in the calendar header: week or month and the range with
+ * its arrows. Stateless; the view owns the mode and the range.
  */
 export default {
 	name: 'CalendarControls',
@@ -81,15 +75,6 @@ export default {
 	align-items: center;
 	gap: 16px;
 	flex-wrap: wrap;
-}
-
-.plan-link {
-	display: inline-flex;
-	align-items: center;
-	min-height: 44px;
-	padding: 0 0.5rem;
-	color: var(--color-main-text);
-	font-weight: 600;
 }
 
 .calendar-mode-toggle {

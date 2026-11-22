@@ -300,15 +300,39 @@ describe('TaskRow', () => {
 		})
 	})
 
-	it('names the planned day of a row that is only possible today, and no day for a due or list row', () => {
-		const block = cycle(1, 2)
-		const possible = mountRow({ variant: 'possible', item: item({ cycle: block }) })
+	// CS-PLAN-091 WP-C: the suggestion decides the day, so a row of Today
+	// names how long its window stays open instead of a planned day.
+	describe('the window of open work on Today', () => {
+		const badge = (wrapper) => wrapper.find('[data-testid="today-window-11"]')
 
-		expect(possible.get('[data-testid="today-open-window-planned-11"]').text()).toMatch(/^planned /)
-		expect(possible.get('[data-testid="today-open-window-planned-11"]').text()).not.toContain('until')
-		expect(possible.find('[data-testid="today-overdue-days"]').exists()).toBe(false)
-		expect(mountRow({ item: item({ cycle: block }) }).find('.task-planned').exists()).toBe(false)
-		expect(mountRow({ variant: 'list', item: item({ cycle: block }) }).find('.task-planned').exists()).toBe(false)
+		it('names the day the window ends for a suggested and for a possible row, and no planned day', () => {
+			for (const variant of ['due', 'possible']) {
+				const wrapper = mountRow({ variant, item: item({ cycle: cycle(1, 2) }) })
+
+				expect(badge(wrapper).text()).toMatch(/^until \S+$/)
+				expect(wrapper.find('.task-planned').exists()).toBe(false)
+				expect(wrapper.find('[data-testid="today-overdue-days"]').exists()).toBe(false)
+			}
+		})
+
+		it('says "only today" on the last day of the window', () => {
+			expect(badge(mountRow({ item: item({ cycle: cycle(0) }) })).text()).toBe('only today')
+			expect(badge(mountRow({ variant: 'possible', item: item({ cycle: cycle(-1, 0) }) })).text()).toBe('only today')
+		})
+
+		it('names the date once the window ends a week or more from now', () => {
+			const text = badge(mountRow({ item: item({ cycle: cycle(0, 9) }) })).text()
+
+			expect(text).toMatch(/^until .*\d/)
+		})
+
+		it('shows no window on an overdue row, a list row or a completed row', () => {
+			expect(badge(mountRow({ variant: 'overdue', item: item({ cycle: cycle(-3, -1) }) })).exists()).toBe(false)
+			expect(badge(mountRow({ variant: 'list', item: item({ cycle: cycle(1, 2) }) })).exists()).toBe(false)
+			const done = item({ cycle: cycle(1, 2) })
+			done.roomTask.isActive = false
+			expect(badge(mountRow({ item: done })).exists()).toBe(false)
+		})
 	})
 
 	it('shows the due text in the task list only', () => {

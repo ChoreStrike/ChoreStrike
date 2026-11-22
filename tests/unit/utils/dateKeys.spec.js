@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals'
-import { addDaysToKey, dateKeyInZone, daysBetweenKeys, formatDayKey, formatLongDayKey, formatPastDayKey, todayKeyInZone, weekdayOfKey } from '../../../src/utils/dateKeys.js'
+import { addDaysToKey, dateKeyInZone, daysBetweenKeys, formatDayKey, formatLongDayKey, formatPastDayKey, formatWeekdayKey, todayKeyInZone, weekdayOfKey } from '../../../src/utils/dateKeys.js'
 
 describe('dateKeys (CS-PLAN-057 house-timezone day keys)', () => {
 	describe('dateKeyInZone', () => {
@@ -109,6 +109,16 @@ describe('dateKeys (CS-PLAN-057 house-timezone day keys)', () => {
 		it('shows a dash without a key', () => {
 			expect(formatDayKey('')).toBe('—')
 			expect(formatDayKey(null)).toBe('—')
+		})
+	})
+
+	describe('formatWeekdayKey', () => {
+		it('labels the weekday of the civil date of the key', () => {
+			expect(formatWeekdayKey('2026-11-10')).toBe(new Date(2026, 10, 10).toLocaleDateString(undefined, { weekday: 'short' }))
+		})
+
+		it('shows a dash without a key', () => {
+			expect(formatWeekdayKey('')).toBe('—')
 		})
 	})
 

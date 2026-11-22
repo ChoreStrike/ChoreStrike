@@ -40,12 +40,15 @@
 					<span v-if="overdueDays > 0" class="overdue-badge" data-testid="today-overdue-days">
 						{{ daysLabel(overdueDays) }}
 					</span>
+					<span v-if="windowLabel" class="window-badge" :data-testid="`today-window-${id}`">
+						{{ windowLabel }}
+					</span>
 				</span>
 				<TaskMeta :energy="taskEnergy(item)"
 					:recurrence="recurrenceLabel(task)"
 					:location="location"
 					:assignees="assignmentLabel(assignees, userStore.houseUsers)" />
-				<p v-if="plannedLabel" class="task-planned" :data-testid="variant === 'overdue' ? 'catchup-planned' : `today-open-window-planned-${id}`">
+				<p v-if="plannedLabel" class="task-planned" data-testid="catchup-planned">
 					{{ plannedLabel }}
 				</p>
 				<p v-if="variant === 'list'" class="task-due" :class="dueClass(dueRoomTask, houseStore.timezone)">
@@ -103,6 +106,7 @@ import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useUserStore } from '../../store/user.js'
 import { daysBetweenKeys, formatDayKey, todayKeyInZone } from '../../utils/dateKeys.js'
 import { assignmentLabel, cycleOf, daysLabel, dueClass, dueText, locationLabel, recurrenceLabel, taskEnergy } from '../../utils/taskDisplay.js'
+import { windowEndLabel } from '../../utils/windowLabels.js'
 
 /**
  * The one task row (CS-PLAN-091 WP-B6, FEAT-UX-040): the same row on
@@ -152,21 +156,26 @@ const location = computed(() => {
 })
 
 /**
- * The planned day of work on Today that is not simply due today, straight
- * from the cycle block: the missed day with the end of its window where
- * that is a later day (C1c), or the day a still-open window belongs to.
+ * The planned day of overdue work on Today, straight from the cycle
+ * block: the missed day, with the end of its window where that is a later
+ * day (C1c).
  */
 const plannedLabel = computed(() => {
 	const planned = cycle.value?.centreOn
-	if (!['overdue', 'possible'].includes(props.variant) || !planned) {
+	if (props.variant !== 'overdue' || !planned) {
 		return ''
 	}
 	const date = formatDayKey(planned)
 	const end = cycle.value.windowEndOn
-	return props.variant === 'overdue' && end && end !== planned
+	return end && end !== planned
 		? t('chorestrike', 'planned {date}, until {end}', { date, end: formatDayKey(end) })
 		: t('chorestrike', 'planned {date}', { date })
 })
+
+/** How long the window of open work on Today stays open: the suggestion is a day inside it. */
+const windowLabel = computed(() => (['due', 'possible'].includes(props.variant) && !done.value
+	? windowEndLabel(cycle.value?.windowEndOn, todayKeyInZone(houseStore.timezone))
+	: ''))
 
 /** Whole house-local days since the window ended; 0 on the same day. */
 const overdueDays = computed(() => {
@@ -196,6 +205,19 @@ function completeAs(split) {
 	align-items: center;
 	gap: 0.75rem;
 	padding: 0.5rem 0.75rem;
+}
+
+/* How long the window stays open: quiet, next to the name. */
+.window-badge {
+	flex: none;
+	margin-inline-start: auto;
+	padding: 0.1rem 0.5rem;
+	border-radius: 10px;
+	background: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text);
+	font-size: 0.75rem;
+	font-weight: 600;
+	white-space: nowrap;
 }
 
 .task-row-group.open {

@@ -97,8 +97,7 @@ test.describe('Layout clearance', () => {
 					{ path: `#/tasks?group=room&room=${await firstRoomId(page)}`, ready: 'task-manager-view', content: 'room-task-list' },
 					{ path: '#/insights', ready: 'insights-view', content: 'member-fairness-table' },
 					{ path: '#/arcade', ready: 'arcade-view' },
-					{ path: '#/scheduling', ready: 'scheduling-view' },
-					{ path: '#/calendar', ready: 'calendar-view' },
+					{ path: '#/calendar', ready: 'calendar-view', content: 'calendar-agenda' },
 					{ path: '#/absence', ready: 'absence-view', content: 'absence-list' },
 					{ path: '#/settings', ready: 'settings-view' },
 				]

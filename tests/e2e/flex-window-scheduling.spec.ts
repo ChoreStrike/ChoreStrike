@@ -4,8 +4,12 @@
  */
 
 import { expect, test } from '@playwright/test'
-import { openPlanningSettings, openWeeklyPlan } from './fixtures/planning.ts'
+import { houseDateOffset } from './fixtures/house-clock.js'
+import { openCalendarWeek, openPlanningSettings } from './fixtures/planning.ts'
 
+// CS-PLAN-091 WP-C (ADR-022): the calendar's week is the live suggestion,
+// each task on a day inside its flex window. The weekly plan's page with its
+// own week grid is gone.
 test.describe('Flex Window Scheduling', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
@@ -14,74 +18,79 @@ test.describe('Flex Window Scheduling', () => {
 		await page.getByTestId('today-view').waitFor({ state: 'visible' })
 	})
 
-	// CS-PLAN-090 D-090-14: the weekly plan left the navigation and is
-	// reached from the calendar header, with a way back.
-	test('the weekly plan opens from the calendar and leads back to it', async ({ page }) => {
+	test('the calendar opens from the navigation and links no weekly plan', async ({ page }) => {
 		await expect(page.getByTestId('nav-scheduling')).toHaveCount(0)
 
-		await openWeeklyPlan(page)
-		await expect(page).toHaveURL(/#\/scheduling/)
+		await page.getByTestId('nav-calendar').click()
 
-		await page.getByTestId('scheduling-back').click()
 		await expect(page.getByTestId('calendar-view')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('calendar-agenda')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('calendar-open-plan')).toHaveCount(0)
 	})
 
-	test('scheduling view loads with calendar section', async ({ page }) => {
-		await expect(async () => {
-			await openWeeklyPlan(page)
-		}).toPass({ timeout: 45000 })
-		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
+	test('the calendar week is a list of days with the suggestion', async ({ page }) => {
+		await openCalendarWeek(page)
+
+		await expect(page.locator('[data-testid^="calendar-agenda-day-"]')).toHaveCount(7)
+		await expect(page.getByTestId('calendar-hint')).toBeVisible()
+		await expect(page.getByTestId('task-calendar')).toHaveCount(0)
 	})
 
-	test('calendar shows week navigation controls', async ({ page }) => {
-		await expect(async () => {
-			await openWeeklyPlan(page)
-		}).toPass({ timeout: 45000 })
+	test('calendar shows week navigation controls and the filter', async ({ page }) => {
+		await openCalendarWeek(page)
 
-		await expect(page.getByTestId('previous-week-button')).toBeVisible()
-		await expect(page.getByTestId('next-week-button')).toBeVisible()
-		await expect(page.getByTestId('today-button')).toBeVisible()
+		await expect(page.getByTestId('calendar-prev')).toBeVisible()
+		await expect(page.getByTestId('calendar-next')).toBeVisible()
+		await expect(page.getByTestId('calendar-range-label')).toBeVisible()
+		await expect(page.getByTestId('calendar-filter-mine')).toHaveAttribute('aria-pressed', 'true')
+		await expect(page.getByTestId('calendar-filter-all')).toHaveAttribute('aria-pressed', 'false')
 	})
 
 	test('calendar navigates between weeks', async ({ page }) => {
-		await expect(async () => {
-			await openWeeklyPlan(page)
-		}).toPass({ timeout: 45000 })
+		await openCalendarWeek(page)
 
-		const weekRange = page.getByTestId('week-range')
-		const initialText = await weekRange.textContent()
+		const range = page.getByTestId('calendar-range-label')
+		const initialText = await range.textContent()
 
-		await page.getByTestId('next-week-button').click()
-		const nextText = await weekRange.textContent()
-		expect(nextText).not.toBe(initialText)
+		await page.getByTestId('calendar-next').click()
+		await expect(range).not.toHaveText(initialText!)
 
-		await page.getByTestId('previous-week-button').click()
-		const backText = await weekRange.textContent()
-		expect(backText).toBe(initialText)
+		await page.getByTestId('calendar-prev').click()
+		await expect(range).toHaveText(initialText!)
 	})
 
-	test('calendar returns to current week with today button', async ({ page }) => {
-		await expect(async () => {
-			await openWeeklyPlan(page)
-		}).toPass({ timeout: 45000 })
+	test('today is marked in the current week and carries the own energy', async ({ page }) => {
+		await openCalendarWeek(page)
+		const today = houseDateOffset(0, 'UTC')
 
-		await page.getByTestId('next-week-button').click()
-		await page.getByTestId('today-button').click()
+		const section = page.getByTestId(`calendar-agenda-day-${today}`)
+		await expect(section).toBeVisible()
+		await expect(section).toHaveClass(/today/)
+		// Placed energy against the day's energy, as "placed/budget".
+		await expect(page.getByTestId(`calendar-agenda-load-${today}`)).toHaveText(/^\d+\/\d+$/)
 
-		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
+		// A week ahead no day is today, and the list comes back to it.
+		await page.getByTestId('calendar-next').click()
+		await expect(page.getByTestId(`calendar-agenda-day-${today}`)).toHaveCount(0)
+		await page.getByTestId('calendar-prev').click()
+		await expect(page.getByTestId(`calendar-agenda-day-${today}`)).toHaveClass(/today/)
 	})
 
-	// CS-PLAN-091 / ADR-021: the schedule planner (preview and apply of a
-	// generated plan) is retired; the weekly plan keeps its calendar.
-	test('the weekly plan has no schedule planner any more', async ({ page }) => {
-		await expect(async () => {
-			await openWeeklyPlan(page)
-		}).toPass({ timeout: 45000 })
+	test('beyond the horizon the week shows what is due and says where the suggestion ends', async ({ page }) => {
+		await openCalendarWeek(page)
+		await expect(page.getByTestId('calendar-agenda-beyond')).toHaveCount(0)
 
-		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
-		await expect(page.getByTestId('schedule-planner')).toHaveCount(0)
-		await expect(page.getByTestId('preview-plan-button')).toHaveCount(0)
-		await expect(page.getByTestId('apply-plan-button')).toHaveCount(0)
+		// Three weeks ahead every day lies beyond the 14 days of the suggestion.
+		for (let week = 0; week < 3; week++) {
+			await page.getByTestId('calendar-next').click()
+		}
+
+		await expect(page.getByTestId('calendar-agenda-beyond')).toBeVisible({ timeout: 15000 })
+		await expect(page.locator('[data-testid^="calendar-agenda-load-"]')).toHaveCount(0)
+		// The daily seed tasks are due on every day, also there.
+		await expect(page.getByTestId('calendar-filter-all')).toBeVisible()
+		await page.getByTestId('calendar-filter-all').click()
+		await expect(page.getByTestId('calendar-agenda-entry').first()).toBeVisible({ timeout: 15000 })
 	})
 
 	test('energy budget settings persist slider changes', async ({ page }) => {

@@ -6,10 +6,12 @@
  */
 declare(strict_types=1);
 
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Service\CoinMultiplierService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
+use OCA\ChoreStrike\Service\SuggestionService;
 use OCA\ChoreStrike\Service\WeeklyGoalService;
 use OCP\IDBConnection;
 
@@ -131,7 +133,8 @@ function countRows(string $table): int {
  * together, and one completion closes exactly one cycle while the stored
  * timeline keeps every row. The coin multipliers work on the upgraded
  * household: a factor the owner sets is frozen with that completion and
- * pays its coins, and the wallets of everyone else stay as stored.
+ * pays its coins, and the wallets of everyone else stay as stored. Last,
+ * the live suggestion reads the upgraded household.
  */
 function postcheckCycles(int $houseId): string {
 	$before = json_decode((string)file_get_contents(BEFORE), true, 512, JSON_THROW_ON_ERROR);
@@ -180,7 +183,28 @@ function postcheckCycles(int $houseId): string {
 	foreach (['chorestrike_occurrences', 'chorestrike_occ_members', 'chorestrike_agreements', 'chorestrike_schedule_revs', 'chorestrike_chk_progress'] as $table) {
 		check(countRows($table) === count($before[$table]), 'The completion changed the stored timeline in ' . $table);
 	}
-	return $windows . ' first windows read; a completion closed cycle ' . $block['cycleKey'] . ' and left the stored timeline alone; ' . $multipliers;
+	return $windows . ' first windows read; a completion closed cycle ' . $block['cycleKey'] . ' and left the stored timeline alone; ' . $multipliers
+		. '; ' . postcheckSuggestion($houseId, $before);
+}
+
+/**
+ * The live suggestion on the upgraded household (CS-PLAN-091 WP-C,
+ * ADR-022): its first read places the upgraded windows over the horizon
+ * and stores today's list once; a second read keeps that list. The stored
+ * timeline keeps every row.
+ */
+function postcheckSuggestion(int $houseId, array $before): string {
+	$house = \OC::$server->get(HouseMapper::class)->find($houseId);
+	$service = \OC::$server->get(SuggestionService::class);
+	check(countRows('chorestrike_suggestion_days') === 0, 'A suggestion day was stored before the first read');
+	$first = $service->view($house, new DateTime());
+	$second = $service->view($house, new DateTime());
+	check(countRows('chorestrike_suggestion_days') === 1, 'The first read did not store today exactly once');
+	check($first->plan->placements !== [] && $first->today() == $second->today(), 'The list of today did not hold between two reads');
+	foreach (['chorestrike_occurrences', 'chorestrike_occ_members', 'chorestrike_agreements', 'chorestrike_schedule_revs'] as $table) {
+		check(countRows($table) === count($before[$table]), 'The suggestion changed the stored timeline in ' . $table);
+	}
+	return count($first->plan->placements) . ' cycles placed over the horizon, today stored once';
 }
 
 /**

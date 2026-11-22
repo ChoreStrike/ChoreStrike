@@ -69,18 +69,35 @@ describe('Help entry and glossary', () => {
 		expect(wrapper.text()).toContain('reserve the Coins first')
 		expect(wrapper.find('[data-testid="help-glossary"]').exists()).toBe(false)
 
-		// The shares topic carries the honest share arithmetic
-		// (10 Coins once, split — never multiplied per helper).
-		const shares = mount(HelpEntry, { props: { variant: 'context', topic: 'shares' } })
-		await shares.find('button').trigger('click')
-		expect(shares.text()).toContain('3.4/3.3/3.3')
-		expect(shares.text()).toContain('before coin factors and bonus days')
+	})
+
+	// RF-091-13: the work shares left the page of the weekly plan with it and
+	// are a term of the glossary, with the honest share arithmetic (10 Coins
+	// once, split — never multiplied per helper).
+	it('explains work shares in the glossary, no longer as a context topic', () => {
+		const glossary = mount(HelpGlossary)
+		const shares = glossary.get('[data-testid="help-term-shares"]').text()
+		expect(shares).toContain('3.4/3.3/3.3')
+		expect(shares).toContain('before coin factors and bonus days')
+
+		const entry = mount(HelpEntry, { props: { variant: 'context', topic: 'shares' } })
+		expect(entry.vm.topics.shares).toBeUndefined()
+	})
+
+	// CS-PLAN-091 WP-C: Today shows the suggestion, and the glossary says what it is.
+	it('explains the suggestion and names it on Today', () => {
+		const glossary = mount(HelpGlossary)
+		expect(glossary.get('[data-testid="help-term-today"]').text()).toContain('what is suggested for today')
+		const suggestion = glossary.get('[data-testid="help-term-suggestion"]').text()
+		expect(suggestion).toContain('preferred days first')
+		expect(suggestion).toContain('stays on today\'s list')
+		expect(suggestion).toContain('you may do any task on any day')
 	})
 
 	// ADR-021 (CS-PLAN-091 WP-B7): windows replaced agreed days and catch-up
 	// in every topic, and early work is on time.
 	it('explains due windows without agreements or catch-up in every topic', async () => {
-		for (const topic of ['setup', 'shares', 'progress', 'catalog', 'owner-pricing']) {
+		for (const topic of ['setup', 'progress', 'catalog', 'owner-pricing']) {
 			const wrapper = mount(HelpEntry, { props: { variant: 'context', topic } })
 			await wrapper.find('button').trigger('click')
 			expect(wrapper.find('.topic-body').text()).not.toMatch(/agreement|catch-up/i)
@@ -91,8 +108,8 @@ describe('Help entry and glossary', () => {
 		expect(progress.text()).toContain('entirely inside your absence is neutral')
 	})
 
-	it('carries the essential onboarding topics (setup, shares, progress, catalog, owner pricing)', async () => {
-		for (const topic of ['setup', 'shares', 'progress', 'catalog', 'owner-pricing']) {
+	it('carries the essential onboarding topics (setup, progress, catalog, owner pricing)', async () => {
+		for (const topic of ['setup', 'progress', 'catalog', 'owner-pricing']) {
 			const wrapper = mount(HelpEntry, { props: { variant: 'context', topic } })
 			expect(wrapper.find(`[data-testid="help-context-${topic}"]`).exists()).toBe(true)
 			await wrapper.find('button').trigger('click')

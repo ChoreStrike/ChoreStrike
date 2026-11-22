@@ -152,6 +152,28 @@ class WindowService {
 	}
 
 	/**
+	 * The cycle that follows a cycle once it is done on a day — a
+	 * projection for the live suggestion (ADR-022 decision 2). A fixed rule
+	 * continues on its next rule day whatever day the work is done; an
+	 * after-completion rule hangs the next window on that day. Null for a
+	 * one-time task, a bonus task and a bounded rule that ended.
+	 *
+	 * @return CurrentCycle|null A projected after-completion cycle carries a `p<Y-m-d>` key, which is no target
+	 */
+	public function cycleAfter(RoomTask $roomTask, Task $task, CurrentCycle $cycle, string $doneOn, \DateTimeZone $timeZone): ?CurrentCycle {
+		$rule = CycleRule::fromTask($task);
+		if ($rule->once || $rule->bonus) {
+			return null;
+		}
+		$centre = $rule->fixed
+			? $this->calculator->firstFixedDayOnOrAfter($rule, $this->anchorKey($roomTask, $timeZone), RecurrenceCalculator::dayAfter($cycle->centreOn))
+			: $this->nextAfterCompletion($rule, $doneOn);
+		return $centre === null
+			? null
+			: $this->window($rule->fixed ? CurrentCycle::keyOn($centre) : CurrentCycle::keyProjected($centre), $centre, $rule->flexDays, $roomTask);
+	}
+
+	/**
 	 * The `cycle` block of a room-task row (API reference, Room Tasks): the
 	 * completion target and what the row shows of its window. Null for a
 	 * task without a cycle that is neither asleep nor a bonus task.

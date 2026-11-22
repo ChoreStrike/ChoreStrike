@@ -25,50 +25,83 @@ jest.mock('../../../src/utils/currentUser.js', () => ({
 	resolveCurrentUser: jest.fn(() => ({ uid: 'alice', displayName: 'Alice', userId: 'alice' })),
 }))
 
+jest.mock('../../../src/utils/logger.js', () => ({
+	logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
+}))
+
 describe('AvailabilitySettings', () => {
 	let store
+
+	const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		store = useSchedulingStore()
 		jest.clearAllMocks()
+		// The component reads the members when it opens: the read answers
+		// what the test seeded.
+		api.get.mockImplementation(async () => store.memberAvailability)
 	})
 
-	const mountComponent = () => {
-		return mount(AvailabilitySettings, {
-			global: {
-				stubs: {
-					Modal: true,
-				},
-			},
-		})
+	const mountComponent = async (options = { global: { stubs: { Modal: true } } }) => {
+		const wrapper = mount(AvailabilitySettings, options)
+		await flush()
+		return wrapper
 	}
 
-	it('renders with data-testid', () => {
-		const wrapper = mountComponent()
+	it('renders with data-testid', async () => {
+		const wrapper = await mountComponent()
 		expect(wrapper.find('[data-testid="availability-settings"]').exists()).toBe(true)
 	})
 
-	it('shows empty state when no members', () => {
+	// CS-PLAN-091 WP-C: the editor moved to the household settings and reads
+	// the members itself, since the weekly plan's page no longer does.
+	it('reads the members when it opens and offers a retry when the read fails', async () => {
+		api.get.mockRejectedValueOnce(new Error('down'))
+		const wrapper = await mountComponent()
+
+		expect(api.get).toHaveBeenCalledWith('/api/v1/scheduling/members')
+		expect(wrapper.find('[data-testid="availability-error"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
+
+		store.memberAvailability = [{ userId: 'alice', userName: 'Alice', weekdayAvailability: {}, energyBudget: {} }]
+		await wrapper.findComponent({ name: 'ErrorState' }).vm.$emit('retry')
+		await flush()
+
+		expect(wrapper.find('[data-testid="availability-error"]').exists()).toBe(false)
+		expect(wrapper.text()).toContain('Alice')
+	})
+
+	it('marks a member\'s preferred days', async () => {
+		store.memberAvailability = [
+			{ userId: 'alice', userName: 'Alice', weekdayAvailability: {}, energyBudget: {}, preferredWeekdays: ['wednesday', 'saturday'] },
+		]
+		const wrapper = await mountComponent()
+
+		const slots = wrapper.findAll('[data-testid="availability-slot"]')
+		expect(slots.filter((slot) => slot.find('[data-testid="availability-preferred"]').exists()).map((slot) => slots.indexOf(slot))).toEqual([2, 5])
+	})
+
+	it('shows empty state when no members', async () => {
 		store.memberAvailability = []
-		const wrapper = mountComponent()
+		const wrapper = await mountComponent()
 		expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
 	})
 
-	it('renders member cards when members exist', () => {
+	it('renders member cards when members exist', async () => {
 		store.memberAvailability = [
 			{ userId: 'alice', userName: 'Alice', weekdayAvailability: { monday: true }, energyBudget: { monday: 10 } },
 		]
-		const wrapper = mountComponent()
+		const wrapper = await mountComponent()
 		expect(wrapper.find('.member-card').exists()).toBe(true)
 		expect(wrapper.text()).toContain('Alice')
 	})
 
-	it('renders availability grid with testid', () => {
+	it('renders availability grid with testid', async () => {
 		store.memberAvailability = [
 			{ userId: 'alice', userName: 'Alice', weekdayAvailability: { monday: true }, energyBudget: { monday: 10 } },
 		]
-		const wrapper = mountComponent()
+		const wrapper = await mountComponent()
 		expect(wrapper.find('[data-testid="availability-grid"]').exists()).toBe(true)
 	})
 
@@ -76,16 +109,16 @@ describe('AvailabilitySettings', () => {
 		store.memberAvailability = [
 			{ userId: 'alice', userName: 'Alice', weekdayAvailability: { monday: true }, energyBudget: { monday: 10 } },
 		]
-		const wrapper = mountComponent()
+		const wrapper = await mountComponent()
 		await wrapper.vm.$nextTick()
 		expect(wrapper.find('[data-testid="edit-availability-button"]').exists()).toBe(true)
 	})
 
-	it('renders availability slots with testid', () => {
+	it('renders availability slots with testid', async () => {
 		store.memberAvailability = [
 			{ userId: 'alice', userName: 'Alice', weekdayAvailability: { monday: true }, energyBudget: { monday: 10 } },
 		]
-		const wrapper = mountComponent()
+		const wrapper = await mountComponent()
 		expect(wrapper.findAll('[data-testid="availability-slot"]').length).toBe(7)
 	})
 
@@ -106,10 +139,9 @@ describe('AvailabilitySettings', () => {
 			},
 		]
 		api.put.mockResolvedValue({})
-		api.get.mockResolvedValue([])
 
 		// Full mount: the edit form lives inside the (unstubbed) modal.
-		const wrapper = mount(AvailabilitySettings)
+		const wrapper = await mountComponent({})
 		await wrapper.vm.$nextTick()
 		await wrapper.find('[data-testid="edit-availability-button"]').trigger('click')
 
@@ -148,9 +180,8 @@ describe('AvailabilitySettings', () => {
 			},
 		]
 		api.put.mockResolvedValue({})
-		api.get.mockResolvedValue([])
 
-		const wrapper = mount(AvailabilitySettings)
+		const wrapper = await mountComponent({})
 		await wrapper.vm.$nextTick()
 		await wrapper.find('[data-testid="edit-availability-button"]').trigger('click')
 
@@ -185,9 +216,8 @@ describe('AvailabilitySettings', () => {
 			},
 		]
 		api.put.mockResolvedValue({})
-		api.get.mockResolvedValue([])
 
-		const wrapper = mount(AvailabilitySettings)
+		const wrapper = await mountComponent({})
 		await wrapper.vm.$nextTick()
 		await wrapper.find('[data-testid="edit-availability-button"]').trigger('click')
 

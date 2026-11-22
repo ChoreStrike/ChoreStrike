@@ -117,6 +117,21 @@ export function formatDayKey(dateKey) {
 }
 
 /**
+ * Short weekday of a `YYYY-MM-DD` key ("Tue" in the browser's locale),
+ * read as a civil date like `formatDayKey`.
+ *
+ * @param {string} dateKey House-local `YYYY-MM-DD` key.
+ * @return {string} The label, or `'—'` without a key.
+ */
+export function formatWeekdayKey(dateKey) {
+	if (!dateKey) {
+		return '—'
+	}
+	const [year, month, day] = dateKey.split('-').map(Number)
+	return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short' })
+}
+
+/**
  * Short display label of a day of a history: the year joins it when the
  * day lies in another year than today (RF-091-09).
  *

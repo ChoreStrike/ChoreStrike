@@ -56,7 +56,7 @@ msgstr ""
 msgid "A JSON request body is required"
 msgstr ""
 
-msgid "A daily summary of how many of your tasks are planned for the day."
+msgid "A daily summary of how many tasks are suggested to you for the day or overdue."
 msgstr ""
 
 msgid "A deleted category no longer appears; its tasks count as \"Other\" until someone gives them a new category."
@@ -96,6 +96,9 @@ msgid "A sub-task needs a label"
 msgstr ""
 
 msgid "A subjectUserId is required"
+msgstr ""
+
+msgid "A suggestion, not a plan: it adapts as soon as something is done or postponed."
 msgstr ""
 
 msgid "A summary time is required while a summary is enabled"
@@ -150,6 +153,9 @@ msgid "Absence not found"
 msgstr ""
 
 msgid "Absence of {name} {from} – {to} removed"
+msgstr ""
+
+msgid "Absent"
 msgstr ""
 
 msgid "Accounts and roles"
@@ -347,7 +353,7 @@ msgstr ""
 msgid "At least one room is required per floor"
 msgstr ""
 
-msgid "At least one section (weekdayAvailability or energyBudget) must be provided"
+msgid "At least one section (weekdayAvailability, energyBudget or preferredWeekdays) must be provided"
 msgstr ""
 
 msgid "Availability settings saved successfully"
@@ -372,9 +378,6 @@ msgid "Back"
 msgstr ""
 
 msgid "Back to requests"
-msgstr ""
-
-msgid "Back to the calendar"
 msgstr ""
 
 msgid "Balance clarification"
@@ -470,9 +473,6 @@ msgstr ""
 msgid "Cannot demote yourself"
 msgstr ""
 
-msgid "Capacity"
-msgstr ""
-
 msgid "Categories sort the tasks, and the task list can filter by them. \"Other\" collects every task without a fitting category."
 msgstr ""
 
@@ -522,6 +522,9 @@ msgid "Choose a reason"
 msgstr ""
 
 msgid "Choose on which days you are available for tasks"
+msgstr ""
+
+msgid "ChoreStrike suggests a day inside its window for every task: one of your preferred days first, else the day you have the most energy left. The suggestion adapts when something is done, postponed or changed; what it suggested for today stays on today's list. It is advice — you may do any task on any day."
 msgstr ""
 
 msgid "Clean"
@@ -965,7 +968,7 @@ msgstr ""
 msgid "Each game needs a threshold from 0 to %1$s finished chores."
 msgstr ""
 
-msgid "Each person has an energy budget per day; the weekly plan shows when tasks exceed it. By default that is {weekday} energy on weekdays and {weekend} at weekends."
+msgid "Each person has an energy budget per day; Today and the calendar show when the suggested work exceeds it. By default that is {weekday} energy on weekdays and {weekend} at weekends."
 msgstr ""
 
 msgid "Each person needs an existing Nextcloud account with this email address."
@@ -1421,9 +1424,6 @@ msgstr ""
 msgid "Instructions"
 msgstr ""
 
-msgid "Intelligent task distribution based on member availability and preferences"
-msgstr ""
-
 msgid "Invalid active from date"
 msgstr ""
 
@@ -1682,9 +1682,6 @@ msgstr ""
 msgid "More"
 msgstr ""
 
-msgid "More chores are planned than energy is available. These tasks would be deferred first (lowest priority first):"
-msgstr ""
-
 msgid "More flex days"
 msgstr ""
 
@@ -1817,9 +1814,6 @@ msgstr ""
 msgid "No longer available"
 msgstr ""
 
-msgid "No member data available. Load scheduling data first."
-msgstr ""
-
 msgid "No members yet — invite your family to get started."
 msgstr ""
 
@@ -1880,7 +1874,7 @@ msgstr ""
 msgid "Not needed"
 msgstr ""
 
-msgid "Nothing due today"
+msgid "Nothing done"
 msgstr ""
 
 msgid "Nothing here yet"
@@ -1890,6 +1884,12 @@ msgid "Nothing is planned for anyone during this time."
 msgstr ""
 
 msgid "Nothing is planned for today."
+msgstr ""
+
+msgid "Nothing is suggested for today"
+msgstr ""
+
+msgid "Nothing planned"
 msgstr ""
 
 msgid "Notification preferences saved"
@@ -2012,9 +2012,6 @@ msgstr ""
 msgid "Overdue · {count}"
 msgstr ""
 
-msgid "Overloaded days ahead"
-msgstr ""
-
 msgid "Owner"
 msgstr ""
 
@@ -2066,9 +2063,6 @@ msgstr ""
 msgid "Pick up toys first, then vacuum or sweep the whole floor, edges included."
 msgstr ""
 
-msgid "Planned energy ({planned}) exceeds the available capacity ({capacity})"
-msgstr ""
-
 msgid "Planned for {date}"
 msgstr ""
 
@@ -2076,6 +2070,9 @@ msgid "Planned from {from} to {to}"
 msgstr ""
 
 msgid "Planning"
+msgstr ""
+
+msgid "Planning of the members"
 msgstr ""
 
 msgid "Play"
@@ -2099,10 +2096,19 @@ msgstr ""
 msgid "Postpone"
 msgstr ""
 
+msgid "Prefer {day}"
+msgstr ""
+
 msgid "Preference row missing after update"
 msgstr ""
 
 msgid "Preferences saved"
+msgstr ""
+
+msgid "Preferred days"
+msgstr ""
+
+msgid "Preferred days must be a list of weekdays"
 msgstr ""
 
 msgid "Press and hold to confirm"
@@ -2450,9 +2456,6 @@ msgstr ""
 msgid "Saving…"
 msgstr ""
 
-msgid "Schedule Calendar"
-msgstr ""
-
 msgid "Score"
 msgstr ""
 
@@ -2544,9 +2547,6 @@ msgid "Slate"
 msgstr ""
 
 msgid "Sleeping"
-msgstr ""
-
-msgid "Smart Scheduling"
 msgstr ""
 
 msgid "Smooth the fitted sheet, tuck in the flat sheet, fluff the pillows, and straighten the blanket."
@@ -2658,6 +2658,12 @@ msgid "Sub-tasks"
 msgstr ""
 
 msgid "Suggest affordable, family-agreed treats that are not essentials, measured against the child's own realistic effort and share — not adult output. Care, affection, meals, rest and necessary chore exemptions are not purchasable rewards. There are no automatic catalog templates and no household earning-rate controls."
+msgstr ""
+
+msgid "Suggested for today"
+msgstr ""
+
+msgid "Suggestion"
 msgstr ""
 
 msgid "Sun"
@@ -2939,6 +2945,9 @@ msgstr ""
 msgid "The last action did not return a result. You can safely retry it — it will not be applied twice."
 msgstr ""
 
+msgid "The last day must not lie before the first day"
+msgstr ""
+
 msgid "The list names a category that does not exist."
 msgstr ""
 
@@ -3033,6 +3042,15 @@ msgid "The shared goal of the whole household for this week."
 msgstr ""
 
 msgid "The shares differ from the suggested split and must be confirmed"
+msgstr ""
+
+msgid "The star marks your preferred days. The suggestion plans work there first."
+msgstr ""
+
+msgid "The suggestion looks {days} days ahead. Later days show when the work is due."
+msgstr ""
+
+msgid "The suggestion plans work on preferred days first."
 msgstr ""
 
 msgid "The supplied settlement reference does not match this request"
@@ -3440,9 +3458,6 @@ msgstr ""
 msgid "Weekly organization digest"
 msgstr ""
 
-msgid "Weekly plan"
-msgstr ""
-
 msgid "Weekly ranking"
 msgstr ""
 
@@ -3572,7 +3587,10 @@ msgstr ""
 msgid "Your changes were kept — someone else updated the settings in the meantime. Review the server values and save again."
 msgstr ""
 
-msgid "Your day at a glance: your own status, what is overdue, what is due today and what is already possible. Upcoming work is in the calendar."
+msgid "Your day at a glance: your own status, what is overdue, what is suggested for today and what is already possible. Upcoming work is in the calendar."
+msgstr ""
+
+msgid "Your day holds {capacity} energy; {total} is suggested or still outstanding. That is too much for one day — postpone or share what does not fit."
 msgstr ""
 
 msgid "Your draft"
@@ -3620,7 +3638,10 @@ msgstr ""
 msgid "days"
 msgstr ""
 
-msgid "days available"
+msgid "does not fit"
+msgstr ""
+
+msgid "done"
 msgstr ""
 
 msgid "e.g. 12.50"
@@ -3668,6 +3689,15 @@ msgstr ""
 msgid "on day"
 msgstr ""
 
+msgid "only today"
+msgstr ""
+
+msgid "only {day}"
+msgstr ""
+
+msgid "overdue"
+msgstr ""
+
 msgid "participants must be a non-empty array of {userId, sharePct}"
 msgstr ""
 
@@ -3678,6 +3708,9 @@ msgid "planned {date}"
 msgstr ""
 
 msgid "planned {date}, until {end}"
+msgstr ""
+
+msgid "preferred"
 msgstr ""
 
 msgid "priceMinor must be a positive whole number of hundredths"
@@ -3743,10 +3776,16 @@ msgstr ""
 msgid "total energy/week"
 msgstr ""
 
+msgid "until {day}"
+msgstr ""
+
 msgid "week"
 msgstr ""
 
 msgid "weeks"
+msgstr ""
+
+msgid "{available}/7 days available"
 msgstr ""
 
 msgid "{count} days earlier or later count as on time."
@@ -3812,6 +3851,12 @@ msgstr ""
 msgid "{percent}%"
 msgstr ""
 
+msgid "{placed} of {budget} energy placed"
+msgstr ""
+
+msgid "{placed} of {budget} energy placed: more than the day holds"
+msgstr ""
+
 msgid "{planned} of {capacity}"
 msgstr ""
 
@@ -3830,7 +3875,10 @@ msgstr ""
 msgid "{task}: entry deleted"
 msgstr ""
 
-msgid "{total} of {capacity} daily capacity is planned or still outstanding. It is too much for one day — the house owner can replan it."
+msgid "{used} of {budget} energy done or placed"
+msgstr ""
+
+msgid "{used} of {budget} energy done or placed: more than the day holds"
 msgstr ""
 
 msgid "× {factor}"

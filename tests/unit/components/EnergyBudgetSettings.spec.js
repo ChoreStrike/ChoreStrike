@@ -176,4 +176,57 @@ describe('EnergyBudgetSettings', () => {
 		await flushPromises()
 		expect(wrapper.find('[data-testid="energy-budget-save-error"]').exists()).toBe(false)
 	})
+
+	// CS-PLAN-091 WP-C (ADR-022 decision 5): the preferred days are saved with the energy.
+	describe('preferred days', () => {
+		it('shows the stored days and explains the star', async () => {
+			store.preferredWeekdays = ['wednesday']
+			const wrapper = mountComponent()
+			await wrapper.vm.$nextTick()
+
+			expect(wrapper.get('[data-testid="preferred-wednesday"]').attributes('aria-pressed')).toBe('true')
+			expect(wrapper.get('[data-testid="preferred-days-hint"]').text()).toContain('The suggestion plans work there first')
+		})
+
+		it('enables Save on a star alone and sends the days in the order of the week', async () => {
+			store.energyBudget = fullBudget()
+			store.preferredWeekdays = ['wednesday']
+			api.put.mockResolvedValue({ energyBudget: fullBudget(), preferredWeekdays: ['monday', 'wednesday'] })
+			const wrapper = mountComponent()
+			await wrapper.vm.$nextTick()
+			const save = wrapper.get('[data-testid="save-energy-budget-button"]')
+			expect(save.attributes('disabled')).toBeDefined()
+
+			await wrapper.get('[data-testid="preferred-monday"]').trigger('click')
+			expect(save.attributes('disabled')).toBeUndefined()
+			await save.trigger('click')
+			await flushPromises()
+
+			expect(api.put).toHaveBeenCalledWith('/api/v1/scheduling/preferences', {
+				energyBudget: fullBudget(),
+				preferredWeekdays: ['monday', 'wednesday'],
+			})
+			expect(store.preferredWeekdays).toEqual(['monday', 'wednesday'])
+			expect(wrapper.get('[data-testid="preferred-monday"]').attributes('aria-pressed')).toBe('true')
+		})
+
+		it('sends an empty list when the last star is taken away, and no list when none changed', async () => {
+			store.energyBudget = fullBudget()
+			store.preferredWeekdays = ['wednesday']
+			api.put.mockResolvedValue({ energyBudget: fullBudget(), preferredWeekdays: [] })
+			const wrapper = mountComponent()
+			await wrapper.vm.$nextTick()
+
+			await wrapper.get('[data-testid="preferred-wednesday"]').trigger('click')
+			await wrapper.get('[data-testid="save-energy-budget-button"]').trigger('click')
+			await flushPromises()
+			expect(api.put).toHaveBeenLastCalledWith('/api/v1/scheduling/preferences', { energyBudget: fullBudget(), preferredWeekdays: [] })
+
+			api.put.mockResolvedValue({ energyBudget: fullBudget({ monday: 5 }), preferredWeekdays: [] })
+			await wrapper.find('[data-testid="energy-input-monday"]').setValue(5)
+			await wrapper.get('[data-testid="save-energy-budget-button"]').trigger('click')
+			await flushPromises()
+			expect(api.put).toHaveBeenLastCalledWith('/api/v1/scheduling/preferences', { energyBudget: fullBudget({ monday: 5 }) })
+		})
+	})
 })

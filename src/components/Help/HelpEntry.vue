@@ -72,9 +72,8 @@ import HelpGlossary from './HelpGlossary.vue'
  * - `navigation` (default): the navigation entry opening the plain
  *   glossary — always reachable, never intrusive.
  * - `context`: a small inline trigger rendering ONE of the essential
- *   contextual explanations (account/role, work shares, progress and
- *   windows, catalog gates, owner pricing) next to the surface it
- *   explains. The topics are manually reachable only — no auto-started
+ *   contextual explanations (account/role, progress and windows,
+ *   catalog gates, owner pricing) next to the surface it explains. The topics are manually reachable only — no auto-started
  *   tour, no persisted dismissal state.
  *
  * Both variants use the shared named Modal (focus trap, Escape and
@@ -97,9 +96,8 @@ export default {
 		},
 
 		/**
-		 * The contextual topic id ('setup' | 'shares' | 'progress' |
-		 * 'catalog' | 'owner-pricing'). Null/unknown opens the full
-		 * glossary.
+		 * The contextual topic id ('setup' | 'progress' | 'catalog' |
+		 * 'owner-pricing'). Null/unknown opens the full glossary.
 		 */
 		topic: {
 			type: String,
@@ -128,11 +126,6 @@ export default {
 				setup: {
 					title: t('chorestrike', 'Accounts and roles'),
 					body: t('chorestrike', 'Every person — including a child — needs their own existing Nextcloud account; creating accounts and signing in belongs to Nextcloud. Wizard invites add members, and an owner sets the child role in the member settings. On a shared device everyone uses their own sign-in — there are no local child profiles.'),
-				},
-
-				shares: {
-					title: t('chorestrike', 'Work shares'),
-					body: t('chorestrike', 'People who do a chore together share it. Actual shares split the total work; they never multiply it: a total energy-1 chore earns 10 Coins once, so 34/33/33% give 3.4/3.3/3.3 Coins, before coin factors and bonus days.'),
 				},
 
 				progress: {

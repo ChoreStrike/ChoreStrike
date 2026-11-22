@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; RF-091-12 and RF-091-13 open for WP-C; next: WP-C)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; next: RF-091-14, then the WP-G candidate)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -678,6 +678,162 @@ RF-091-11 stays open for the operator.
   deletion of a household absence, which only the shortening had covered. The tests of the command's own rules (clamp to today, no earlier end, a child's
   direct acknowledgment, the role refusals) went with it.
 
+### Implementation decisions (WP-C, for the GUI review and the interim review)
+
+Taken while implementing; each is open to the operator's GUI review of *Today* and the
+calendar and to the interim review of WP-C. ADR-022 is refined in place where a decision
+changes its text.
+
+Gates of the implementation round (2026-11-22, uncommitted tree on `53946b1d`): Jest 186
+suites / 2651 tests, ESLint, stylelint, build, l10n (1294 keys), php-cs-fixer; PHPUnit unit
+1864 and integration 717 on PostgreSQL (canonical), MariaDB, SQLite and the AIO row (matrix
+`wpc1`), no skips; proof P4 with `Version1038` applied (26 to 31 steps) on PostgreSQL,
+MariaDB, SQLite and the AIO row, proofs P1 (PostgreSQL, MariaDB, SQLite), P2 and P3, each
+with a clean teardown; browser, without retries: the whole `chromium-serial-db` project 191 passed and 2 failed on a probe that depended on the seed's load of the weekday (fixed in the specs; their two files 33 passed), `chromium` 104 and `chromium-scheduling-owner` 33 passed, the phone core set 11 passed each on `mobile-chromium` and `mobile-webkit`. The full five-project browser gate was not run in this
+round; it is due with the interim review.
+
+Found by the browser scenarios and fixed in the round: the category *Planning of the
+members* was missing from the list a `?category=` link opens, so a reload lost it; the track
+of the load bar failed the non-text contrast in the light theme (BUG-UX-006) and follows the
+track convention of `MemberFairnessTable` now; and work due only today that was handed over
+or edited onto today stood on nobody's list (D-091-129).
+
+- **D-091-126 Several assignees are a team task:** ADR-022 named `allow_teamwork` as the
+  mark of a team task. The column has no writer and no form field, so the rule would never
+  have applied, and a task of two people would have been suggested to one of them only. A
+  task with several assignees is carried by one assignee's budget and shown to all of them
+  on its day, as the confirmed mockup shows (*with Mia*) and as the default split of the
+  completion already treats it (D-091-47). An unassigned task is suggested to one member
+  and is *also possible* for everyone else who may do it. ADR-022 §2 amended.
+- **D-091-127 The horizon carries the cycles after the current one:** with only the current
+  cycles a daily task would stand on one day and the load of the later days would be empty.
+  After a cycle the planner places the one its rule yields next, as if the work were done on
+  the suggested day (an overdue cycle: today; a fixed rule: its next rule day,
+  `WindowService::cycleAfter()`). Only the current cycle is a completion target
+  (`cycleKey`, else `null`) and only it is stored. ADR-022 §1 amended.
+- **D-091-128 Who and which day, in detail:** a day the task fits comes before an overloaded
+  one, then the most remaining energy, then the lower house-user id; among a member's days
+  the earliest wins a tie. A day of an absence is never suggested, and a member who is
+  absent for the whole window gets nothing suggested (the window is neutral, D-091-03).
+  Overload goes to the last day of the window the member is available on. A task done today
+  is not suggested again for today (ADR-021 decision 4). Budgets are kept in energy
+  hundredths, so today's done work is subtracted exactly.
+- **D-091-129 The stored day:** `Version1038` adds `chorestrike_suggestion_days`
+  (`house_id`, `day_key` as text, `placements`, `created_at`; unique per house and day).
+  A placement is `{r, k, u, p, o}`: room task, cycle key, house-user ids (the carrying
+  member first), postponement count, overload. No name and no Nextcloud user id is stored,
+  so an erased account leaves nothing behind in it. The day's first read by anyone, the
+  daily summary included, stores the row with an insert that ignores the conflict and reads
+  it back; a read that lost the race follows the stored list, and a caller's transaction
+  survives the lost insert. An entry leaves when its cycle key or postponement count
+  changed, and also when the member who carries it is no longer responsible (a handover:
+  the new assignee gets the task from tomorrow on). A room task joins when it was created
+  after the row and its window contains today, as overload when today has no room. Work the
+  row does not hold whose window ends today joins too: handed over or edited onto today, it
+  has no later day, and the browser scenarios showed it on nobody's list until it was
+  overdue.
+  ADR-022 §3 amended.
+- **D-091-130 *Today* needs no second request:** `GET /room-tasks/filtered-daily` marks the
+  rows on today's list with `suggestedFor` and `overload`; every other open row is
+  `openWindow`. The rows are built from the inputs the suggestion already read, so the
+  daily read costs 12 statements for 10 and for 100 tasks (16 when it read the room tasks,
+  definitions, assignees and completions a second time). *My tasks* shows what today
+  suggests to the viewer; the viewer's other open work, unassigned work that is suggested
+  to someone else included, is *also possible*. A row names how long its window stays open
+  (*only today*, *until Wed*) instead of a planned day. The overload line of *Today* no
+  longer sends the member to an owner who could replan: postpone or share.
+- **D-091-131 A child's limit on *Today*:** the limit is the child's second budget in the
+  plan, so unassigned work beyond it goes to someone else. *Today* suggests a child at most
+  the limit, work that fits the day before overload; the child's own work above the limit
+  stays visible as *also possible* (BUG-UX-013), and unassigned work that the day suggests
+  to someone else is not offered to the child, as an unassigned task beyond the limit was
+  not before. ADR-022 §2 rule 5 amended.
+- **D-091-132 The read contract:** an entry of `GET /scheduling/suggestion` also carries its
+  window and the task and room names, so the calendar needs no further read; `overdue`
+  lists the cycles that count against today; `members` holds the placed energy against the
+  day's energy, with `doneMinor`, `preferred` and `absent`. A member reads the own load,
+  the owner every member's: the owner manages the budgets. A load is a sum of energy and
+  names no task, also where it contains a private task the owner may not see — a known,
+  accepted disclosure inside one house. ADR-022 §6 amended.
+- **D-091-133 The calendar and the weekly plan's page:** the week is the list of days of
+  the confirmed mockup (`CalendarAgenda`): inside the horizon the suggestion with the
+  viewer's load, on past days what was done, beyond the horizon the windows that are due,
+  with a note. *My tasks* and *Everyone* as on *Today*. The month keeps its grid of the
+  planned days; whether it stays is the GUI review's. The weekly plan's page went with
+  `ScheduleCalendar`, `OvercapacityWarning` and the load getters of the store;
+  `#/scheduling` leads to the calendar. The owner's editor of every member moved to
+  *Settings → Household → Planning of the members* and reads the members itself. Nothing
+  is deferred by priority any more: an entry that fits no day reads *does not fit* and a
+  day with more than it holds is highlighted. The *Overcapacity Policy* of the energy
+  concept carries a status note.
+- **D-091-134 Preferred days:** `preferredWeekdays` is a third section of the preference
+  reads and writes, a list of weekday keys kept Monday first. The star per day sits in the
+  energy grid under *Settings → Planning* and is saved with the energy; the owner edits a
+  member's days in the same modal as availability, energy and the limit.
+- **D-091-135 Daily summary and help (RF-091-12, RF-091-13):** the summary counts what the
+  suggestion places on the member for today plus the overdue cycles it counts for them;
+  nothing on a free day or during an absence, as before. The notification keeps its wording
+  (*planned tasks*). *Work shares* is a term of the glossary and no context topic; the
+  glossary gained *Suggestion*, and *Today* names it. The wording of the README, the
+  changelog and the roadmap about the weekly plan stays with WP-G (D-091-39).
+
+### GUI review of WP-C (operator, 2026-11-22)
+
+- **D-091-136 *Today* and the calendar stay as they are:** the operator accepted the GUI of
+  WP-C without changes. The month keeps its grid of the planned days (the open point of
+  D-091-133).
+
+### Review decisions (interim Full review of WP-C, 2026-11-22)
+
+The review accepted D-091-126 to D-091-135. Every verified defect was fixed in it (the
+operator chose to fix all of them now); the structure and performance findings are RF-091-14.
+
+- **D-091-137 Who takes overload (operator: fix now):** when a cycle fits nobody, a member
+  available on a day of its window comes before one who has those days off, and one below a
+  child's daily limit before one at it; then the most remaining energy. Before, a member
+  with the day off (0 left) beat an overloaded available member, and a child at its limit
+  with energy left beat an overloaded adult, so the unassigned work stood on nobody's
+  *Suggested* list. The same order holds for the member an overdue cycle counts against.
+  ADR-022 §2 rule 2 amended.
+- **D-091-138 The stored day (operator: fix now):** every read, the first one included,
+  places from the stored list (before, the first read returned the plan made with today
+  open, so a reload could move later work to another person); an entry whose window an edit
+  moved off today leaves (it stayed pinned while *Today* dropped it and the summary counted
+  it); a joiner nobody can take today keeps the rest of its window from tomorrow on (it
+  stood on no day); a stored row that holds no list reads as an empty list (a scalar broke
+  *Today* for the day). A lost first-read race and a plan that stops at its step bound log a
+  warning (`suggestion_day_race_lost`, `suggestion_plan_truncated`, `SuggestionPlan::$truncated`).
+  ADR-022 §3 amended.
+- **D-091-139 The range and the client (operator: fix now):** `GET /scheduling/suggestion`
+  cuts the range to the days from today to the end of the horizon before anything is read or
+  stored (a tab left open past midnight answered `400` and the whole week showed the error);
+  a range wholly outside answers no days, a last day before the first is refused. Today's
+  bar in the calendar counts the energy already done (`doneMinor`) with what is placed. The
+  planning dialog closes after a committed save even when reading the members again fails
+  (it reported a failed save). ADR-022 §6 and the API reference amended.
+- **D-091-140 What loads and overload marks reveal (operator):** the placement counts all
+  work, private tasks included, so a load, the owner's read of every member's load and the
+  *does not fit* mark of an entry someone else carries can reflect private work the viewer
+  may not see. No name, room, energy or existence of a single private task is shown.
+  Accepted and documented in ADR-022 §6 and ADR-010; hiding the owner's number alone would
+  not hide the full day the marks show.
+- **D-091-141 The write on a GET (operator):** `security.md` *No Mutations on GET* names the
+  day's suggestion cache as its one exception, with the conditions that keep it acceptable
+  (after the membership check, idempotent insert-or-ignore, server content only, a cache
+  without history value).
+- **D-091-142 Structure and performance go to RF-091-14 (operator):** fixed in a follow-up
+  round before the WP-G candidate, with its own interim review.
+- **D-091-143 What the review added and left:** tests for visibility on *Today*'s read path
+  (private, admin-only, a child), an admin-only team task, a carrier who left the house, the
+  lost race through `view()`, the first read against a later one, an edit that moves a window
+  off today, a joiner away today, the range cut and the overdue list of a later range, the
+  overload order, the step bound, the first read's statements (14) and the named route; the
+  integration test reads at one instant. `SuggestionDayMapper::storeOnce()` keeps reading the
+  row back after its insert: one statement once per house and day.
+  `SchedulingService::WEEKDAYS` is `TaskService::WEEKDAYS`; the store lost the own child limit
+  and the error state that nothing read; *days available* and the energy hint carry their
+  numbers as placeholders and name *Today* and the calendar.
+
 ### Positions for the Standard A review
 
 These settle the remaining open points of the concept. They bind once Standard A passes.
@@ -848,8 +1004,9 @@ These settle the remaining open points of the concept. They bind once Standard A
 
 - `lib/Service/SuggestionService.php` (new): computed on read per D-091-11 from the open
   windows, energy per weekday, preferred days and absences; nothing applied as an agreement.
-- The daily snapshot (D-091-18): written by the first read of a house-local day under the house
-  lock, then only left and joined by the rules of D-091-11; the timeline job deletes old days.
+- The daily snapshot (D-091-18): written by the first read of a house-local day with an insert
+  that ignores the conflict (D-091-129), then only left and joined by the rules of D-091-11;
+  the timeline job deletes old days.
 - Preferred days: a per-member setting next to energy per day under *Settings → Planning*.
 - Capacity shapes the suggestion and shows overload (the refusals went in WP-B1). A child's
   daily limit keeps limiting what *Today* offers that child.
@@ -897,10 +1054,16 @@ approval.
   Follow-up (RF-091-11): the shortening and the health route have no route (the health
   one answers 404, the shortening 405 because DELETE keeps its path) and are pinned;
   stored shortened revisions keep governing; the statistics compute the health.
-- **WP-C:** `SuggestionServiceTest` (D-091-11 rules, preferred days, absences, team tasks,
-  overload, the child limit); the daily snapshot (one per house and day under concurrent first
-  reads, the leave and join rules, deletion of old days); request budgets for *Today* and the
-  calendar; browser scenarios for *Today* and the calendar.
+- **WP-C:** `SuggestionPlannerTest` (D-091-11 rules, preferred days, absences, team tasks,
+  overload, the child limit, the stored day, the cycles after the current one);
+  `LiveSuggestionTest` on a real database (the rules from real inputs; one stored row per house
+  and day, the list of another first read and the lost insert inside a transaction, the leave
+  and join rules, deletion of old days; the read contract with visibility and loads);
+  `SuggestionDayStepTest` and proof P4 for `Version1038`; `ChildDailyLimitTest`; request
+  budgets for *Today* and the calendar (`WorkflowQueryBudgetTest`, and in the browser);
+  browser scenarios for *Today* and the calendar. Concurrent first reads are covered by the
+  insert that ignores the conflict and by following another read's list; a race test with two
+  processes was not added.
 - **WP-G:** the complete gates of the qualification: PHPUnit on PostgreSQL, MySQL, SQLite and the
   AIO row, both browser gates, package build and smoke, the preservation proofs.
 
@@ -982,6 +1145,29 @@ removed:  tests/unit/Db/OccurrenceTest.php, tests/unit/Db/Entity/RoomTaskCheckli
 modified: lib/Controller/HouseController.php, PauseController.php, lib/Service/HouseService.php,
           PauseService.php, lib/Db/HouseMapper.php, docs/adr/ADR-020 (status note),
           docs/concepts/task-model-and-sync.md (RF-091-11)
+new:      lib/Migration/Version1038Date20261121000000.php, lib/Db/SuggestionDay.php,
+          SuggestionDayMapper.php, lib/Service/SuggestionService.php, SuggestionInputs.php,
+          SuggestionPlanner.php, SuggestionLedger.php, SuggestionQueue.php, SuggestionJob.php,
+          SuggestionMember.php, SuggestionContext.php, SuggestionPlan.php, SuggestionView.php,
+          src/components/Tasks/CalendarAgenda.vue, src/utils/calendarAgenda.js,
+          windowLabels.js (WP-C), with their tests
+modified: lib/Service/SchedulingService.php, RoomTaskReadService.php, DigestService.php,
+          WindowService.php, TestDataService.php, lib/Db/WorkShareMapper.php,
+          lib/Controller/SchedulingController.php, RoomTaskController.php,
+          lib/BackgroundJob/TimelineJob.php, appinfo/routes.php, src/views/TodayView.vue,
+          CalendarView.vue, Settings.vue, src/router.js, src/store/scheduling.js, roomTasks.js,
+          src/utils/todaySections.js, taskDisplay.js, dateKeys.js,
+          src/components/Tasks/TaskRow.vue, CalendarControls.vue,
+          src/components/Scheduling/WeekBudgetGrid.vue, EnergyBudgetSettings.vue,
+          AvailabilitySettings.vue, AvailabilityEditModal.vue,
+          src/components/Help/HelpEntry.vue, HelpGlossary.vue,
+          src/components/Settings/NotificationPreferences.vue, tests/recovery/upgrade-fixture.php,
+          upgrade-cycles.php, docs/adr/ADR-022, docs/concepts/energy-and-balancing.md (WP-C)
+removed:  src/views/SchedulingView.vue, src/components/Scheduling/ScheduleCalendar.vue,
+          OvercapacityWarning.vue (WP-C, with their specs)
+modified: src/App.vue, src/components/Tasks/TaskEnergyField.vue,
+          src/components/Scheduling/SelfAvailabilitySettings.vue, docs/adr/ADR-010 (note),
+          docs/standards/guidelines/security.md (interim Full review of WP-C)
 modified: l10n/de.json, l10n/en.json, l10n/templates/chorestrike.pot
 modified: tests named in section 4, tests/e2e/required-scenarios.json, scripts/run-e2e-gate.js
 modified: docs/concepts/*.md named in WP-0, docs/api/README.md, docs/api/notifications.md,
@@ -1001,6 +1187,7 @@ modified: appinfo/info.xml (unchanged version), CHANGELOG.md, README.md, docs/sc
 6. WP-B6; the operator's GUI review against the mockups; interim review.
 7. WP-B7; interim review.
 8. WP-C; the operator's GUI review of *Today* and the calendar; interim review.
+8a. RF-091-14 (structure and performance of WP-C); its interim review.
 9. WP-G candidate; the operator's GUI review of the whole release; final Full review.
 10. WP-G release steps, each with its own approval.
 
@@ -1153,18 +1340,50 @@ Found while implementing WP-B7 (2026-11-21).
 Routed by the interim Full review of WP-B7 (2026-11-21); every other finding of that review
 was fixed in it.
 
-- [ ] **RF-091-12 The count of the daily summary has no package** (WP-C, behaviour):
+- [x] **RF-091-12 The count of the daily summary has no package** (WP-C, behaviour):
   D-091-12 and ADR-022 decision 7 make the summary count the member's suggested work for
   today plus their overdue tasks. `DigestService::countRelevantTasks()` counts the member's
   own open windows planned for today and nothing overdue; WP-B7 took the agreement lines out
   and no package named the rest. It needs the suggestion of WP-C. Due with WP-C: the count,
   the class description, the hint of the task digest in the settings and
-  [`notifications.md`](../../engineering/notifications.md).
-- [ ] **RF-091-13 The *Work shares* help sits on the capacity page** (WP-C, interface): the
+  [`notifications.md`](../../engineering/notifications.md). **Fixed 2026-11-21 (WP-C):** the
+  count is `SuggestionView::countFor()` — what the suggestion places on the member for today
+  plus the overdue cycles it counts for them (D-091-135); the class description, the hint
+  and the notification document say so.
+- [x] **RF-091-13 The *Work shares* help sits on the capacity page** (WP-C, interface): the
   topic explains how people who did a task together split its coins, and its trigger is in
   the header of `SchedulingView.vue`, which shows availability and load. It fitted
   *Agreements and shares* next to the planner. WP-C rebuilds that page; the topic moves next
-  to *Who did the work?* or goes into the glossary.
+  to *Who did the work?* or goes into the glossary. **Fixed 2026-11-21 (WP-C):** the page
+  went; *Work shares* is a term of the glossary (D-091-135). A trigger inside the picker
+  would have opened a dialog inside a dialog.
+
+Routed by the interim Full review of WP-C (2026-11-22); every verified defect of that review
+was fixed in it (D-091-137 to D-091-139), this is the structure and performance work it
+deferred (operator, D-091-142).
+
+- [ ] **RF-091-14 Structure and performance of the live suggestion** (WP-C, architecture and
+  performance; due before the WP-G candidate, with its own interim review): the daily summary
+  rebuilds the house's whole suggestion once per member slot under the house lock and reads
+  room tasks and absences again — one computation per house and day of a pass, the free-day
+  and absence gate into `SuggestionView::countFor()` with one absence derivation
+  (`DigestService` uses `excusedWalletsOn()`, the suggestion `walletsAbsentThroughout()`),
+  and a budget for the slot; the *Today* block of `RoomTaskReadService` (601 non-blank lines,
+  13 dependencies) into a collaborator that takes the House and the `SuggestionView`, with one
+  resolution of a child's availability and limit through the ledger and the House handed
+  from the controller; *Today*'s own load from the server instead of `getOwnCapacityForDay()`,
+  so the overload line counts a team task only for its carrier and unassigned overdue work
+  only where the server booked it; the horizon named by the server instead of
+  `SUGGESTION_HORIZON_DAYS` in `calendarAgenda.js`; one helper each for the weekday of a day
+  key, the energy floor, the valid share on a work day and the day after in the Db layer, the
+  visibility test over a `SuggestionContext` and its room batch, the viewer predicate of
+  `calendarAgenda.js` and `todaySections.js`, and the day labels of `CalendarAgenda`,
+  `CalendarView` and `dateKeys.js`; the read contract into `SuggestionView` with a placement
+  value object; visibility once per room task and placements grouped by day in `range()`,
+  the rule and anchor once per room task for `cycleAfter()`, and a daily-task fixture in the
+  budgets; the methods above ~30 lines (`SuggestionInputs::read()`/`jobs()`,
+  `SuggestionPlanner::plan()`, `RoomTaskReadService::childDailyRows()`,
+  `SchedulingService::prepareMemberUpdates()`).
 
 Routed by the interim Full review of WP-B2 and WP-B3 (2026-11-18); every verified defect of
 that review was fixed in it (D-091-59), these are the structure, performance and
@@ -1489,3 +1708,31 @@ specs 85 passed on `chromium-serial-db`, 10 on `chromium` and the phone set 11 e
 `mobile-chromium` and `mobile-webkit`; the preservation proofs passed on the final tree: P1
 on PostgreSQL, MariaDB and SQLite, P2, P3 and P4 on PostgreSQL, each with a clean teardown.
 No schema step. Interim review: the plan stays in `active/`.
+
+**Interim Full review of WP-C, 2026-11-22: `PASS-WITH-FIXES`.** Scope: the whole uncommitted
+package on `feat/simplified-core-bc` (base HEAD `53946b1d`, 121 paths, fingerprint
+`cc170a79…9121d59a`), four reviewer tracks plus the main agent, weighted on routes, the schema
+step and authorization at the operator's request. Record:
+[CODE_REVIEW_2026-11-22](../../backlog/archive/CODE_REVIEW_2026-11-22.md#full-interim---cs-plan-091-wp-c-the-live-suggestion-and-preferred-days).
+
+The operator accepted the GUI of *Today* and the calendar as it is (D-091-136). Fixed in the
+review (the operator chose to fix every verified defect now): who takes overload when a cycle
+fits nobody, a member with the day off and a child at its limit (D-091-137); the first read
+planning unlike every later one, entries an edit moved off today, joiners nobody can take
+today and a stored day that holds no list (D-091-138); the range across midnight and its check
+after the write, today's bar without the work already done and the planning dialog after a
+committed save (D-091-139). The lost first-read race and the step bound log; *Today*'s
+visibility path, an admin-only team task, a carrier who left, the lost race and the first
+read's statements have tests; stale copy, documents, PHPDoc and dead store members went. The
+operator accepted the aggregate the loads and overload marks reveal (D-091-140) and the one
+write on a GET (D-091-141). D-091-126 to D-091-135 accepted. Routed: RF-091-14 (D-091-142).
+
+Gates: Jest 186 suites / 2652 tests, ESLint, stylelint, build; PHPUnit unit 1869 and
+integration 726 on the canonical stack and on PostgreSQL, MariaDB, SQLite and the AIO row
+(matrix `r91wc`), no skips; php-cs-fixer, l10n (1296 keys), adapter, docs and backlog checks;
+the preservation proofs on the final tree: P1 on PostgreSQL, MariaDB and SQLite, P2, P3 and P4
+on PostgreSQL, each with a clean teardown (`Version1038` is unchanged since P4 of the
+implementation round on all four rows); the full five-project browser gate without retries
+(`run-ULfOXm`: `chromium` 104, `chromium-serial-db` 193, `chromium-scheduling-owner` 33 and
+the phone projects 16 each), after a first run that failed on the spec of the old range
+contract and on two TECH-TRANSPORT-001 closures. Interim review: the plan stays in `active/`.

@@ -77,10 +77,11 @@ describe('store dependency graph (CS-PLAN-067 §3.1 D3 pin)', () => {
 		expect(edges).toContain('user')
 	})
 
-	it('keeps roomTasks free of the scheduling cycle class', () => {
-		// scheduling depends on roomTasks; roomTasks must never import
-		// scheduling back (the derived-projection fan-out is one-directional).
+	it('keeps roomTasks and scheduling free of each other', () => {
+		// The load view that read the room tasks went with the live
+		// suggestion (CS-PLAN-091 WP-C): the server places the work, and the
+		// scheduling store holds preferences and the suggestion alone.
 		expect(graph.get('roomTasks')).not.toContain('scheduling')
-		expect(graph.get('scheduling')).toContain('roomTasks')
+		expect([...graph.get('scheduling')]).toEqual([])
 	})
 })

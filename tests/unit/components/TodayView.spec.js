@@ -423,10 +423,10 @@ describe('TodayView', () => {
 
 		const overload = wrapper.find('[data-testid="today-overload"]')
 		expect(overload.exists()).toBe(true)
-		// Amounts stay visible; the invitation targets the owner replan —
-		// neutral, never threatening.
-		expect(overload.text()).toContain('7 of 5')
-		expect(overload.text()).toContain('house owner can replan')
+		// Amounts stay visible; nothing is refused and nobody is blamed
+		// (ADR-022 decision 4): the member postpones or shares what does not fit.
+		expect(overload.text()).toContain('Your day holds 5 energy; 7 is suggested or still outstanding')
+		expect(overload.text()).toContain('postpone or share what does not fit')
 		expect(wrapper.get('[data-testid="today-energy"]').classes()).toContain('over')
 	})
 
@@ -484,15 +484,83 @@ describe('TodayView', () => {
 		expect(toggle.text()).toContain('Also possible today · 1')
 		expect(toggle.attributes('aria-expanded')).toBe('false')
 		expect(wrapper.find('[data-testid="today-complete-button-41"]').exists()).toBe(false)
-		expect(wrapper.text()).toContain('Nothing due today')
+		expect(wrapper.text()).toContain('Nothing is suggested for today')
 		expect(wrapper.find('[data-testid="today-empty-state"]').exists()).toBe(false)
 
 		await toggle.trigger('click')
 
 		expect(toggle.attributes('aria-expanded')).toBe('true')
-		expect(wrapper.get('[data-testid="today-open-window-planned-41"]').text()).toContain('planned')
+		// How long its window stays open, not a planned day: the suggestion decides the day.
+		expect(wrapper.get('[data-testid="today-window-41"]').text()).toContain('until')
+		expect(wrapper.find('.task-planned').exists()).toBe(false)
 		await confirmHold(wrapper, '[data-testid="today-complete-button-41"]')
 		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(41)
+	})
+
+	// CS-PLAN-091 WP-C (ADR-022): the server names whom today's suggestion
+	// places a row on; "My tasks" shows what it places on the viewer.
+	describe('the live suggestion', () => {
+		const suggested = (id, name, suggestedFor, assignees = []) => ({
+			roomTask: { id, taskId: id, roomId: 1, isActive: true, nextDue: utcTodayIso(8) },
+			task: { id, name, energyCost: 2 },
+			room: { id: 1, name: 'Kitchen' },
+			assignees,
+			suggestedFor,
+			overload: false,
+			// Planned for tomorrow: the suggestion, not the planned day, makes it today's work.
+			cycle: cycle(1, 2, { state: 'open' }),
+		})
+		const suggestedNames = (wrapper) => [...wrapper.get('[data-testid="today-section-today"]').element
+			.closest('.today-section').querySelectorAll('.task-name')].map((name) => name.textContent.trim())
+
+		beforeEach(() => {
+			mockRoomTasksStore.overdueTasks = []
+			mockRoomTasksStore.dailyTasks = [
+				suggested(51, 'Mine by suggestion', ['mom']),
+				suggested(52, 'Unassigned, suggested to dad', ['dad']),
+				suggested(53, 'Dad\'s own', ['dad'], ['dad']),
+				suggested(54, 'Team task', ['dad', 'mom'], ['dad', 'mom']),
+			]
+		})
+
+		it('shows under "Suggested for today" what the suggestion places on the viewer', async () => {
+			const wrapper = await mountView()
+
+			expect(wrapper.get('[data-testid="today-section-today"]').text()).toBe('Suggested for today')
+			expect(suggestedNames(wrapper)).toEqual(['Mine by suggestion', 'Team task'])
+		})
+
+		it('keeps unassigned work that is suggested to someone else as also possible, and hides other people\'s work', async () => {
+			const wrapper = await mountView()
+			const toggle = wrapper.get('[data-testid="today-section-open-window"]')
+
+			expect(toggle.text()).toContain('Also possible today · 1')
+			await toggle.trigger('click')
+			expect(wrapper.text()).toContain('Unassigned, suggested to dad')
+			expect(wrapper.text()).not.toContain('Dad\'s own')
+		})
+
+		it('shows everyone\'s suggestion under "Everyone"', async () => {
+			const wrapper = await mountView()
+			await wrapper.get('[data-testid="today-filter-all"]').trigger('click')
+
+			expect(suggestedNames(wrapper)).toHaveLength(4)
+			expect(wrapper.find('[data-testid="today-section-open-window"]').exists()).toBe(false)
+		})
+
+		it('counts the viewer\'s energy from what is suggested to them', async () => {
+			const wrapper = await mountView()
+
+			// Two rows of energy 2 are suggested to mom; the day holds 5.
+			expect(wrapper.get('[data-testid="today-energy"]').text()).toContain('4 of 5')
+			expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(false)
+		})
+
+		it('names how long the window of a suggested row stays open', async () => {
+			const wrapper = await mountView()
+
+			expect(wrapper.get('[data-testid="today-window-51"]').text()).toMatch(/^until /)
+		})
 	})
 
 	it('drops an open-window row once its cycle is no longer open', async () => {

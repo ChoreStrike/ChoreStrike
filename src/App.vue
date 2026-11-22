@@ -17,7 +17,7 @@
 			<NcAppNavigation>
 				<!-- Eight entries plus Help (CS-PLAN-090 WP-D). The ranking is a
 				     section of Insights, the planning settings are in Settings,
-				     the weekly plan opens from the calendar, and the own reward
+				     the calendar shows the suggestion, and the own reward
 				     requests from Rewards and from the personal settings. -->
 				<NcAppNavigationItem
 					:to="{ name: 'today' }"

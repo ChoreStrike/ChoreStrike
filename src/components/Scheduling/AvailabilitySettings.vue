@@ -10,7 +10,15 @@
 			<p>{{ t('chorestrike', 'Configure when each member is available for tasks') }}</p>
 		</div>
 
-		<div v-if="members.length > 0" class="members-list">
+		<p v-if="loading" class="members-loading" data-testid="availability-loading">
+			{{ t('chorestrike', 'Loading…') }}
+		</p>
+		<ErrorState
+			v-else-if="loadError"
+			data-testid="availability-error"
+			:message="t('chorestrike', 'Failed to load members')"
+			@retry="load" />
+		<div v-else-if="members.length > 0" class="members-list">
 			<div
 				v-for="member in members"
 				:key="member.userId"
@@ -19,7 +27,7 @@
 					<div class="member-info">
 						<h3>{{ member.userName || member.userId }}</h3>
 						<span class="member-status">
-							{{ getAvailableDaysCount(member) }}/7 {{ t('chorestrike', 'days available') }}
+							{{ t('chorestrike', '{available}/7 days available', { available: getAvailableDaysCount(member) }) }}
 						</span>
 					</div>
 					<div class="member-actions">
@@ -44,6 +52,9 @@
 						</div>
 						<div class="day-status">
 							<span>{{ isMemberAvailable(member, day.key) ? t('chorestrike', 'Available') : t('chorestrike', 'Unavailable') }}</span>
+						</div>
+						<div v-if="(member.preferredWeekdays ?? []).includes(day.key)" class="day-preferred" data-testid="availability-preferred">
+							<Icon name="Star" :size="14" /> {{ t('chorestrike', 'preferred') }}
 						</div>
 					</div>
 				</div>
@@ -84,15 +95,40 @@
 
 <script setup>
 import { translate as t } from '@nextcloud/l10n'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import EmptyState from '../Common/EmptyState.vue'
+import ErrorState from '../Common/ErrorState.vue'
+import Icon from '../Common/Icon.vue'
 import AvailabilityEditModal from './AvailabilityEditModal.vue'
 import { getMemberEnergy, isMemberAvailable, weekDays } from '../../constants/scheduling.js'
 import { useSchedulingStore } from '../../store/scheduling.js'
 
+/**
+ * The owner's view of every member's week: available days, energy,
+ * preferred days and a child's daily limit, each with its editor. It lives
+ * in the household settings since the weekly plan's page went (CS-PLAN-091
+ * WP-C) and reads the members when it opens.
+ */
 const schedulingStore = useSchedulingStore()
 
 const editingMember = ref(null)
+const loading = ref(true)
+const loadError = ref(false)
+
+async function load() {
+	loading.value = true
+	loadError.value = false
+	try {
+		await schedulingStore.fetchMemberAvailability()
+	} catch {
+		// The store has logged it.
+		loadError.value = true
+	} finally {
+		loading.value = false
+	}
+}
+
+onMounted(load)
 
 // UX-014: every card gets the same Edit entry point — the shared modal
 // resolves self vs. member persistence on its own.
@@ -148,6 +184,17 @@ function closeEditModal() {
 	border-radius: 8px;
 	padding: 1.5rem;
 	background: var(--color-background-dark);
+}
+
+.members-loading {
+	color: var(--color-text-maxcontrast);
+}
+
+.day-preferred {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.2rem;
+	font-size: 0.75rem;
 }
 
 .member-header {

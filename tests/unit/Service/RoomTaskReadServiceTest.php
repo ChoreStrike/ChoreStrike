@@ -77,7 +77,8 @@ class RoomTaskReadServiceTest extends TestCase {
 			new WindowService(new RecurrenceCalculator(), $this->completions),
 			$this->logger,
 			$this->checklistItems,
-			$this->creditPolicy
+			$this->creditPolicy,
+			$this->createMock(\OCA\ChoreStrike\Service\SuggestionService::class),
 		);
 	}
 

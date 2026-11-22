@@ -8,7 +8,7 @@
 
 ChoreStrike sends at most **one Nextcloud notification per person per
 house-local day** — the daily digest. It combines two opt-in categories:
-the **task summary** (your open work planned for today) and
+the **task summary** (the work suggested to you for today plus your overdue tasks) and
 **organizational updates** (takeovers, absence changes, reward-request
 decisions). Awards, titles, streaks and in-app state never dispatch
 anything external. There are no per-event bells.
@@ -46,10 +46,13 @@ anything external. There are no per-event bells.
 3. **Dispatch** one due slot at a time:
    - Recheck inside ONE house-first transaction: membership active,
      category opt-ins still enabled, outside personal quiet hours, and
-     dispatch-time relevance (task content computed now from the derived
-     windows, ADR-021: the member's own open cycles planned for today, none
-     on a free day or during an absence; org rows from the queue). Empty content → `skipped` — no
-     empty summary is ever sent.
+     dispatch-time relevance (task content computed now from the live
+     suggestion, ADR-022 decision 7: what `SuggestionService` places on the
+     member for today plus their overdue tasks, none on a free day or
+     during an absence; org rows from the queue). The digest can be the
+     day's first read of the suggestion and then stores today's list
+     (ADR-022 decision 3). Empty content → `skipped` — no empty summary is
+     ever sent.
    - **Claim**: conditional `pending → dispatching` write with a token.
    - Commit. Only then call `IManager::notify` (persist-before-notify).
    - Outcome: accepted → `sent` + queued rows `consumed`; any throwable

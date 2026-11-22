@@ -621,10 +621,12 @@ class RoomTaskController extends Controller {
 			'room' => $item['room']->jsonSerialize(),
 			'assignees' => $item['assignees'],
 			'cycle' => $item['cycle'] ?? null,
-			// BUG-UX-005: an open window whose task is planned for another day.
+			// BUG-UX-005: an open window whose task is not suggested for today.
 			'openWindow' => $item['openWindow'] ?? false,
 			// BUG-UX-003: My Day offers the checklist toggle only above 0.
 			'checklistItemCount' => $item['checklistItemCount'] ?? 0,
-		] + (array_key_exists('creditedToday', $item) ? ['creditedToday' => $item['creditedToday']] : []), $rows);
+		] + (array_key_exists('creditedToday', $item) ? ['creditedToday' => $item['creditedToday']] : [])
+			// ADR-022: who today's suggestion placed the row on, and whether it fits no day.
+			+ (array_key_exists('suggestedFor', $item) ? ['suggestedFor' => $item['suggestedFor'], 'overload' => $item['overload'] ?? false] : []), $rows);
 	}
 }
