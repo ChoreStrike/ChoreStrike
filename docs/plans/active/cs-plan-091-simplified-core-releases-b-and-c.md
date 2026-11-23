@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; RF-091-14 implemented 2026-11-22 (D-091-144 to D-091-152); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-144 to D-091-152 accepted and D-091-153 to D-091-157 decided; the operator added a round before the candidate 2026-11-22 (D-091-158: BUG-UX-017, BUG-SEC-003, TECH-DEV-002 and RF-091-15), implemented 2026-11-22 (D-091-159 to D-091-163); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-159 to D-091-163 accepted and D-091-164 to D-091-167 decided; WP-G: the candidate prepared and committed 2026-11-23 with RF-091-16, the runtime moved to AIO 15.1.1 on the operator's decision (D-091-168 to D-091-171); the operator accepted the GUI of the whole release 2026-11-23 (D-091-172); the final Full review `PASS-WITH-FIXES` 2026-11-23 with the review commit, D-091-173 to D-091-177 decided; next: the WP-G qualification on the frozen candidate)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; RF-091-14 implemented 2026-11-22 (D-091-144 to D-091-152); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-144 to D-091-152 accepted and D-091-153 to D-091-157 decided; the operator added a round before the candidate 2026-11-22 (D-091-158: BUG-UX-017, BUG-SEC-003, TECH-DEV-002 and RF-091-15), implemented 2026-11-22 (D-091-159 to D-091-163); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-159 to D-091-163 accepted and D-091-164 to D-091-167 decided; WP-G: the candidate prepared and committed 2026-11-23 with RF-091-16, the runtime moved to AIO 15.1.1 on the operator's decision (D-091-168 to D-091-171); the operator accepted the GUI of the whole release 2026-11-23 (D-091-172); the final Full review `PASS-WITH-FIXES` 2026-11-23 with the review commit, D-091-173 to D-091-177 decided; WP-G: qualified 2026-11-23 on the frozen candidate `2fe6cc11` (package smoke `mwtptq3l`); next: the export of that smoke run through the private exchange, on the operator's approval)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -1377,7 +1377,12 @@ shows the definition's energy (D-091-162).
 - **GUI review and final Full review 2026-11-23** (D-091-172 to D-091-177): the operator
   accepted the GUI of the whole release; the final Full review fixed two authorization
   defects and eight further defects, named two known limits and routed four items to the
-  backlog. Next: the qualification on the frozen candidate.
+  backlog.
+- **Qualified 2026-11-23 on `2fe6cc11`** (first attempt, every gate green; record in the
+  Review Outcome): the runtime check current, the frontend gates, PHPUnit on the four rows,
+  P2 to P4, both complete browser gates, and the reproducible package with its smoke on both
+  rows. Next: the export of smoke run `mwtptq3l`, then the operator's deployment and its
+  verified record, each on its own approval.
 
 ## 4. Tests
 
@@ -2315,3 +2320,39 @@ links). Not run here: the provider suites, the AIO row, the preservation proofs 
 complete browser gates — they are the qualification of WP-G, which follows on the committed
 tree. Final review: the plan stays in `active/` until the qualification, the export, the
 deployment and its verified record.
+
+**Qualification, 2026-11-23 (WP-G): passed on `2fe6cc11`, first attempt.** The plan stays
+active for the export, the deployment, the record import and the closing review.
+
+- **Candidate commit:** `2fe6cc1130b0dabcde12f64ab66e60a39d8cff5b` on `feat/simplified-core-bc`
+  (the final review commit), clean tree; `master` had not moved since the branch's last merge
+  (0 behind). Every gate ran on this commit; nothing was changed in between.
+- **Runtime and frontend:** `test:runtime:check` `current`, no drift (upstream 35.0.3, AIO
+  15.1.1 with Nextcloud 35.0.3, PHP 8.4.28, APCu 5.1.28, phpredis 6.3.0, Redis 8.10.3,
+  PostgreSQL 18.6). Jest 186 suites / 2673 tests, ESLint, stylelint, `npm run build` and
+  `composer cs:check` (0 of 529 files) green.
+- **Backend matrix `q91a`:** staged rows `cs082-q91a-{mysql,pgsql,sqlite}` on
+  `cs082-runtime-35.0.3-local` (`9b6a45cf…`) and `cs082-q91a-aio` on
+  `cs082-runtime-35.0.3-aio-local` (`5af38f5c…`, Redis sessions, cache and locking), inventory
+  `aa8cf2cf…`, each verified before its suites. Unit 1900 and integration 734 on all four
+  rows, no failure, error or skip.
+- **Preservation proofs:** P2 `c0910a21` (primary PostgreSQL) and `c0910a22` (AIO row), each
+  Nextcloud 35.0.2.2 → 35.0.3.2 on populated facts, 34 app table snapshots equal; P3
+  `c0910a31`; P4 `c0910a41`..`c0910a44` on MariaDB, PostgreSQL, SQLite and the AIO row, each
+  `0.8.0-alpha.4` (`1a4988f6`) → `0.8.0-alpha.5` unstamped: 30 row sets identical in every
+  stored column, four empty tables added, 15 room tasks anchored by rule, a second
+  `occ upgrade` without change, and the postcheck's first windows, closed cycle, coin factor,
+  bonus day and suggestion horizon.
+- **Browser gates**, five projects each, `workers=1`, no retries, 362 tests each (chromium 104,
+  chromium-serial-db 193, chromium-scheduling-owner 33, mobile-chromium 16, mobile-webkit 16),
+  none failed, skipped or flaky: primary on the canonical stack `run-UdgEp5`, AIO row on
+  `cs082-q91a-aio` `run-AcpTQa`, one after the other on a quiet Docker host.
+- **Package:** `test:package:build --verify-reproducible` from the clean candidate:
+  `reproducible` (run `run-mwtpq90j`, 606 files). `test:package:smoke` run `run-mwtptq3l`:
+  `package-qualified` at 2026-11-23T20:30Z on `primary@35.0.3` and `aio@35.0.3` from the same
+  extracted archive, setup and six owner cases per row, post-qualification rehash ok, owned
+  resources removed. `chorestrike.tar.gz` SHA-256
+  `5fa5c609129aed73ba55c5b4d19ee338e56945181a229300834551ef7cd23459` (1,716,292 bytes), equal in
+  both runs.
+- The staged rows of `q91a` are removed; their reports stay under `build/test-reports/` and
+  the proof evidence under `private/`.
