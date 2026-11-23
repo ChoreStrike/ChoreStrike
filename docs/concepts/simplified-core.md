@@ -1,13 +1,13 @@
 # Simplified Core — Target Picture
 
 > **Status:** Target picture, confirmed by the operator on 2026-11-10 after the family reviewed
-> the mockups. It records the decisions of 2026-11-09 to 2026-11-16. Release A is implemented
-> on `master` but not deployed; B and C are planned in
-> [CS-PLAN-091](../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md) and built on
-> `feat/simplified-core-bc` ([delivery](#delivery)). Their contracts are
+> the mockups. It records the decisions of 2026-11-09 to 2026-11-16. Releases A, B and C are
+> implemented and ship together as `0.8.0-alpha.5`, a candidate that is not deployed yet
+> ([CS-PLAN-091](../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md),
+> [delivery](#delivery)). The contracts of B and C are
 > [ADR-021](../adr/ADR-021-derived-due-windows.md) and
-> [ADR-022](../adr/ADR-022-live-suggestion.md), accepted 2026-11-16; the shipped contracts stay
-> binding until that branch reaches `master` ([what this replaces](#what-this-replaces)).
+> [ADR-022](../adr/ADR-022-live-suggestion.md), accepted 2026-11-16; they replace the contracts
+> named in [what this replaces](#what-this-replaces).
 > Owning item: [CONCEPT-002](../backlog/backlog.md#p1-concept-002--simplified-core-target-picture).
 
 ## Why

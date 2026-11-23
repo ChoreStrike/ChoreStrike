@@ -105,17 +105,20 @@ class CommandService {
 
 	private CommandReceiptMapper $receiptMapper;
 	private AppLogger $appLogger;
+	private IL10N $l10n;
 
 	public function __construct(
 		TransactionExecutor $transactions,
 		HouseMapper $houseMapper,
 		CommandReceiptMapper $receiptMapper,
 		AppLogger $appLogger,
+		IL10N $l10n,
 	) {
 		$this->transactions = $transactions;
 		$this->houseMapper = $houseMapper;
 		$this->receiptMapper = $receiptMapper;
 		$this->appLogger = $appLogger;
+		$this->l10n = $l10n;
 	}
 
 	/**
@@ -188,7 +191,8 @@ class CommandService {
 			$existing = $this->receiptMapper->findByHouseActorUuid($houseId, $actorHouseUserId, $commandUuid);
 			if ($existing !== null) {
 				if (!hash_equals($existing->getPayloadHash(), $payloadHash)) {
-					throw new ConflictException('This command was already executed with different input');
+					// The refusal reaches the member's toast (final review of CS-PLAN-091).
+					throw new ConflictException($this->l10n->t('This action was already carried out with other details. Reload and try again.'));
 				}
 
 				$this->appLogger->info('Command replayed from receipt', [
@@ -235,7 +239,7 @@ class CommandService {
 				if ($e->getReason() !== \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
 					throw $e;
 				}
-				throw new ConflictException('Command key conflict');
+				throw new ConflictException($this->l10n->t('This action is already being carried out. Reload and try again.'));
 			}
 
 			return [

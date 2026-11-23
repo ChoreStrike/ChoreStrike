@@ -110,7 +110,6 @@ class TaskCreationService {
 	private function validateEnvelope(array $payload): TaskFormPayload {
 		CommandService::assertClosedBody($payload, TaskFormPayload::FIELDS, $this->l10n);
 		$form = TaskFormPayload::fromPayload($payload, $this->calendarService, $this->l10n);
-		$form->assertFirstDateInRange($this->l10n);
 		if ($form->roomId === null) {
 			throw new \InvalidArgumentException($this->l10n->t('roomId is required'));
 		}
@@ -194,6 +193,10 @@ class TaskCreationService {
 			// First lock of the documented order (house → room_task →
 			// dependents): serialize concurrent writes on the house row.
 			$house = $this->houseMapper->findForUpdate($houseId);
+			$timeZone = $this->calendarService->getTimeZone($house);
+			$now = new \DateTime();
+			// The year of a first date counts in house days (ADR-009), checked before any write.
+			$form->assertFirstDateInRange($this->l10n, $this->calendarService->dayKey($now, $timeZone));
 			// A membership removed after the pre-transaction checks must not
 			// leave assignee rows for a former member (→ rollback).
 			$assigneeUserIds = $form->assigneeUserIds ?? [];
@@ -206,8 +209,6 @@ class TaskCreationService {
 
 			// The first date anchors the derived window (ADR-021); no
 			// future cycle is stored. Default: tomorrow in the house zone.
-			$timeZone = $this->calendarService->getTimeZone($house);
-			$now = new \DateTime();
 			$firstDate = $form->firstDate ?? RecurrenceCalculator::dayAfter($this->calendarService->dayKey($now, $timeZone));
 			$roomTask = $this->roomTaskMapper->create((int)$form->roomId, $task->getId(), $this->calendarService->dayStartInstant($firstDate, $timeZone));
 			foreach ($assigneeUserIds as $userId) {

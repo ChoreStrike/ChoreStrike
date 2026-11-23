@@ -112,7 +112,7 @@ class RoomTaskEditService {
 		$moved = $this->moveUnderLock($houseId, $roomTask, $task, $form->roomId);
 		$reassigned = $this->replaceAssigneesUnderLock($houseId, $roomTask, $form->assigneeUserIds, $live);
 		// Compared with the stored first date before a wake moves the anchor.
-		$firstDate = $this->changedFirstDate($roomTask, $task, $form, $histories);
+		$firstDate = $this->changedFirstDate($roomTask, $task, $form, $histories, $this->calendar->dayKey($now, $timeZone));
 
 		if ($form->sleeping === false) {
 			$this->sleep->applyUnderLock($house, $roomTask, $task, false, null, $timeZone, $now, $read);
@@ -298,12 +298,12 @@ class RoomTaskEditService {
 	 * @throws ConflictException a changed first date after the first completion
 	 * @throws \InvalidArgumentException a new first date outside its range (400)
 	 */
-	private function changedFirstDate(RoomTask $roomTask, Task $task, TaskFormPayload $form, callable $histories): ?string {
+	private function changedFirstDate(RoomTask $roomTask, Task $task, TaskFormPayload $form, callable $histories, string $todayKey): ?string {
 		$firstDate = $form->firstDate;
 		if ($firstDate === null || $task->getIsVoluntary() || $roomTask->getAnchorOn()?->format('Y-m-d') === $firstDate) {
 			return null;
 		}
-		$form->assertFirstDateInRange($this->l10n);
+		$form->assertFirstDateInRange($this->l10n, $todayKey);
 		if (($histories()[(int)$roomTask->getId()] ?? null)?->hasCompletion()) {
 			throw new ConflictException($this->l10n->t('The first date only changes until the task is done for the first time'));
 		}

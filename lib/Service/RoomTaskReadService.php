@@ -202,15 +202,29 @@ class RoomTaskReadService {
 	 * @return array<string, mixed>
 	 */
 	public function committedRoomTaskPayload(int $houseId, RoomTask $roomTask, \DateTimeZone $tz, string $action): array {
+		return $this->committedRoomTaskWithCycle($houseId, $roomTask, $tz, $action)['roomTask'];
+	}
+
+	/**
+	 * {@see committedRoomTaskPayload} with the row's `cycle` block beside
+	 * it, so the client can act on a new row at once — edit, postpone or
+	 * complete it — without reading the list again (the create answer,
+	 * final review of CS-PLAN-091). A failing read degrades the same way,
+	 * without a block.
+	 *
+	 * @return array{roomTask: array<string, mixed>, cycle: array<string, mixed>|null}
+	 */
+	public function committedRoomTaskWithCycle(int $houseId, RoomTask $roomTask, \DateTimeZone $tz, string $action): array {
 		try {
-			return $this->selectedRoomTaskPayload($houseId, $roomTask, $tz);
+			$block = $this->cycleBlockOf($houseId, $roomTask, null, $tz);
+			return ['roomTask' => $this->roomTaskPayload($roomTask, $tz, $block), 'cycle' => $block];
 		} catch (\Throwable $e) {
 			$this->logger->warning('Room task status read failed after a committed write', [
 				'action' => $action,
 				'roomTaskId' => $roomTask->getId(),
 				'exception' => get_class($e),
 			]);
-			return $roomTask->jsonSerialize($tz);
+			return ['roomTask' => $roomTask->jsonSerialize($tz), 'cycle' => null];
 		}
 	}
 

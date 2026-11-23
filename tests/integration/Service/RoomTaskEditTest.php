@@ -237,6 +237,27 @@ class RoomTaskEditTest extends IntegrationTestCase {
 		self::assertSame($journal, $this->rows('chorestrike_room_events', 'source_completion_id', $completionId), 'the journal keeps the room where the work happened');
 	}
 
+	/**
+	 * Final review of CS-PLAN-091: the work stays in the room where it was
+	 * done, so undoing it after a move rebuilds that room — not the room the
+	 * task lives in now.
+	 */
+	public function testMove_ThenUndo_RebuildsTheRoomWhereTheWorkWasDone(): void {
+		$f = $this->fixture();
+		$before = $this->rows('chorestrike_rooms', 'id', $f['roomId'])[0];
+		$this->complete($f);
+		self::assertNotNull($this->rows('chorestrike_rooms', 'id', $f['roomId'])[0]['last_cleaned'], 'the work cleaned the kitchen');
+		$bathroom = $this->createRoom($f['houseId'], (int)$before['floor_id'], 'Bathroom');
+		$this->saveForm($f['houseId'], $this->owner($f), $f['roomTaskId'], ['roomId' => $bathroom]);
+
+		$this->undoLatestForRoomTask(\OC::$server->get(\OCA\ChoreStrike\Service\CompletionService::class), $f['houseId'], self::OWNER, $f['roomTaskId']);
+
+		$kitchen = $this->rows('chorestrike_rooms', 'id', $f['roomId'])[0];
+		self::assertNull($kitchen['last_cleaned'], 'the undone work no longer cleans the kitchen');
+		self::assertSame((int)$before['cleanliness'], (int)$kitchen['cleanliness']);
+		self::assertNull($this->rows('chorestrike_rooms', 'id', $bathroom)[0]['last_cleaned'], 'the bathroom never had the work');
+	}
+
 	public function testMove_IntoARoomThatHoldsTheDefinition_Conflicts_AndIntoAForeignRoom_IsNotFound(): void {
 		$f = $this->fixture();
 		$other = $this->shareWithASecondRoom($f);

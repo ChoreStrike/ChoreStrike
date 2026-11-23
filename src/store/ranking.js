@@ -11,8 +11,8 @@ import { logger } from '../utils/logger.js'
  * Consent-filtered ranking store (CS-PLAN-070 WP4, C5i/C5l/D10b).
  *
  * The server is the sole ranking authority: visible entries are EFFECTIVE
- * consents only, each with the on-time ratio of the member's public agreed
- * occurrences — exact ties shared, zero-denominator members neutral and
+ * consents only, each with the on-time ratio of the member's public work
+ * (occurrences before the cutover, cycles from it on) — exact ties shared, zero-denominator members neutral and
  * unranked, the week labeled provisional while it or any window is open,
  * and pending consents listed without a rank. This slice never computes a
  * ranking from the raw member list, and no Coins/contribution/private-task

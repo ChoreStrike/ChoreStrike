@@ -71,8 +71,10 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	// hydration bring the fresh family-profile measurement to 72 (83 before
 	// CS-PLAN-091 RF-091-08: one correction skeleton, one batched member
 	// reload). These are one batched read per concern, not one query per
-	// historical event or work share.
-	private const UNDO_BUDGET = 72;
+	// historical event or work share. +1 at the final review of CS-PLAN-091:
+	// the entry's journal event names the room to lock and rebuild, which
+	// after a move is not the room the task lives in now.
+	private const UNDO_BUDGET = 73;
 	// The list read (3) plus the two completion-input reads of the cycle
 	// derivation; the definitions and the house zone are handed on.
 	private const LIST_WITH_CYCLES_BUDGET = 5;

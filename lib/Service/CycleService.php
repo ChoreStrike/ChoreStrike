@@ -165,7 +165,10 @@ class CycleService {
 	 * history and stays as it is — readers count valid completions only.
 	 * A task that ended with this completion becomes active again. A fixed
 	 * cycle that does not become current again (a later one is done) and
-	 * whose window has ended counts as missed (D-091-02).
+	 * whose window has ended counts as missed (D-091-02); one that becomes
+	 * current again — the later entry was undone too — is open work, so a
+	 * miss an earlier undo recorded for it goes (final review of
+	 * CS-PLAN-091).
 	 */
 	public function reopenUnderLock(int $houseId, RoomTask $roomTask, Task $task, CompletedTask $completion, \DateTimeZone $timeZone, \DateTime $now): void {
 		$roomTaskId = (int)$roomTask->getId();
@@ -181,6 +184,9 @@ class CycleService {
 			$roomTask->setIsActive(true);
 		}
 		$current = $this->projection->changedUnderLock($roomTask, $task, $timeZone, $now);
+		if ($current !== null && CycleMisses::canMiss($task)) {
+			$this->cycleMapper->deleteMissed($roomTaskId, $current->key);
+		}
 
 		$day = $closed === null ? null : CurrentCycle::dayOfKey($closed->getCycleKey());
 		if ($day === null || $current?->key === $closed->getCycleKey()) {

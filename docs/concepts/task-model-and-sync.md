@@ -112,21 +112,18 @@ Celebration feedback (confetti, sounds, toasts) fires globally via the
 `chorestrike:task-completed` event.
 
 **Overdue boundary (CS-PLAN-084 D-084-08):** work is overdue only after its
-occurrence window has ended in the house timezone — for a task without flex
-days, after its due day is over. Work due today is never overdue, never shows a
-claim button to others, and a sibling completing it the same day takes nothing
-over. A takeover is recorded only when a non-assignee who is not obligated by
-the occurrence's agreement completes a missed occurrence; an agreed handover
-(amendment or catch-up with participants) is never a takeover. The
-overdue-claim dialog is gone (CS-PLAN-091 WP-B6): a short tap on Done opens the
+window has ended in the house timezone — for a task without flex days, after
+its due day is over. Work due today is never overdue, and a sibling completing
+it the same day takes nothing over. A takeover is recorded only when late work
+of an assigned task is done without crediting any of its assignees
+([API](../api/README.md)). The overdue-claim dialog is gone (CS-PLAN-091 WP-B6): a short tap on Done opens the
 picker, where anyone records who did the work (ADR-021 §13).
 
-The child availability/daily-limit filter applies to the daily query, not to
-the whole overdue list or all completion paths. "My tasks" also includes
-unassigned, claimable work. It is therefore not yet a definition of a child's
-agreed obligations or a guaranteed maximum catch-up workload. The daily limit
-caps only unassigned offers: a child's own tasks stay on Today even above it
-(BUG-UX-013).
+The child availability/daily-limit filter applies to the daily read, not to
+the whole overdue list or all completion paths. *Today* suggests a child at
+most the limit; the child's own work above it stays visible as *also
+possible* (BUG-UX-013), and the daily summary counts the same suggestion
+(ADR-022 §2, D-091-131).
 
 ## Recurrence and Rhythm
 
@@ -134,8 +131,7 @@ caps only unassigned offers: a child's own tasks stay on Today even above it
 
 > Replaces the timeline contract C1, the agreement contract C2 and the delivered
 > agreement surface below, which stay as the record of the history rows they
-> wrote. Built on `feat/simplified-core-bc`; the shipped contracts hold until it
-> merges ([ADR-021](../adr/ADR-021-derived-due-windows.md),
+> wrote, since `0.8.0-alpha.5` ([ADR-021](../adr/ADR-021-derived-due-windows.md),
 > [simplified core](simplified-core.md#due-windows)).
 
 - **One current window per task, derived on read.** After completion: the last
@@ -188,6 +184,13 @@ covers strict weekdays, rescheduling, missed occurrences, shared assignments,
 and non-punitive recovery. WP1-WP4 implement the approved rules below.
 
 ### Approved Target Rules (2026-09-17; implemented by WP1-WP4)
+
+> **Partly replaced by [derived due windows](#derived-due-windows-adr-021-cs-plan-091)
+> (ADR-021, `0.8.0-alpha.5`):** the choice of cadence, the bound of the flex
+> days, the energy rule, the absences and the help rules stand. Occurrences
+> agreed seven days ahead, the narrowing rule, catch-up items and agreed
+> amendments are history: a changed flex applies to the current window at once,
+> and there are no catch-up entries and no agreements.
 
 - Each task supports an explicit choice between fixed calendar cadence and an
   interval after actual completion. Early completion does not move a fixed

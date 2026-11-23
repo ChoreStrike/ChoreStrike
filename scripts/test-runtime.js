@@ -157,9 +157,21 @@ function registryIdentity(manifest, platform) {
 
 function execute(command, args, expectedMetadata = '') {
 	const result = spawnSync(command, args, { cwd: ROOT, encoding: 'utf8', timeout: 60000, maxBuffer: 4 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] })
-	if (result.error || result.status !== 0 || (result.stderr.trim() && result.stderr.trim() !== expectedMetadata)) throw new Error('Read-only runtime probe failed or emitted diagnostics')
+	if (result.error || result.status !== 0 || (result.stderr.trim() && result.stderr.trim() !== expectedMetadata)) throw new Error(`Read-only runtime probe failed or emitted diagnostics: ${probeLabel(command, args, result)}`)
 	if (result.stderr.trim()) process.stderr.write(result.stderr)
 	return result.stdout
+}
+
+/**
+ * What a failed probe was and how it ended, so the operator sees which
+ * ref or image moved, timed out or met a rate limit. The probes read
+ * public sources only; the first line of stderr is bounded.
+ */
+function probeLabel(command, args, result) {
+	const target = [command, ...args].filter(arg => !String(arg).startsWith('--') && !String(arg).startsWith('{{')).join(' ')
+	const ending = result.error ? `error ${result.error.code ?? result.error.message}` : result.signal ? `signal ${result.signal}` : `exit ${result.status}`
+	const firstLine = String(result.stderr ?? '').trim().split(/\r?\n/)[0].slice(0, 160)
+	return `${target} (${ending}${firstLine ? `: ${firstLine}` : ''})`
 }
 
 /** Fail-tolerant probe for assertions that inspect non-zero exits themselves. */
@@ -268,6 +280,9 @@ async function checkStable(inventory, io = { fetchMetadata, execute }) {
 	if (upstream !== inventory.nextcloud.version) drift.push('upstream-nextcloud')
 	if (aio !== inventory.aio.version || aioNextcloud !== inventory.aio.nextcloudVersion) drift.push('aio-bundle')
 	drift.push(...aioComponentDrift(inventory, components))
+	// Both rows may name the same tag (D-091-168): each is probed once and
+	// compared with every revision the inventory records for it.
+	const tags = new Map()
 	for (const [repository, release] of [
 		['server', inventory.nextcloud], ['server', inventory.previous], ['notifications', inventory.notifications],
 		['notifications', inventory.patches?.previousNotifications], ['viewer', inventory.viewer],
@@ -279,8 +294,13 @@ async function checkStable(inventory, io = { fetchMetadata, execute }) {
 		]),
 	]) {
 		if (!release) continue
-		const output = io.execute('git', ['ls-remote', `https://github.com/nextcloud/${repository}.git`, `refs/tags/${release.ref}`, `refs/tags/${release.ref}^{}`])
-		if (tagRevision(output, release.ref) !== release.revision) drift.push(`moved-${repository}-${release.ref}`)
+		const key = `${repository} ${release.ref}`
+		tags.set(key, { repository, ref: release.ref, revisions: [...(tags.get(key)?.revisions ?? []), release.revision] })
+	}
+	for (const { repository, ref, revisions } of tags.values()) {
+		const output = io.execute('git', ['ls-remote', `https://github.com/nextcloud/${repository}.git`, `refs/tags/${ref}`, `refs/tags/${ref}^{}`])
+		const revision = tagRevision(output, ref)
+		if (revisions.some(expected => expected !== revision)) drift.push(`moved-${repository}-${ref}`)
 	}
 	for (const [name, image] of Object.entries({ php: inventory.php, composer: inventory.composer, mysql: inventory.databases.mysql, pgsql: inventory.databases.pgsql, redis: inventory.cache.redis })) {
 		const current = registryIdentity(JSON.parse(io.execute('docker', ['buildx', 'imagetools', 'inspect', image.image, '--format', '{{json .Manifest}}'])), inventory.platform)

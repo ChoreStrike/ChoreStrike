@@ -121,9 +121,8 @@ async function toggle({ itemId, roomTaskId }) {
 	try {
 		await checklistStore.toggleItem(roomTaskId, itemId)
 	} catch (error) {
-		// The server's reason, as the opened row shows it.
+		// The server's reason, as the opened row shows it; the store logged the failure.
 		showRefusal(error, t('chorestrike', 'Could not update the checklist'))
-		logger.error('Failed to toggle checklist item', error, { component: 'CompletionPicker', action: 'toggle', roomTaskId, itemId })
 	}
 }
 </script>

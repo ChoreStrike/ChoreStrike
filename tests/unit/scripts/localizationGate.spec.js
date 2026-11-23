@@ -14,6 +14,10 @@ describe('global localization gate', () => {
 		expect(extractKeysFromSource('src/example.vue', source)).toEqual(["It's ready", 'Line\nNext'])
 		expect(extractKeysFromSource('lib/Example.php', `$l->t('Line\\nNext'); $l->t("Line\\nNext");`)).toEqual(['Line\\nNext', 'Line\nNext'])
 	})
+	it('collects both source keys of a plural form (final review of CS-PLAN-091)', () => {
+		expect(extractKeysFromSource('lib/Example.php', "$l->n('%n planned task', '%n planned tasks', $count);")).toEqual(['%n planned task', '%n planned tasks'])
+		expect(extractPlaceholders('%n geplante Aufgaben')).toEqual(['%n'])
+	})
 	it('rejects unclassified dynamic keys and concatenated literal prefixes', () => {
 		expect(() => extractKeysFromSource('src/new.js', "t('chorestrike', unknownKey)")).toThrow('Unclassified')
 		expect(() => extractKeysFromSource('src/new.js', "t('chorestrike', 'prefix' + value)")).toThrow('Unclassified')

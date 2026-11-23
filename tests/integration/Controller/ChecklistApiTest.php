@@ -200,6 +200,32 @@ class ChecklistApiTest extends IntegrationTestCase {
 		self::assertSame(2, $data['stats']['checked']);
 	}
 
+	/**
+	 * Final review of CS-PLAN-091: the ticks of one room task follow that
+	 * room task's assignees. A private definition shared by two rooms is
+	 * visible to the member in the room they are assigned to only — the
+	 * other room's progress is neither readable nor writable.
+	 */
+	public function testRoomTaskProgress_SharedPrivateDefinition_FollowsTheRoomTasksOwnAssignees(): void {
+		$floorId = $this->createFloor($this->instanceHouseId, 'Chk Shared Floor');
+		$taskId = $this->createTask($this->instanceHouseId, 'Chk Shared Private ' . uniqid());
+		$this->taskIds[] = $taskId;
+		$mine = $this->trackRoomTask($this->assignTaskToRoom($taskId, $this->createRoom($this->instanceHouseId, $floorId, 'Chk Mine'), self::MEMBER));
+		$hidden = $this->trackRoomTask($this->assignTaskToRoom($taskId, $this->createRoom($this->instanceHouseId, $floorId, 'Chk Hidden')));
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_tasks')
+			->set('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PRIVATE))
+			->set('owner_user_id', $qb->createNamedParameter(self::OWNER))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)));
+		$qb->executeStatement();
+		$itemId = $this->createItem($taskId, 'Shared item', 0);
+
+		self::assertSame(200, $this->makeController(self::MEMBER)->getRoomTaskProgress($mine)->getStatus(), 'the assigned room stays readable');
+		self::assertSame(404, $this->makeController(self::MEMBER)->getRoomTaskProgress($hidden)->getStatus(), 'the other room\'s window and ticks stay hidden');
+		self::assertSame(404, $this->makeController(self::MEMBER)->toggleItem($hidden, $itemId)->getStatus(), 'the other room\'s ticks stay unwritable');
+		self::assertSame(200, $this->makeController(self::OWNER)->getRoomTaskProgress($hidden)->getStatus(), 'the creator still sees both rooms');
+	}
+
 	public function testToggleItem_HappyPath_TogglesAndReportsStats(): void {
 		$fixture = $this->seedOwnPublicTaskWithItems(1);
 

@@ -73,10 +73,12 @@ Complete agreed tasks, build a steady rhythm and keep your home tidy together. P
         missed slots permanently (the 60-minute same-day window is never
         extended — the Nextcloud cron prerequisite is documented) and
         dispatches at most one combined opt-in summary per person and
-        day. TimelineJob (CS-PLAN-072 WP1) advances the occurrence
-        agreement frontier — never awards, credits or notifications. Late
-        cron runs reconcile missed history from the immutable rule
-        inputs; a stopped cron never forces a write on GET.
+        day. TimelineJob (CS-PLAN-091 WP-B1, ADR-021) records fixed cycles
+        that stopped being current as missed, repairs the next-due
+        projection, reconciles closed weeks and drops old suggestion
+        snapshots — never awards, credits or notifications. Late cron runs
+        reconcile missed history from the immutable rule inputs; a stopped
+        cron never forces a write on GET.
     -->
     <backgroundjobs>
         <job>OCA\ChoreStrike\BackgroundJob\DailyNotificationJob</job>

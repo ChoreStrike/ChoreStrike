@@ -244,6 +244,9 @@ describe('read-only stable discovery', () => {
 		expect(() => execute(process.execPath, ['-e', "process.stdout.write('valid');process.stderr.write('diagnostic')"])).toThrow('emitted diagnostics')
 		expect(() => execute(process.execPath, ['-e', "process.stdout.write('valid');process.stderr.write('warning')"], 'expected metadata')).toThrow('emitted diagnostics')
 	})
+	it('names the failed probe and how it ended (final review of CS-PLAN-091)', () => {
+		expect(() => execute(process.execPath, ['-e', "process.stderr.write('429 Too Many Requests');process.exit(3)"])).toThrow(/-e .*\(exit 3: 429 Too Many Requests\)$/)
+	})
 	it('reports matching artifacts without upgrading a candidate to qualified', async () => {
 		const io = officialFixtures()
 		await expect(checkStable({ ...frozen, status: 'candidate' }, io)).resolves.toMatchObject({ status: 'current', qualification: 'candidate', drift: [] })
@@ -301,7 +304,9 @@ describe('read-only stable discovery', () => {
 			: JSON.stringify({ ...JSON.parse(execute(command, args)), digest: `sha256:${'f'.repeat(64)}` }))
 		const result = await checkStable(frozen, io)
 		expect(result.status).toBe('update-needed')
-		expect(result.drift).toHaveLength(17)
+		// Six distinct source tags (both rows name the same ones, D-091-168), each probed once, and five images.
+		expect(result.drift).toHaveLength(11)
+		expect(io.execute.mock.calls.filter(([command]) => command === 'git')).toHaveLength(6)
 	})
 	it.each(['release network failure', 'registry failure', 'malformed release', 'malformed AIO bundle', 'prerelease'])('fails closed on %s', async failure => {
 		const io = officialFixtures()

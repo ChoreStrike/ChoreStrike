@@ -14,7 +14,13 @@ msgstr ""
 msgid "%n household update"
 msgstr ""
 
+msgid "%n household updates"
+msgstr ""
+
 msgid "%n planned task"
+msgstr ""
+
+msgid "%n planned tasks"
 msgstr ""
 
 msgid "(you)"
@@ -254,7 +260,7 @@ msgstr ""
 msgid "Also possible today · {count}"
 msgstr ""
 
-msgid "An absence is a period in which nothing is planned for you. A task whose whole window lies inside it counts neither for nor against you. Everyone enters their own under Absence; no reason and no request are needed."
+msgid "An absence is a period in which nothing is planned for you. A task whose whole window lies inside it never counts against you; work you do during it still counts. Everyone enters their own under Absence; no reason and no request are needed."
 msgstr ""
 
 msgid "An absence that has ended cannot be deleted"
@@ -3114,6 +3120,12 @@ msgid "This Week's Medals"
 msgstr ""
 
 msgid "This absence can no longer be deleted"
+msgstr ""
+
+msgid "This action is already being carried out. Reload and try again."
+msgstr ""
+
+msgid "This action was already carried out with other details. Reload and try again."
 msgstr ""
 
 msgid "This bonus task already counted for this person today. It counts again tomorrow."

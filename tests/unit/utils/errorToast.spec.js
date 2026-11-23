@@ -69,7 +69,7 @@ describe('errorToast (CS-PLAN-084 WP-F)', () => {
 		showCompletionError(new ApiError('This task was <b>deleted</b>', 409, {}, 'CONFLICT'))
 		showCompletionError(new ApiError('Boom', 500, {}, 'COMPLETE_TASK_ERROR'))
 
-		expect(showError).toHaveBeenNthCalledWith(1, 'This task was <b>deleted</b>', { isHTML: false })
+		expect(showError).toHaveBeenNthCalledWith(1, 'This task was &lt;b&gt;deleted&lt;/b&gt;')
 		expect(showError).toHaveBeenNthCalledWith(2, 'Could not complete the task (COMPLETE_TASK_ERROR)')
 	})
 
@@ -105,7 +105,18 @@ describe('errorToast (CS-PLAN-084 WP-F)', () => {
 		it.each(['VALIDATION_ERROR', 'FORBIDDEN', 'CONFLICT', 'RESOURCE_NOT_FOUND', 'SCOPE_REQUIRED'])('shows the server\'s reason of a refused command as plain text: %s', (code) => {
 			showRefusal(Object.assign(new Error('Bonus days are <b>already</b> planned for this time'), { status: 409, code }), 'Could not start the bonus days')
 
-			expect(showError).toHaveBeenCalledWith('Bonus days are <b>already</b> planned for this time', { isHTML: false })
+			expect(showError).toHaveBeenCalledWith('Bonus days are &lt;b&gt;already&lt;/b&gt; planned for this time')
+		})
+
+		it('hands the toast escaped text, so its one decode parses no markup (final review of CS-PLAN-091)', () => {
+			const reason = 'Unknown field: <img src=x onerror="window.pwned=1"> & "more"'
+			showRefusal(Object.assign(new Error(reason), { status: 400, code: 'VALIDATION_ERROR' }), 'Could not save the task')
+
+			// What @nextcloud/dialogs does with a text toast: innerHTML, then the text.
+			const decoded = document.createElement('div')
+			decoded.innerHTML = showError.mock.calls[0][0]
+			expect(decoded.querySelector('img')).toBeNull()
+			expect(decoded.textContent).toBe(reason)
 		})
 
 		it('prefers the message the caller names for a code', () => {

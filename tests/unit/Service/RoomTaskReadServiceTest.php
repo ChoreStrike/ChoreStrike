@@ -446,6 +446,18 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->assertSame('overdue', $payload['status']);
 	}
 
+	/** Final review of CS-PLAN-091: the create answer names the new row's command target. */
+	public function testCommittedRoomTaskWithCycle_AnswersTheRowAndItsCycleBlock(): void {
+		$this->taskMapper->method('findByIds')->willReturn([9 => $this->definition()]);
+
+		$committed = $this->service->committedRoomTaskWithCycle(3, $this->roomTaskAnchored(7, '-3 days'), new \DateTimeZone('UTC'), 'create');
+
+		$this->assertSame('overdue', $committed['roomTask']['status']);
+		$this->assertSame('overdue', $committed['cycle']['state']);
+		$this->assertIsString($committed['cycle']['cycleKey']);
+		$this->assertIsInt($committed['cycle']['expectedVersion']);
+	}
+
 	/**
 	 * CR-084-03 review fix: after a committed write a failing status read
 	 * degrades to the entity rule (logged) instead of an error that would
@@ -462,10 +474,12 @@ class RoomTaskReadServiceTest extends TestCase {
 				'action' => 'create', 'roomTaskId' => 7, 'exception' => \RuntimeException::class,
 			]);
 
-		$payload = $this->service->committedRoomTaskPayload(3, $roomTask, $utc, 'create');
+		$committed = $this->service->committedRoomTaskWithCycle(3, $roomTask, $utc, 'create');
+		$payload = $committed['roomTask'];
 
 		$this->assertSame('overdue', $payload['status'], 'entity day rule fallback');
 		$this->assertSame(7, $payload['id']);
+		$this->assertNull($committed['cycle'], 'no block without the status read');
 	}
 
 	// ------------------------------------------------------------------

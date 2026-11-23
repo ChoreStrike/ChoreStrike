@@ -74,15 +74,15 @@ final class TaskFormPayload {
 	 * when it differs from the stored one — a task that was never done
 	 * keeps a first date of long ago through every other save.
 	 *
+	 * @param string $todayKey The house-local today (`Y-m-d`, ADR-009): the
+	 *                         year counts in house days, also near midnight
 	 * @throws \InvalidArgumentException
 	 */
-	public function assertFirstDateInRange(IL10N $l10n): void {
+	public function assertFirstDateInRange(IL10N $l10n, string $todayKey): void {
 		if ($this->firstDate === null) {
 			return;
 		}
-		$today = new \DateTime('today', new \DateTimeZone('UTC'));
-		$day = \DateTime::createFromFormat('!Y-m-d', $this->firstDate, new \DateTimeZone('UTC'));
-		if ((int)$today->diff($day)->days > self::FIRST_DATE_RANGE_DAYS) {
+		if (abs(RecurrenceCalculator::daysBetween($todayKey, $this->firstDate)) > self::FIRST_DATE_RANGE_DAYS) {
 			throw new \InvalidArgumentException($l10n->t('The first date must lie within one year of today'));
 		}
 	}

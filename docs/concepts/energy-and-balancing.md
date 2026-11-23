@@ -30,8 +30,8 @@ agree what each level means rather than turn children's effort into timed compet
 The scale changes no stored value. Tasks and templates keep their energy.
 
 A changed energy applies to all open work at once, overdue work included, so the row, the
-planner and the payout show the same value. Completed work keeps the energy it was
-completed with ([ADR-013](../adr/ADR-013-occurrence-agreements-and-corrections.md), BUG-UX-014).
+suggestion and the payout show the same value. Completed work keeps the energy it was
+completed with ([ADR-021](../adr/ADR-021-derived-due-windows.md), BUG-UX-014).
 
 ## Weekly Capacity Planning
 
@@ -42,9 +42,9 @@ Example profile:
 - Monday-Friday: 5 energy per day
 - Saturday-Sunday: 15 energy per day
 
-The scheduler should distribute due tasks against these daily limits. A task above a
-person's budget for a day cannot be placed for them on that day: the planner reports it as
-unplaced, and an agreement is refused. The task dialog says so for longer tasks.
+The live suggestion spreads open work against these daily limits
+([ADR-022](../adr/ADR-022-live-suggestion.md)). Capacity never refuses: a task that fits no
+day of its window is marked *does not fit*, and an overfull day is highlighted.
 
 ## Presence Days and Fairness
 
@@ -59,9 +59,10 @@ Balancing must exclude unavailable days from assignment calculations.
 
 ### Fairness constraints
 
-- Target: do not place work on a member's unavailable days. The owner planner
-  checks availability, but recurrence advancement is separate: zero flexibility
-  or no available slot in the flex window can retain an unavailable base date.
+- Target: do not place work on a member's unavailable days. The suggestion
+  places work on available days inside the window; with zero flexibility or no
+  available day in the window it shows the work as overload instead of moving
+  the window (ADR-022).
 - Weekly fairness comparisons should normalize by each member's available energy capacity, not by raw task count.
 
 **Implemented (CS-PLAN-040):** the Insights `MemberFairnessTable` normalizes
@@ -78,8 +79,8 @@ never merged into one metric.
 ## Balancing Strategy (Original Intent)
 
 This is the original heuristic, not an autonomous rescheduling guarantee.
-The current confirmed-preview workflow and hard constraints are described in
-*Plan Capacity* below and [ADR-012](../adr/ADR-012-actionable-household-scheduling.md).
+The live suggestion that replaced the confirmed preview is described in
+*Live Suggestion* below and [ADR-022](../adr/ADR-022-live-suggestion.md).
 
 1. Filter tasks by due window.
 2. Exclude members unavailable on each day.
@@ -90,8 +91,8 @@ The current confirmed-preview workflow and hard constraints are described in
 ## Live Suggestion (ADR-022, CS-PLAN-091)
 
 > Replaces the plan preview and apply below (ADR-012) and every capacity
-> refusal after creation. Built on `feat/simplified-core-bc`; the shipped
-> planner holds until it merges ([ADR-022](../adr/ADR-022-live-suggestion.md)).
+> refusal after creation, since `0.8.0-alpha.5`
+> ([ADR-022](../adr/ADR-022-live-suggestion.md)).
 
 - The suggestion is computed on read over 14 house-local days from the open
   windows ([ADR-021](../adr/ADR-021-derived-due-windows.md)), each member's
@@ -286,7 +287,8 @@ planner capacity grid (`{planned}/{budget} — over capacity`, `Paused`,
   weaken the limits or block legitimate recording of already completed work.
 
 Availability is a capacity constraint, not a daily obligation. A rhythm streak
-must derive from agreed due occurrences, not from every weekday marked available.
+derives from the cycles of a member's tasks (ADR-021 §5), not from every weekday
+marked available.
 
 ## See Also
 

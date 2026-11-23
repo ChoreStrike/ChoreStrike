@@ -399,7 +399,7 @@ describe('House Store', () => {
 
 				const [first, second] = api.post.mock.calls.map(([, body]) => body.commandId)
 				expect(second).toBe(first)
-				expect(store.pendingBonusStart).toBeNull()
+				expect(store.pendingCommands).toEqual({})
 
 				// Another period is another command.
 				api.post.mockResolvedValueOnce({ bonusPeriod: period })

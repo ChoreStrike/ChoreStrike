@@ -71,6 +71,7 @@ class CompletionControllerTest extends TestCase {
 			$this->dateCommand,
 			$this->readModel,
 			$this->roomTaskReadService,
+			new \OCA\ChoreStrike\Service\CalendarService(),
 			$l10n,
 			$this->createMock(AppLogger::class)
 		);

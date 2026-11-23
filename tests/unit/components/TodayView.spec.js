@@ -894,7 +894,8 @@ describe('TodayView', () => {
 
 		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
 
-		expect(showError).toHaveBeenCalledWith('This task was deleted', { isHTML: false })
+		// Escaped for the toast's one decode; plain text shows unchanged.
+		expect(showError).toHaveBeenCalledWith('This task was deleted')
 	})
 
 	it('shows the execute-only checklist of an opened row and toggles an item (CS-PLAN-066 §3.5)', async () => {

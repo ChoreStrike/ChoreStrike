@@ -37,7 +37,7 @@
      window is open although it is planned for another day.
 - Upcoming appointments are not listed on Today; the calendar shows them.
 - **My tasks** and **Everyone** filter the rows. A row belongs to the
-  people its occurrence obliges, before the task's standing assignees.
+  task's assignees; there is no per-cycle handover (ADR-021).
 - A free day shows a **neutral empty state** ("Nothing is planned for
   today.") — no engagement prompt, no pressure.
 - A row whose completion just succeeded keeps its place for a moment and
@@ -48,7 +48,7 @@
   *Set up your home* stays on Today and under *Floors & Rooms* in the
   Settings while the house is empty (D-090-12).
 
-> **Releases B and C (CS-PLAN-091, built on `feat/simplified-core-bc`):** *Today*
+> **Releases B and C (CS-PLAN-091, `0.8.0-alpha.5`):** *Today*
 > shows the live suggestion ([ADR-022](../adr/ADR-022-live-suggestion.md))
 > instead of *Due today*, a section for bonus tasks and a running bonus period.
 > The overdue block keeps one red entry per task with the end of its window;
@@ -79,10 +79,10 @@ a catch-up up as a success streak.
   **nothing**. A short tap or a plain click shows an inline "Press and hold
   to confirm" hint instead of failing silently; screen readers get the same
   hint as the button description (VoiceOver/TalkBack: double-tap and hold).
-- **Claim overdue** keeps its explanatory confirmation dialog without a
-  hold; destructive actions keep `ConfirmDialog`; **Undo** stays a single
-  tap because it is the safety net; dialog confirm buttons stay
-  single-click.
+- Destructive actions keep `ConfirmDialog`; **Undo** stays a single tap
+  because it is the safety net; dialog confirm buttons stay single-click.
+  The overdue-claim dialog went with CS-PLAN-091 WP-B6: a short tap on
+  *Done* opens the picker of who did the work.
 - One completion request per room task at a time: every completion
   surface reads the shared in-flight state of the room-task store, and a
   concurrent call joins the pending request instead of sending a second.
@@ -181,7 +181,7 @@ by quiet times.
 ## Identity switches reset every house-scoped store
 
 One orchestration (`src/composables/useStoreReset.js`) resets **all
-fifteen** house-scoped stores before another identity is loaded — a
+seventeen** house-scoped stores before another identity is loaded — a
 shared device never renders a previous login's data. Each store keeps its
 own in-flight read generation guards; the composable adds the missing
 caller, not a per-store mechanism. The store dependency graph stays a
@@ -189,6 +189,7 @@ DAG: no store module may import the reset composable.
 
 ## Ranking is shares, never amounts
 
-The optional weekly ranking compares **on-time shares** of agreed public
-work — never Coin amounts, never raw activity metrics. Provisional while
+The optional weekly ranking compares **on-time shares** of public work
+(stored occurrences before the cutover, cycles from it on, ADR-021 §5) —
+never Coin amounts, never raw activity metrics. Provisional while
 days are open, neutral for unavailable members, opt-in per person.

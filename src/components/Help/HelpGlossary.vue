@@ -89,7 +89,7 @@ export default {
 				{
 					id: 'absence',
 					title: t('chorestrike', 'Absence'),
-					text: t('chorestrike', 'An absence is a period in which nothing is planned for you. A task whose whole window lies inside it counts neither for nor against you. Everyone enters their own under Absence; no reason and no request are needed.'),
+					text: t('chorestrike', 'An absence is a period in which nothing is planned for you. A task whose whole window lies inside it never counts against you; work you do during it still counts. Everyone enters their own under Absence; no reason and no request are needed.'),
 				},
 				{
 					id: 'category',

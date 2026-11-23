@@ -44,5 +44,7 @@ describe('commandId', () => {
 
 		expect(settleCommand(pending, 'a', new Error('Network Error'))).toBe(pending)
 		expect(settleCommand(pending, 'a', { status: 502 })).toBe(pending)
+		// No status at all is no answer, also when a caller sets it to null.
+		expect(settleCommand(pending, 'a', { status: null })).toBe(pending)
 	})
 })

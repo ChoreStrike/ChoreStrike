@@ -84,7 +84,7 @@ describe('jest worktree mock discovery exclusion', () => {
 			// The probe suite exercises t()/l10n code that resolves through the
 			// canonical manual mocks — its green run proves the canonical mock
 			// mappings still work with a worktree fixture present.
-			expect(output).toMatch(/Tests:\s+13 passed, 13 total/)
+			expect(output).toMatch(/Tests:\s+14 passed, 14 total/)
 		} finally {
 			removeFixture()
 		}
@@ -107,7 +107,7 @@ describe('jest worktree mock discovery exclusion', () => {
 			expect(result.status).toBe(0)
 			const output = `${result.stdout || ''}\n${result.stderr || ''}`
 			expect(output).not.toMatch(/Haste module naming collision/)
-			expect(output).toMatch(/Tests:\s+13 passed, 13 total/)
+			expect(output).toMatch(/Tests:\s+14 passed, 14 total/)
 		} finally {
 			fs.rmSync(fixture, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
 		}

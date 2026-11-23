@@ -130,6 +130,19 @@ describe('canonical browser evidence', () => {
 		spawnSync.mockReturnValue({ status: null, signal: 'SIGTERM' })
 		expect(runPlaywright([]).status).toBe(1)
 	})
+	it('keeps the stderr of a failed discovery beside the evidence and names it (final review of CS-PLAN-091)', () => {
+		jest.spyOn(console, 'log').mockImplementation(() => {})
+		jest.spyOn(fs, 'mkdirSync').mockImplementation(() => {})
+		const written = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {})
+		spawnSync.mockReturnValue({ status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('Error: webServer did not start') })
+		const argv = process.argv
+		process.argv = ['node', 'run-e2e-gate.js']
+		try {
+			const log = path.join('build', 'e2e-gate', `discovery-${GATE_PROJECTS[0]}.log`)
+			expect(() => main()).toThrow(`its stderr: ${log}`)
+			expect(written).toHaveBeenCalledWith(log, 'Error: webServer did not start')
+		} finally { process.argv = argv }
+	})
 	it('the actual main pipeline rejects a missing journey even with zero process exits', () => {
 		jest.spyOn(target, 'configuredTarget').mockReturnValue({ url: 'http://localhost:8080', container: 'chorestrike-test' })
 		jest.spyOn(runtime, 'readInventory').mockReturnValue({})

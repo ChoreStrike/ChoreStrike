@@ -23,14 +23,16 @@ use OCA\ChoreStrike\Db\WalletMapper;
  *
  * The ranking shows, for the current house week, ONE visible entry per
  * EFFECTIVELY CONSENTED member: the on-time ratio of that member's
- * personal agreed occurrences on household-public tasks (the public
- * flag frozen at agreement time). Non-consenting members, foreign consent
+ * recognition facts on household-public tasks
+ * ({@see RecognitionFactsService}: stored occurrences for windows that
+ * ended before the house's cutover day, cycles from it on — ADR-021
+ * decision 5, ADR-015 as amended). Non-consenting members, foreign consent
  * states, private-task facts, Coins and raw contribution are never
  * exposed — the filter lives here, server-side, never client-side.
  *
  * Comparison is EXACT: ratios are compared by cross-multiplication of the
  * integer counts (no floats); equal ratios tie; zero-denominator members
- * (no eligible public occurrences this week) render neutral/unranked.
+ * (no eligible public facts this week) render neutral/unranked.
  * The week is provisional while it or any included window is open.
  * Consented-but-not-yet-effective members appear as pending, without a
  * rank (C5l): a new consent generation activates the NEXT Monday 00:00 in

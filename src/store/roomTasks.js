@@ -6,7 +6,7 @@
 import { emit } from '@nextcloud/event-bus'
 import { defineStore } from 'pinia'
 import { api } from '../services/api.js'
-import { generateCommandId } from '../utils/commandId.js'
+import { generateCommandId, rememberCommand, settleCommand } from '../utils/commandId.js'
 import { dateKeyInZone } from '../utils/dateKeys.js'
 import { logger } from '../utils/logger.js'
 import { useGameStore } from './game.js'
@@ -472,11 +472,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				// response replays the original receipt instead of 409ing on
 				// a new command against the now-fulfilled target.
 				const commandKey = `${roomTaskId}:${target.cycleKey ?? target.state}:${target.expectedVersion}`
-				let commandId = this.pendingCommands[commandKey]
-				if (!commandId) {
-					commandId = generateCommandId()
-					this.pendingCommands[commandKey] = commandId
-				}
+				const { commandId, pending } = rememberCommand(this.pendingCommands, commandKey)
+				this.pendingCommands = pending
 
 				try {
 					const payload = { commandId, expectedVersion: target.expectedVersion }
@@ -492,7 +489,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					}
 					const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/complete`, payload)
 
-					delete this.pendingCommands[commandKey]
+					this.pendingCommands = settleCommand(this.pendingCommands, commandKey)
 
 					this.reconcileCompletionPayload(roomTaskId, data)
 					this.markJustCompleted(roomTaskId)
@@ -542,10 +539,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					// or a 5xx, where the server may still have committed —
 					// KEEPS the pending UUID so the retry replays the original
 					// receipt (RF-072-WP1-07).
-					if (error?.status === undefined || error?.status >= 500) {
+					this.pendingCommands = settleCommand(this.pendingCommands, commandKey, error)
+					if (this.pendingCommands[commandKey]) {
 						logger.warn('Completion command stays pending for retry', { store: 'roomTasks', action: 'completeRoomTask', roomTaskId, commandKey, error })
-					} else {
-						delete this.pendingCommands[commandKey]
 					}
 					throw error
 				}
@@ -863,8 +859,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @param {object} aggregate The creation answer.
 		 */
 		addCreatedRoomTask(aggregate) {
-			// Canonical assignee shape (CS-PLAN-066 D1): a user-ID array.
-			this.roomTasks.push({ ...aggregate.roomTask, assignees: aggregate.assignees || [] })
+			// Canonical assignee shape (CS-PLAN-066 D1): a user-ID array. The
+			// answer's cycle block is the row's command target, so the new
+			// row can be edited, postponed or completed before any reread.
+			this.roomTasks.push({ ...aggregate.roomTask, assignees: aggregate.assignees || [], cycle: aggregate.cycle ?? null })
 			useTasksStore().upsertTask(aggregate.task)
 			this.onInstanceMutated()
 		},

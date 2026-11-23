@@ -74,7 +74,7 @@ class SuggestionViewTest extends TestCase {
 				array_fill_keys(TaskService::WEEKDAYS, 6),
 				$this->preferences[$id]['weekdayAvailability'] ?? [],
 				$this->preferences[$id]['preferredWeekdays'] ?? [],
-				null,
+				$this->preferences[$id]['maxDailyTasks'] ?? null,
 			);
 		}
 		$roomTasks = $tasks = [];
@@ -149,6 +149,17 @@ class SuggestionViewTest extends TestCase {
 		$this->overdue(1, [self::MOM]);
 
 		self::assertSame(0, $this->view()->countFor($this->viewer(self::MOM)));
+	}
+
+	/** Final review of CS-PLAN-091: *Today* suggests a child at most the limit, and so does the summary. */
+	public function testCountFor_AChildsSuggestedWork_CountsUpToTheDailyLimit_PlusOverdue(): void {
+		$this->preferences[self::DAD] = ['maxDailyTasks' => 2];
+		$this->placed(1, 0, [self::DAD]);
+		$this->placed(2, 0, [self::DAD]);
+		$this->placed(3, 0, [self::DAD], 2, true, true);
+		$this->overdue(1, [self::DAD]);
+
+		self::assertSame(3, $this->view()->countFor($this->viewer(self::DAD)), 'two suggested within the limit and one overdue');
 	}
 
 	public function testCountFor_SomeoneThePlanDoesNotKnow_IsZero(): void {

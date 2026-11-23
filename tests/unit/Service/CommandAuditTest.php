@@ -26,7 +26,7 @@ class CommandAuditTest extends TestCase {
 		$houses = $this->createMock(HouseMapper::class);
 		$receipts = $this->createMock(CommandReceiptMapper::class);
 		$logger = $this->createMock(AppLogger::class);
-		$service = new CommandService(new TransactionExecutor($db), $houses, $receipts, $logger);
+		$service = new CommandService(new TransactionExecutor($db), $houses, $receipts, $logger, $this->createMock(\OCP\IL10N::class));
 		$payload = ['reason' => 'private synthetic content'];
 		$committed = false;
 		$db->method('commit')->willReturnCallback(static function () use (&$committed): void {

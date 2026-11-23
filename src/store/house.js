@@ -6,7 +6,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { defineStore } from 'pinia'
 import { api, setCatalogEnabled } from '../services/api.js'
-import { generateCommandId } from '../utils/commandId.js'
+import { generateCommandId, rememberCommand, settleCommand } from '../utils/commandId.js'
 import { logger } from '../utils/logger.js'
 import { DEFAULT_CATEGORY_LIST } from '../utils/taskCategories.js'
 
@@ -34,7 +34,8 @@ export const useHouseStore = defineStore('house', {
 		activityRequestSeq: 0,
 		pendingResetCommand: null,
 		/** @type {?{key: string, commandId: string}} The start of bonus days whose answer was lost. */
-		pendingBonusStart: null,
+		/** @type {Object<string, string>} Command key → the UUID an uncertain failure keeps for its retry. */
+		pendingCommands: {},
 	}),
 
 	getters: {
@@ -282,20 +283,18 @@ export const useHouseStore = defineStore('house', {
 		async startBonusPeriod(startsOn, days) {
 			// The same period again after an uncertain failure replays its
 			// receipt instead of meeting itself as an overlap (409).
-			const key = `${startsOn}:${days}`
-			if (this.pendingBonusStart?.key !== key) {
-				this.pendingBonusStart = { key, commandId: generateCommandId() }
-			}
+			const commandKey = `bonus-start:${startsOn}:${days}`
+			const { commandId, pending } = rememberCommand(this.pendingCommands, commandKey)
+			this.pendingCommands = pending
 			let data
 			try {
-				data = await api.post('/api/v1/house/bonus-periods', { commandId: this.pendingBonusStart.commandId, startsOn, days })
-				this.pendingBonusStart = null
+				data = await api.post('/api/v1/house/bonus-periods', { commandId, startsOn, days })
+				this.pendingCommands = settleCommand(this.pendingCommands, commandKey)
 			} catch (error) {
-				// A timeout or 5xx may have committed: keep the command id, and
-				// read the house so a committed period shows.
-				if (error?.status >= 400 && error.status < 500) {
-					this.pendingBonusStart = null
-				} else {
+				this.pendingCommands = settleCommand(this.pendingCommands, commandKey, error)
+				// A timeout or 5xx may have committed: the command id stays,
+				// and the house reads again so a committed period shows.
+				if (this.pendingCommands[commandKey]) {
 					await this.fetchHouse().catch(() => null)
 				}
 				logger.error('Failed to start bonus days', error, { store: 'house', action: 'startBonusPeriod' })
@@ -466,7 +465,7 @@ export const useHouseStore = defineStore('house', {
 			this.activity = []
 			this.activityEvents = []
 			this.pendingResetCommand = null
-			this.pendingBonusStart = null
+			this.pendingCommands = {}
 			this.activityLoading = false
 			this.activityError = null
 		},

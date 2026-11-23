@@ -59,7 +59,7 @@ reward merely to manufacture equal rankings is not an agreed requirement.
 > with the WP3 cutover — the rows below are the surviving mechanics.
 
 > **Derived windows ([ADR-021](../adr/ADR-021-derived-due-windows.md), CS-PLAN-091,
-> built on `feat/simplified-core-bc`):**
+> `0.8.0-alpha.5`):**
 >
 > - **Two coin multipliers, coins only.** The owner sets a coin factor of × 1,
 >   × 2 or × 3 per member and starts bonus periods of one to three days with

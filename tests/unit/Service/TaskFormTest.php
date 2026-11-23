@@ -152,18 +152,33 @@ class TaskFormTest extends TestCase {
 		$old = TaskFormPayload::fromPayload(['firstDate' => $this->day(-500)], $this->calendar, $this->l10n);
 		$this->assertSame($this->day(-500), $old->firstDate, 'the boundary takes any real day');
 
-		TaskFormPayload::fromPayload([], $this->calendar, $this->l10n)->assertFirstDateInRange($this->l10n);
-		TaskFormPayload::fromPayload(['firstDate' => $this->day(366)], $this->calendar, $this->l10n)->assertFirstDateInRange($this->l10n);
-		TaskFormPayload::fromPayload(['firstDate' => $this->day(-366)], $this->calendar, $this->l10n)->assertFirstDateInRange($this->l10n);
+		$today = $this->day(0);
+		TaskFormPayload::fromPayload([], $this->calendar, $this->l10n)->assertFirstDateInRange($this->l10n, $today);
+		TaskFormPayload::fromPayload(['firstDate' => $this->day(366)], $this->calendar, $this->l10n)->assertFirstDateInRange($this->l10n, $today);
+		TaskFormPayload::fromPayload(['firstDate' => $this->day(-366)], $this->calendar, $this->l10n)->assertFirstDateInRange($this->l10n, $today);
 
 		foreach ([$this->day(367), $this->day(-367), '9999-12-31'] as $day) {
 			try {
-				TaskFormPayload::fromPayload(['firstDate' => $day], $this->calendar, $this->l10n)->assertFirstDateInRange($this->l10n);
+				TaskFormPayload::fromPayload(['firstDate' => $day], $this->calendar, $this->l10n)->assertFirstDateInRange($this->l10n, $today);
 				$this->fail('a first date of ' . $day . ' must be refused');
 			} catch (\InvalidArgumentException $e) {
 				$this->assertSame('The first date must lie within one year of today', $e->getMessage());
 			}
 		}
+	}
+
+	/**
+	 * Final review of CS-PLAN-091: the year counts from the house-local
+	 * today, not from UTC — east of UTC, shortly after midnight, the house
+	 * is already a day further.
+	 */
+	public function testFormPayload_FirstDateRange_CountsFromTheHouseLocalToday(): void {
+		$houseToday = '2026-11-24';
+		$form = TaskFormPayload::fromPayload(['firstDate' => '2027-11-25'], $this->calendar, $this->l10n);
+
+		$form->assertFirstDateInRange($this->l10n, $houseToday);
+		$this->expectException(\InvalidArgumentException::class);
+		$form->assertFirstDateInRange($this->l10n, '2026-11-23');
 	}
 
 	/** The sleep command must send `sleeping`; the form may leave it out. */

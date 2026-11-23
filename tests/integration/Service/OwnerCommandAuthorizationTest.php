@@ -118,7 +118,7 @@ class OwnerCommandAuthorizationTest extends IntegrationTestCase {
 			return $realHouses->findForUpdate($houseId);
 		});
 		$commands = new CommandService(new TransactionExecutor($this->db), $houses,
-			\OC::$server->get(CommandReceiptMapper::class), $logger);
+			\OC::$server->get(CommandReceiptMapper::class), $logger, \OC::$server->getL10N('chorestrike'));
 		$property = new \ReflectionProperty($service, $service instanceof HouseService ? 'commandService' : 'commands');
 		$property->setAccessible(true);
 		$property->setValue($service, $commands);

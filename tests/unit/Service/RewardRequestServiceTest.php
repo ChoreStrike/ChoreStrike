@@ -233,7 +233,7 @@ class RewardRequestServiceTest extends TestCase {
 			$row->setId(5);
 			return $receipt = $row;
 		});
-		$commands = new CommandService(new \OCA\ChoreStrike\Db\TransactionExecutor($db), $this->houseMapper, $receipts, $this->appLogger);
+		$commands = new CommandService(new \OCA\ChoreStrike\Db\TransactionExecutor($db), $this->houseMapper, $receipts, $this->appLogger, $this->l10n);
 		$this->service = new RewardRequestService($commands, $this->requestMapper, $this->eventMapper,
 			$this->itemMapper, $this->houseMapper, $this->houseUserMapper, $this->walletMapper,
 			$this->walletEntryMapper, $this->walletService, $this->prefMapper, $this->digestChangeMapper,

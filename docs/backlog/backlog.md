@@ -401,7 +401,7 @@ the screenshot text keep the old name. Older than CS-PLAN-091.
 - [x] The switch, its German copy, the user guide and the screenshot alt text name what is
   delivered, or a weekly delivery is decided and built: *Daily household updates* /
   *Tägliche Haushaltsupdates*, counted in the one daily summary (D-091-161).
-- [ ] The guide's screenshot shows the new label (recaptured with WP-G).
+- [x] The guide's screenshot shows the new label (recaptured with the WP-G candidate, 2026-11-23).
 
 ---
 
@@ -440,6 +440,110 @@ still called by their own tests. They stayed, because WP-B7 owns only what the p
 The scan matches names, so each entry needs its callers checked by type before it goes.
 
 - [ ] Each listed method is removed with its tests, or its caller is named.
+
+---
+
+### [P3] BUG-UX-018 — Two rare corrections of a fixed rhythm lose a cycle or its postponement
+**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: completion
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-091 (final Full review, 2026-11-23); user-rescoped by the operator, D-091-175
+
+Two corrections of a task with fixed days are not repaired; ADR-021 names them as known
+limits:
+
+- When two cycles were both done early and the older entry is deleted, its cycle never
+  becomes current again — the current cycle follows the later valid work — and no pass
+  records it as missed, so it drops out of the streak and the weekly goal without a trace.
+- A room task stores one postponement for one cycle key. When a cycle was postponed and
+  done and the next cycle is then postponed, undoing the first entry reopens its cycle
+  without its postponement and its count of presses (D-091-62 assumes the stored
+  postponement is still the reopened cycle's).
+
+Both need two corrections in a row on one fixed task. The final review fixed the related
+case where a second undo made a cycle current again that an earlier undo had recorded as
+missed (D-091-174).
+
+- [ ] A cycle that an undo leaves behind a later valid one is recorded as missed once its
+  window ends, or becomes current again; tested on PostgreSQL, MySQL and SQLite.
+- [ ] A reopened cycle takes its postponement and its count from the undone completion's
+  frozen window, or D-091-62 is narrowed to the case it holds for; tested.
+
+---
+
+### [P3] BUG-SEC-004 — Command receipts keep a hash derived from an erased member's user ID
+**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: —
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-091 (final Full review, 2026-11-23); public as a sanitized entry by the operator's decision, D-091-176
+
+A command receipt stores a SHA-256 of its payload, so that a retry replays it. Several
+payloads name members by their Nextcloud user ID — the work split of a completion since
+CS-PLAN-074 WP3, the coin factor and the form's assignees since CS-PLAN-091 — and the hash
+is not keyed. Erasure removes the receipt's actor but keeps the hash, so someone with
+database access who guesses the user ID can still tie the receipt to the erased person.
+Data minimisation, not a remote exposure.
+
+- [ ] Receipt payload identities name members by their internal ids, or the hash is keyed
+  with an instance secret; receipts that already exist keep replaying.
+- [ ] An erasure test shows that no receipt of the house is derived from the erased user ID.
+
+---
+
+### [P3] CR-SVC-68 — Reads repeated on the paths of Today, the lists and the cycle commands
+**Status**: Backlog · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: daily execution
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-091 (final Full review, 2026-11-23); user-rescoped by the operator, D-091-176
+
+The release stays within its request budgets, but some reads repeat:
+
+- A *Today* that was left still drives its reads: `forgetDailyLoad()` clears only the
+  load, so a row refresh from another view rereads `GET /room-tasks/filtered-daily` (the
+  whole suggestion) and the bonus rows, and the next completion in the task list reads the
+  load again for a page nobody shows.
+- The overdue, bonus and calendar range reads read the assignees of the house twice and
+  the house row again although the caller holds it (`RoomTaskReadService::getBonusTaskRows()`,
+  `withCycleBlocks()` without a zone, `RoomTaskController::serializeExecutionRows()`, the
+  range read of `RoomTaskService`): about two statements per request that `TodayRows`
+  already avoids (D-091-148).
+- The completion, the undo, the sleep command and `RoomTaskCommand::run()` read the house
+  row again under the lock that holds it: one to three primary-key reads per command.
+
+- [ ] A left *Today* drops its rows and bonus rows, so no refresh reads them.
+- [ ] The read paths reuse the assignee map and the house they hold, the commands pass the
+  house; `WorkflowQueryBudgetTest` and `CycleCommandQueryBudgetTest` are tightened.
+
+---
+
+### [P3] CR-SVC-69 — Erasure rewrites the frozen coin factors row by row under the house lock
+**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: —
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-091 (final Full review, 2026-11-23); user-rescoped by the operator, D-091-176
+
+`CompletedTaskMapper::forgetCoinFactorWallet()` reads every completion of the house in
+pages of 500 and updates each one whose frozen coin factors name the erased wallet. Since
+the release every completion freezes the factor of every member with a wallet, so that is
+one update per completion; `CycleMapper::forgetWallet()` reads every closed cycle the same
+way. Both run in the synchronous erasure transaction under the house lock, which holds
+the household's writes meanwhile, and the work grows by thousands of rows a year.
+
+- [ ] Rows with the same resulting map are updated together, and candidates are filtered
+  before they are read; the same for the cycles' responsible members.
+- [ ] An erasure test with a long history pins the statement count.
+
+---
+
+### [P3] CR-SVC-70 — Three methods above the method-size guideline
+**Status**: Backlog · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: —
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-091 (final Full review, 2026-11-23); user-rescoped by the operator, D-091-176
+
+`RoomTaskEditService::aggregate()` (about 40 lines), `CompletionDateCommand::changeDate()`
+(about 45) and the store action `_submitCompletion()` of `src/store/roomTasks.js` (about
+100, grown with the cycle key and the bonus credit) exceed the ~30-line guideline; the size
+inventory names files only.
+
+- [ ] The window-change selection leaves `aggregate()`, the guard and the answer leave
+  `changeDate()`, the success reconciliation and the events leave `_submitCompletion()`;
+  behaviour and budgets unchanged.
 
 ---
 

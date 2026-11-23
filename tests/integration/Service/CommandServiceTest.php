@@ -147,7 +147,8 @@ class CommandServiceTest extends IntegrationTestCase {
 			);
 			self::fail('a reused key with a changed payload must be a 409 conflict');
 		} catch (ConflictException $e) {
-			self::assertStringContainsString('different input', $e->getMessage());
+			// Translated: the refusal reaches the member's toast (final review of CS-PLAN-091).
+			self::assertStringContainsString('with other details', $e->getMessage());
 		}
 
 		// Exactly one receipt exists.

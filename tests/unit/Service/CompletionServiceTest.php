@@ -257,7 +257,7 @@ class CompletionServiceTest extends TestCase {
 		$authority = new CompletionAuthority($this->completedTaskMapper, $l10n);
 		$access = new CompletionAccess(
 			$this->completedTaskMapper, $this->roomTaskMapper, $this->taskMapper, $this->roomMapper, $this->houseUserMapper,
-			$this->taskAssigneeMapper, $this->taskAccessPolicy, $authority, $l10n
+			$this->taskAssigneeMapper, $this->taskAccessPolicy, $authority, $l10n, $this->createMock(\OCA\ChoreStrike\Db\RoomEventMapper::class)
 		);
 		$creditPolicy = new CreditPolicy($this->taskAccessPolicy, $this->workShareMapper, $this->houseUserMapper, $l10n);
 		$responsibility = new TaskResponsibility($this->taskAssigneeMapper, $this->houseUserMapper);

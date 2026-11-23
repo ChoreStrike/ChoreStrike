@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
+use OCA\ChoreStrike\Db\RoomEventMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
@@ -53,6 +54,7 @@ class CompletionAccess {
 		private TaskAccessPolicy $taskAccessPolicy,
 		private CompletionAuthority $authority,
 		private IL10N $l10n,
+		private RoomEventMapper $roomEventMapper,
 	) {
 	}
 
@@ -158,7 +160,10 @@ class CompletionAccess {
 	 * transaction. The room-task lock is the serialization point: the
 	 * completion is re-read UNDER it, so a concurrently committed
 	 * correction is visible here; the room row follows (documented order:
-	 * rooms before memberships and wallets).
+	 * rooms before memberships and wallets). It is the room of the entry's
+	 * journal event: a task moved to another room keeps its work in the
+	 * room where it was done, so an undo or a date correction rebuilds that
+	 * room (final review of CS-PLAN-091).
 	 *
 	 * @param string $rights self::RIGHTS_*
 	 */
@@ -167,7 +172,8 @@ class CompletionAccess {
 		$roomTask = $this->roomTaskMapper->lockForUpdate($probe->getRoomTaskId());
 		// The house scope is decided: an entry never changes its room task.
 		$completion = $this->completedTaskMapper->find($completionId);
-		$room = $this->roomMapper->lockForUpdate($roomTask->getRoomId());
+		$roomId = $this->roomEventMapper->findBySourceCompletion($completionId)?->getRoomId() ?? $roomTask->getRoomId();
+		$room = $this->roomMapper->lockForUpdate($roomId);
 		$task = $this->authorize($houseId, $actor, $completion, $roomTask, $rights);
 		return new CorrectionTarget($roomTask, $completion, $room, $task);
 	}

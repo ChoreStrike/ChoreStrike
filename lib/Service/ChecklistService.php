@@ -30,12 +30,15 @@ use OCP\IL10N;
  * Owns the checklist authorization guard so the controller stays thin:
  * every endpoint resolves the affected task and runs
  * {@see assertTaskAccessible()} — house linkage via the room-chain
- * (room_tasks → rooms → floors → house, mirroring
- * RoomTaskService::validateRoomTaskOwnership) plus the task-visibility
+ * (room_tasks → rooms → floors → house) plus the task-visibility
  * matrix, delegated to {@see TaskAccessPolicy} (public → any member;
  * private → creator ∪ assignees; admin-only → house owner, CS-PLAN-061
- * §3.2 D2). Denials surface as NotFoundException (404, anti-enumeration —
- * TaskController precedent).
+ * §3.2 D2). The ticks of one room task follow that room task's own
+ * assignees ({@see RoomTaskAccess::visible()}), like every other command
+ * on a room task: a private definition that several rooms share shows a
+ * room's progress only to who may see that room's task (ADR-010 note,
+ * final review of CS-PLAN-091). Denials surface as NotFoundException
+ * (404, anti-enumeration — TaskController precedent).
  *
  * The sub-tasks themselves are written by the one form's two aggregates
  * ({@see SubTaskWriter}, CS-PLAN-091 WP-B6); this service reads them and
@@ -48,7 +51,7 @@ class ChecklistService {
 	private TaskMapper $taskMapper;
 	private HouseMapper $houseMapper;
 	private TransactionExecutor $transactions;
-	private RoomTaskService $roomTaskService;
+	private RoomTaskAccess $roomTaskAccess;
 	private CycleProjection $cycleProjection;
 	private CalendarService $calendarService;
 	private IL10N $l10n;
@@ -62,7 +65,7 @@ class ChecklistService {
 		TaskMapper $taskMapper,
 		HouseMapper $houseMapper,
 		TransactionExecutor $transactions,
-		RoomTaskService $roomTaskService,
+		RoomTaskAccess $roomTaskAccess,
 		CycleProjection $cycleProjection,
 		CalendarService $calendarService,
 		IL10N $l10n,
@@ -75,7 +78,7 @@ class ChecklistService {
 		$this->taskMapper = $taskMapper;
 		$this->houseMapper = $houseMapper;
 		$this->transactions = $transactions;
-		$this->roomTaskService = $roomTaskService;
+		$this->roomTaskAccess = $roomTaskAccess;
 		$this->cycleProjection = $cycleProjection;
 		$this->calendarService = $calendarService;
 		$this->l10n = $l10n;
@@ -123,17 +126,16 @@ class ChecklistService {
 	}
 
 	/**
-	 * Resolve a room task in the caller's house (ownership chain + task
-	 * guard) and return it with its definition.
+	 * Resolve a room task in the caller's house and return it with its
+	 * definition: visible by that room task's own assignees, not by those
+	 * of the definition's other rooms.
 	 *
 	 * @return array{0: RoomTask, 1: Task}
-	 * @throws NotFoundException if the room task or its task is not accessible
+	 * @throws NotFoundException if the room task is foreign, deleted or invisible
 	 */
 	private function assertRoomTaskAccessible(int $roomTaskId, int $houseId, HouseUser $viewer): array {
-		$this->roomTaskService->validateRoomTaskOwnership($roomTaskId, $houseId);
-		$roomTask = $this->roomTaskService->getRoomTask($roomTaskId);
-
-		return [$roomTask, $this->assertTaskAccessible($roomTask->getTaskId(), $houseId, $viewer)];
+		['roomTask' => $roomTask, 'task' => $task] = $this->roomTaskAccess->visible($houseId, $viewer, $roomTaskId);
+		return [$roomTask, $task];
 	}
 
 	/**

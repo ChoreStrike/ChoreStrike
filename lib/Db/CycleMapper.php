@@ -106,6 +106,19 @@ class CycleMapper extends QBMapper {
 	}
 
 	/**
+	 * Delete the missed row of one cycle: an undo made that cycle current
+	 * again, so it is open work, not a miss (final review of CS-PLAN-091).
+	 */
+	public function deleteMissed(int $roomTaskId, string $cycleKey): int {
+		$qb = $this->db->getQueryBuilder();
+		return $qb->delete($this->getTableName())
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('cycle_key', $qb->createNamedParameter($cycleKey)))
+			->andWhere($qb->expr()->eq('outcome', $qb->createNamedParameter(Cycle::OUTCOME_MISSED)))
+			->executeStatement();
+	}
+
+	/**
 	 * The latest rule day of each room task that already has a closed
 	 * row, so the timeline job walks only what is new.
 	 *

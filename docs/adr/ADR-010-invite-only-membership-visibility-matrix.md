@@ -72,7 +72,12 @@ Owners do **not** implicitly see private tasks. Granularity:
   `filterVisibleRoomTasks`): per-room-task — a member sees exactly their own
   assigned room tasks of a private definition, not another member's chore
   instance; the creator sees all of theirs.
-- **Checklists**: definition-level via `TaskAccessPolicy::canViewTask`.
+- **Checklists**: the items of a definition are definition-level via
+  `TaskAccessPolicy::canViewTask`; the ticks of one room task (its progress
+  read and its toggle) are per-room-task like every other command on a room
+  task (`RoomTaskAccess::visible`): a member assigned to one room's copy of a
+  shared private definition neither reads nor ticks another room's copy
+  (final review of CS-PLAN-091).
 
 Completion, lifecycle (due-date; the former reactivate/uncomplete pair was
 folded into the one undo aggregate by CS-PLAN-064/ADR-011), assignment, and

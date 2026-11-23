@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\CommandService;
 use OCA\ChoreStrike\Service\CompletionDateCommand;
 use OCA\ChoreStrike\Service\CompletionReadModel;
@@ -46,6 +47,7 @@ class CompletionController extends Controller {
 	private CompletionDateCommand $dateCommand;
 	private CompletionReadModel $readModel;
 	private RoomTaskReadService $roomTaskReadService;
+	private CalendarService $calendar;
 	private IL10N $l;
 
 	public function __construct(
@@ -56,6 +58,7 @@ class CompletionController extends Controller {
 		CompletionDateCommand $dateCommand,
 		CompletionReadModel $readModel,
 		RoomTaskReadService $roomTaskReadService,
+		CalendarService $calendar,
 		IL10N $l,
 		AppLogger $appLogger,
 	) {
@@ -66,6 +69,7 @@ class CompletionController extends Controller {
 		$this->dateCommand = $dateCommand;
 		$this->readModel = $readModel;
 		$this->roomTaskReadService = $roomTaskReadService;
+		$this->calendar = $calendar;
 		$this->l = $l;
 		$this->initializeControllerLogger($appLogger);
 	}
@@ -229,8 +233,7 @@ class CompletionController extends Controller {
 				return $payload;
 			}
 			$date = $this->request->getParam('date');
-			$parts = is_string($date) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $date, $m) === 1 ? $m : null;
-			if ($parts === null || !checkdate((int)$parts[2], (int)$parts[3], (int)$parts[1])) {
+			if (!$this->calendar->isRealDay($date)) {
 				throw new \InvalidArgumentException($this->l->t('A valid date (Y-m-d) is required'));
 			}
 

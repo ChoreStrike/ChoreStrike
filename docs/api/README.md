@@ -389,8 +389,8 @@ mutation is a `CommandService` command: the client generates one RFC 4122 v4
 an identical retry replays the stored outcome (`replay: true`) with zero
 repeated effects, a changed payload under the same UUID conflicts.
 
-> **Derived windows ([ADR-021](../adr/ADR-021-derived-due-windows.md), CS-PLAN-091 on
-> `feat/simplified-core-bc`):** the read model carries the cycle facts (`cycleKey`,
+> **Derived windows ([ADR-021](../adr/ADR-021-derived-due-windows.md), CS-PLAN-091,
+> `0.8.0-alpha.5`):** the read model carries the cycle facts (`cycleKey`,
 > `windowStartOn`, `windowEndOn`, `completionClass` = `on_time` | `late` | `bonus`) and
 > `recordedBy` when someone recorded the work for other people (WP-B2). The rights
 > follow ADR-021 §9 (WP-B3, D-091-23): the owner corrects any entry; a member who is
@@ -653,8 +653,8 @@ List all tasks visible to the current user (role-based visibility filtering appl
 > pruned in CS-PLAN-055 (no production consumer). Tasks are consumed via
 > `GET /tasks` and mounted on rooms through `GET /room-tasks`. The lifecycle
 > `PUT /tasks/{id}/uncomplete` was likewise pruned in CS-PLAN-064 (decision
-> D5) — undo runs exclusively through `POST /room-tasks/{id}/undo` (see Room
-> Tasks).
+> D5) — undo runs exclusively through
+> [`POST /completions/{id}/undo`](#post-completionsidundo) since WP3.
 
 > **Catalog templates:** the DB-backed `is_template` / `GET /tasks/templates`
 > system was removed (CS-PLAN-027 D7). Task templates come from the
@@ -712,9 +712,13 @@ everything (no orphan definitions). Closed body; an unknown field is a
 The response is the unified aggregate shape. The room task carries the
 projection: `nextDue` is the start of the last day of the first window,
 `idealDueDate` the start of its planned day, `anchorOn` the first date.
+`cycle` is the new row's `cycle` block as the lists show it (its command
+target, `null` when the status read failed after the commit), so the client
+can edit, postpone or complete the task without reading the list again
+(final review of CS-PLAN-091).
 
 ```json
-{ "task": {…}, "roomTask": {…}, "assignees": ["mom", "dad"] }
+{ "task": {…}, "roomTask": {…}, "assignees": ["mom", "dad"], "cycle": {…} }
 ```
 
 Gate order: children → `403`; cross-house room → `404` (anti-enumeration);
@@ -969,8 +973,7 @@ the task's one current cycle, derived on read:
 **`status` (CS-PLAN-084 D-084-08)** derives from it: `overdue` for an `overdue`
 cycle, `due_today` for an `open` one — also when the planned day has passed
 inside an open flex window — and `due_soon`/`upcoming` before the window
-opens. The client's overdue badge, overdue filter and claim affordance follow
-the same state. The row's `nextDue` is only the projection the list queries
+opens. The client's overdue badge and overdue filter follow the same state. The row's `nextDue` is only the projection the list queries
 sort by: the start of the window's last day.
 
 The canonical `assignees` decide who a row belongs to; there is no per-cycle
@@ -1037,9 +1040,9 @@ journal events keep replaying in the room journal.
 > completion targeting contract (C3e) with the receipt envelope, completer/
 > owner authority and the latest-selected-allocation reversal.
 
-- **Actor gate:** the recorded completer or a house owner (masterplan decision
-  D3; participation alone is no authority). A completer who left the house
-  leaves the owner as the only authority.
+- **Actor gate:** as [`POST /completions/{id}/undo`](#post-completionsidundo)
+  (ADR-021 §9): the owner undoes any entry, any other member only the latest
+  valid entry they recorded.
 - **No revertible completion:** `200` with `undone: false` and **zero
   writes** — undo is idempotent, and the current state is echoed back for
   client reconciliation.
@@ -1064,13 +1067,18 @@ from the one form after a confirmation (D-091-86).
 
 > **Full route list:** the canonical, complete route table is
 > [`appinfo/routes.php`](../../appinfo/routes.php) (93 routes spanning `house`,
-> `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,
-> `checklist`, `minigame`, `setup`, and `test`). The task-sync ×6 and
+> `floor`, `room`, `task`, `room_task`, `room_task_cycle`, `room_task_edit`,
+> `completion`, `coinMultiplier`, `game`, `user`, `pause`, `ranking`,
+> `preference`, `reward`, `reward_request`, `arcadeSettings`, `taskCategory`,
+> `scheduling`, `checklist`, `minigame`, `setup`, `page` and `test`). The task-sync ×6 and
 > reward-config ×2 HTTP surfaces were pruned in CS-PLAN-055 together with
 > 31 further no-consumer/test-only routes (disposition list + guard in
 > `RouteMatrixTest`); CS-PLAN-063 pruned `POST /tasks` and CS-PLAN-064 pruned
 > `PUT /tasks/{id}/uncomplete` + `POST /room-tasks/{id}/reactivate` while
-> adding the undo aggregate. CS-PLAN-091 WP-B6 pruned `PUT /tasks/{id}`,
+> adding the undo aggregate. CS-PLAN-091 WP-B1 pruned the three agreement
+> commands, `PUT /room-tasks/{id}/due-date`, `PUT /room-tasks/{id}/last-done`
+> and the owner's `POST /scheduling/suggestions` and `POST /scheduling/apply`
+> with the stored occurrences. CS-PLAN-091 WP-B6 pruned `PUT /tasks/{id}`,
 > `POST /room-tasks/from-template`, `POST /room-tasks/bulk-assign`,
 > `GET|PUT /room-tasks/{id}/assignees` and the four checklist-item writes for
 > the one form's two aggregates. CS-PLAN-091 WP-B7 pruned the four routes
@@ -1308,7 +1316,9 @@ Checklist endpoints for tasks and room tasks. Business logic and
 authorization live in `ChecklistService` (CR-053-01); the guard enforces
 **house linkage** (room task → room → floor → house) plus the
 **task-visibility matrix** (public → any member; private → task owner;
-admin-only → house owner) on every endpoint. Denials return
+admin-only → house owner) on every endpoint — for the items by definition,
+for the progress and the toggle of one room task by that room task's own
+assignees (ADR-010). Denials return
 `404 RESOURCE_NOT_FOUND` (anti-enumeration, the ADR-010 contract of the edit
 aggregate).
 

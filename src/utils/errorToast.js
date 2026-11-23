@@ -11,6 +11,23 @@ import { translate as t } from '@nextcloud/l10n'
 const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,63}$/
 
 /**
+ * Escape text for `showError`, which decodes its input once (innerHTML →
+ * innerText) on an element of the live document: escaped, a server's
+ * reason shows as the plain text it is, and no markup in it is ever
+ * parsed — an `<img onerror>` would run during that decode.
+ * @param {string} text Plain text.
+ * @return {string} The text with its markup characters escaped.
+ */
+function escapeForToast(text) {
+	return String(text)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;')
+}
+
+/**
  * Short diagnostic reference for a failed request (CS-PLAN-084 WP-F): the
  * stable API `code`, else the HTTP status, else `NETWORK` for an API call
  * that received no response. Never a raw message or stack data.
@@ -89,7 +106,7 @@ export function showRefusal(error, fallback, reasons = {}) {
 		return
 	}
 	if (['VALIDATION_ERROR', 'FORBIDDEN', 'CONFLICT', 'RESOURCE_NOT_FOUND', 'SCOPE_REQUIRED'].includes(code) && error?.message) {
-		showError(error.message, { isHTML: false })
+		showError(escapeForToast(error.message))
 		return
 	}
 	showErrorWithReference(fallback, error)

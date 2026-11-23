@@ -59,7 +59,8 @@ function extractKeysFromSource(file, content) {
 			const literal = rest.match(LITERAL)
 			if (!literal) break
 			keys.push(decodeLiteral(literal[0], php))
-			rest = rest.slice(literal[0].length)
+			// The plural follows the singular after a comma.
+			rest = rest.slice(literal[0].length).replace(/^\s*,\s*/, '')
 		}
 	}
 	// Local finite maps and ternary branches are owned by their declarations.
@@ -107,7 +108,7 @@ function collectSourceKeys(root = ROOT) {
 
 function extractPlaceholders(value) {
 	if (typeof value !== 'string') return []
-	return [...new Set(value.replace(/%%/g, '').match(/\{[a-zA-Z0-9_]+\}|%(?:\d+\$)?[-+0#]*(?:\d+)?(?:\.\d+)?[bcdeEfFgGosuxX]/g) ?? [])].sort()
+	return [...new Set(value.replace(/%%/g, '').match(/\{[a-zA-Z0-9_]+\}|%(?:\d+\$)?[-+0#]*(?:\d+)?(?:\.\d+)?[bcdeEfFgGnosuxX]/g) ?? [])].sort()
 }
 
 function potKeys(content) {

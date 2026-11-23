@@ -60,7 +60,8 @@ describe('taskCycle store', () => {
 				expectedVersion: 4,
 			})
 			expect(mockRoomTasksStore.reconcileCompletionPayload).toHaveBeenCalledWith(7, answer)
-			expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalledWith({})
+			// The postponed task leaves today's suggestion: the rows read again (final review of CS-PLAN-091).
+			expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalledWith({ rows: true })
 			expect(store.isPostponing(7)).toBe(false)
 		})
 

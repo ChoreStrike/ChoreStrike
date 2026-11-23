@@ -1136,9 +1136,10 @@ describe('RoomTasks Store', () => {
 				task: { id: 7, name: 'Dishes' },
 				roomTask: { id: 42, roomId: 3, taskId: 7 },
 				assignees: ['mom', 'dad'],
+				cycle: { state: 'upcoming', cycleKey: 'c:2026-11-24', expectedVersion: 1 },
 			})
 
-			expect(store.roomTasks).toEqual([{ id: 42, roomId: 3, taskId: 7, assignees: ['mom', 'dad'] }])
+			expect(store.roomTasks).toEqual([{ id: 42, roomId: 3, taskId: 7, assignees: ['mom', 'dad'], cycle: { state: 'upcoming', cycleKey: 'c:2026-11-24', expectedVersion: 1 } }])
 			expect(tasksStore.tasks.filter(t => t.id === 7)).toEqual([{ id: 7, name: 'Dishes' }])
 			expect(store.houseStale).toBe(true)
 			expect(refresh).toHaveBeenCalled()
@@ -1150,6 +1151,20 @@ describe('RoomTasks Store', () => {
 			store.addCreatedRoomTask({ task: { id: 8, name: 'Mop' }, roomTask: { id: 43, roomId: 3, taskId: 8 } })
 
 			expect(store.roomTasks[0].assignees).toEqual([])
+			expect(store.roomTasks[0].cycle).toBeNull()
+		})
+
+		it('makes the new row a command target at once: its first edit sends the version the create answered (final review of CS-PLAN-091)', () => {
+			store.roomTasks = []
+
+			store.addCreatedRoomTask({
+				task: { id: 9, name: 'Windows' },
+				roomTask: { id: 44, roomId: 3, taskId: 9 },
+				assignees: [],
+				cycle: { state: 'upcoming', cycleKey: 'c:2026-11-25', expectedVersion: 1 },
+			})
+
+			expect(store.completionTargetOf(44)).toEqual(expect.objectContaining({ cycleKey: 'c:2026-11-25', expectedVersion: 1 }))
 		})
 	})
 

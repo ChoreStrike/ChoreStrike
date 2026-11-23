@@ -185,7 +185,8 @@ A completion is classified once, at completion, and frozen with it (D-091-02):
   closes (`responsible`). An unassigned cycle counts for the household only, as
   an unassigned occurrence does today.
 - **Absence is neutral** (D-091-03). A window that lies entirely inside an
-  absence of a member counts neither as kept nor as missed for that member.
+  absence of a member never counts as missed for that member; work the member
+  does in it anyway still counts as kept (final review of CS-PLAN-091).
   The recognitions decide this on read through `PauseProjectionService`, so an
   absence entered or deleted later is honoured. The red entry still shows.
 - **The recognitions keep their definitions** and read cycles where they read
@@ -398,6 +399,13 @@ for history.
 - The recognitions read two sources split at `cycles_from`.
 - `CompletionService` is already the largest named aggregate. Window logic,
   cycle targeting and the factor math go into new collaborators.
+- Two rare corrections of a fixed rhythm are known limits (final review of
+  CS-PLAN-091, [BUG-UX-018](../backlog/backlog.md#p3-bug-ux-018--two-rare-corrections-of-a-fixed-rhythm-lose-a-cycle-or-its-postponement)):
+  deleting the older of two cycles that were both done early leaves that cycle
+  neither open nor missed, because the current cycle follows the later valid
+  work; and undoing an entry after the next cycle was postponed reopens its
+  cycle without its own postponement, because a room task stores one
+  postponement (D-091-62 assumes it is still the reopened cycle's).
 
 ### Neutral
 

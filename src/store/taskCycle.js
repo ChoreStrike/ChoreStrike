@@ -41,7 +41,9 @@ export const useTaskCycleStore = defineStore('taskCycle', {
 		/**
 		 * Postpone the cycle a row shows: its window moves by half the flex
 		 * days, at most three times. One command per press; a second press
-		 * while one is in flight is ignored.
+		 * while one is in flight is ignored. The rows read again: a
+		 * postponed task leaves today's suggestion (ADR-022 decision 3),
+		 * also when its moved window still holds today.
 		 * @param {number} roomTaskId The room task.
 		 * @return {Promise<?object>} `{ roomTask, cycle, replay }`, or null for the ignored press.
 		 */
@@ -63,7 +65,7 @@ export const useTaskCycleStore = defineStore('taskCycle', {
 							expectedVersion: target.expectedVersion,
 						}),
 					}
-				}, {})
+				}, { rows: true })
 			} finally {
 				const rest = { ...this.postponingIds }
 				delete rest[roomTaskId]

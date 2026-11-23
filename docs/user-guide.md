@@ -1,8 +1,8 @@
 # ChoreStrike User Guide
 
 ChoreStrike is a household task app inside your own Nextcloud. A family or a
-flat shares one household: the tasks of every room, a fair plan for the week,
-and a calm *Today* page for everyone. Finished work earns Coins; everything
+flat shares one household: the tasks of every room, a fair suggestion of who
+does what on which day, and a calm *Today* page for everyone. Finished work earns Coins; everything
 else — rewards, a weekly ranking, an arcade — is optional and can stay off.
 
 ChoreStrike follows your Nextcloud language (English or German). This guide

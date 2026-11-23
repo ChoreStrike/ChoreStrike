@@ -436,6 +436,61 @@ class CycleTimelineTest extends IntegrationTestCase {
 		self::assertSame('d' . $this->day(1), $this->block($f)['cycleKey'], 'the current cycle follows the valid work of today');
 	}
 
+	/**
+	 * Final review of CS-PLAN-091: undoing the older of two fixed entries
+	 * records its cycle as missed; undoing the later one too makes that
+	 * cycle current again — open work that can be done, counted once, not
+	 * a miss that refuses its completion.
+	 */
+	public function testUndo_OfBothFixedEntries_TheOlderCycleIsOpenAgain_NotMissed(): void {
+		$older = $this->day(-2);
+		$f = $this->fixture([
+			'frequency_type' => 'weekly',
+			'scheduling_mode' => 'static',
+			'fixed_schedule_days' => json_encode([strtolower((new \DateTime($older))->format('l'))]),
+			'flex_days' => 0,
+		], $older);
+		$owner = $this->owner($f['houseId']);
+		$first = $this->insertCompletionRow($f['roomTaskId'], (int)$owner->getId(), $older . ' 12:00:00');
+		$this->insertClosedCycle($f['houseId'], $f['roomTaskId'], $older, $older, [(int)$owner->getWalletId()], $first);
+		$second = $this->complete($f);
+		self::assertSame([['d' . $older, Cycle::OUTCOME_DONE], ['d' . $this->day(5), Cycle::OUTCOME_DONE]], $this->outcomes($f), 'the next cycle was done early');
+
+		$this->reopen($f, $first);
+		self::assertSame([['d' . $this->day(5), Cycle::OUTCOME_DONE], ['d' . $older, Cycle::OUTCOME_MISSED]], $this->outcomes($f));
+		$this->reopen($f, $second);
+
+		self::assertSame([], $this->outcomes($f), 'the older cycle is open again, not missed');
+		self::assertSame('d' . $older, $this->block($f)['cycleKey']);
+		$this->complete($f);
+		self::assertSame([['d' . $older, Cycle::OUTCOME_DONE]], $this->outcomes($f), 'late work closes it once');
+	}
+
+	/** Undo one completion the way the aggregate does after its own writes. */
+	private function reopen(array $f, int $completionId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_completed_tasks')
+			->set('undone_at', $qb->createNamedParameter(date('Y-m-d H:i:s')))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($completionId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		$this->cycleService->reopenUnderLock(
+			$f['houseId'],
+			\OC::$server->get(RoomTaskMapper::class)->find($f['roomTaskId']),
+			\OC::$server->get(TaskMapper::class)->find($f['taskId']),
+			\OC::$server->get(\OCA\ChoreStrike\Db\CompletedTaskMapper::class)->find($completionId),
+			new \DateTimeZone('UTC'),
+			new \DateTime()
+		);
+	}
+
+	/** @return list<array{0: string, 1: string}> The closed cycles of the fixture by key and outcome. */
+	private function outcomes(array $f): array {
+		return array_map(
+			static fn (array $row): array => [$row['cycle_key'], $row['outcome']],
+			$this->rows('chorestrike_cycles', 'room_task_id', $f['roomTaskId'])
+		);
+	}
+
 	/** WP-B1 interim review: no miss predates its room task (a past first date). */
 	public function testJobPass_RecordsNoMissForWindowsBeforeTheRoomTaskWasCreated(): void {
 		$f = $this->fixture(['scheduling_mode' => 'static'], $this->day(-3));

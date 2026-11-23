@@ -204,16 +204,19 @@ class RoomTaskController extends Controller {
 	 * Serialize the creation aggregate into its response shape (D1), the one
 	 * the form's save answers too. Canonical `assignees` are unique,
 	 * deterministically ordered Nextcloud user-ID arrays (CS-PLAN-066 D1) —
-	 * the assigned_at row order of the fresh assignee set.
+	 * the assigned_at row order of the fresh assignee set. The `cycle`
+	 * block is the new row's command target (final review of CS-PLAN-091).
 	 */
 	private function serializeAggregate(array $aggregate, \OCA\ChoreStrike\Db\House $house): array {
+		$committed = $this->roomTaskReadService->committedRoomTaskWithCycle((int)$house->getId(), $aggregate['roomTask'], $this->timeZoneOf($house), 'create');
 		return [
 			'task' => $aggregate['task']->jsonSerialize(),
-			'roomTask' => $this->roomTaskReadService->committedRoomTaskPayload((int)$house->getId(), $aggregate['roomTask'], $this->timeZoneOf($house), 'create'),
+			'roomTask' => $committed['roomTask'],
 			'assignees' => array_map(
 				static fn ($assignee) => $assignee->getUserId(),
 				$aggregate['assignees']
 			),
+			'cycle' => $committed['cycle'],
 		];
 	}
 

@@ -47,7 +47,7 @@ export function rememberCommand(pending, commandKey) {
  * @return {Object<string, string>} The map to keep.
  */
 export function settleCommand(pending, commandKey, error = null) {
-	if (error && (error.status === undefined || error.status >= 500)) {
+	if (error && (!Number.isInteger(error.status) || error.status >= 500)) {
 		return pending
 	}
 	const rest = { ...pending }

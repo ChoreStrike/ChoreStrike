@@ -39,6 +39,8 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		// service; the double keeps the entity serialization.
 		$this->roomTaskReadService->method('roomTaskPayload')
 			->willReturnCallback(static fn ($roomTask, \DateTimeZone $tz) => $roomTask->jsonSerialize($tz));
+		$this->roomTaskReadService->method('committedRoomTaskWithCycle')
+			->willReturnCallback(static fn (int $houseId, $roomTask, \DateTimeZone $tz) => ['roomTask' => $roomTask->jsonSerialize($tz), 'cycle' => null]);
 		$this->completionService = $this->createMock(CompletionService::class);
 		$this->taskCreationService = $this->createMock(\OCA\ChoreStrike\Service\TaskCreationService::class);
 		$this->houseService = $this->createMock(HouseService::class);
@@ -148,6 +150,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->assertArrayHasKey('task', $data['data']);
 		$this->assertArrayHasKey('roomTask', $data['data']);
 		$this->assertArrayHasKey('assignees', $data['data']);
+		$this->assertArrayHasKey('cycle', $data['data']);
 	}
 
 	/**

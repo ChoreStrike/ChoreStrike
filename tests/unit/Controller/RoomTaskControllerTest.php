@@ -50,6 +50,8 @@ class RoomTaskControllerTest extends TestCase {
 		$this->request = $this->createMock(IRequest::class);
 		$this->roomTaskService = $this->createMock(RoomTaskService::class);
 		$this->roomTaskReadService = $this->createMock(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
+		$this->roomTaskReadService->method('committedRoomTaskWithCycle')
+			->willReturn(['roomTask' => ['id' => 3], 'cycle' => ['state' => 'upcoming', 'cycleKey' => 'c:2026-11-24', 'expectedVersion' => 1]]);
 		$this->completionService = $this->createMock(CompletionService::class);
 		$this->taskCreationService = $this->createMock(TaskCreationService::class);
 		$this->houseService = $this->createMock(HouseService::class);
@@ -538,6 +540,7 @@ class RoomTaskControllerTest extends TestCase {
 		$this->assertArrayHasKey('task', $response->getData()['data']);
 		$this->assertArrayHasKey('roomTask', $response->getData()['data']);
 		$this->assertArrayHasKey('assignees', $response->getData()['data']);
+		$this->assertSame(1, $response->getData()['data']['cycle']['expectedVersion'], 'the new row is a command target at once');
 	}
 
 	/**

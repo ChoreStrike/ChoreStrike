@@ -164,7 +164,7 @@ describe('Help entry and glossary', () => {
 		expect(wrapper.get('[data-testid="help-term-streak"]').text()).toContain('neither add to it nor break it')
 		expect(wrapper.text()).not.toMatch(/agreement|catch-up/i)
 		// The neutral absence semantics (C2b, ADR-020).
-		expect(wrapper.text()).toContain('counts neither for nor against you')
+		expect(wrapper.text()).toContain('never counts against you; work you do during it still counts')
 		expect(wrapper.text()).toContain('no reason and no request are needed')
 		// Today is the one landing page and shows the own balance (WP-B).
 		expect(wrapper.get('[data-testid="help-term-today"]').text()).toContain('what is overdue')

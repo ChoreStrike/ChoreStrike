@@ -588,9 +588,8 @@ decisions update intent below, not the current implementation/route inventory.
 | Test-only lifecycle/leaderboard/config ×8 | `PUT /tasks/{id}/complete`, `PUT …/skip`, `PUT …/reschedule`, `GET /tasks/daily`, `POST /room-tasks/{id}/deactivate`, `GET /game/leaderboard`, `GET+PUT /reward-config` |
 
 > Kept deliberately (UC-07 undo re-scoped by CS-PLAN-064 to the ONE aggregate
-> `POST /room-tasks/{id}/undo`, since WP3 the targeted `POST /completions/{id}/undo`; the split uncomplete/reactivate pair was pruned), `GET+PUT /room-tasks/{id}/assignees` (production:
-> TodayView per-row resolution + editor/bulk assignment), and the 3 test
-> harness routes below.
+> `POST /room-tasks/{id}/undo`, since WP3 the targeted `POST /completions/{id}/undo`; the split uncomplete/reactivate pair was pruned), the assignee routes until CS-PLAN-091 WP-B6 pruned
+> them (below), and the 3 test harness routes below.
 >
 > CS-PLAN-040 previously removed the dead stats trio
 > (`GET /users/{id}/stats`, `GET /room-tasks/user/{userId}`,
@@ -601,7 +600,14 @@ decisions update intent below, not the current implementation/route inventory.
 > `POST /room-tasks/from-template`, `POST /room-tasks/bulk-assign`,
 > `GET+PUT /room-tasks/{id}/assignees` and the four checklist-item writes: the
 > one form's `POST /room-tasks` and `PUT /room-tasks/{id}` carry them (96
-> routes, pinned by `RouteMatrixTest`).
+> routes, pinned by `RouteMatrixTest`). Before it, WP-B1 retired the three
+> agreement commands, the due-date and *last done* writers and the owner's
+> preview and apply (96), and WP-B3 to WP-B5 added the postpone, the date
+> correction, the history of one task, the sleep command, the bonus rows, the
+> coin factor and the two bonus-period commands (104). After it, WP-B7 retired
+> the manual cleanliness delta, the task statistics of a room, the absence
+> shortening and the house health refresh (92), and WP-C added the live
+> suggestion: 93 routes.
 
 ### Test Data API (3 — test mode only)
 

@@ -49,7 +49,9 @@ class SuggestionView {
 	 * What the daily summary counts for a member (ADR-022 decision 7):
 	 * the work suggested to them for today plus their overdue tasks.
 	 * Nothing on a day the member is not available or is absent — an
-	 * overdue task of an absent assignee still names them.
+	 * overdue task of an absent assignee still names them. A child's
+	 * suggested work counts up to the daily limit, as *Today* suggests it
+	 * (D-091-131; the rest is *also possible* there).
 	 */
 	public function countFor(HouseUser $member): int {
 		$memberId = (int)$member->getId();
@@ -58,8 +60,9 @@ class SuggestionView {
 			return 0;
 		}
 		$mine = static fn (SuggestionPlacement $entry): bool => $entry->names($memberId);
-		return count(array_filter($this->plan->on($today), static fn (SuggestionPlacement $entry): bool => $entry->current && $mine($entry)))
-			+ count(array_filter($this->plan->overdue(), $mine));
+		$suggested = count(array_filter($this->plan->on($today), static fn (SuggestionPlacement $entry): bool => $entry->current && $mine($entry)));
+		$limit = $this->limitOf($memberId);
+		return ($limit === null ? $suggested : min($suggested, $limit)) + count(array_filter($this->plan->overdue(), $mine));
 	}
 
 	/**

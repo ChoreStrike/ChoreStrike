@@ -142,7 +142,8 @@ is agreed, requested or stored ahead. Contract:
   date or a new task; Release C shows overload instead.
 - **Streaks and the weekly goal follow the windows:** a round is classified
   once, when it is done, and counts in the week its window ends; a window that
-  lies entirely inside your absence counts neither for nor against you.
+  lies entirely inside your absence never counts against you, and work you do
+  in it still counts.
   Current and longest streaks and every claimed weekly goal stay as they were
   before the update.
 
@@ -193,6 +194,9 @@ recalculates when something changes. Contract:
 - **The second digest switch says what it delivers:** it is called *Daily
   household updates*, where it said weekly, and its hint says that both
   switches feed the one daily summary.
+- **The German daily summary counts in German:** with more than one task or
+  household update it said *planned tasks* and *household updates* in
+  English; the plural forms are translated now.
 - **The fairness table counts what was recorded:** it adds up each person's
   frozen share of valid work. An energy edit no longer changes past work,
   shared work no longer counts in full for the person who completed it, and

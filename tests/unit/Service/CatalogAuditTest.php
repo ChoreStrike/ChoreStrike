@@ -42,7 +42,7 @@ class CatalogAuditTest extends TestCase {
 		$receipts->method('findByHouseActorUuid')->willReturnCallback(static function () use (&$receipt): ?CommandReceipt {
 			return $receipt;
 		});
-		$commands = new CommandService(new TransactionExecutor($db), $houses, $receipts, $logger);
+		$commands = new CommandService(new TransactionExecutor($db), $houses, $receipts, $logger, $this->createMock(IL10N::class));
 		$actor = new HouseUser();
 		$actor->setId(11);
 		$actor->setHouseId(1);

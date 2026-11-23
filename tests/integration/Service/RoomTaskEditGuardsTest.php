@@ -258,7 +258,7 @@ class RoomTaskEditGuardsTest extends IntegrationTestCase {
 		$get = static fn (string $class): object => \OC::$server->get($class);
 		$l10n = \OC::$server->getL10N('chorestrike');
 		$command = new RoomTaskCommand(
-			new CommandService($get(TransactionExecutor::class), $get(HouseMapper::class), $get(CommandReceiptMapper::class), $logger),
+			new CommandService($get(TransactionExecutor::class), $get(HouseMapper::class), $get(CommandReceiptMapper::class), $logger, $l10n),
 			$get(RoomTaskAccess::class), $get(AuthorizationService::class), $get(RoomTaskReadService::class),
 			$get(RoomTaskMapper::class), $get(CycleService::class), $l10n,
 		);

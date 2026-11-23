@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; RF-091-14 implemented 2026-11-22 (D-091-144 to D-091-152); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-144 to D-091-152 accepted and D-091-153 to D-091-157 decided; the operator added a round before the candidate 2026-11-22 (D-091-158: BUG-UX-017, BUG-SEC-003, TECH-DEV-002 and RF-091-15), implemented 2026-11-22 (D-091-159 to D-091-163); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-159 to D-091-163 accepted and D-091-164 to D-091-167 decided; WP-G: the candidate prepared and committed 2026-11-23 with RF-091-16, the runtime moved to AIO 15.1.1 on the operator's decision (D-091-168 to D-091-171); next: the operator's GUI review of the whole release, then the final Full review)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; RF-091-14 implemented 2026-11-22 (D-091-144 to D-091-152); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-144 to D-091-152 accepted and D-091-153 to D-091-157 decided; the operator added a round before the candidate 2026-11-22 (D-091-158: BUG-UX-017, BUG-SEC-003, TECH-DEV-002 and RF-091-15), implemented 2026-11-22 (D-091-159 to D-091-163); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-159 to D-091-163 accepted and D-091-164 to D-091-167 decided; WP-G: the candidate prepared and committed 2026-11-23 with RF-091-16, the runtime moved to AIO 15.1.1 on the operator's decision (D-091-168 to D-091-171); the operator accepted the GUI of the whole release 2026-11-23 (D-091-172); the final Full review `PASS-WITH-FIXES` 2026-11-23 with the review commit, D-091-173 to D-091-177 decided; next: the WP-G qualification on the frozen candidate)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -1104,6 +1104,59 @@ in four more places; the operator chose the recommended option of each question.
 - **D-091-171 Screenshots:** the six scenes stay and are recaptured from the candidate tree
   (D-090-77); no new scene for the form or the calendar.
 
+### GUI review of the whole release (operator, 2026-11-23)
+
+- **D-091-172 The release stays as it is:** the operator reviewed Releases A, B and C on the
+  canonical stack (the candidate `8b8230c9`, `family` profile) and accepted the GUI without
+  changes; no finding to route.
+
+### Review decisions (final Full review, 2026-11-23)
+
+- **D-091-173 Two authorization fixes (operator):** the ticks of one room task — its
+  progress read and its toggle — follow that room task's own assignees
+  (`RoomTaskAccess::visible()`, ADR-010 note), so a member assigned to one room's copy of a
+  shared private definition neither reads another room's window and ticks nor ticks there;
+  a server's refusal reaches the toast escaped, so the toast's one decode never parses
+  markup (`errorToast.js`).
+- **D-091-174 The verified defects are fixed now (operator):** the create answer carries the
+  new row's `cycle` block, so a new task can be edited, postponed or completed before the
+  list reads again (its first edit answered `409 STALE_TARGET`); an undo or a date
+  correction rebuilds the room of the entry's journal event, also after the task moved; a
+  postponed task leaves today's suggestion at once (the rows read again); the daily summary
+  counts a child's suggested work up to the daily limit, as *Today* shows it; a cycle that a
+  second undo makes current again sheds the miss an earlier undo recorded, so its
+  completion is no longer refused and it counts once; the German digest has its plural
+  forms, and the gate collects both keys of a plural and knows `%n`; the two receipt
+  conflicts reach the toast translated; the year of a first date counts from the
+  house-local today.
+- **D-091-175 Two rare corrections of a fixed rhythm are known limits (operator):** ADR-021
+  names them and BUG-UX-018 owns them — deleting the older of two cycles done early, and
+  undoing an entry after the next cycle was postponed.
+- **D-091-176 The rest goes to the backlog (operator):** CR-SVC-68 (repeated reads of
+  *Today*, the lists and the cycle commands), CR-SVC-69 (the erasure's row-by-row rewrite of
+  the frozen coin factors), CR-SVC-70 (three methods above the guideline) and, as a
+  sanitized public entry, BUG-SEC-004 (receipt hashes derived from an erased member's user
+  ID).
+- **D-091-177 Fixed without a question:** one implementation of the command UUID across
+  uncertain failures (`house.js` and `roomTasks.js` use `rememberCommand` and
+  `settleCommand`, which treats a missing status as no answer); `CompletionController`
+  checks the day with `CalendarService::isRealDay()`; the picker no longer logs a failed
+  toggle the store logged; the browser gate keeps Playwright's stderr beside its evidence
+  and names it; a failed runtime probe names itself, and each source tag is probed once;
+  an absence never counts against a member, while work done in it still counts — the
+  glossary, the changelog and ADR-021 §5 say so (D-091-121 corrected); the durable documents
+  describe the delivered B and C (the architecture's source tree, store boundaries and size
+  inventory, the branch notes and stale passages of the concepts, the API reference, the
+  route ledger, the ranking's docblocks, the timeline job in `info.xml`); the file manifest
+  names the files the earlier rows left out. The views that grew — `CalendarView.vue` 244 →
+  266 (the agenda of WP-C) and `Settings.vue` 296 → 302 (*Planning of the members*) — grew
+  by surfaces the operator's GUI reviews accepted (D-091-136, D-091-172); `Settings.vue` has
+  a row in the size inventory. The undo budget rises by one statement to 73 for the read of
+  the entry's room. Not taken: renaming the test hooks `catchup-planned` and
+  `today-section-catchup` (they name no behaviour, and the browser gates pin them); the
+  second log line of a failed completion in `useTaskCompletion` stays, because the refusal
+  of a second split in flight is logged only there.
+
 ### Positions for the Standard A review
 
 These settle the remaining open points of the concept. They bind once Standard A passes.
@@ -1321,6 +1374,10 @@ shows the definition's energy (D-091-162).
   PHPUnit unit 1897 and integration 731 on the canonical stack, no skips. The complete qualification (PHPUnit
   on PostgreSQL, MariaDB, SQLite and the AIO row, P2 to P4, both browser gates, package build
   and smoke) runs on the frozen candidate after the final Full review.
+- **GUI review and final Full review 2026-11-23** (D-091-172 to D-091-177): the operator
+  accepted the GUI of the whole release; the final Full review fixed two authorization
+  defects and eight further defects, named two known limits and routed four items to the
+  backlog. Next: the qualification on the frozen candidate.
 
 ## 4. Tests
 
@@ -1392,6 +1449,16 @@ shows the definition's energy (D-091-162).
 - **WP-G candidate:** `Help.spec.js` (the four new glossary terms); the runtime specs pin
   both rows on one identity per patch, the stale-lock condition on the update source only,
   and PHP 8.4.28 (`testRuntime.spec.js`, `testRuntimeStage.spec.js`).
+- **Final Full review:** `ChecklistApiTest` (a shared private definition),
+  `RoomTaskEditTest` (an undo after a move), `CycleTimelineTest` (both fixed entries
+  undone), `RoomTaskReadServiceTest`, `RoomTaskControllerTest` and `roomTasks.spec.js` (the
+  create answer's `cycle` block), `taskCycle.spec.js` (a postponement rereads the rows),
+  `SuggestionViewTest` (a child's limit), `TaskFormTest` (the house-local year),
+  `CommandServiceTest` (the translated conflict), `WorkflowQueryBudgetTest` (undo budget
+  73), `localizationGate.spec.js` (both plural keys), `errorToast.spec.js` and
+  `TodayView.spec.js` (escaped reasons), `commandId.spec.js` (no status),
+  `browserGate.spec.js` (the kept stderr), `testRuntime.spec.js` (the probe label, one probe
+  per tag), `Help.spec.js` (the absence).
 - **WP-G:** the complete gates of the qualification: PHPUnit on PostgreSQL, MySQL, SQLite and the
   AIO row, both browser gates, package build and smoke, the preservation proofs.
 
@@ -1522,6 +1589,41 @@ modified: docker/test-runtime.json, docker/Dockerfile.test, docker/compose.test.
           docker/README.md, scripts/test-runtime.js, src/components/Help/HelpGlossary.vue,
           docs/engineering/development.md, docs/standards/ai/skills/docker-dev/SKILL.md
           (WP-G candidate, RF-091-16)
+new:      lib/Service/CycleService.php, CurrentCycle.php, CycleRule.php, CycleHistory.php,
+          RecognitionFact.php, RecognitionFactsService.php (WP-B1 to WP-B3; named at the
+          final Full review)
+modified: lib/Controller/ControllerErrorFormatter.php, GameController.php,
+          lib/Db/CommandReceiptMapper.php, CompletionRevision.php, CompletionRevisionMapper.php,
+          PauseMapper.php, TaskChecklistItemMapper.php, WeeklyGoalReceiptMapper.php,
+          lib/Exception/ConflictException.php, StaleTargetException.php,
+          lib/Service/AuthorizationService.php, CalendarService.php, CommandService.php,
+          CompletionPostCommitService.php, GameLogicService.php, MedalService.php,
+          RoomService.php, src/views/InsightsView.vue, src/components/Insights/ActivityFeed.vue,
+          src/components/Common/ParticipationDialog.vue, src/composables/useHoldPress.js,
+          useStoreReset.js, useTaskCompletion.js, src/store/pauses.js, preferences.js,
+          rewards.js, src/utils/errorToast.js, flexDays.js, playwright.config.ts,
+          scripts/check-l10n-keys.js, scripts/test-runtime-preservation.ps1,
+          docs/concepts/house-setup-and-templates.md, docs/standards/guidelines/i18n.md,
+          logging.md, docs/adr/ADR-009 and ADR-015 (notes),
+          docs/plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md (a pointer)
+          (WP-B1 to WP-C; named at the final Full review)
+removed:  lib/Service/OccurrenceService.php, OccurrenceReconcileService.php,
+          OccurrenceSelectionService.php, OccurrenceCompletionService.php,
+          OccurrenceRevisionService.php, OccurrenceRowFactory.php, AgreementCommandContext.php,
+          DailyCapacityService.php (WP-B1 to WP-C; the first rows of this list, written before
+          the work, still call four of them modified)
+modified: lib/Service/ChecklistService.php, CompletionAccess.php, CycleService.php,
+          RoomTaskReadService.php, SuggestionView.php, TaskFormPayload.php,
+          TaskCreationService.php, RoomTaskEditService.php, CommandService.php,
+          RankingService.php, lib/Db/CycleMapper.php, lib/Controller/RoomTaskController.php,
+          CompletionController.php, appinfo/info.xml (comment), src/store/roomTasks.js,
+          taskCycle.js, house.js, ranking.js, src/utils/errorToast.js, commandId.js,
+          src/components/Tasks/CompletionPicker.vue, src/components/Help/HelpGlossary.vue,
+          scripts/check-l10n-keys.js, run-e2e-gate.js, test-runtime.js, CHANGELOG.md,
+          docs/adr/ADR-010, ADR-021, docs/api/README.md, notifications.md,
+          docs/concepts/simplified-core.md, calm-core-ux.md, energy-and-balancing.md,
+          gamification-and-rewards.md, task-model-and-sync.md, ui-use-cases.md,
+          docs/engineering/architecture.md, docs/user-guide.md (final Full review)
 modified: l10n/de.json, l10n/en.json, l10n/templates/chorestrike.pot
 modified: tests named in section 4, tests/e2e/required-scenarios.json, scripts/run-e2e-gate.js
 modified: docs/concepts/*.md named in WP-0, docs/api/README.md, docs/api/notifications.md,
@@ -2183,3 +2285,33 @@ without retries, green on its first run (`run-MfpeVt`: `chromium` 104,
 `chromium-serial-db` 193, `chromium-scheduling-owner` 33 and the phone projects 16 each).
 Each new regression test failed on the code before the round. Interim review: the plan
 stays in `active/` and continues with the WP-G candidate.
+
+**Final Full review, 2026-11-23: `PASS-WITH-FIXES`.** Scope: the whole plan —
+`master..8b8230c9` on `feat/simplified-core-bc` (merge base `2b9efaf2`, ten commits, 582
+files, diff fingerprint `ce23b5da…68534fd1`), clean tree and empty index at capture — with
+its decisions, manifest, acceptance criteria and durable documents; four reviewer tracks,
+each told what the interim reviews had settled, plus the main agent. Record:
+[CODE_REVIEW_2026-11-23](../../backlog/archive/CODE_REVIEW_2026-11-23.md#full-review-final---cs-plan-091-simplified-core-releases-b-and-c).
+
+The operator accepted the GUI of the whole release (D-091-172) and chose the recommended
+option of each question (D-091-173 to D-091-176). Fixed: the ticks of a room task follow its
+own assignees and refusals reach the toast escaped (D-091-173); a new task's first edit no
+longer conflicts, a correction after a move rebuilds the room where the work was done, a
+postponed task leaves today's suggestion, a child's summary counts what *Today* shows, a
+cycle a second undo reopens is no longer refused, the German digest's plural, the translated
+receipt conflicts and the house-local year of a first date (D-091-174); the documents and
+smaller items of D-091-177. Known limits: BUG-UX-018 (D-091-175). Routed: BUG-SEC-004 and
+CR-SVC-68 to CR-SVC-70 (D-091-176). The three new integration tests failed on the code before
+the review.
+
+Gates: Jest 186 suites / 2673 tests with the zero-noise gate, ESLint, stylelint, build;
+PHPUnit unit 1900 and integration 734 on the canonical stack, no skips (a first run found the
+undo budget one statement over and a test that pinned the untranslated conflict text);
+php-cs-fixer (529 files), l10n (1306 keys), adapter, docs and backlog checks, `git diff
+--check`; focused browser specs without retries on the reseeded canonical stack, 24 passed
+on `chromium` (the request budgets, private tasks, sub-tasks, the task list and its groups)
+and 36 on `chromium-serial-db` (rhythm, completion, the task lifecycle, *Today*, deep
+links). Not run here: the provider suites, the AIO row, the preservation proofs and the
+complete browser gates — they are the qualification of WP-G, which follows on the committed
+tree. Final review: the plan stays in `active/` until the qualification, the export, the
+deployment and its verified record.

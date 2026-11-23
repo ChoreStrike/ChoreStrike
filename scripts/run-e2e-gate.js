@@ -350,11 +350,30 @@ function discoverProject(project) {
 	const result = runPlaywright(['--project=' + project, '--list', '--reporter=json'])
 	const report = parseJsonFromStdout(result.stdout)
 	if (result.status !== 0 || !report || report.errors?.length) {
+		const log = keepStderr(path.join(REPORT_DIR, `discovery-${project}.log`), result.stderr)
 		throw new Error(
-			`playwright --list failed for project '${project}' (exit ${result.status})`,
+			`playwright --list failed for project '${project}' (exit ${result.status})${log ? `; its stderr: ${log}` : ''}`,
 		)
 	}
 	return collectSpecs(report.suites ?? [])
+}
+
+/**
+ * Keep Playwright's own diagnostics beside the gate's local evidence, so a
+ * run that fails before it writes a report (config, web server, auth
+ * setup) can be diagnosed without rerunning it by hand. Local and
+ * gitignored like the reports; never published.
+ * @param {string} file Where to keep it.
+ * @param {string} stderr What Playwright wrote to stderr.
+ * @return {?string} The file, or null when there was nothing to keep.
+ */
+function keepStderr(file, stderr) {
+	if (!stderr) {
+		return null
+	}
+	fs.mkdirSync(path.dirname(file), { recursive: true })
+	fs.writeFileSync(file, stderr)
+	return file
 }
 
 function runProject(project, reportPath) {
@@ -367,7 +386,7 @@ function runProject(project, reportPath) {
 			PLAYWRIGHT_JSON_OUTPUT_NAME: path.basename(reportPath),
 		},
 	)
-	return result
+	return { ...result, stderrLog: keepStderr(path.join(path.dirname(reportPath), `stderr-${project}.log`), result.stderr) }
 }
 
 // ---------------------------------------------------------------------------
@@ -535,14 +554,14 @@ function main() {
 		const reportPath = path.join(runDir, `report-${project}.json`)
 		const result = runProject(project, reportPath)
 		if (result.status !== 0) {
-			console.error(`[gate] project '${project}' exited with code ${result.status} (see ${reportPath} and build/playwright-report/ for traces).`)
+			console.error(`[gate] project '${project}' exited with code ${result.status} (see ${reportPath}${result.stderrLog ? `, ${result.stderrLog}` : ''} and build/playwright-report/ for traces).`)
 			exitCode = exitCode || result.status
 		}
 		let report = null
 		try {
 			report = JSON.parse(fs.readFileSync(reportPath, 'utf8'))
 		} catch {
-			console.error(`[gate] could not read the JSON report for '${project}' at ${reportPath}`)
+			console.error(`[gate] could not read the JSON report for '${project}' at ${reportPath}${result.stderrLog ? ` (Playwright's stderr: ${result.stderrLog})` : ''}`)
 			exitCode = exitCode || 1
 			continue
 		}
