@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; RF-091-14 implemented 2026-11-22 (D-091-144 to D-091-152); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-144 to D-091-152 accepted and D-091-153 to D-091-157 decided; the operator added a round before the candidate 2026-11-22 (D-091-158: BUG-UX-017, BUG-SEC-003, TECH-DEV-002 and RF-091-15), implemented 2026-11-22 (D-091-159 to D-091-163); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-159 to D-091-163 accepted and D-091-164 to D-091-167 decided; WP-G: the candidate prepared and committed 2026-11-23 with RF-091-16, the runtime moved to AIO 15.1.1 on the operator's decision (D-091-168 to D-091-171); the operator accepted the GUI of the whole release 2026-11-23 (D-091-172); the final Full review `PASS-WITH-FIXES` 2026-11-23 with the review commit, D-091-173 to D-091-177 decided; WP-G: qualified 2026-11-23 on the frozen candidate `2fe6cc11` (package smoke `mwtptq3l`); next: the export of that smoke run through the private exchange, on the operator's approval)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided; WP-B2 and WP-B3 implemented 2026-11-18 with RF-091-02 to RF-091-05; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-46 to D-091-58 accepted and D-091-59 to D-091-63 decided; WP-B4 and WP-B5 implemented 2026-11-18 with RF-091-07 and RF-091-08; their interim Full review `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-64 to D-091-77 accepted and D-091-78 to D-091-84 decided; D-091-85 to D-091-88 decided by the operator 2026-11-18; WP-B6 implemented 2026-11-19 with RF-091-09 and RF-091-10; the operator's GUI review of 2026-11-21 worked in (D-091-103 to D-091-107); its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-89 to D-091-107 accepted and D-091-108 to D-091-112 decided; WP-B7 implemented 2026-11-21 with RF-091-06; its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit, D-091-113 to D-091-119 accepted and D-091-120 to D-091-122 decided; RF-091-11 decided by the operator and implemented 2026-11-21 (D-091-123 to D-091-125), its interim Full review `PASS-WITH-FIXES` 2026-11-21 with the review commit; WP-C implemented 2026-11-21 with RF-091-12 and RF-091-13 (D-091-126 to D-091-135); the operator's GUI review of *Today* and the calendar accepted 2026-11-22 (D-091-136); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-126 to D-091-135 accepted, D-091-137 to D-091-143 decided and RF-091-14 routed; RF-091-14 implemented 2026-11-22 (D-091-144 to D-091-152); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-144 to D-091-152 accepted and D-091-153 to D-091-157 decided; the operator added a round before the candidate 2026-11-22 (D-091-158: BUG-UX-017, BUG-SEC-003, TECH-DEV-002 and RF-091-15), implemented 2026-11-22 (D-091-159 to D-091-163); its interim Full review `PASS-WITH-FIXES` 2026-11-22 with the review commit, D-091-159 to D-091-163 accepted and D-091-164 to D-091-167 decided; WP-G: the candidate prepared and committed 2026-11-23 with RF-091-16, the runtime moved to AIO 15.1.1 on the operator's decision (D-091-168 to D-091-171); the operator accepted the GUI of the whole release 2026-11-23 (D-091-172); the final Full review `PASS-WITH-FIXES` 2026-11-23 with the review commit, D-091-173 to D-091-177 decided; WP-G: qualified 2026-11-23 on the frozen candidate `2fe6cc11` (package smoke `mwtptq3l`) and exported the same day on the operator's approval (D-091-178); next: the operator's deployment and its verified record)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -1157,6 +1157,19 @@ in four more places; the operator chose the recommended option of each question.
   second log line of a failed completion in `useTaskCompletion` stays, because the refusal
   of a second split in flight is logged only there.
 
+### Export (operator, 2026-11-23)
+
+- **D-091-178 Export before the merge:** after the qualification the operator approved
+  committing its record and exporting smoke run `run-mwtptq3l` through the private exchange.
+  The source commit stays on the implementation branch until its merge into `master`
+  (D-091-13), which is a separate step; the handoff says so. Its limitations name the
+  platform step first (the app needs Nextcloud 35; the last recorded production runtime is
+  AIO v14.4.3 with Nextcloud 34.0.5), the expected data change of the five steps with the
+  two queries of the deployment guide, the animation switched on by step 1034, the cutover,
+  the downgrade boundary, the known limits of BUG-UX-018, the routed items and the two
+  bounded audit chains of TECH-DEPS-001, whose flagged packages are not in the shipped
+  bundle.
+
 ### Positions for the Standard A review
 
 These settle the remaining open points of the concept. They bind once Standard A passes.
@@ -1381,8 +1394,10 @@ shows the definition's energy (D-091-162).
 - **Qualified 2026-11-23 on `2fe6cc11`** (first attempt, every gate green; record in the
   Review Outcome): the runtime check current, the frontend gates, PHPUnit on the four rows,
   P2 to P4, both complete browser gates, and the reproducible package with its smoke on both
-  rows. Next: the export of smoke run `mwtptq3l`, then the operator's deployment and its
-  verified record, each on its own approval.
+  rows.
+- **Exported 2026-11-23** (D-091-178): smoke run `run-mwtptq3l` as
+  `handoff-2fe6cc1130b0-4250826c-f53e-4094-b544-612f19c567ea`. Next: the operator's
+  deployment and its verified record, each on its own approval.
 
 ## 4. Tests
 
@@ -2356,3 +2371,7 @@ active for the export, the deployment, the record import and the closing review.
   both runs.
 - The staged rows of `q91a` are removed; their reports stay under `build/test-reports/` and
   the proof evidence under `private/`.
+- **Handoff (D-091-178):** smoke run `run-mwtptq3l` exported as
+  `handoff-2fe6cc1130b0-4250826c-f53e-4094-b544-612f19c567ea`; archive and both manifests
+  byte-identical with the qualified run, the exchange's rules read before the export. At
+  the export the source commit was not yet on `master` or the public remote.
